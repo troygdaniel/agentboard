@@ -561,7 +561,7 @@ function card(t) {
     ? `<div class="bar" role="progressbar" aria-valuenow="${t.progress || 0}" aria-valuemin="0" aria-valuemax="100" aria-label="Progress"><b style="width:${lastPct.has(t.id) ? lastPct.get(t.id) : t.progress || 0}%;background:${colorOf(t)}" data-to="${t.progress || 0}"></b></div>` : '';
   const desc = t.status === 'todo' || t.status === 'backlog'
     ? (t.description ? `<div class="desc">${esc(t.description)}</div>` : '') : '';
-  const copy = cfg.dispatch && (t.status === 'todo' || doing) ? `<button class="copy">Copy prompt</button>` : '';
+  const copy = cfg.dispatch && t.status === 'todo' ? `<button class="copy">Copy prompt</button>` : '';   // Doing cards: it's in the detail panel
   const asking = !!t.needs_input && doing;
   const reviewing = !!t.review && doing && !asking;
   const askFlag = asking ? `<div class="ask-flag"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 2a4 4 0 0 0-4 4v3L2.8 11h10.4L12 9V6a4 4 0 0 0-4-4z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M6.5 13a1.5 1.5 0 0 0 3 0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Needs your input</div>` : reviewing ? `<div class="ask-flag rev"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>Ready for review</div>` : '';
@@ -735,7 +735,7 @@ function panelHtml(t) {
   const ctx = (t.ctx || []).length ? `<dt>Context</dt><dd>${t.ctx.map(c => `<code>${esc(c)}</code>`).join(' ')}</dd>` : '';
   const details = `<div class="p-sec"><h3>Details</h3><dl><dt>ID</dt><dd><code>${esc(t.id)}</code></dd><dt>Created</dt><dd>${stamp(t.created)}</dd><dt>Updated</dt><dd>${stamp(t.updated)}</dd>${ctx}</dl></div>`;
   const prompt = !cfg.dispatch ? '' : `<div class="p-sec"><details id="pd" ${promptOpen ? 'open' : ''}><summary>Prompt</summary><pre id="pre">${esc(promptText || 'Loading…')}</pre></details></div>`;
-  const copy = cfg.dispatch && (t.status === 'todo' || doing) ? `<button class="btn" id="p-copy">Copy prompt</button>` : '';
+  const copy = cfg.dispatch ? `<button class="btn" id="p-copy">Copy prompt</button>` : '';
   const next = { doing: ['done', 'Mark done'], done: ['doing', 'Reopen'], backlog: ['todo', 'Move to Todo'], todo: ['backlog', 'Move to Later'] }[t.status];
   const mv = next ? `<button class="btn primary" id="p-move" data-to="${next[0]}">${next[1]}</button>` : '';
   // actions and activity sit near the top; the long description comes after, collapsed
