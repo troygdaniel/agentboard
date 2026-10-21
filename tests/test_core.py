@@ -136,6 +136,34 @@ class HudTests(unittest.TestCase):
             self.assertEqual(sum(h["timeline"]), 5)
             self.assertEqual(sum(h["agents"][0]["spark"]), 2)
             self.assertTrue(all(a["started"] for a in h["agents"]))   # elapsed-time source for the constellation
+            atlas = next(a for a in h["agents"] if a["name"] == "atlas")
+            self.assertEqual([r["text"] for r in atlas["recent"]][0], "halfway")   # newest first, current task only
+            self.assertLessEqual(len(atlas["recent"]), 3)
+
+
+class LaneTests(unittest.TestCase):
+    def test_segments_follow_the_log(self):
+        from datetime import datetime
+        from agentboard import hud
+        at = lambda m: f"2026-01-01T10:{m:02d}:00"
+        e = lambda m, st, text: {"at": at(m), "status": st, "text": text}
+        task = {"log": [e(0, "todo", "Added to todo"), e(5, "doing", "Claimed by a"), e(9, "doing", "step"),
+                        e(12, "doing", "Needs input: ok?"), e(15, "doing", "back"), e(20, "doing", "Ready for review: x"),
+                        e(25, "done", "Marked done")]}
+        runs = [(k, a.minute, b.minute) for k, a, b in hud.segments(task, datetime(2026, 1, 1, 10, 30))]
+        self.assertEqual(runs, [("queue", 0, 5), ("busy", 5, 12), ("waiting", 12, 15), ("busy", 15, 20), ("review", 20, 25)])
+
+    def test_open_run_extends_to_now_and_feeds_lanes_and_queue(self):
+        from agentboard import hud
+        with tempfile.TemporaryDirectory() as d:
+            s = Store(Path(d) / ".agentboard")
+            s.start("A", "atlas", "blue")
+            s.add("B", status="todo")
+            h = hud.build(s.load())
+            self.assertEqual([r["k"] for r in h["lanes"]["atlas"]], ["busy"])
+            self.assertEqual(h["queue"][-1], 1)
+            self.assertEqual(len(h["queue"]), hud.TIMELINE_BUCKETS)
+            self.assertEqual(h["window_min"], 60)
 
 
 class AskTests(unittest.TestCase):

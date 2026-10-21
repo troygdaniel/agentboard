@@ -4,7 +4,8 @@ from datetime import datetime, timedelta
 FMT = "%Y-%m-%dT%H:%M:%S"
 STALE_MIN = 10
 SPARK_BUCKETS, SPARK_MIN = 12, 5      # last hour in 5-minute buckets
-TIMELINE_BUCKETS, TIMELINE_MIN = 24, 15  # last 6 hours in 15-minute buckets
+TIMELINE_BUCKETS, TIMELINE_MIN = 30, 2   # last hour in 2-minute buckets (same window as the lanes)
+WINDOW_MIN = TIMELINE_BUCKETS * TIMELINE_MIN
 
 
 def _t(s):
@@ -23,11 +24,38 @@ def _bucket(times, now, n, minutes):
     return out
 
 
+def segments(t, now):
+    """A task's history as (kind, start, end) runs, from its log.
+
+    kind: queue (waiting in Todo), busy (agent working), waiting (needs the user), review (awaiting sign-off).
+    The last run is open-ended and runs to `now`.
+    """
+    out, cur = [], None
+    for e in t.get("log", []):
+        at = _t(e.get("at"))
+        if not at:
+            continue
+        text, st = e.get("text") or "", e.get("status")
+        kind = (("waiting" if text.startswith("Needs input") else "review" if text.startswith("Ready for review") else "busy")
+                if st == "doing" else "queue" if st == "todo" else None)
+        if cur and kind != cur[0]:
+            out.append((cur[0], cur[1], at))
+            cur = None
+        if kind and not cur:
+            cur = (kind, at)
+    if cur:
+        out.append((cur[0], cur[1], now))
+    return out
+
+
 def build(tasks, now=None, feed_limit=60):
     now = now or datetime.now()
     events, by_agent, done_minutes = [], {}, []
     done_today = events_today = 0
     today = now.date()
+    win_start = now - timedelta(minutes=WINDOW_MIN)
+    lanes, agent_done_today = {}, {}
+    queue_runs = []
 
     for t in tasks:
         marked = None
@@ -45,11 +73,22 @@ def build(tasks, now=None, feed_limit=60):
         if t["status"] == "done" and marked:
             if marked.date() == today:
                 done_today += 1
+                if t.get("agent"):
+                    agent_done_today[t["agent"]] = agent_done_today.get(t["agent"], 0) + 1
             created = _t(t.get("created"))
             if created and marked >= created:
                 done_minutes.append((marked - created).total_seconds() / 60)
         if t.get("agent"):
             by_agent.setdefault(t["agent"], []).append(t)
+        for kind, a, b in segments(t, now):
+            if b < win_start:
+                continue
+            a = max(a, win_start)
+            if kind == "queue":
+                queue_runs.append((a, b))
+            elif t.get("agent"):
+                lanes.setdefault(t["agent"], []).append(
+                    {"k": kind, "a": a.strftime(FMT), "b": b.strftime(FMT), "t": t["title"]})
 
     events.sort(key=lambda e: e["at"], reverse=True)
 
@@ -67,20 +106,33 @@ def build(tasks, now=None, feed_limit=60):
         times = [_t(e["at"]) for e in events if e["agent"] == name]
         began = next((e["at"] for e in cur.get("log", []) if e.get("status") == "doing" and _t(e.get("at"))),
                      cur.get("created"))
+        recent = [{"at": e["at"], "text": e.get("text", "")} for e in reversed(cur.get("log", []))][:3]   # newest first
         agents.append({
             "name": name, "color": next((t.get("color") for t in ts if t.get("color")), None),
             "state": state,
             "question": cur.get("question", ""),
             "task": cur["title"], "task_id": cur["id"], "progress": cur.get("progress", 0),
-            "status_text": cur.get("status_text", ""), "updated": cur.get("updated"), "started": began,
+            "status_text": cur.get("status_text", ""), "updated": cur.get("updated"), "started": began, "recent": recent,
             "done": sum(1 for t in ts if t["status"] == "done"),
+            "done_today": agent_done_today.get(name, 0),
             "spark": _bucket([x for x in times if x], now, SPARK_BUCKETS, SPARK_MIN),
         })
     order = {"waiting": 0, "review": 1, "working": 2, "quiet": 3, "idle": 4}
     agents.sort(key=lambda a: (order[a["state"]], a["name"]))
 
+    for name in lanes:
+        lanes[name].sort(key=lambda r: r["a"])
+    waiting_s = sum((_t(r["b"]) - _t(r["a"])).total_seconds() for rs in lanes.values() for r in rs if r["k"] in ("waiting", "review"))
+    queue = [sum(1 for a, b in queue_runs if a <= tm <= b)   # sampled at each bucket's end; the last one is "now"
+             for tm in (now - timedelta(minutes=WINDOW_MIN - (i + 1) * TIMELINE_MIN) for i in range(TIMELINE_BUCKETS))]
+
     return {
         "now": now.strftime(FMT),
+        "window_min": WINDOW_MIN,
+        "lanes": lanes,                 # per agent: coloured runs inside the window
+        "queue": queue,                 # unclaimed Todo tasks per time bucket
+        "waiting_s": round(waiting_s),  # agent-seconds spent waiting on / for the user
+
         "agents": agents,
         "events": events[:feed_limit],
         "totals": {

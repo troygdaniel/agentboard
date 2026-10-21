@@ -219,7 +219,7 @@
   #hud.open { display: block; }
   .hud {
     --hbg: #04070c; --hline: rgba(110,190,255,.17); --htext: #d6e9ff; --hdim: #7f95ad;
-    --hcy: #5ee7ff; --hok: #5dffb0; --hwarn: #ffc857;
+    --hcy: #5ee7ff; --hok: #5dffb0; --hwarn: #ffc857; --hbad: #ff6b6b;
     position: relative; height: 100%; max-width: 1440px; margin: 0 auto; overflow: hidden;
     border: 1px solid var(--hline); border-radius: 16px; color: var(--htext);
     font: 13.5px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; font-variant-numeric: tabular-nums;
@@ -229,7 +229,7 @@
       linear-gradient(90deg, rgba(94,231,255,.035) 1px, transparent 1px) 0 0 / 40px 40px,
       var(--hbg);
     box-shadow: 0 0 0 1px rgba(94,231,255,.06), 0 30px 120px rgba(0,0,0,.6), inset 0 0 120px rgba(94,231,255,.04);
-    display: grid; grid-template-rows: auto auto minmax(0, 1fr); gap: 12px; padding: 14px 18px 18px;
+    display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto minmax(0, 1fr); gap: 12px; padding: 14px 18px 18px;
   }
   .hud::after { content: ''; position: absolute; inset: 0; pointer-events: none; opacity: .1;
     background: repeating-linear-gradient(transparent 0 2px, rgba(0,0,0,.22) 2px 3px); }
@@ -249,25 +249,9 @@
   .h-ticker { flex: 1; min-width: 0; text-align: center; color: var(--hdim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .h-ticker b { color: var(--htext); font-weight: 500; }
   .h-btn[aria-pressed="false"] { opacity: .55; }
-  .h-strip { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); border: 1px solid var(--hline); border-radius: 12px;
+  .h-strip { display: grid; grid-template-columns: minmax(0, 1fr); border: 1px solid var(--hline); border-radius: 12px;
     background: linear-gradient(180deg, rgba(94,231,255,.05), rgba(9,17,26,.65)); overflow: hidden; }
-  .h-stats { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); }
-  .h-stat { padding: 14px 18px 12px; position: relative; min-width: 0; }
-  .h-stat + .h-stat::before { content: ''; position: absolute; left: 0; top: 18px; bottom: 18px; width: 1px; background: var(--hline); }
-  .h-stat small { display: block; color: var(--hdim); letter-spacing: .18em; font-size: 10.5px; text-transform: uppercase; white-space: nowrap; }
-  .h-stat .v { display: flex; align-items: center; gap: 10px; margin-top: 4px; }
-  .h-stat b { font-size: 34px; line-height: 1.05; font-weight: 400; color: var(--htext); letter-spacing: -.02em; }
-  .h-stat b i { font-style: normal; font-size: 15px; color: var(--hdim); margin-left: 2px; letter-spacing: 0; }
-  .h-stat b.cy { color: var(--hcy); text-shadow: 0 0 18px rgba(94,231,255,.45); }
-  .h-stat b.ok { color: var(--hok); text-shadow: 0 0 16px rgba(93,255,176,.3); }
-  .h-stat b.tick { animation: htick .5s ease-out; }
-  @keyframes htick { from { text-shadow: 0 0 22px currentColor; transform: scale(1.05); } }
-  .h-stat em { display: block; font-style: normal; color: var(--hdim); font-size: 11px; margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .h-ring { flex: none; }
-  .h-ring circle { fill: none; stroke-width: 3; }
-  .h-ring .trk { stroke: rgba(110,190,255,.14); }
-  .h-ring .val { stroke: var(--hcy); stroke-linecap: round; transform: rotate(-90deg); transform-origin: center; transition: stroke-dasharray .7s ease; filter: drop-shadow(0 0 4px var(--hcy)); }
-  .h-tp { border-left: 1px solid var(--hline); padding: 12px 18px 10px; display: flex; flex-direction: column; min-width: 0; }
+  .h-tp { padding: 12px 18px 10px; display: flex; flex-direction: column; min-width: 0; }
   .h-tp-head { display: flex; justify-content: space-between; align-items: baseline; }
   .h-tp-head small { color: var(--hdim); letter-spacing: .18em; font-size: 10.5px; text-transform: uppercase; }
   .h-tp-head span { color: var(--hdim); font-size: 11.5px; } .h-tp-head span b { color: var(--htext); font-weight: 500; }
@@ -276,44 +260,14 @@
   .h-chip.warn { color: var(--hwarn); border-color: rgba(255,200,87,.45); background: rgba(255,200,87,.08); animation: hqblink 2.6s ease-in-out infinite; }
   .h-chip.ok { color: var(--hok); border-color: rgba(93,255,176,.4); background: rgba(93,255,176,.07); }
   .h-chip.dim { color: var(--hwarn); border-color: rgba(255,200,87,.25); opacity: .8; }
-  .h-grid { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 12px; min-height: 0; }
+  .h-grid { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); gap: 12px; min-height: 0; }
+  .h-grid > .hp:first-child .h-scroll { max-height: 34vh; }
   .hp { border: 1px solid var(--hline); border-radius: 10px; background: rgba(9,17,26,.62); padding: 10px 14px 12px; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
   .hp h4 { margin: 0 0 10px; font-weight: 500; font-size: 11px; letter-spacing: .2em; color: var(--hdim); text-transform: uppercase; flex: none; }
   .hp h4::before { content: '// '; color: var(--hcy); }
   .h-scroll { overflow-y: auto; min-height: 0; flex: 1; }
   .h-scroll::-webkit-scrollbar { width: 6px; } .h-scroll::-webkit-scrollbar-thumb { background: var(--hline); border-radius: 3px; }
-  #h-const { flex: 1; min-height: 0; display: grid; }
-  #h-const svg { width: 100%; height: 100%; }
-  .c-ring { fill: none; stroke: rgba(94,231,255,.14); stroke-width: 1; }
-  .c-ring.dash { stroke-dasharray: 3 7; transform-box: fill-box; transform-origin: center; animation: hspin 70s linear infinite; }
-  @keyframes hspin { to { transform: rotate(360deg); } }
-  .c-link { stroke: rgba(94,231,255,.2); stroke-width: 1; }
-  .c-link.flow { stroke: var(--c); stroke-opacity: .7; stroke-dasharray: 4 6; animation: hflow 1s linear infinite; }
-  @keyframes hflow { to { stroke-dashoffset: -20; } }
-  .c-pulse { fill: none; stroke: var(--c); transform-box: fill-box; transform-origin: center; animation: hpulse 2.2s ease-out infinite; }
-  @keyframes hpulse { 0% { opacity: .7; transform: scale(1); } 100% { opacity: 0; transform: scale(2.6); } }
-  .c-node.idle { opacity: .42; }
-  .c-node.quiet .c-core { stroke-dasharray: 3 3; animation: hdash 6s linear infinite; }
-  @keyframes hdash { to { stroke-dashoffset: -24; } }
-  .c-node.working .c-glow { animation: hglowbr 3.4s ease-in-out infinite; }
-  @keyframes hglowbr { 50% { opacity: .8; } }
-  .c-node:not(.working) .c-orb { display: none; }
-  .c-node:not(.working):not(.waiting) .c-pulse { display: none; }
-  .c-node.waiting .c-pulse { stroke: var(--hwarn); animation-duration: 1.6s; }
-  .c-node.waiting .c-core { stroke-dasharray: 0; }
-  .c-name { fill: var(--htext); font-size: 15px; letter-spacing: .06em; } .c-sub { fill: var(--hdim); font-size: 12px; }
-  .c-trk { fill: none; stroke: rgba(110,190,255,.16); stroke-width: 2.5; }
-  .c-arc { fill: none; stroke: var(--sc, var(--c)); stroke-width: 2.5; stroke-linecap: round; transition: stroke-dasharray .7s ease; filter: drop-shadow(0 0 3px var(--sc, var(--c))); }
-  .c-glyph { fill: #e6f4ff; font-size: 15px; font-weight: 600; }
-  .c-node.waiting .c-glyph { fill: var(--hwarn); } .c-node.review .c-glyph { fill: var(--hok); }
-  .c-el { fill: var(--hdim); font-size: 12px; letter-spacing: 0; }
-  .c-node.waiting .c-sub { fill: var(--hwarn); } .c-node.review .c-sub, .c-node.quiet .c-sub { fill: var(--hok); }
-  .c-node.quiet .c-sub, .c-node.quiet .c-el { fill: var(--hwarn); }
-  .c-hub { fill: var(--hcy); filter: drop-shadow(0 0 8px var(--hcy)); }
-  .c-hubw { transform-box: fill-box; transform-origin: center; animation: hbreathe 4.5s ease-in-out infinite; }
-  @keyframes hbreathe { 50% { transform: scale(1.22); } }
-  .c-node:not(.working) .c-pulse { display: none; }
-  .h-row { display: grid; grid-template-columns: 26px minmax(0, 1.4fr) minmax(80px, 1fr) 92px 72px; gap: 12px; align-items: center; padding: 7px 0; border-top: 1px solid rgba(110,190,255,.08); }
+  .h-row { display: grid; grid-template-columns: 26px minmax(0, 1.3fr) minmax(120px, 1.6fr) 110px 72px; gap: 12px; align-items: center; padding: 7px 0; border-top: 1px solid rgba(110,190,255,.08); }
   .h-row:first-child { border-top: 0; }
   .h-av { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font-size: 11.5px; color: var(--htext);
     box-shadow: inset 0 0 0 1.5px var(--c), 0 0 12px -2px var(--c); }
@@ -336,13 +290,43 @@
   .h-row.idle .h-prgw { visibility: hidden; }
   .h-pct { color: var(--hdim); font-size: 11.5px; margin-top: 3px; display: block; }
   .h-since { text-align: right; color: var(--hdim); font-size: 12px; } .h-row.quiet .h-since { color: var(--hwarn); }
-  .h-tl { flex: 1; min-height: 46px; display: flex; align-items: flex-end; gap: 3px; padding-top: 8px; }
+  .h-tl { flex: 1; min-height: 58px; display: flex; align-items: flex-end; gap: 3px; padding-top: 8px; }
   .h-tl i { flex: 1; min-height: 2px; transition: height .7s ease; background: linear-gradient(180deg, var(--hcy), rgba(94,231,255,.25)); border-radius: 2px 2px 0 0; opacity: .75; }
   .h-tl i:last-child { opacity: 1; animation: hnowbar 2.8s ease-in-out infinite; }
   @keyframes hnowbar { 0%, 100% { box-shadow: 0 0 6px rgba(94,231,255,.4); } 50% { box-shadow: 0 0 20px rgba(94,231,255,.95); } }
+  .h-tl, .h-axis { margin: 0 128px 0 134px; }   /* same time axis as the agent-load lanes below: 124px label + 14px gap, 118px summary + 14px gap */
   .h-axis { display: flex; justify-content: space-between; color: var(--hdim); font-size: 10px; margin-top: 6px; flex: none; }
+  /* ----- agent load: one lane per agent over the last hour ----- */
+  .hud { --c0: #5ee7ff; }
+  .ln-leg { margin-left: 18px; letter-spacing: .06em; text-transform: none; font-size: 11.5px; }
+  .ln-leg u { text-decoration: none; margin-right: 14px; color: var(--hdim); }
+  .ln-leg u::before { content: ''; display: inline-block; width: 9px; height: 9px; border-radius: 3px; margin-right: 6px; background: var(--k); box-shadow: 0 0 8px var(--k); }
+  .ln-wait { float: right; color: var(--hwarn); letter-spacing: .06em; text-transform: none; font-size: 12px; }
+  #h-lanes { display: flex; flex-direction: column; gap: clamp(8px, 1.4vh, 16px); }
+  .ln { display: grid; grid-template-columns: 124px minmax(0, 1fr) 118px; gap: 14px; align-items: center; }
+  .ln.idle { opacity: .55; }
+  .ln-who { display: flex; align-items: center; gap: 9px; min-width: 0; }
+  .ln-who b { font-weight: 500; color: var(--htext); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ln-av { flex: none; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-style: normal; font-size: 11px; box-shadow: inset 0 0 0 1.5px var(--c), 0 0 10px -2px var(--c); }
+  .ln-track { position: relative; height: clamp(28px, 5.6vh, 54px); border-radius: 6px; background: rgba(110,190,255,.045) linear-gradient(90deg, rgba(110,190,255,.14) 1px, transparent 1px) 0 0 / 25% 100%; border: 1px solid rgba(110,190,255,.1); overflow: hidden; }
+  .ln-track::after { content: ''; position: absolute; right: 0; top: 0; bottom: 0; width: 2px; background: var(--hcy); box-shadow: 0 0 8px var(--hcy); opacity: .7; }
+  .sg { position: absolute; top: 3px; bottom: 3px; min-width: 3px; border-radius: 4px; background: var(--c); filter: brightness(1.25); box-shadow: 0 0 10px -1px var(--c); overflow: hidden; }
+  .sg.waiting { background: repeating-linear-gradient(135deg, var(--hwarn) 0 5px, rgba(255,200,87,.55) 5px 10px); box-shadow: 0 0 10px -1px var(--hwarn); }
+  .sg.review { background: rgba(93,255,176,.2); box-shadow: inset 0 0 0 1.5px var(--hok), 0 0 10px -2px var(--hok); }   /* outlined, so it never reads as "working" when the agent colour is green */
+  .sg.open::after { content: ''; position: absolute; inset: 0; transform: translateX(-100%); background: linear-gradient(90deg, transparent, rgba(255,255,255,.4), transparent); animation: hsheen 3.2s ease-in-out infinite; }
+  .ln-sum { display: flex; align-items: center; gap: 10px; color: var(--hdim); font-size: 12px; }
+  .ln-mix { flex: 1; height: 7px; border-radius: 3.5px; background: rgba(110,190,255,.13); display: flex; overflow: hidden; }
+  .ln-mix b { height: 100%; } .ln-mix .m-busy { background: var(--c); } .ln-mix .m-wait { background: var(--hwarn); } .ln-mix .m-rev { background: var(--hok); }
+  .ln-sum span { color: var(--hok); min-width: 26px; text-align: right; }
+  .ln-q .ln-track { display: flex; align-items: flex-end; gap: 2px; padding: 0 1px; }
+  .ln-q .ln-track i { flex: 1; min-height: 0; background: linear-gradient(180deg, var(--hcy), rgba(94,231,255,.25)); border-radius: 2px 2px 0 0; opacity: .8; }
+  .ln-q .ln-who { color: var(--hdim); letter-spacing: .14em; font-size: 10.5px; padding-left: 4px; }
+  .ln-q .ln-sum { justify-content: flex-end; color: var(--hcy); }
+  .ln-ax { margin-top: 2px; }
+  .ln-ticks { position: relative; height: 14px; color: var(--hdim); font-size: 10px; }
+  .ln-ticks span { position: absolute; top: 0; transform: translateX(-50%); } .ln-ticks span:first-child { transform: none; } .ln-ticks span:last-child { transform: translateX(-100%); }
   .h-empty { color: var(--hdim); padding: 6px 0; }
-  @media (max-width: 980px) { .h-grid { grid-template-columns: 1fr; overflow-y: auto; } .h-strip { grid-template-columns: 1fr; } .h-tp { border-left: 0; border-top: 1px solid var(--hline); min-height: 110px; } .h-stats { grid-template-columns: repeat(3, 1fr); } #h-const { min-height: 280px; } }
+  @media (max-width: 980px) { .h-grid { overflow-y: auto; } .h-tp { min-height: 110px; } }
   @media (prefers-reduced-motion: reduce) { .hud *, .hud *::before, .hud *::after { animation: none !important; } }
   body.solo { overflow: hidden; }
   body.solo .wrap, body.solo #toast, body.solo #keys { display: none; }
@@ -473,13 +457,13 @@
       <button class="h-btn" id="h-close" aria-label="Close HUD (Esc)">Close</button>
     </div>
     <div class="h-strip">
-      <div class="h-stats" id="h-tiles"></div>
-      <div class="h-tp"><div class="h-tp-head"><small>Throughput · 6h</small><span><b id="h-tp-total">0</b> events</span></div>
-        <div class="h-tl" id="h-tl"></div><div class="h-axis"><span>-6h</span><span>-3h</span><span>now</span></div></div>
+      <div class="h-tp"><div class="h-tp-head"><small>Throughput · last hour</small><span><b id="h-tp-total">0</b> events</span></div>
+        <div class="h-tl" id="h-tl"></div><div class="h-axis"><span>-60m</span><span>-45m</span><span>-30m</span><span>-15m</span><span>now</span></div></div>
     </div>
     <div class="h-grid">
-      <section class="hp"><h4>Agent constellation</h4><div id="h-const"></div></section>
       <section class="hp"><h4>Telemetry</h4><div class="h-scroll" id="h-tele"></div></section>
+      <section class="hp"><h4>Agent load <span class="ln-leg"><u style="--k:var(--c0)">working</u><u style="--k:var(--hwarn)">waiting on you</u><u style="--k:var(--hok)">in review</u></span><span class="ln-wait" id="ln-wait"></span></h4>
+        <div class="h-scroll" id="h-lanes"></div></section>
     </div>
   </div>
 </div>
@@ -581,8 +565,10 @@ function render() {
     .forEach(t => by[t.status] && by[t.status].push(t));
   by.done.sort((a, b) => (b.updated || '').localeCompare(a.updated || ''));
   by.todo.forEach((t, i) => { t._q = i + 1; });
-  const pri = t => t.needs_input ? 2 : t.review ? 1 : 0;
-  by.doing.sort((a, b) => pri(b) - pri(a));
+  // Group by agent color (hue), then by name — same ordering as the HUD. Needs-input/review
+  // cards stay findable by their flag and colored border, not by forcing them to the top.
+  by.doing.sort((a, b) => hueOf(a.color) - hueOf(b.color)
+    || (a.agent || '').localeCompare(b.agent || '', undefined, { sensitivity: 'base' }));
 
   $('welcome').style.display = tasks.length ? 'none' : 'block';
   $('board').style.display = tasks.length ? '' : 'none';
@@ -716,6 +702,8 @@ $('theme').onclick = () => {
 // --- detail panel ---
 const LABELS = { backlog: 'Later', todo: 'Todo', doing: 'Doing', done: 'Done' };
 let cfg = { dispatch: false };
+const ACT_SHOWN = 5;
+let descOpen = false, actAll = false, lastDetail = null;
 let openId = null, detailRaw = '', lastFocus = null, promptOpen = false, promptText = '', delTimer = null;
 const stamp = iso => iso ? new Date(iso).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
 
@@ -752,8 +740,6 @@ async function refreshPanel() {
     const text = await r.text();
     const minute = Math.floor(Date.now() / 60000);
     if (text === detailRaw && minute === panelRefreshTick) return;
-const ACT_SHOWN = 5;
-let descOpen = false, actAll = false, lastDetail = null;
     detailRaw = text; panelRefreshTick = minute;
     renderPanel(JSON.parse(text));
   } catch (e) { /* the status indicator already reports connectivity */ }
@@ -800,6 +786,7 @@ function closePanel(skipFocus) {
 $('p-close').onclick = () => closePanel();
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && openId && !$('add').classList.contains('open')) closePanel(); });
 document.addEventListener('click', e => {
+  if (!e.target.isConnected) return;    // the click re-rendered its own button; not an outside click
   if (openId && !e.target.closest('#panel, .card, #theme, #add, #toast')) closePanel();
   if ($('later').classList.contains('open') && !e.target.closest('#later, #later-btn, #toast, .card')) $('later').classList.remove('open');
 });
@@ -810,6 +797,8 @@ $('p-body').addEventListener('toggle', e => {
 }, true);
 $('p-body').addEventListener('click', async e => {
   const b = e.target.closest('button'); if (!b) return;
+  if (b.id === 'p-desc-more') { descOpen = !descOpen; if (lastDetail) renderPanel(lastDetail); return; }
+  if (b.id === 'p-act-more') { actAll = !actAll; if (lastDetail) renderPanel(lastDetail); return; }
   if (b.id === 'p-move') { await move(openId, b.dataset.to); return; }
   if (b.id === 'p-copy') {
     try {
@@ -832,7 +821,6 @@ $('p-body').addEventListener('click', async e => {
 });
 
 $('filter').oninput = render;
-  if (!e.target.isConnected) return;    // the click re-rendered its own button; not an outside click
 document.addEventListener('keydown', e => {
   if (e.key === '/' && !/^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName)) { e.preventDefault(); $('filter').classList.add('on'); $('filter').focus(); }
   if (e.key === 'Escape' && document.activeElement === $('filter')) { $('filter').value = ''; $('filter').blur(); render(); }
@@ -843,8 +831,6 @@ document.addEventListener('keydown', e => {
 // over a quiet ambient bed (engine rumble, air, warp throb, idle console blips). No files.
 let audio = null, dry = null, send = null, sndOn = true, ambOn = true;
 let sndSeenAt = null, prevStates = {}, hudPrevTiles = null, ambNodes = null, blipTimer = null;
-  if (b.id === 'p-desc-more') { descOpen = !descOpen; if (lastDetail) renderPanel(lastDetail); return; }
-  if (b.id === 'p-act-more') { actAll = !actAll; if (lastDetail) renderPanel(lastDetail); return; }
 try { sndOn = localStorage.getItem('agentboard-snd') !== 'off'; } catch (e) {}
 try { ambOn = localStorage.getItem('agentboard-amb') !== 'off'; } catch (e) {}
 function impulse(ctx, secs, decay) {           // synthesized reverb tail
@@ -1027,15 +1013,14 @@ async function hudLoad() {
   try {
     const d = await (await fetch('/api/hud', { cache: 'no-store' })).json();
     const { now, ...rest } = d;
-    const key = JSON.stringify(rest) + Math.floor(Date.now() / 60000);
+    const key = JSON.stringify(rest) + Math.floor(Date.now() / 15000);
     if (key === hudKey) return;
     hudKey = key; hudRender(d);
   } catch (e) { /* board status shows connectivity */ }
 }
 
 // ---- HUD rendering: incremental updates, so animations glide instead of restarting ----
-let constKey = '', teleKey = '';
-const CW = 640, CH = 360, CCX = CW / 2, CCY = CH / 2;
+let teleKey = '';
 
 // Agents display grouped by color (hue order), then by name. Display only; data is untouched.
 const colorCtx = document.createElement('canvas').getContext('2d');
@@ -1067,47 +1052,17 @@ function hudRender(d) {
     tk.dataset.k = tkHtml; tk.innerHTML = tkHtml;
     tk.classList.remove('tk'); void tk.offsetWidth; tk.classList.add('tk');
   }
-  renderTiles(d.totals, d.agents);
+  renderTiles(d.totals);
   if (SOLO) {
     const t0 = d.totals;
     document.title = (t0.waiting ? `⚠ ${t0.waiting} input · ` : '') + (t0.review ? `✓ ${t0.review} review · ` : '') + `HUD · ${t0.working} working`;
   }
-  renderConst(d.agents, d.totals);
+  renderLanes(d);
   renderTele(d.agents);
   renderTl(d.timeline);
 }
 
-function fmtMin(m) {
-  if (m == null) return '—';
-  if (m < 60) return `${Math.round(m * 10) / 10}<i>m</i>`;
-  const h = Math.floor(m / 60), r = Math.round(m % 60);
-  return `${h}<i>h</i> ${r}<i>m</i>`;
-}
-
-function renderTiles(t, agents) {
-  const busy = agents.filter(a => a.state !== 'idle').length, total = agents.length;
-  const stats = [
-    ['Working', t.working, 'cy', total ? `${busy} of ${total} agent${total === 1 ? '' : 's'} active` : 'no agents yet', true],
-    ['Done today', t.done_today, 'ok', 'signed off'],
-    ['Queued', t.queued, '', 'waiting in Todo'],
-    ['Avg task', fmtMin(t.avg_minutes), '', 'start to done'],
-    ['Events', t.events_today, '', 'today'],
-  ];
-  const box = $('h-tiles');
-  if (box.children.length !== stats.length)
-    box.innerHTML = stats.map(([, , , , ring]) => `<div class="h-stat"><small></small><div class="v"><b></b>${ring
-      ? `<svg class="h-ring" width="30" height="30" viewBox="0 0 30 30" aria-hidden="true"><circle class="trk" cx="15" cy="15" r="12"/><circle class="val" cx="15" cy="15" r="12" stroke-dasharray="0 76"/></svg>` : ''}</div><em></em></div>`).join('');
-  stats.forEach(([l, v, c, sub, ring], i) => {
-    const el = box.children[i], b = el.querySelector('b');
-    el.querySelector('small').textContent = l;
-    el.querySelector('em').textContent = sub;
-    b.className = c;
-    if (b.innerHTML !== String(v)) { b.innerHTML = v; b.classList.remove('tick'); void b.offsetWidth; b.classList.add('tick'); }
-    if (ring) {
-      const C = 2 * Math.PI * 12, f = total ? busy / total : 0;
-      el.querySelector('.val').setAttribute('stroke-dasharray', `${(C * f).toFixed(1)} ${C.toFixed(1)}`);
-    }
-  });
+function renderTiles(t) {   // alert chips in the top bar
   const chips = [
     t.waiting ? ['warn', `⚠ ${t.waiting} needs input`] : null,
     t.review ? ['ok', `✓ ${t.review} to review`] : null,
@@ -1123,69 +1078,41 @@ function spark(vals, c) {
   return `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true"><polyline points="${pts}" fill="none" stroke="${c}" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round" style="filter:drop-shadow(0 0 4px ${c})"/></svg>`;
 }
 
-function nodePos(i, n) {
-  const ang = -Math.PI / 2 + (n === 1 ? 0 : i * 2 * Math.PI / n);
-  return { x: CCX + Math.cos(ang) * 232, y: CCY + Math.sin(ang) * 122, above: Math.sin(ang) < -0.2 };
-}
-
-function buildConstBase() {   // drawn once; the sweep and hub live here and are never rebuilt
-  $('h-const').innerHTML = `<svg viewBox="0 0 ${CW} ${CH}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Agents">
-    <defs><radialGradient id="sw" cx="0" cy="1" r="1"><stop offset="0" stop-color="#5ee7ff" stop-opacity=".28"/><stop offset="1" stop-color="#5ee7ff" stop-opacity="0"/></radialGradient>
-    <filter id="gl" x="-80%" y="-80%" width="260%" height="260%"><feGaussianBlur stdDeviation="4"/></filter></defs>
-    <circle class="c-ring" cx="${CCX}" cy="${CCY}" r="62"/><circle class="c-ring" cx="${CCX}" cy="${CCY}" r="120"/>
-    <circle class="c-ring dash" cx="${CCX}" cy="${CCY}" r="172"/>
-    ${RM ? '' : `<path d="M${CCX} ${CCY} L${CCX} ${CCY - 172} A172 172 0 0 1 ${CCX + 172 * Math.sin(0.9)} ${CCY - 172 * Math.cos(0.9)} Z" fill="url(#sw)"><animateTransform attributeName="transform" type="rotate" from="0 ${CCX} ${CCY}" to="360 ${CCX} ${CCY}" dur="11s" repeatCount="indefinite"/></path>`}
-    <g id="c-ngrp"></g>
-    <g class="c-hubw"><circle class="c-hub" cx="${CCX}" cy="${CCY}" r="7"/><circle cx="${CCX}" cy="${CCY}" r="14" fill="none" stroke="#5ee7ff" stroke-opacity=".35"/></g>
-    <text id="c-standby" class="c-sub" x="${CCX}" y="${CCY + 38}" text-anchor="middle" letter-spacing="3"></text></svg>`;
-}
-
-const ARC = 2 * Math.PI * 20.5;
-// Agents often share a colour, so the node carries the number in its name (AGENT-2 -> 2), else the initial.
+// Agents often share a colour, so avatars carry the number in the name (AGENT-2 -> 2), else the initial.
 function nodeGlyph(n) { const m = /(\d{1,2})\s*$/.exec(n); return m ? m[1] : [...n][0].toUpperCase(); }
+const dur = m => m < 60 ? m + 'm' : Math.floor(m / 60) + 'h' + String(m % 60).padStart(2, '0');
 
-function renderConst(agents, totals) {
-  if (!$('h-const').firstElementChild) buildConstBase();
-  const grp = document.getElementById('c-ngrp');
-  const key = agents.map(a => a.name).join('|');
-  if (key !== constKey) {       // only when the set of agents changes do nodes re-lay-out
-    constKey = key;
-    grp.innerHTML = agents.map((a, i) => {
-      const { x, y, above } = nodePos(i, agents.length), ly = above ? -46 : 44, X = x.toFixed(1), Y = y.toFixed(1);
-      const orb = RM ? '' : `<g class="c-orb"><circle cx="${X}" cy="${(y - 25).toFixed(1)}" r="2.2" style="fill:var(--c)" opacity=".9"><animateTransform attributeName="transform" type="rotate" from="0 ${X} ${Y}" to="360 ${X} ${Y}" dur="7s" repeatCount="indefinite"/></circle></g>`;
-      // the arc is progress; its colour is the *state* (amber = needs you, green = review), so it still reads when agents share a colour
-      return `<g class="c-node" data-agent="${hh(a.name)}"><title></title>
-        <line class="c-link" x1="${CCX}" y1="${CCY}" x2="${X}" y2="${Y}"/>
-        <circle class="c-pulse" cx="${X}" cy="${Y}" r="19"/>
-        <circle class="c-glow" cx="${X}" cy="${Y}" r="19" opacity=".5" filter="url(#gl)"/>
-        ${orb}
-        <circle class="c-core" cx="${X}" cy="${Y}" r="16" fill="#06101a" stroke-width="2"/>
-        <circle class="c-trk" cx="${X}" cy="${Y}" r="20.5"/>
-        <circle class="c-arc" cx="${X}" cy="${Y}" r="20.5" transform="rotate(-90 ${X} ${Y})" stroke-dasharray="0 ${ARC.toFixed(1)}"/>
-        <text class="c-glyph" x="${X}" y="${(y + 5).toFixed(1)}" text-anchor="middle"></text>
-        <text class="c-name" x="${X}" y="${(y + ly).toFixed(1)}" text-anchor="middle">${hh(a.name)}<tspan class="c-el" dx="7"></tspan></text>
-        <text class="c-sub" x="${X}" y="${(y + ly + 12).toFixed(1)}" text-anchor="middle"></text></g>`;
+// ---- agent load: a lane per agent over the last hour (busy / waiting on you / in review; gaps are idle) ----
+function renderLanes(d) {
+  const box = $('h-lanes'); if (!box) return;
+  const win = (d.window_min || 60) * 60000, end = Date.now(), start = end - win;
+  const pc = ms => Math.max(0, Math.min(100, (ms - start) / win * 100));
+  const lanes = d.agents.map(a => {
+    const c = hudColor(a.color), tot = { busy: 0, waiting: 0, review: 0 };
+    const sg = ((d.lanes || {})[a.name] || []).map(r => {
+      const open = r.b === d.now, ta = Math.max(start, new Date(r.a).getTime()), tb = open ? end : Math.min(end, new Date(r.b).getTime());
+      if (tb < start) return '';
+      tot[r.k] += Math.max(0, tb - ta);
+      const l = pc(ta), w = Math.max(.3, pc(tb) - l);
+      return `<i class="sg ${r.k}${open ? ' open' : ''}" style="left:${l.toFixed(2)}%;width:${w.toFixed(2)}%" title="${hh(r.t)} · ${dur(Math.round(Math.max(0, tb - ta) / 60000))}"></i>`;
     }).join('');
-  }
-  const busy = agents.filter(a => a.state !== 'idle').length, q = totals ? totals.queued : 0;
-  document.getElementById('c-standby').textContent = agents.length ? `${busy}/${agents.length} ACTIVE${q ? ' · ' + q + ' QUEUED' : ''}` : 'STANDBY — AWAITING AGENTS';
-  agents.forEach(a => {
-    const g = grp.querySelector(`[data-agent="${CSS.escape(a.name)}"]`); if (!g) return;
-    const c = hudColor(a.color), sc = a.state === 'waiting' || a.state === 'quiet' ? 'var(--hwarn)' : a.state === 'review' ? 'var(--hok)' : c;
-    const live = a.state !== 'idle', pct = Math.max(0, Math.min(100, a.progress || 0));
-    g.setAttribute('class', `c-node ${a.state}`); g.style.setProperty('--c', c); g.style.setProperty('--sc', sc);
-    g.querySelector('.c-link').setAttribute('class', `c-link ${a.state === 'working' ? 'flow' : ''}`);
-    g.querySelector('.c-glow').setAttribute('fill', sc);
-    g.querySelector('.c-core').setAttribute('stroke', sc);
-    g.querySelector('.c-arc').setAttribute('stroke-dasharray', `${(ARC * (live ? pct : 0) / 100).toFixed(1)} ${ARC.toFixed(1)}`);
-    g.querySelector('.c-glyph').textContent = a.state === 'waiting' ? '!' : a.state === 'review' ? '✓' : nodeGlyph(a.name);
-    const mins = live && a.started ? ago(a.started).min : null;
-    g.querySelector('.c-el').textContent = mins == null ? '' : mins < 60 ? mins + 'm' : Math.floor(mins / 60) + 'h' + String(mins % 60).padStart(2, '0');
-    g.querySelector('title').textContent = `${a.name} — ${a.task} (${a.progress}%)${a.status_text ? ' · ' + a.status_text : ''}${a.question ? ' · asks: ' + a.question : ''}`;
-    g.querySelector('.c-sub').textContent = a.state === 'waiting' ? '⚠ ' + clip(a.question || 'needs input', 22)
-      : a.state === 'review' ? '✓ ' + clip(a.task, 22)
-      : a.state === 'idle' ? 'idle' : (a.state === 'quiet' ? 'quiet · ' : '') + clip(a.task, a.state === 'quiet' ? 16 : 26);
-  });
+    const p = k => (tot[k] / win * 100).toFixed(1), idle = Math.max(0, 100 - tot.busy / win * 100 - tot.waiting / win * 100 - tot.review / win * 100);
+    return `<div class="ln ${a.state === 'idle' ? 'idle' : ''}" style="--c:${c}">
+      <div class="ln-who"><i class="ln-av">${hh(nodeGlyph(a.name))}</i><b title="${hh(a.name)}">${hh(a.name)}</b></div>
+      <div class="ln-track">${sg}</div>
+      <div class="ln-sum"><div class="ln-mix" title="${Math.round(tot.busy / win * 100)}% working · ${Math.round(tot.waiting / win * 100)}% waiting on you · ${Math.round(tot.review / win * 100)}% in review · ${Math.round(idle)}% idle">
+        <b class="m-busy" style="width:${p('busy')}%"></b><b class="m-wait" style="width:${p('waiting')}%"></b><b class="m-rev" style="width:${p('review')}%"></b></div>
+        <span title="tasks signed off today">✓${a.done_today || 0}</span></div></div>`;
+  }).join('');
+  const q = d.queue || [], qmax = Math.max(1, ...q);
+  const queue = `<div class="ln ln-q"><div class="ln-who">QUEUE</div>
+    <div class="ln-track">${q.map(v => `<i style="height:${(v / qmax * 100).toFixed(0)}%" title="${v} waiting in Todo"></i>`).join('')}</div>
+    <div class="ln-sum" title="waiting in Todo, unclaimed">${q.length ? q[q.length - 1] : 0}</div></div>`;
+  const axis = `<div class="ln ln-ax"><span></span><div class="ln-ticks">${['-60m', '-45m', '-30m', '-15m', 'now'].map((t, i) => `<span style="left:${i * 25}%">${t}</span>`).join('')}</div><span></span></div>`;
+  const html = d.agents.length ? lanes + queue + axis : `<div class="h-empty">No agents yet. They appear when they run <b>agentboard start</b>.</div>`;
+  if (box.dataset.k !== html) { box.dataset.k = html; box.innerHTML = html; }
+  const w = Math.round((d.waiting_s || 0) / 60);
+  $('ln-wait').textContent = w ? `⚠ ${dur(w)} waiting on you` : '';
 }
 
 function renderTele(agents) {
@@ -1206,9 +1133,9 @@ function renderTele(agents) {
     const c = hudColor(a.color);
     r.className = `h-row ${a.state}`; r.style.setProperty('--c', c);
     r.querySelector('em').textContent = a.state.toUpperCase();
-    r.querySelector('.h-task').textContent = a.state === 'waiting' ? '⚠ ' + (a.question || a.task) : a.state === 'review' ? '✓ ready: ' + a.task : (a.state === 'idle' ? 'Done: ' + a.task : a.task);
+    r.querySelector('.h-task').textContent = a.task;
     r.querySelector('.h-prog b').style.width = (a.progress || 0) + '%';
-    r.querySelector('.h-pct').textContent = (a.progress || 0) + '% · ' + clip(a.status_text, 26);
+    r.querySelector('.h-pct').textContent = (a.progress || 0) + '%';
     const cell = r.querySelector('.h-spk'), sk = a.spark.join(',') + c;
     if (cell.dataset.k !== sk) { cell.innerHTML = spark(a.spark, c); cell.dataset.k = sk; }
     r.querySelector('.h-since').textContent = (a.state === 'quiet' ? 'quiet ' : '') + (a.updated ? ago(a.updated).text.replace(' ago', '') : '');
