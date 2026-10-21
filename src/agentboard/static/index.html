@@ -385,7 +385,12 @@
   details summary { cursor: pointer; color: var(--muted); font-size: 12px; font-weight: 500; }
   details pre { margin-top: 8px; padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface);
     font: 11.5px/1.55 ui-monospace, Menlo, monospace; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 280px; overflow: auto; }
-  .p-actions { display: flex; gap: 8px; margin-top: 28px; }
+  .p-actions { display: flex; gap: 8px; margin-top: 18px; flex-wrap: wrap; }
+  .p-desc { font-size: 13px; line-height: 1.55; color: var(--muted); white-space: pre-wrap; overflow-wrap: anywhere; }
+  .p-desc.clamp { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+  .p-more { background: none; border: 0; padding: 4px 0 0; font: inherit; font-size: 12px; color: var(--text); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+  .p-more:hover { color: var(--muted); }
+  .p-sec > h3 .n { color: var(--muted); font-weight: 400; margin-left: 4px; }
   .btn.danger:hover { color: var(--warn); border-color: var(--warn); }
   @media (prefers-reduced-motion: reduce) { #panel, #later { transition: none; } }
   #later { width: min(400px, 100vw); }
@@ -717,22 +722,26 @@ const stamp = iso => iso ? new Date(iso).toLocaleString([], { month: 'short', da
 function panelHtml(t) {
   const doing = t.status === 'doing', stale = doing && ago(t.updated).min >= STALE_MIN;
   const who = t.agent ? `<div class="p-who"><span class="av ${doing && !stale ? 'live' : ''}" style="--c:${colorOf(t)}" aria-hidden="true">${esc([...t.agent][0].toUpperCase())}</span><span class="name">${esc(t.agent)}</span><span>${t.status === 'done' ? 'finished' : 'working'} ${ago(t.updated).text}</span></div>` : '';
-  const prog = doing ? `<div class="p-sec"><div class="bar" style="margin:0" role="progressbar" aria-valuenow="${t.progress || 0}" aria-valuemin="0" aria-valuemax="100" aria-label="Progress"><b style="width:${t.progress || 0}%;background:${colorOf(t)}"></b></div><div class="p-pct"><span>${esc(t.status_text || '')}</span><b>${t.progress || 0}%</b></div>${stale ? `<div class="p-pct"><span style="color:var(--warn)">No update for ${ago(t.updated).text.replace(' ago', '')}</span></div>` : ''}</div>` : '';
+  const prog = doing ? `<div class="p-sec"><div class="bar" style="margin:0" role="progressbar" aria-valuenow="${t.progress || 0}" aria-valuemin="0" aria-valuemax="100" aria-label="Progress"><b style="width:${t.progress || 0}%;background:${colorOf(t)}"></b></div><div class="p-pct"><span>${t.review || t.needs_input ? '' : esc(t.status_text || '')}</span><b>${t.progress || 0}%</b></div>${stale ? `<div class="p-pct"><span style="color:var(--warn)">No update for ${ago(t.updated).text.replace(' ago', '')}</span></div>` : ''}</div>` : '';
   const askC = t.needs_input ? `<div class="p-sec"><div class="callout ask-callout"><b>Waiting on you:</b> ${esc(t.question || t.status_text)}<small>Answer in ${esc(t.agent || 'the agent')}'s terminal — the card clears when it continues.</small></div></div>` : '';
   const revC = !t.needs_input && t.review && t.status === 'doing' ? `<div class="p-sec"><div class="callout rev-callout"><b>Ready for review:</b> ${esc(t.result || t.status_text)}<small>Look it over, then Mark done — agents don't close their own work.</small></div></div>` : '';
   const result = t.status === 'done' && t.result ? `<div class="p-sec"><h3>Result</h3><div class="callout">${esc(t.result)}</div></div>` : '';
-  const desc = t.description ? `<div class="p-sec"><h3>Description</h3><div class="callout">${esc(t.description)}</div></div>` : '';
-  const log = (t.log || []).slice().reverse();
-  const tl = log.length ? `<div class="p-sec"><h3>Activity</h3><ul class="tl">${log.map(e =>
-    `<li>${esc(e.text)}<small>${stamp(e.at)}${doing || e.status === 'doing' ? ' · ' + (e.progress || 0) + '%' : ''}</small></li>`).join('')}</ul></div>` : '';
+  const desc = t.description ? `<div class="p-sec"><h3>Description</h3><div class="p-desc ${descOpen ? '' : 'clamp'}" id="p-desc">${esc(t.description)}</div><button class="p-more" id="p-desc-more" hidden>${descOpen ? 'Show less' : 'Show more'}</button></div>` : '';
+  const logAll = (t.log || []).slice().reverse();
+  const log = actAll ? logAll : logAll.slice(0, ACT_SHOWN);
+  const actMore = logAll.length > ACT_SHOWN ? `<button class="p-more" id="p-act-more">${actAll ? 'Show fewer' : `Show all ${logAll.length}`}</button>` : '';
+  const tl = log.length ? `<div class="p-sec"><h3>Activity<span class="n">${logAll.length}</span></h3><ul class="tl">${log.map(e =>
+    `<li>${esc(e.text)}<small>${stamp(e.at)}${doing || e.status === 'doing' ? ' · ' + (e.progress || 0) + '%' : ''}</small></li>`).join('')}</ul>${actMore}</div>` : `<div class="p-sec"><h3>Activity</h3><div class="p-desc">No activity yet.</div></div>`;
   const ctx = (t.ctx || []).length ? `<dt>Context</dt><dd>${t.ctx.map(c => `<code>${esc(c)}</code>`).join(' ')}</dd>` : '';
   const details = `<div class="p-sec"><h3>Details</h3><dl><dt>ID</dt><dd><code>${esc(t.id)}</code></dd><dt>Created</dt><dd>${stamp(t.created)}</dd><dt>Updated</dt><dd>${stamp(t.updated)}</dd>${ctx}</dl></div>`;
   const prompt = !cfg.dispatch ? '' : `<div class="p-sec"><details id="pd" ${promptOpen ? 'open' : ''}><summary>Prompt</summary><pre id="pre">${esc(promptText || 'Loading…')}</pre></details></div>`;
   const copy = cfg.dispatch && (t.status === 'todo' || doing) ? `<button class="btn" id="p-copy">Copy prompt</button>` : '';
   const next = { doing: ['done', 'Mark done'], done: ['doing', 'Reopen'], backlog: ['todo', 'Move to Todo'], todo: ['backlog', 'Move to Later'] }[t.status];
   const mv = next ? `<button class="btn primary" id="p-move" data-to="${next[0]}">${next[1]}</button>` : '';
-  return `<h2>${esc(t.title)}</h2>${who}${askC}${revC}${prog}${result}${desc}${tl}${details}${prompt}
-    <div class="p-actions">${mv}${copy}<button class="btn danger" id="p-del">Delete</button></div>`;
+  // actions and activity sit near the top; the long description comes after, collapsed
+  return `<h2>${esc(t.title)}</h2>${who}${askC}${revC}${prog}${result}
+    <div class="p-actions">${mv}${copy}<button class="btn danger" id="p-del">Delete</button></div>
+    ${tl}${desc}${details}${prompt}`;
 }
 
 async function refreshPanel() {
@@ -743,15 +752,24 @@ async function refreshPanel() {
     const text = await r.text();
     const minute = Math.floor(Date.now() / 60000);
     if (text === detailRaw && minute === panelRefreshTick) return;
+const ACT_SHOWN = 5;
+let descOpen = false, actAll = false, lastDetail = null;
     detailRaw = text; panelRefreshTick = minute;
-    const t = JSON.parse(text);
+    renderPanel(JSON.parse(text));
+  } catch (e) { /* the status indicator already reports connectivity */ }
+}
+function renderPanel(t) {
+  {
+    lastDetail = t;
     const rv = !t.needs_input && t.review && t.status === 'doing';
     $('p-status').textContent = t.needs_input ? 'Needs input' : rv ? 'To review' : (LABELS[t.status] || t.status);
     $('p-status').className = 'pill ' + (t.needs_input ? 'askp' : rv ? 'revp' : t.status);
     const keep = $('p-body').scrollTop;
     $('p-body').innerHTML = panelHtml(t);
     $('p-body').scrollTop = keep;
-  } catch (e) { /* the status indicator already reports connectivity */ }
+    const d = $('p-desc'), more = $('p-desc-more');      // only offer "Show more" when text is actually cut off
+    if (d && more) more.hidden = !descOpen && d.scrollHeight <= d.clientHeight + 1;
+  }
 }
 let panelRefreshTick = 0;
 
@@ -765,7 +783,7 @@ async function loadPrompt() {
 }
 
 function openPanel(id) {
-  if (openId !== id) { detailRaw = ''; promptText = ''; promptOpen = false; }
+  if (openId !== id) { detailRaw = ''; promptText = ''; promptOpen = false; descOpen = false; actAll = false; }
   lastFocus = document.activeElement;
   $('later').classList.remove('open');
   openId = id;
@@ -814,6 +832,7 @@ $('p-body').addEventListener('click', async e => {
 });
 
 $('filter').oninput = render;
+  if (!e.target.isConnected) return;    // the click re-rendered its own button; not an outside click
 document.addEventListener('keydown', e => {
   if (e.key === '/' && !/^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName)) { e.preventDefault(); $('filter').classList.add('on'); $('filter').focus(); }
   if (e.key === 'Escape' && document.activeElement === $('filter')) { $('filter').value = ''; $('filter').blur(); render(); }
@@ -824,6 +843,8 @@ document.addEventListener('keydown', e => {
 // over a quiet ambient bed (engine rumble, air, warp throb, idle console blips). No files.
 let audio = null, dry = null, send = null, sndOn = true, ambOn = true;
 let sndSeenAt = null, prevStates = {}, hudPrevTiles = null, ambNodes = null, blipTimer = null;
+  if (b.id === 'p-desc-more') { descOpen = !descOpen; if (lastDetail) renderPanel(lastDetail); return; }
+  if (b.id === 'p-act-more') { actAll = !actAll; if (lastDetail) renderPanel(lastDetail); return; }
 try { sndOn = localStorage.getItem('agentboard-snd') !== 'off'; } catch (e) {}
 try { ambOn = localStorage.getItem('agentboard-amb') !== 'off'; } catch (e) {}
 function impulse(ctx, secs, decay) {           // synthesized reverb tail
