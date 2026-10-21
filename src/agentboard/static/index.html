@@ -94,7 +94,7 @@
     font-size: 12px; font-weight: 500; color: var(--muted); letter-spacing: .01em;
     display: flex; align-items: center; gap: 8px; margin-bottom: 14px; padding: 0 2px;
   }
-  .col h2 span { background: var(--chip); border-radius: 999px; padding: 0 7px; font-size: 11px; line-height: 18px; font-variant-numeric: tabular-nums; }
+  .col h2 .cnt { background: var(--chip); border-radius: 999px; padding: 0 7px; font-size: 11px; line-height: 18px; font-variant-numeric: tabular-nums; }
   .col.doing h2 { color: var(--text); }
   .clear-done { margin-left: auto; background: none; border: 0; color: var(--muted); font: inherit; font-size: 12px; cursor: pointer; padding: 2px 6px; border-radius: 6px; }
   .clear-done:hover { color: var(--text); background: var(--chip); }
@@ -137,11 +137,23 @@
     display: grid; place-items: center; font-size: 10.5px; font-weight: 600; color: var(--text);
     background: var(--chip); box-shadow: inset 0 0 0 1.5px var(--c, var(--neutral));
   }
-  .av.live::after {
-    content: ''; position: absolute; inset: -3px; border-radius: 50%;
-    border: 1.5px solid var(--c, var(--neutral)); opacity: 0; animation: pulse 2.4s ease-out infinite;
-  }
-  @keyframes pulse { 0% { opacity: .55; transform: scale(.85); } 100% { opacity: 0; transform: scale(1.35); } }
+  .av.live { animation: avbr 3s ease-in-out infinite; }
+  @keyframes avbr { 50% { box-shadow: inset 0 0 0 1.5px var(--c, var(--neutral)), 0 0 10px 1px color-mix(in srgb, var(--c, var(--neutral)) 55%, transparent); } }
+  .who:hover .av { transform: scale(1.08); }
+  .av { transition: transform .15s ease; }
+  /* Doing header: one quiet dot per agent working right now */
+  .pres { display: inline-flex; gap: 4px; margin-left: 2px; }
+  .pres i { width: 7px; height: 7px; border-radius: 50%; background: var(--c); animation: avbr2 3s ease-in-out infinite; }
+  @keyframes avbr2 { 50% { box-shadow: 0 0 6px 1px color-mix(in srgb, var(--c) 60%, transparent); } }
+  /* live counts */
+  .col h2 .cnt.tick { animation: cnttick .6s ease-out; }
+  @keyframes cnttick { from { background: color-mix(in srgb, var(--text) 22%, var(--chip)); color: var(--text); transform: scale(1.15); } }
+  /* micro-interactions: press feedback on every control */
+  .btn, .card-act, .copy, .markdone, .clear-done, .who, .icon-btn, .more { transition: transform .1s ease, background .12s, border-color .12s, color .12s; }
+  .btn:active, .card-act:active, .copy:active, .markdone:active, .clear-done:active, .icon-btn:active { transform: scale(.96); }
+  .card-act:hover svg { transform: translateY(1px); }
+  .card-act svg { transition: transform .15s ease; }
+  .card:active { cursor: grabbing; }
   .check { color: var(--ok); flex: none; }
   .note { margin-top: 8px; font-size: 12.5px; color: var(--muted); display: flex; gap: 10px; }
   .note span:first-child { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -168,6 +180,22 @@
   .pill.askp { color: var(--warn); }
   #snd2.off svg { opacity: .45; }
 
+  .card[data-status="todo"] {
+    background: linear-gradient(180deg, color-mix(in srgb, var(--glow1) 70%, var(--surface)), var(--surface) 65%);
+    border-color: color-mix(in srgb, var(--text) 9%, var(--line));
+  }
+  .card[data-status="todo"] .title, .card[data-status="todo"] .desc { padding-left: 30px; }
+  .qnum {
+    position: absolute; top: 14px; left: 16px; width: 20px; height: 20px; border-radius: 6px;
+    display: grid; place-items: center; font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums;
+    color: var(--muted); background: var(--chip); box-shadow: inset 0 0 0 1px var(--line);
+  }
+  .card-act {
+    display: inline-flex; align-items: center; gap: 5px; background: none; border: 1px solid var(--line);
+    border-radius: 6px; padding: 2px 8px; font: inherit; font-size: 12px; color: var(--muted); cursor: pointer;
+    min-height: 24px; transition: color .12s, border-color .12s, background .12s;
+  }
+  .card-act:hover { color: var(--text); border-color: var(--neutral); background: var(--chip); }
   .copy {
     position: absolute; top: 8px; right: 8px; opacity: 0; font-size: 12px;
     background: var(--surface); border: 1px solid var(--line); border-radius: 6px;
@@ -221,15 +249,34 @@
   .h-ticker { flex: 1; min-width: 0; text-align: center; color: var(--hdim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .h-ticker b { color: var(--htext); font-weight: 500; }
   .h-btn[aria-pressed="false"] { opacity: .55; }
-  .h-tile b.tick { animation: htick .5s ease-out; }
+  .h-strip { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); border: 1px solid var(--hline); border-radius: 12px;
+    background: linear-gradient(180deg, rgba(94,231,255,.05), rgba(9,17,26,.65)); overflow: hidden; }
+  .h-stats { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .h-stat { padding: 14px 18px 12px; position: relative; min-width: 0; }
+  .h-stat + .h-stat::before { content: ''; position: absolute; left: 0; top: 18px; bottom: 18px; width: 1px; background: var(--hline); }
+  .h-stat small { display: block; color: var(--hdim); letter-spacing: .18em; font-size: 10.5px; text-transform: uppercase; white-space: nowrap; }
+  .h-stat .v { display: flex; align-items: center; gap: 10px; margin-top: 4px; }
+  .h-stat b { font-size: 34px; line-height: 1.05; font-weight: 400; color: var(--htext); letter-spacing: -.02em; }
+  .h-stat b i { font-style: normal; font-size: 15px; color: var(--hdim); margin-left: 2px; letter-spacing: 0; }
+  .h-stat b.cy { color: var(--hcy); text-shadow: 0 0 18px rgba(94,231,255,.45); }
+  .h-stat b.ok { color: var(--hok); text-shadow: 0 0 16px rgba(93,255,176,.3); }
+  .h-stat b.tick { animation: htick .5s ease-out; }
   @keyframes htick { from { text-shadow: 0 0 22px currentColor; transform: scale(1.05); } }
-  .h-tiles { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
-  .h-tile { border: 1px solid var(--hline); border-radius: 10px; padding: 10px 14px; background: rgba(9,17,26,.6); }
-  .h-tile small { display: block; color: var(--hdim); letter-spacing: .16em; font-size: 11px; text-transform: uppercase; }
-  .h-tile b { display: block; font-size: 36px; line-height: 1.15; font-weight: 500; color: var(--htext); }
-  .h-tile b.cy { color: var(--hcy); text-shadow: 0 0 18px rgba(94,231,255,.45); }
-  .h-tile b.ok { color: var(--hok); } .h-tile b.warn { color: var(--hwarn); }
-  .h-grid { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); grid-template-rows: minmax(0, 1.2fr) minmax(0, 1fr); gap: 12px; min-height: 0; }
+  .h-stat em { display: block; font-style: normal; color: var(--hdim); font-size: 11px; margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .h-ring { flex: none; }
+  .h-ring circle { fill: none; stroke-width: 3; }
+  .h-ring .trk { stroke: rgba(110,190,255,.14); }
+  .h-ring .val { stroke: var(--hcy); stroke-linecap: round; transform: rotate(-90deg); transform-origin: center; transition: stroke-dasharray .7s ease; filter: drop-shadow(0 0 4px var(--hcy)); }
+  .h-tp { border-left: 1px solid var(--hline); padding: 12px 18px 10px; display: flex; flex-direction: column; min-width: 0; }
+  .h-tp-head { display: flex; justify-content: space-between; align-items: baseline; }
+  .h-tp-head small { color: var(--hdim); letter-spacing: .18em; font-size: 10.5px; text-transform: uppercase; }
+  .h-tp-head span { color: var(--hdim); font-size: 11.5px; } .h-tp-head span b { color: var(--htext); font-weight: 500; }
+  .h-alerts { display: flex; gap: 8px; }
+  .h-chip { border: 1px solid; border-radius: 999px; padding: 1px 10px; font-size: 11.5px; letter-spacing: .06em; white-space: nowrap; }
+  .h-chip.warn { color: var(--hwarn); border-color: rgba(255,200,87,.45); background: rgba(255,200,87,.08); animation: hqblink 2.6s ease-in-out infinite; }
+  .h-chip.ok { color: var(--hok); border-color: rgba(93,255,176,.4); background: rgba(93,255,176,.07); }
+  .h-chip.dim { color: var(--hwarn); border-color: rgba(255,200,87,.25); opacity: .8; }
+  .h-grid { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 12px; min-height: 0; }
   .hp { border: 1px solid var(--hline); border-radius: 10px; background: rgba(9,17,26,.62); padding: 10px 14px 12px; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
   .hp h4 { margin: 0 0 10px; font-weight: 500; font-size: 11px; letter-spacing: .2em; color: var(--hdim); text-transform: uppercase; flex: none; }
   .hp h4::before { content: '// '; color: var(--hcy); }
@@ -274,7 +321,7 @@
   @keyframes hsheen { 0% { transform: translateX(-100%); } 55%, 100% { transform: translateX(100%); } }
   .h-row.working .h-av { animation: havbr 3s ease-in-out infinite; }
   @keyframes havbr { 50% { box-shadow: inset 0 0 0 1.5px var(--c), 0 0 18px 0 var(--c); } }
-  .h-row.quiet em, .h-row.waiting em, .h-tile b.warn { animation: hqblink 2.6s ease-in-out infinite; }
+  .h-row.quiet em, .h-row.waiting em { animation: hqblink 2.6s ease-in-out infinite; }
   .h-row.waiting .h-name em, .h-row.waiting .h-since { color: var(--hwarn); }
   .h-row.review .h-name em { color: var(--hok); }
   @keyframes hqblink { 50% { opacity: .45; } }
@@ -282,21 +329,13 @@
   .h-row.idle .h-prgw { visibility: hidden; }
   .h-pct { color: var(--hdim); font-size: 11.5px; margin-top: 3px; display: block; }
   .h-since { text-align: right; color: var(--hdim); font-size: 12px; } .h-row.quiet .h-since { color: var(--hwarn); }
-  .h-feed { font-size: 12.5px; }
-  .h-ev { display: grid; grid-template-columns: 70px 10px minmax(66px, 96px) minmax(0, 1fr) auto; gap: 8px; align-items: baseline; padding: 2px 0; white-space: nowrap; }
-  .h-ev.new { animation: hnew .6s ease-out; }
-  @keyframes hnew { from { background: rgba(94,231,255,.12); opacity: 0; transform: translateY(-4px); } }
-  .h-ev time { color: var(--hdim); } .h-ev .d { width: 6px; height: 6px; border-radius: 50%; background: var(--c); box-shadow: 0 0 8px var(--c); align-self: center; }
-  .h-ev .who { color: var(--htext); overflow: hidden; text-overflow: ellipsis; }
-  .h-ev .tx { color: #a9c4e0; overflow: hidden; text-overflow: ellipsis; } .h-ev .pc { color: var(--hdim); }
-  .h-tl { flex: 1; min-height: 60px; display: flex; align-items: flex-end; gap: 4px; padding-top: 6px; }
+  .h-tl { flex: 1; min-height: 46px; display: flex; align-items: flex-end; gap: 3px; padding-top: 8px; }
   .h-tl i { flex: 1; min-height: 2px; transition: height .7s ease; background: linear-gradient(180deg, var(--hcy), rgba(94,231,255,.25)); border-radius: 2px 2px 0 0; opacity: .75; }
   .h-tl i:last-child { opacity: 1; animation: hnowbar 2.8s ease-in-out infinite; }
   @keyframes hnowbar { 0%, 100% { box-shadow: 0 0 6px rgba(94,231,255,.4); } 50% { box-shadow: 0 0 20px rgba(94,231,255,.95); } }
   .h-axis { display: flex; justify-content: space-between; color: var(--hdim); font-size: 10px; margin-top: 6px; flex: none; }
   .h-empty { color: var(--hdim); padding: 6px 0; }
-  .h-tl-wrap { display: flex; flex-direction: column; flex: 1; min-height: 0; }
-  @media (max-width: 980px) { .h-grid { grid-template-columns: 1fr; grid-template-rows: none; overflow-y: auto; } .h-tiles { grid-template-columns: repeat(2, 1fr); } #h-const { min-height: 280px; } }
+  @media (max-width: 980px) { .h-grid { grid-template-columns: 1fr; overflow-y: auto; } .h-strip { grid-template-columns: 1fr; } .h-tp { border-left: 0; border-top: 1px solid var(--hline); min-height: 110px; } .h-stats { grid-template-columns: repeat(3, 1fr); } #h-const { min-height: 280px; } }
   @media (prefers-reduced-motion: reduce) { .hud *, .hud *::before, .hud *::after { animation: none !important; } }
   body.solo { overflow: hidden; }
   body.solo .wrap, body.solo #toast, body.solo #keys { display: none; }
@@ -372,7 +411,7 @@
     background: var(--surface); color: var(--text); font: 12.5px/1.6 ui-monospace, Menlo, monospace; overflow-x: auto;
   }
   #error { color: var(--warn); font-size: 13px; margin-bottom: 16px; display: none; }
-  @media (prefers-reduced-motion: reduce) { .bar b, .card { transition: none; } .card.enter, .card.flash, .card.ask, .card.review, .av.live::after { animation: none; } .card.ask { box-shadow: 0 0 0 2px var(--warn); } .card.review { box-shadow: 0 0 0 2px var(--ok); } .card.livebar .bar::after { animation: none; opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) { .bar b, .card { transition: none; } .card.enter, .card.flash, .card.ask, .card.review, .av.live, .pres i, .col h2 .cnt.tick { animation: none; } .card.ask { box-shadow: 0 0 0 2px var(--warn); } .card.review { box-shadow: 0 0 0 2px var(--ok); } .card.livebar .bar::after { animation: none; opacity: 0; } }
 </style>
 </head>
 <body>
@@ -387,7 +426,6 @@
     <button class="btn" id="hud-btn" aria-controls="hud">HUD</button>
     <button class="btn" id="snd2" aria-label="Toggle sounds" aria-pressed="true"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M2.5 6v4h2.6L9 13V3L5.1 6H2.5z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M11.2 5.5a3.6 3.6 0 0 1 0 5M13 3.6a6 6 0 0 1 0 8.8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></button>
     <button class="btn" id="theme" aria-label="Color theme">Auto</button>
-    <button class="btn" id="new" aria-expanded="false" aria-controls="add">New task</button>
   </header>
 
   <form id="add">
@@ -416,6 +454,7 @@
     <div class="h-bar">
       <span class="h-title">AGENTBOARD <i>//</i> HUD</span>
       <span class="h-live">LIVE</span>
+      <span class="h-alerts" id="h-alerts"></span>
       <span class="h-ticker" id="h-ticker"></span>
       <span class="h-clock" id="h-clock"></span>
       <button class="h-btn" id="h-snd" aria-pressed="true" aria-label="Toggle sound cues (s)">SND ON</button>
@@ -424,12 +463,14 @@
       <button class="h-btn" id="h-full" aria-label="Toggle fullscreen (f)">Fullscreen</button>
       <button class="h-btn" id="h-close" aria-label="Close HUD (Esc)">Close</button>
     </div>
-    <div class="h-tiles" id="h-tiles"></div>
+    <div class="h-strip">
+      <div class="h-stats" id="h-tiles"></div>
+      <div class="h-tp"><div class="h-tp-head"><small>Throughput · 6h</small><span><b id="h-tp-total">0</b> events</span></div>
+        <div class="h-tl" id="h-tl"></div><div class="h-axis"><span>-6h</span><span>-3h</span><span>now</span></div></div>
+    </div>
     <div class="h-grid">
-      <section class="hp" style="grid-row:1"><h4>Agent constellation</h4><div id="h-const"></div></section>
-      <section class="hp" style="grid-row:1"><h4>Telemetry</h4><div class="h-scroll" id="h-tele"></div></section>
-      <section class="hp"><h4>Activity feed</h4><div class="h-scroll h-feed" id="h-feed" role="log"></div></section>
-      <section class="hp"><h4>Throughput, last 6 hours</h4><div class="h-tl-wrap"><div class="h-tl" id="h-tl"></div><div class="h-axis"><span>-6h</span><span>-3h</span><span>now</span></div></div></section>
+      <section class="hp"><h4>Agent constellation</h4><div id="h-const"></div></section>
+      <section class="hp"><h4>Telemetry</h4><div class="h-scroll" id="h-tele"></div></section>
     </div>
   </div>
 </div>
@@ -475,7 +516,8 @@ const COLUMNS = [['backlog', 'Later'], ['todo', 'Todo'], ['doing', 'Doing'], ['d
 const EMPTY = { backlog: '', todo: 'Nothing queued', doing: 'Nothing in progress', done: 'Nothing finished yet' };
 const STALE_MIN = 10, DONE_SHOWN = 5;
 let raw = '', tasks = [], dragging = null, showAllDone = false, tick = 0;
-const seen = new Set(), lastUpdated = new Map(); let firstRender = true;
+const seen = new Set(), lastUpdated = new Map(), lastPct = new Map(), lastCounts = {};
+let firstRender = true, justDropped = null;
 
 const $ = id => document.getElementById(id);
 const esc = s => { const d = document.createElement('div'); d.textContent = s ?? ''; return d.innerHTML; };
@@ -499,11 +541,14 @@ function card(t) {
   const checkIcon = done ? `<svg class="check" width="14" height="14" viewBox="0 0 16 16" fill="none" aria-label="Done"><path d="M3.5 8.5l3 3 6-7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>` : '';
   const when = a.text ? `<span class="when ${stale ? 'stale' : ''}">${stale ? 'no update ' : ''}${a.text}</span>` : '';
   const top = who ? `<div class="top">${checkIcon}${who}${when}</div>` : '';
-  const meta = !who && when ? `<div class="meta">${when}</div>` : '';
+  const todo = t.status === 'todo';
+  const laterBtn = todo ? `<button class="card-act" data-later="${esc(t.id)}" title="Move to Later (backlog)"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 3v7m0 0L5 7m3 3l3-3M3 13h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Later</button>` : '';
+  const queued = todo ? `<span class="when"><svg width="11" height="11" viewBox="0 0 16 16" fill="none" aria-hidden="true" style="vertical-align:-1px;margin-right:4px"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5"/><path d="M8 5v3l2 1.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>queued ${a.text}</span>` : when;
+  const meta = !who && (queued || laterBtn) ? `<div class="meta">${laterBtn}${queued}</div>` : '';
   const note = doing ? `<div class="note"><span title="${esc(t.status_text)}">${esc(t.status_text)}</span><span class="pct">${t.progress || 0}%</span></div>`
     : (done && t.result ? `<div class="note"><span title="${esc(t.result)}">${esc(t.result)}</span></div>` : '');
   const bar = doing
-    ? `<div class="bar" role="progressbar" aria-valuenow="${t.progress || 0}" aria-valuemin="0" aria-valuemax="100" aria-label="Progress"><b style="width:${t.progress || 0}%;background:${colorOf(t)}"></b></div>` : '';
+    ? `<div class="bar" role="progressbar" aria-valuenow="${t.progress || 0}" aria-valuemin="0" aria-valuemax="100" aria-label="Progress"><b style="width:${lastPct.has(t.id) ? lastPct.get(t.id) : t.progress || 0}%;background:${colorOf(t)}" data-to="${t.progress || 0}"></b></div>` : '';
   const desc = t.status === 'todo' || t.status === 'backlog'
     ? (t.description ? `<div class="desc">${esc(t.description)}</div>` : '') : '';
   const copy = cfg.dispatch && (t.status === 'todo' || doing) ? `<button class="copy">Copy prompt</button>` : '';
@@ -515,7 +560,7 @@ function card(t) {
   seen.add(t.id); lastUpdated.set(t.id, t.updated);
   return `<div class="card ${done ? 'done' : ''} ${asking ? 'ask' : ''} ${reviewing ? 'review' : ''} ${live && !asking && !reviewing ? 'livebar' : ''} ${fresh ? 'enter' : ''} ${flash ? 'flash' : ''}" style="--c:${colorOf(t)}" draggable="true" tabindex="0" data-id="${esc(t.id)}" data-status="${t.status}"
       aria-label="${esc(t.title)}, ${t.status}${asking ? ', needs your input' : reviewing ? ', ready for review' : ''}${t.agent ? ', ' + esc(t.agent) : ''}">
-    ${copy}${askFlag}${top}<div class="title">${esc(t.title)}</div>${desc}${note}${bar}${meta}${reviewing ? `<button class="btn markdone" data-done="${esc(t.id)}">Mark done</button>` : ''}</div>`;
+    ${copy}${askFlag}${top}${todo && t._q ? `<span class="qnum" aria-label="Queue position ${t._q}">${t._q}</span>` : ''}<div class="title">${esc(t.title)}</div>${desc}${note}${bar}${meta}${reviewing ? `<button class="btn markdone" data-done="${esc(t.id)}">Mark done</button>` : ''}</div>`;
 }
 
 function render() {
@@ -525,6 +570,7 @@ function render() {
   tasks.filter(t => !q || [t.title, t.agent, t.description, t.status_text].some(x => (x || '').toLowerCase().includes(q)))
     .forEach(t => by[t.status] && by[t.status].push(t));
   by.done.sort((a, b) => (b.updated || '').localeCompare(a.updated || ''));
+  by.todo.forEach((t, i) => { t._q = i + 1; });
   const pri = t => t.needs_input ? 2 : t.review ? 1 : 0;
   by.doing.sort((a, b) => pri(b) - pri(a));
 
@@ -532,6 +578,12 @@ function render() {
   $('board').style.display = tasks.length ? '' : 'none';
 
   const focusId = document.activeElement?.dataset?.id;
+  // FLIP: remember where every card was, so moves and reorders glide instead of snapping
+  const before = new Map();
+  if (!RM && !firstRender) $('board').querySelectorAll('.card').forEach(c => before.set(c.dataset.id, c.getBoundingClientRect()));
+  const activeNow = by.doing.filter(t => t.agent && !t.needs_input && !t.review && ago(t.updated).min < STALE_MIN);
+  const pres = [...new Map(activeNow.map(t => [t.agent, colorOf(t)])).entries()]
+    .map(([n, c]) => `<i style="--c:${c}" title="${esc(n)} is working"></i>`).join('');
   const cols = COLUMNS.filter(([k]) => k !== 'backlog');
   $('board').style.setProperty('--tracks', cols.map(([k]) => k === 'doing' ? 'minmax(0, 1.4fr)' : 'minmax(0, 1fr)').join(' '));
   $('board').innerHTML = cols.map(([k, label]) => {
@@ -542,8 +594,28 @@ function render() {
     }
     const body = list.length ? list.map(card).join('') : `<div class="empty">${q ? 'No matches' : EMPTY[k]}</div>`;
     const clr = k === 'done' && by.done.length ? `<button class="clear-done" id="clear-done" title="Archive all Done cards">Clear</button>` : '';
-    return `<section class="col ${k}" data-status="${k}"><h2>${label} <span>${by[k].length}</span>${clr}</h2><div class="cards">${body}</div>${more}</section>`;
+    const p = k === 'doing' && pres ? `<b class="pres" aria-hidden="true">${pres}</b>` : '';
+    return `<section class="col ${k}" data-status="${k}"><h2>${label} <span class="cnt">${by[k].length}</span>${p}${clr}</h2><div class="cards">${body}</div>${more}</section>`;
   }).join('');
+  // live counts: a brief tick when a column's count changes
+  if (!firstRender) $('board').querySelectorAll('.col').forEach(col => {
+    const k = col.dataset.status, n = by[k].length;
+    if (lastCounts[k] !== undefined && lastCounts[k] !== n) col.querySelector('.cnt')?.classList.add('tick');
+  });
+  COLUMNS.forEach(([k]) => { lastCounts[k] = by[k].length; });
+  // glide cards from their old position to the new one
+  before.forEach((r, id) => {
+    if (id === justDropped) return;                       // the user already moved this one by hand
+    const c = $('board').querySelector(`.card[data-id="${CSS.escape(id)}"]`); if (!c) return;
+    const n = c.getBoundingClientRect(), dx = r.left - n.left, dy = r.top - n.top;
+    if (Math.abs(dx) > 1 || Math.abs(dy) > 1)
+      c.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }], { duration: 420, easing: 'cubic-bezier(.2,.8,.2,1)' });
+  });
+  justDropped = null;
+  // progress bars ease from their last width to the new one
+  requestAnimationFrame(() => requestAnimationFrame(() =>
+    $('board').querySelectorAll('.bar b[data-to]').forEach(b => { b.style.width = b.dataset.to + '%'; })));
+  tasks.forEach(t => lastPct.set(t.id, t.progress || 0));
   firstRender = false;
   $('later-n').textContent = by.backlog.length ? '(' + by.backlog.length + ')' : '';
   renderLater(by.backlog);
@@ -632,7 +704,7 @@ $('theme').onclick = () => {
 
 
 // --- detail panel ---
-const LABELS = { backlog: 'Backlog', todo: 'Todo', doing: 'Doing', done: 'Done' };
+const LABELS = { backlog: 'Later', todo: 'Todo', doing: 'Doing', done: 'Done' };
 let cfg = { dispatch: false };
 let openId = null, detailRaw = '', lastFocus = null, promptOpen = false, promptText = '', delTimer = null;
 const stamp = iso => iso ? new Date(iso).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
@@ -652,7 +724,7 @@ function panelHtml(t) {
   const details = `<div class="p-sec"><h3>Details</h3><dl><dt>ID</dt><dd><code>${esc(t.id)}</code></dd><dt>Created</dt><dd>${stamp(t.created)}</dd><dt>Updated</dt><dd>${stamp(t.updated)}</dd>${ctx}</dl></div>`;
   const prompt = !cfg.dispatch ? '' : `<div class="p-sec"><details id="pd" ${promptOpen ? 'open' : ''}><summary>Prompt</summary><pre id="pre">${esc(promptText || 'Loading…')}</pre></details></div>`;
   const copy = cfg.dispatch && (t.status === 'todo' || doing) ? `<button class="btn" id="p-copy">Copy prompt</button>` : '';
-  const next = { doing: ['done', 'Mark done'], done: ['doing', 'Reopen'], backlog: ['todo', 'Move to Todo'] }[t.status];
+  const next = { doing: ['done', 'Mark done'], done: ['doing', 'Reopen'], backlog: ['todo', 'Move to Todo'], todo: ['backlog', 'Move to Later'] }[t.status];
   const mv = next ? `<button class="btn primary" id="p-move" data-to="${next[0]}">${next[1]}</button>` : '';
   return `<h2>${esc(t.title)}</h2>${who}${askC}${revC}${prog}${result}${desc}${tl}${details}${prompt}
     <div class="p-actions">${mv}${copy}<button class="btn danger" id="p-del">Delete</button></div>`;
@@ -705,7 +777,7 @@ function closePanel(skipFocus) {
 $('p-close').onclick = () => closePanel();
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && openId && !$('add').classList.contains('open')) closePanel(); });
 document.addEventListener('click', e => {
-  if (openId && !e.target.closest('#panel, .card, #new, #theme, #add, #toast')) closePanel();
+  if (openId && !e.target.closest('#panel, .card, #theme, #add, #toast')) closePanel();
   if ($('later').classList.contains('open') && !e.target.closest('#later, #later-btn, #toast, .card')) $('later').classList.remove('open');
 });
 $('p-body').addEventListener('toggle', e => {
@@ -936,7 +1008,7 @@ async function hudLoad() {
 }
 
 // ---- HUD rendering: incremental updates, so animations glide instead of restarting ----
-let feedTopKey = '', constKey = '', teleKey = '';
+let constKey = '', teleKey = '';
 const CW = 640, CH = 360, CCX = CW / 2, CCY = CH / 2;
 
 // Agents display grouped by color (hue order), then by name. Display only; data is untouched.
@@ -969,33 +1041,54 @@ function hudRender(d) {
     tk.dataset.k = tkHtml; tk.innerHTML = tkHtml;
     tk.classList.remove('tk'); void tk.offsetWidth; tk.classList.add('tk');
   }
-  renderTiles(d.totals);
+  renderTiles(d.totals, d.agents);
   if (SOLO) {
     const t0 = d.totals;
     document.title = (t0.waiting ? `⚠ ${t0.waiting} input · ` : '') + (t0.review ? `✓ ${t0.review} review · ` : '') + `HUD · ${t0.working} working`;
   }
   renderConst(d.agents);
   renderTele(d.agents);
-  renderFeed(d.events);
   renderTl(d.timeline);
 }
 
-function renderTiles(t) {
-  const tiles = [
-    ['Working', t.working, 'cy'], ['Done today', t.done_today, 'ok'], ['Queued', t.queued, ''],
-    [t.waiting ? 'Needs input' : t.review ? 'To review' : t.quiet ? 'Quiet' : 'Avg task time', t.waiting || t.review || (t.quiet ? t.quiet : (t.avg_minutes == null ? '—' : t.avg_minutes + 'm')), t.waiting ? 'warn' : t.review ? 'ok' : t.quiet ? 'warn' : ''],
-    ['Events today', t.events_today, '']
+function fmtMin(m) {
+  if (m == null) return '—';
+  if (m < 60) return `${Math.round(m * 10) / 10}<i>m</i>`;
+  const h = Math.floor(m / 60), r = Math.round(m % 60);
+  return `${h}<i>h</i> ${r}<i>m</i>`;
+}
+
+function renderTiles(t, agents) {
+  const busy = agents.filter(a => a.state !== 'idle').length, total = agents.length;
+  const stats = [
+    ['Working', t.working, 'cy', total ? `${busy} of ${total} agent${total === 1 ? '' : 's'} active` : 'no agents yet', true],
+    ['Done today', t.done_today, 'ok', 'signed off'],
+    ['Queued', t.queued, '', 'waiting in Todo'],
+    ['Avg task', fmtMin(t.avg_minutes), '', 'start to done'],
+    ['Events', t.events_today, '', 'today'],
   ];
   const box = $('h-tiles');
-  if (box.children.length !== tiles.length)
-    box.innerHTML = tiles.map(() => `<div class="h-tile"><small></small><b></b></div>`).join('');
-  tiles.forEach(([l, v, c], i) => {
-    const el = box.children[i], b = el.lastElementChild, sm = el.firstElementChild;
-    if (sm.textContent !== l) sm.textContent = l;
-    const changed = b.textContent !== String(v);
+  if (box.children.length !== stats.length)
+    box.innerHTML = stats.map(([, , , , ring]) => `<div class="h-stat"><small></small><div class="v"><b></b>${ring
+      ? `<svg class="h-ring" width="30" height="30" viewBox="0 0 30 30" aria-hidden="true"><circle class="trk" cx="15" cy="15" r="12"/><circle class="val" cx="15" cy="15" r="12" stroke-dasharray="0 76"/></svg>` : ''}</div><em></em></div>`).join('');
+  stats.forEach(([l, v, c, sub, ring], i) => {
+    const el = box.children[i], b = el.querySelector('b');
+    el.querySelector('small').textContent = l;
+    el.querySelector('em').textContent = sub;
     b.className = c;
-    if (changed) { b.textContent = v; void b.offsetWidth; b.classList.add('tick'); }
+    if (b.innerHTML !== String(v)) { b.innerHTML = v; b.classList.remove('tick'); void b.offsetWidth; b.classList.add('tick'); }
+    if (ring) {
+      const C = 2 * Math.PI * 12, f = total ? busy / total : 0;
+      el.querySelector('.val').setAttribute('stroke-dasharray', `${(C * f).toFixed(1)} ${C.toFixed(1)}`);
+    }
   });
+  const chips = [
+    t.waiting ? ['warn', `⚠ ${t.waiting} needs input`] : null,
+    t.review ? ['ok', `✓ ${t.review} to review`] : null,
+    t.quiet ? ['dim', `${t.quiet} quiet`] : null,
+  ].filter(Boolean);
+  const html = chips.map(([c, txt]) => `<span class="h-chip ${c}">${txt}</span>`).join('');
+  if ($('h-alerts').innerHTML !== html) $('h-alerts').innerHTML = html;
 }
 
 function spark(vals, c) {
@@ -1028,8 +1121,8 @@ function renderConst(agents) {
   if (key !== constKey) {       // only when the set of agents changes do nodes re-lay-out
     constKey = key;
     grp.innerHTML = agents.map((a, i) => {
-      const { x, y, above } = nodePos(i, agents.length), ly = above ? -34 : 38, X = x.toFixed(1), Y = y.toFixed(1);
-      const orb = RM ? '' : `<g class="c-orb"><circle cx="${X}" cy="${(y - 26).toFixed(1)}" r="2.2" style="fill:var(--c)" opacity=".9"><animateTransform attributeName="transform" type="rotate" from="0 ${X} ${Y}" to="360 ${X} ${Y}" dur="7s" repeatCount="indefinite"/></circle></g>`;
+      const { x, y, above } = nodePos(i, agents.length), ly = above ? -46 : 44, X = x.toFixed(1), Y = y.toFixed(1);
+      const orb = RM ? '' : `<g class="c-orb"><circle cx="${X}" cy="${(y - 23).toFixed(1)}" r="2.2" style="fill:var(--c)" opacity=".9"><animateTransform attributeName="transform" type="rotate" from="0 ${X} ${Y}" to="360 ${X} ${Y}" dur="7s" repeatCount="indefinite"/></circle></g>`;
       return `<g class="c-node" data-agent="${hh(a.name)}"><title></title>
         <line class="c-link" x1="${CCX}" y1="${CCY}" x2="${X}" y2="${Y}"/>
         <circle class="c-pulse" cx="${X}" cy="${Y}" r="17"/>
@@ -1081,29 +1174,11 @@ function renderTele(agents) {
   });
 }
 
-function renderFeed(events) {
-  const box = $('h-feed'), key = e => e.at + '|' + (e.agent || '') + '|' + e.text;
-  if (!events.length) { box.innerHTML = `<div class="h-empty">Waiting for activity…</div>`; feedTopKey = ''; return; }
-  const row = (e, fresh) => {
-    const c = hudColor(e.color), tm = new Date(e.at).toLocaleTimeString([], { hour12: false });
-    return `<div class="h-ev ${fresh ? 'new' : ''}" style="--c:${e.agent ? c : '#5a6d82'}"><time>${tm}</time><span class="d"></span>
-      <span class="who">${hh(e.agent || 'board')}</span><span class="tx" title="${hh(e.title)}">${hh(e.text)} <span class="pc">· ${hh(clip(e.title, 28))}</span></span>
-      <span class="pc">${e.status === 'doing' ? e.progress + '%' : ''}</span></div>`;
-  };
-  const idx = feedTopKey ? events.findIndex(e => key(e) === feedTopKey) : -1;
-  if (idx === 0) return;                                           // nothing new
-  if (idx === -1) box.innerHTML = events.slice(0, 40).map(e => row(e, false)).join('');
-  else {
-    box.insertAdjacentHTML('afterbegin', events.slice(0, idx).map(e => row(e, true)).join(''));
-    while (box.children.length > 40) box.lastElementChild.remove();
-  }
-  feedTopKey = key(events[0]);
-}
-
 function renderTl(tl) {
   const box = $('h-tl');
   if (box.children.length !== tl.length) box.innerHTML = tl.map(() => '<i></i>').join('');
   const max = Math.max(1, ...tl);
+  $('h-tp-total').textContent = tl.reduce((a, b) => a + b, 0);
   tl.forEach((v, i) => {
     const el = box.children[i], h = Math.max(2, Math.round(v / max * 100)) + '%';
     if (el.style.height !== h) el.style.height = h;
@@ -1175,7 +1250,7 @@ document.addEventListener('keydown', e => {
   if (e.altKey) return;
   if (hudIsOpen()) { if (e.key === 'f') toggleHudFull(); else if (e.key === 's') $('h-snd').click(); else if (e.key === 'h') closeHud(); return; }
   if (e.key === '?') { $('keys').classList.toggle('on'); return; }
-  if (e.key === 'n') { e.preventDefault(); if (!$('add').classList.contains('open')) $('new').click(); else $('title').focus(); return; }
+  if (e.key === 'n') { e.preventDefault(); toggleAdd(true); return; }
   if (e.key === 'l') { $('later-btn').click(); return; }
   if (e.key === 'h') { $('hud-btn').click(); return; }
   const map = { ArrowDown: 'down', j: 'down', ArrowUp: 'up', k: 'up', ArrowLeft: 'left', ArrowRight: 'right' };
@@ -1203,18 +1278,18 @@ function checkAsks() {
 ['pointerdown', 'keydown'].forEach(e => document.addEventListener(e, () => { if (sndOn) ac(); }, { once: true, capture: true }));
 
 // --- new task ---
-$('new').onclick = () => {
-  const open = !$('add').classList.toggle('open');
-  $('new').setAttribute('aria-expanded', String(!open));
-  if (!open) $('title').focus();
-};
+function toggleAdd(open) {
+  const on = open ?? !$('add').classList.contains('open');
+  $('add').classList.toggle('open', on);
+  if (on) $('title').focus();
+}
 $('add').onsubmit = async e => {
   e.preventDefault();
   try { await api('/api/tasks', { title: $('title').value, status: $('add-status').value }); $('title').value = ''; showError(''); }
   catch (err) { showError('Could not add task: ' + err.message); }
   raw = ''; load();
 };
-$('title').onkeydown = e => { if (e.key === 'Escape') $('new').click(); };
+$('title').onkeydown = e => { if (e.key === 'Escape') { toggleAdd(false); $('title').blur(); } };
 
 // --- card actions ---
 $('board').addEventListener('click', async e => {
@@ -1227,6 +1302,8 @@ $('board').addEventListener('click', async e => {
     } catch (err) { showError('Could not clear: ' + err.message); }
     raw = ''; load(); return;
   }
+  const lb = e.target.closest('[data-later]');
+  if (lb) { move(lb.dataset.later, 'backlog'); return; }
   const md = e.target.closest('[data-done]');
   if (md) { move(md.dataset.done, 'done'); return; }
   const w = e.target.closest('.who');
@@ -1295,7 +1372,7 @@ board.addEventListener('drop', e => {
   const col = e.target.closest('.col'); if (!dragging || !col) return;
   e.preventDefault();
   const id = dragging, b = beforeCard(col, e.clientY);
-  clearDrop(); dragging = null;
+  clearDrop(); dragging = null; justDropped = id;
   move(id, col.dataset.status, b?.dataset.id);
 });
 
