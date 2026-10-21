@@ -1,0 +1,141 @@
+"""Local HTTP server: serves the board UI and a small JSON API. Localhost only."""
+import json
+import threading
+import webbrowser
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+from urllib.parse import parse_qs, urlparse
+
+from . import hud
+from . import prompt as promptlib
+from .store import BoardError, Store
+
+STATIC = Path(__file__).parent / "static"
+MAX_BODY = 1_000_000
+
+
+def make_handler(store, port):
+    allowed_hosts = {f"localhost:{port}", f"127.0.0.1:{port}"}
+
+    class Handler(BaseHTTPRequestHandler):
+        server_version = "agentboard"
+
+        def log_message(self, *args):
+            pass
+
+        # -- plumbing ------------------------------------------------------
+        def _send(self, code, body, ctype="application/json"):
+            raw = body if isinstance(body, bytes) else json.dumps(body).encode()
+            self.send_response(code)
+            self.send_header("Content-Type", ctype)
+            self.send_header("Content-Length", str(len(raw)))
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            self.wfile.write(raw)
+
+        def _host_ok(self):
+            # blocks DNS-rebinding: only our own localhost origin may talk to us
+            return self.headers.get("Host") in allowed_hosts
+
+        def _json_body(self):
+            n = int(self.headers.get("Content-Length") or 0)
+            if n > MAX_BODY:
+                raise BoardError("body too large")
+            return json.loads(self.rfile.read(n) or b"{}")
+
+        def _guard(self, post=False):
+            if not self._host_ok():
+                self._send(403, {"error": "bad host"})
+                return False
+            if post:
+                origin = self.headers.get("Origin")
+                if origin and origin.split("://", 1)[-1] not in allowed_hosts:
+                    self._send(403, {"error": "bad origin"})
+                    return False
+                if "application/json" not in (self.headers.get("Content-Type") or ""):
+                    self._send(415, {"error": "json required"})
+                    return False
+            return True
+
+        # -- routes --------------------------------------------------------
+        def do_GET(self):
+            if not self._guard():
+                return
+            url = urlparse(self.path)
+            q = parse_qs(url.query)
+            try:
+                self._route_get(url, q)
+            except BoardError as e:
+                self._send(500, {"error": str(e)})
+
+        def _route_get(self, url, q):
+            if url.path in ("/", "/index.html", "/hud"):
+                self._send(200, (STATIC / "index.html").read_bytes(), "text/html; charset=utf-8")
+            elif url.path == "/api/tasks":
+                # list view stays light; history and prompt come from /api/task
+                slim = [{k: v for k, v in t.items() if k not in ("log", "prompt")} for t in store.load()]
+                self._send(200, {"tasks": slim})
+            elif url.path == "/api/hud":
+                self._send(200, hud.build(store.load()))
+            elif url.path == "/api/config":
+                ui = promptlib.load_config(store.dir).get("ui", {})
+                self._send(200, {"dispatch": bool(ui.get("dispatch", True))})
+            elif url.path == "/api/task":
+                try:
+                    self._send(200, Store.get(store.load(), (q.get("id") or [""])[0]))
+                except BoardError as e:
+                    self._send(404, {"error": str(e)})
+            elif url.path == "/api/prompt":
+                try:
+                    task = Store.get(store.load(), (q.get("id") or [""])[0])
+                    text, warnings = promptlib.build_prompt(task, store.dir, public=False)
+                    self._send(200, {"prompt": text, "warnings": warnings})
+                except BoardError as e:
+                    self._send(404, {"error": str(e)})
+            else:
+                self._send(404, {"error": "not found"})
+
+        def do_POST(self):
+            if not self._guard(post=True):
+                return
+            try:
+                body = self._json_body()
+                path = urlparse(self.path).path
+                if path == "/api/tasks":
+                    t = store.add(body["title"], body.get("description", ""),
+                                  body.get("status", "backlog"), body.get("ctx", []))
+                    self._send(200, t)
+                elif path == "/api/move":
+                    prev = Store.get(store.load(), body["id"])
+                    prev_before = store.next_sibling(body["id"])
+                    moved = store.move(body["id"], body["status"], body.get("before"))
+                    self._send(200, {"task": moved, "prev": prev, "prev_before": prev_before})
+                elif path == "/api/restore":
+                    self._send(200, store.restore(body["task"], body.get("before")))
+                elif path == "/api/color":
+                    self._send(200, store.set_agent_color(body["id"], body["color"]))
+                elif path == "/api/delete":
+                    store.delete(body["id"])
+                    self._send(200, {"ok": True})
+                else:
+                    self._send(404, {"error": "not found"})
+            except (BoardError, KeyError, ValueError) as e:
+                self._send(400, {"error": str(e) or e.__class__.__name__})
+
+    return Handler
+
+
+def serve(store, port=8765, open_browser=True):
+    try:
+        srv = ThreadingHTTPServer(("127.0.0.1", port), make_handler(store, port))
+    except OSError as e:
+        raise SystemExit(f"agentboard: cannot listen on port {port} ({e.strerror}); "
+                         f"is another board running? Try --port {port + 1}")
+    url = f"http://localhost:{port}/"
+    print(f"agentboard: {url}\n  board: {store.dir}\n  Ctrl+C to stop")
+    if open_browser:
+        threading.Timer(0.3, webbrowser.open, args=(url,)).start()
+    try:
+        srv.serve_forever()
+    except KeyboardInterrupt:
+        pass
