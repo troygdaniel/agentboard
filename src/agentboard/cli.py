@@ -67,6 +67,8 @@ def cmd_add(a):
 
 def cmd_list(a):
     for t in _store().load():
+        if t.get("archived") and not a.all:
+            continue
         if a.status and t["status"] != a.status:
             continue
         who = f"  [{t['agent']}]" if t.get("agent") else ""
@@ -181,6 +183,10 @@ def _demo_live(s, minutes):
         pass
 
 
+def cmd_clear(a):
+    print(f"archived {len(_store().clear_done())} done task(s)")
+
+
 def cmd_rm(a):
     s = _store()
     ids = [t["id"] for t in s.load() if t["id"].startswith("demo-")] if a.demo else [a.id]
@@ -258,6 +264,8 @@ def main(argv=None):
     sp.add_argument("--id")
     sp = add("list", cmd_list, "list tasks")
     sp.add_argument("--status")
+    sp.add_argument("--all", action="store_true", help="include archived tasks")
+    add("clear", cmd_clear, "archive all Done tasks (kept for history and the HUD)")
     sp = add("start", cmd_start, "agent: announce new work (creates a task in doing, prints its id)")
     sp.add_argument("title")
     sp.add_argument("-d", "--description")

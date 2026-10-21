@@ -96,6 +96,8 @@
   }
   .col h2 span { background: var(--chip); border-radius: 999px; padding: 0 7px; font-size: 11px; line-height: 18px; font-variant-numeric: tabular-nums; }
   .col.doing h2 { color: var(--text); }
+  .clear-done { margin-left: auto; background: none; border: 0; color: var(--muted); font: inherit; font-size: 12px; cursor: pointer; padding: 2px 6px; border-radius: 6px; }
+  .clear-done:hover { color: var(--text); background: var(--chip); }
   .col.over .cards { outline: 1px dashed var(--line); outline-offset: 4px; border-radius: 10px; }
   .cards { display: flex; flex-direction: column; gap: 10px; min-height: 48px; }
 
@@ -539,7 +541,8 @@ function render() {
       list = list.slice(0, DONE_SHOWN);
     }
     const body = list.length ? list.map(card).join('') : `<div class="empty">${q ? 'No matches' : EMPTY[k]}</div>`;
-    return `<section class="col ${k}" data-status="${k}"><h2>${label} <span>${by[k].length}</span></h2><div class="cards">${body}</div>${more}</section>`;
+    const clr = k === 'done' && by.done.length ? `<button class="clear-done" id="clear-done" title="Archive all Done cards">Clear</button>` : '';
+    return `<section class="col ${k}" data-status="${k}"><h2>${label} <span>${by[k].length}</span>${clr}</h2><div class="cards">${body}</div>${more}</section>`;
   }).join('');
   firstRender = false;
   $('later-n').textContent = by.backlog.length ? '(' + by.backlog.length + ')' : '';
@@ -592,7 +595,11 @@ function toast(text, undo) {
 }
 $('toast-undo').onclick = async () => {
   const u = undoInfo; $('toast').classList.remove('on'); if (!u) return;
-  try { await api('/api/restore', { task: u.prev, before: u.before }); showError(''); }
+  try {
+    if (u.ids) await api('/api/unarchive', { ids: u.ids });
+    else await api('/api/restore', { task: u.prev, before: u.before });
+    showError('');
+  }
   catch (e) { showError('Could not undo: ' + e.message); }
   raw = ''; detailRaw = ''; load();
 };
@@ -932,7 +939,29 @@ async function hudLoad() {
 let feedTopKey = '', constKey = '', teleKey = '';
 const CW = 640, CH = 360, CCX = CW / 2, CCY = CH / 2;
 
+// Agents display grouped by color (hue order), then by name. Display only; data is untouched.
+const colorCtx = document.createElement('canvas').getContext('2d');
+const hueCache = new Map();
+function hueOf(c) {
+  if (!c) return 1000;                                   // no color: last
+  if (hueCache.has(c)) return hueCache.get(c);
+  colorCtx.fillStyle = '#000'; colorCtx.fillStyle = c;   // normalizes names, hex, rgb()
+  const m = /^#([0-9a-f]{6})$/i.exec(colorCtx.fillStyle);
+  let h = 999;                                           // unparseable: just before "no color"
+  if (m) {
+    const n = parseInt(m[1], 16), r = (n >> 16) / 255, g = (n >> 8 & 255) / 255, b = (n & 255) / 255;
+    const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
+    if (d < .08) h = 900 + (1 - max);                    // greys after colors, light to dark
+    else h = (max === r ? ((g - b) / d + 6) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4) * 60;
+  }
+  hueCache.set(c, h);
+  return h;
+}
+const byColorThenName = (a, b) =>
+  hueOf(a.color) - hueOf(b.color) || a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+
 function hudRender(d) {
+  d.agents = [...d.agents].sort(byColorThenName);
   hudSounds(d);
   const ev = d.events[0], tk = $('h-ticker');
   const tkHtml = ev ? `<b>${hh(ev.agent || 'board')}</b> · ${hh(clip(ev.text, 46))} · ${new Date(ev.at).toLocaleTimeString([], { hour12: false })}` : '';
@@ -1190,6 +1219,14 @@ $('title').onkeydown = e => { if (e.key === 'Escape') $('new').click(); };
 // --- card actions ---
 $('board').addEventListener('click', async e => {
   if (e.target.id === 'more') { showAllDone = true; return render(); }
+  if (e.target.id === 'clear-done') {
+    try {
+      const r = await api('/api/clear-done', {});
+      if (r.ids.length) toast(`Cleared ${r.ids.length} done task${r.ids.length === 1 ? '' : 's'}`, { ids: r.ids });
+      showError('');
+    } catch (err) { showError('Could not clear: ' + err.message); }
+    raw = ''; load(); return;
+  }
   const md = e.target.closest('[data-done]');
   if (md) { move(md.dataset.done, 'done'); return; }
   const w = e.target.closest('.who');

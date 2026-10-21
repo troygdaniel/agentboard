@@ -225,6 +225,21 @@ class Store:
             _insert(tasks, snap, before_id)
             return snap
 
+    def clear_done(self):
+        """Archive every Done task: hidden from the board, kept for history and the HUD."""
+        with self.transaction() as tasks:
+            ids = [t["id"] for t in tasks if t["status"] == "done" and not t.get("archived")]
+            for t in tasks:
+                if t["id"] in ids:
+                    t["archived"] = True
+            return ids
+
+    def unarchive(self, ids):
+        with self.transaction() as tasks:
+            for t in tasks:
+                if t["id"] in ids:
+                    t.pop("archived", None)
+
     def set_agent_color(self, task_id, color):
         with self.transaction() as tasks:
             t = self.get(tasks, task_id)

@@ -170,3 +170,19 @@ class ReviewTests(unittest.TestCase):
             self.assertNotIn("review", t)
             self.assertEqual(t["result"], "All tests green")
             self.assertEqual(hud.build(s.load())["totals"]["done_today"], 1)
+
+
+class ClearTests(unittest.TestCase):
+    def test_clear_archives_done_and_unarchive_restores(self):
+        from agentboard import hud
+        with tempfile.TemporaryDirectory() as d:
+            s = Store(Path(d) / ".agentboard")
+            s.start("A", "atlas")
+            s.review("a", "ok")
+            s.move("a", "done")
+            s.add("B", status="todo")
+            self.assertEqual(s.clear_done(), ["a"])
+            self.assertTrue(Store.get(s.load(), "a")["archived"])
+            self.assertEqual(hud.build(s.load())["totals"]["done_today"], 1)   # HUD still counts it
+            s.unarchive(["a"])
+            self.assertNotIn("archived", Store.get(s.load(), "a"))

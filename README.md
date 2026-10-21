@@ -32,7 +32,8 @@ automatically when the agent posts its next update. Use your agent's own session
 
 ## The board
 
-- Columns: Todo, Doing, Done, plus a "Later" drawer (`l`) for parked ideas.
+- Columns: Todo, Doing, Done, plus a "Later" drawer (`l`) for parked ideas. **Clear** on Done
+  archives finished cards (undoable; history and HUD counts are kept).
 - Cards show agent, progress with a live sheen, one-line status, and time since last update;
   a Doing card silent for 10 minutes turns amber.
 - **Needs input** cards pulse amber with the agent's question; **ready for review** cards pulse
@@ -63,7 +64,7 @@ Prompts are assembled from **providers** configured in `.agentboard/config.toml`
 
 ## Commands
 
-For you: `init`, `serve`, `add`, `list`, `rm`, `demo [--live]`, `prompt`, `rebuild`, `instructions`.
+For you: `init`, `serve`, `add`, `list`, `clear`, `rm`, `demo [--live]`, `prompt`, `rebuild`, `instructions`.
 For agents: `start`, `claim`, `update`, `ask`, `review`, `done` (user-approved only).
 
 ## Security

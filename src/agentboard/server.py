@@ -73,7 +73,8 @@ def make_handler(store, port):
                 self._send(200, (STATIC / "index.html").read_bytes(), "text/html; charset=utf-8")
             elif url.path == "/api/tasks":
                 # list view stays light; history and prompt come from /api/task
-                slim = [{k: v for k, v in t.items() if k not in ("log", "prompt")} for t in store.load()]
+                slim = [{k: v for k, v in t.items() if k not in ("log", "prompt")}
+                        for t in store.load() if not t.get("archived")]
                 self._send(200, {"tasks": slim})
             elif url.path == "/api/hud":
                 self._send(200, hud.build(store.load()))
@@ -112,6 +113,11 @@ def make_handler(store, port):
                     self._send(200, {"task": moved, "prev": prev, "prev_before": prev_before})
                 elif path == "/api/restore":
                     self._send(200, store.restore(body["task"], body.get("before")))
+                elif path == "/api/clear-done":
+                    self._send(200, {"ids": store.clear_done()})
+                elif path == "/api/unarchive":
+                    store.unarchive(body["ids"])
+                    self._send(200, {"ok": True})
                 elif path == "/api/color":
                     self._send(200, store.set_agent_color(body["id"], body["color"]))
                 elif path == "/api/delete":
