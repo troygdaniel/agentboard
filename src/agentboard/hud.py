@@ -65,12 +65,14 @@ def build(tasks, now=None, feed_limit=60):
         state = ("waiting" if asking else "review" if reviewing else
                  "idle" if not doing else ("quiet" if quiet else "working"))
         times = [_t(e["at"]) for e in events if e["agent"] == name]
+        began = next((e["at"] for e in cur.get("log", []) if e.get("status") == "doing" and _t(e.get("at"))),
+                     cur.get("created"))
         agents.append({
             "name": name, "color": next((t.get("color") for t in ts if t.get("color")), None),
             "state": state,
             "question": cur.get("question", ""),
             "task": cur["title"], "task_id": cur["id"], "progress": cur.get("progress", 0),
-            "status_text": cur.get("status_text", ""), "updated": cur.get("updated"),
+            "status_text": cur.get("status_text", ""), "updated": cur.get("updated"), "started": began,
             "done": sum(1 for t in ts if t["status"] == "done"),
             "spark": _bucket([x for x in times if x], now, SPARK_BUCKETS, SPARK_MIN),
         })

@@ -135,6 +135,7 @@ class HudTests(unittest.TestCase):
             self.assertIn("Added to todo", [e["text"] for e in h["events"]])
             self.assertEqual(sum(h["timeline"]), 5)
             self.assertEqual(sum(h["agents"][0]["spark"]), 2)
+            self.assertTrue(all(a["started"] for a in h["agents"]))   # elapsed-time source for the constellation
 
 
 class AskTests(unittest.TestCase):

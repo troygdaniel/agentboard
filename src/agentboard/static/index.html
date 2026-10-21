@@ -302,6 +302,13 @@
   .c-node.waiting .c-pulse { stroke: var(--hwarn); animation-duration: 1.6s; }
   .c-node.waiting .c-core { stroke-dasharray: 0; }
   .c-name { fill: var(--htext); font-size: 15px; letter-spacing: .06em; } .c-sub { fill: var(--hdim); font-size: 12px; }
+  .c-trk { fill: none; stroke: rgba(110,190,255,.16); stroke-width: 2.5; }
+  .c-arc { fill: none; stroke: var(--sc, var(--c)); stroke-width: 2.5; stroke-linecap: round; transition: stroke-dasharray .7s ease; filter: drop-shadow(0 0 3px var(--sc, var(--c))); }
+  .c-glyph { fill: #e6f4ff; font-size: 15px; font-weight: 600; }
+  .c-node.waiting .c-glyph { fill: var(--hwarn); } .c-node.review .c-glyph { fill: var(--hok); }
+  .c-el { fill: var(--hdim); font-size: 12px; letter-spacing: 0; }
+  .c-node.waiting .c-sub { fill: var(--hwarn); } .c-node.review .c-sub, .c-node.quiet .c-sub { fill: var(--hok); }
+  .c-node.quiet .c-sub, .c-node.quiet .c-el { fill: var(--hwarn); }
   .c-hub { fill: var(--hcy); filter: drop-shadow(0 0 8px var(--hcy)); }
   .c-hubw { transform-box: fill-box; transform-origin: center; animation: hbreathe 4.5s ease-in-out infinite; }
   @keyframes hbreathe { 50% { transform: scale(1.22); } }
@@ -384,11 +391,8 @@
   #later { width: min(400px, 100vw); }
   .later-add { display: flex; gap: 8px; margin-bottom: 18px; }
   .later-add input { flex: 1; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 6px 12px; min-height: 32px; }
-  .later-item { display: flex; align-items: flex-start; gap: 12px; padding: 12px 0; border-top: 1px solid var(--line); }
-  .later-item .txt { flex: 1; min-width: 0; cursor: pointer; }
-  .later-item .txt b { font-weight: 500; display: block; overflow-wrap: anywhere; }
-  .later-item .txt span { color: var(--muted); font-size: 12.5px; display: block; overflow-wrap: anywhere; }
-  .later-item .btn { font-size: 12px; min-height: 28px; padding: 3px 10px; white-space: nowrap; }
+  #later .cards { gap: 10px; }
+  #later .card[data-status="backlog"] { cursor: pointer; }
   #keys { position: fixed; inset: 0; z-index: 40; display: none; place-items: center; background: rgba(0,0,0,.35); }
   #keys.on { display: grid; }
   #keys .sheet { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 22px 26px; width: min(420px, calc(100vw - 32px)); box-shadow: 0 20px 60px rgba(0,0,0,.35); }
@@ -541,10 +545,11 @@ function card(t) {
   const checkIcon = done ? `<svg class="check" width="14" height="14" viewBox="0 0 16 16" fill="none" aria-label="Done"><path d="M3.5 8.5l3 3 6-7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>` : '';
   const when = a.text ? `<span class="when ${stale ? 'stale' : ''}">${stale ? 'no update ' : ''}${a.text}</span>` : '';
   const top = who ? `<div class="top">${checkIcon}${who}${when}</div>` : '';
-  const todo = t.status === 'todo';
+  const todo = t.status === 'todo', backlog = t.status === 'backlog';
   const laterBtn = todo ? `<button class="card-act" data-later="${esc(t.id)}" title="Move to Later (backlog)"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 3v7m0 0L5 7m3 3l3-3M3 13h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Later</button>` : '';
+  const toTodoBtn = backlog ? `<button class="card-act" data-to-todo="${esc(t.id)}" title="Move to Todo"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 13V6m0 0L5 9m3-3l3 3M3 3h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Move to Todo</button>` : '';
   const queued = todo ? `<span class="when"><svg width="11" height="11" viewBox="0 0 16 16" fill="none" aria-hidden="true" style="vertical-align:-1px;margin-right:4px"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5"/><path d="M8 5v3l2 1.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>queued ${a.text}</span>` : when;
-  const meta = !who && (queued || laterBtn) ? `<div class="meta">${laterBtn}${queued}</div>` : '';
+  const meta = !who && (queued || laterBtn || toTodoBtn) ? `<div class="meta">${laterBtn}${toTodoBtn}${queued}</div>` : '';
   const note = doing ? `<div class="note"><span title="${esc(t.status_text)}">${esc(t.status_text)}</span><span class="pct">${t.progress || 0}%</span></div>`
     : (done && t.result ? `<div class="note"><span title="${esc(t.result)}">${esc(t.result)}</span></div>` : '');
   const bar = doing
@@ -558,7 +563,7 @@ function card(t) {
   const fresh = !firstRender && !seen.has(t.id);
   const flash = !firstRender && seen.has(t.id) && lastUpdated.get(t.id) !== t.updated;
   seen.add(t.id); lastUpdated.set(t.id, t.updated);
-  return `<div class="card ${done ? 'done' : ''} ${asking ? 'ask' : ''} ${reviewing ? 'review' : ''} ${live && !asking && !reviewing ? 'livebar' : ''} ${fresh ? 'enter' : ''} ${flash ? 'flash' : ''}" style="--c:${colorOf(t)}" draggable="true" tabindex="0" data-id="${esc(t.id)}" data-status="${t.status}"
+  return `<div class="card ${done ? 'done' : ''} ${asking ? 'ask' : ''} ${reviewing ? 'review' : ''} ${live && !asking && !reviewing ? 'livebar' : ''} ${fresh ? 'enter' : ''} ${flash ? 'flash' : ''}" style="--c:${colorOf(t)}" draggable="${backlog ? 'false' : 'true'}" tabindex="0" data-id="${esc(t.id)}" data-status="${t.status}"
       aria-label="${esc(t.title)}, ${t.status}${asking ? ', needs your input' : reviewing ? ', ready for review' : ''}${t.agent ? ', ' + esc(t.agent) : ''}">
     ${copy}${askFlag}${top}${todo && t._q ? `<span class="qnum" aria-label="Queue position ${t._q}">${t._q}</span>` : ''}<div class="title">${esc(t.title)}</div>${desc}${note}${bar}${meta}${reviewing ? `<button class="btn markdone" data-done="${esc(t.id)}">Mark done</button>` : ''}</div>`;
 }
@@ -1046,7 +1051,7 @@ function hudRender(d) {
     const t0 = d.totals;
     document.title = (t0.waiting ? `⚠ ${t0.waiting} input · ` : '') + (t0.review ? `✓ ${t0.review} review · ` : '') + `HUD · ${t0.working} working`;
   }
-  renderConst(d.agents);
+  renderConst(d.agents, d.totals);
   renderTele(d.agents);
   renderTl(d.timeline);
 }
@@ -1114,7 +1119,11 @@ function buildConstBase() {   // drawn once; the sweep and hub live here and are
     <text id="c-standby" class="c-sub" x="${CCX}" y="${CCY + 38}" text-anchor="middle" letter-spacing="3"></text></svg>`;
 }
 
-function renderConst(agents) {
+const ARC = 2 * Math.PI * 20.5;
+// Agents often share a colour, so the node carries the number in its name (AGENT-2 -> 2), else the initial.
+function nodeGlyph(n) { const m = /(\d{1,2})\s*$/.exec(n); return m ? m[1] : [...n][0].toUpperCase(); }
+
+function renderConst(agents, totals) {
   if (!$('h-const').firstElementChild) buildConstBase();
   const grp = document.getElementById('c-ngrp');
   const key = agents.map(a => a.name).join('|');
@@ -1122,28 +1131,39 @@ function renderConst(agents) {
     constKey = key;
     grp.innerHTML = agents.map((a, i) => {
       const { x, y, above } = nodePos(i, agents.length), ly = above ? -46 : 44, X = x.toFixed(1), Y = y.toFixed(1);
-      const orb = RM ? '' : `<g class="c-orb"><circle cx="${X}" cy="${(y - 23).toFixed(1)}" r="2.2" style="fill:var(--c)" opacity=".9"><animateTransform attributeName="transform" type="rotate" from="0 ${X} ${Y}" to="360 ${X} ${Y}" dur="7s" repeatCount="indefinite"/></circle></g>`;
+      const orb = RM ? '' : `<g class="c-orb"><circle cx="${X}" cy="${(y - 25).toFixed(1)}" r="2.2" style="fill:var(--c)" opacity=".9"><animateTransform attributeName="transform" type="rotate" from="0 ${X} ${Y}" to="360 ${X} ${Y}" dur="7s" repeatCount="indefinite"/></circle></g>`;
+      // the arc is progress; its colour is the *state* (amber = needs you, green = review), so it still reads when agents share a colour
       return `<g class="c-node" data-agent="${hh(a.name)}"><title></title>
         <line class="c-link" x1="${CCX}" y1="${CCY}" x2="${X}" y2="${Y}"/>
-        <circle class="c-pulse" cx="${X}" cy="${Y}" r="17"/>
+        <circle class="c-pulse" cx="${X}" cy="${Y}" r="19"/>
         <circle class="c-glow" cx="${X}" cy="${Y}" r="19" opacity=".5" filter="url(#gl)"/>
         ${orb}
-        <circle class="c-core" cx="${X}" cy="${Y}" r="17" fill="#06101a" stroke-width="2"/>
-        <text x="${X}" y="${(y + 4).toFixed(1)}" text-anchor="middle" font-size="14" fill="#e6f4ff">${hh([...a.name][0].toUpperCase())}</text>
-        <text class="c-name" x="${X}" y="${(y + ly).toFixed(1)}" text-anchor="middle">${hh(a.name)}</text>
+        <circle class="c-core" cx="${X}" cy="${Y}" r="16" fill="#06101a" stroke-width="2"/>
+        <circle class="c-trk" cx="${X}" cy="${Y}" r="20.5"/>
+        <circle class="c-arc" cx="${X}" cy="${Y}" r="20.5" transform="rotate(-90 ${X} ${Y})" stroke-dasharray="0 ${ARC.toFixed(1)}"/>
+        <text class="c-glyph" x="${X}" y="${(y + 5).toFixed(1)}" text-anchor="middle"></text>
+        <text class="c-name" x="${X}" y="${(y + ly).toFixed(1)}" text-anchor="middle">${hh(a.name)}<tspan class="c-el" dx="7"></tspan></text>
         <text class="c-sub" x="${X}" y="${(y + ly + 12).toFixed(1)}" text-anchor="middle"></text></g>`;
     }).join('');
   }
-  document.getElementById('c-standby').textContent = agents.length ? '' : 'STANDBY — AWAITING AGENTS';
+  const busy = agents.filter(a => a.state !== 'idle').length, q = totals ? totals.queued : 0;
+  document.getElementById('c-standby').textContent = agents.length ? `${busy}/${agents.length} ACTIVE${q ? ' · ' + q + ' QUEUED' : ''}` : 'STANDBY — AWAITING AGENTS';
   agents.forEach(a => {
     const g = grp.querySelector(`[data-agent="${CSS.escape(a.name)}"]`); if (!g) return;
-    const c = hudColor(a.color);
-    g.setAttribute('class', `c-node ${a.state}`); g.style.setProperty('--c', c);
+    const c = hudColor(a.color), sc = a.state === 'waiting' || a.state === 'quiet' ? 'var(--hwarn)' : a.state === 'review' ? 'var(--hok)' : c;
+    const live = a.state !== 'idle', pct = Math.max(0, Math.min(100, a.progress || 0));
+    g.setAttribute('class', `c-node ${a.state}`); g.style.setProperty('--c', c); g.style.setProperty('--sc', sc);
     g.querySelector('.c-link').setAttribute('class', `c-link ${a.state === 'working' ? 'flow' : ''}`);
-    g.querySelector('.c-glow').setAttribute('fill', c);
-    g.querySelector('.c-core').setAttribute('stroke', c);
-    g.querySelector('title').textContent = `${a.name} — ${a.task} (${a.progress}%)`;
-    g.querySelector('.c-sub').textContent = a.state === 'waiting' ? 'needs input' : a.state === 'review' ? 'ready for review' : (a.state === 'idle' ? 'idle' : clip(a.task, 24) + ' · ' + a.progress + '%');
+    g.querySelector('.c-glow').setAttribute('fill', sc);
+    g.querySelector('.c-core').setAttribute('stroke', sc);
+    g.querySelector('.c-arc').setAttribute('stroke-dasharray', `${(ARC * (live ? pct : 0) / 100).toFixed(1)} ${ARC.toFixed(1)}`);
+    g.querySelector('.c-glyph').textContent = a.state === 'waiting' ? '!' : a.state === 'review' ? '✓' : nodeGlyph(a.name);
+    const mins = live && a.started ? ago(a.started).min : null;
+    g.querySelector('.c-el').textContent = mins == null ? '' : mins < 60 ? mins + 'm' : Math.floor(mins / 60) + 'h' + String(mins % 60).padStart(2, '0');
+    g.querySelector('title').textContent = `${a.name} — ${a.task} (${a.progress}%)${a.status_text ? ' · ' + a.status_text : ''}${a.question ? ' · asks: ' + a.question : ''}`;
+    g.querySelector('.c-sub').textContent = a.state === 'waiting' ? '⚠ ' + clip(a.question || 'needs input', 22)
+      : a.state === 'review' ? '✓ ' + clip(a.task, 22)
+      : a.state === 'idle' ? 'idle' : (a.state === 'quiet' ? 'quiet · ' : '') + clip(a.task, a.state === 'quiet' ? 16 : 26);
   });
 }
 
@@ -1154,7 +1174,7 @@ function renderTele(agents) {
   if (key !== teleKey) {
     teleKey = key;
     box.innerHTML = agents.map(a => `<div class="h-row" data-agent="${hh(a.name)}">
-      <span class="h-av">${hh([...a.name][0].toUpperCase())}</span>
+      <span class="h-av">${hh(nodeGlyph(a.name))}</span>
       <div style="min-width:0"><div class="h-name">${hh(a.name)}<em></em></div><span class="h-task"></span></div>
       <div class="h-prgw"><div class="h-prog"><b></b></div><span class="h-pct"></span></div>
       <span class="h-spk"></span>
@@ -1193,7 +1213,7 @@ function renderLater(list) {
   const typed = document.getElementById('later-input')?.value || '';
   const hadFocus = document.activeElement?.id === 'later-input';
   body.innerHTML = `<form class="later-add" id="later-form"><input id="later-input" placeholder="Park an idea…" aria-label="Park an idea" required><button class="btn primary">Add</button></form>` +
-    (list.length ? list.map(t => `<div class="later-item" data-id="${esc(t.id)}"><div class="txt"><b>${esc(t.title)}</b>${t.description ? `<span>${esc(t.description)}</span>` : ''}</div><button class="btn" data-to-todo="${esc(t.id)}">Move to Todo</button></div>`).join('')
+    (list.length ? `<div class="cards">${list.map(card).join('')}</div>`
       : `<div class="empty">Nothing parked. Ideas you are not ready to start live here, out of the way.</div>`);
   const inp = $('later-input'); inp.value = typed; if (hadFocus) inp.focus();
 }
@@ -1215,8 +1235,14 @@ $('later-body').addEventListener('submit', async e => {
 $('later-body').addEventListener('click', e => {
   const mv = e.target.closest('[data-to-todo]');
   if (mv) { move(mv.dataset.toTodo, 'todo'); return; }
-  const item = e.target.closest('.later-item .txt');
-  if (item) { $('later').classList.remove('open'); openPanel(item.parentElement.dataset.id); }
+  const c = e.target.closest('.card');
+  if (c) { $('later').classList.remove('open'); openPanel(c.dataset.id); }
+});
+$('later-body').addEventListener('keydown', e => {
+  const c = e.target.closest?.('.card');
+  if (c && e.target === c && (e.key === 'Enter' || e.key === ' ')) {
+    e.preventDefault(); $('later').classList.remove('open'); openPanel(c.dataset.id);
+  }
 });
 
 // --- keyboard: n l h / ? and arrow navigation ---
