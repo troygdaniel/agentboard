@@ -43,6 +43,10 @@ SAMPLE_CONFIG = '''\
 # [ui]
 # dispatch = false            # hide Copy prompt and the prompt preview (shown by default)
 
+# [notify]                    # native macOS notification when a card needs input or is ready for review
+# enabled = true               # off by default; osascript only, no new dependency
+# sound = "Glass"               # optional: a macOS notification sound name (omit for silent)
+
 # [prompt]
 # template_file = "prompt.md"  # replaces the built-in template
 '''
@@ -212,6 +216,31 @@ def _as_escape(s):
     return s.replace("\\", "\\\\").replace('"', '\\"')
 
 
+def _notify_cfg(board_dir):
+    cfg = promptlib.load_config(board_dir).get("notify", {})
+    return bool(cfg.get("enabled")), cfg.get("sound")
+
+
+def _notify(board_dir, title, subtitle, body):
+    """Native macOS notification via osascript — same no-dependency mechanism as `spawn`.
+
+    Opt-in and off by default (see [notify] in config.toml); a notification failing or the
+    platform not supporting it should never break an agent's ask/review, so this never raises.
+    """
+    if sys.platform != "darwin":
+        return
+    enabled, sound = _notify_cfg(board_dir)
+    if not enabled:
+        return
+    script = f'display notification "{_as_escape(body)}" with title "{_as_escape(title)}" subtitle "{_as_escape(subtitle)}"'
+    if sound:
+        script += f' sound name "{_as_escape(sound)}"'
+    try:
+        subprocess.run(["osascript", "-e", script], check=False, capture_output=True)
+    except OSError:
+        pass
+
+
 def _hex_rgb(color):
     """'#rrggbb' -> (r, g, b) scaled to AppleScript's 0-65535 range, or None if not hex."""
     c = color.lstrip("#")
@@ -375,13 +404,17 @@ def _demo_live(s, minutes):
                     time.sleep(random.uniform(3, 7))
                     continue
                 if random.random() < .07 and not any(x.get("needs_input") for x in doing):
-                    s.ask(t["id"], random.choice(["Deploy to staging or prod?", "OK to drop the legacy column?",
-                                                  "Retry limit: 3 or 5?", "Use the new API key or rotate?"]))
+                    q = random.choice(["Deploy to staging or prod?", "OK to drop the legacy column?",
+                                        "Retry limit: 3 or 5?", "Use the new API key or rotate?"])
+                    s.ask(t["id"], q)
+                    _notify(s.dir, f"{t.get('agent') or 'An agent'} needs your input", t["title"], q)
                     time.sleep(random.uniform(3, 7))
                     continue
                 p = min(100, t.get("progress", 0) + random.randint(3, 9))
                 if p >= 100:
-                    s.review(t["id"], random.choice(["Shipped", "Merged", "All tests green"]))
+                    result = random.choice(["Shipped", "Merged", "All tests green"])
+                    s.review(t["id"], result)
+                    _notify(s.dir, f"{t.get('agent') or 'An agent'} ready for review", t["title"], result)
                 else:
                     s.update(t["id"], p, random.choice(steps))
             time.sleep(random.uniform(3, 7))
@@ -423,12 +456,16 @@ def _read_body(a):
 
 
 def cmd_ask(a):
-    t = _store().ask(a.id, a.question, _read_body(a))
+    s = _store()
+    t = s.ask(a.id, a.question, _read_body(a))
+    _notify(s.dir, f"{t.get('agent') or 'An agent'} needs your input", t["title"], a.question)
     print(f"{t['id']}: waiting on user — {a.question}")
 
 
 def cmd_review(a):
-    t = _store().review(a.id, a.text, _read_body(a))
+    s = _store()
+    t = s.review(a.id, a.text, _read_body(a))
+    _notify(s.dir, f"{t.get('agent') or 'An agent'} ready for review", t["title"], a.text)
     print(f"{t['id']}: ready for review — waiting on the user to mark it done")
 
 

@@ -434,6 +434,100 @@ class TailTests(unittest.TestCase):
         self.assertEqual(last_at, "2026-01-01T10:00:00")   # unseeded by an empty snapshot
 
 
+class NotifyTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.dir = Path(self.tmp.name) / ".agentboard"
+        self.dir.mkdir()
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def _write_config(self, text):
+        (self.dir / "config.toml").write_text(text)
+
+    def test_off_by_default_when_config_has_no_notify_section(self):
+        from agentboard.cli import _notify_cfg
+        self._write_config('[board]\nstale_minutes = 60\n')
+        self.assertEqual(_notify_cfg(self.dir), (False, None))
+
+    def test_off_when_no_config_file_at_all(self):
+        from agentboard.cli import _notify_cfg
+        self.assertEqual(_notify_cfg(self.dir), (False, None))
+
+    def test_reads_enabled_and_optional_sound(self):
+        from agentboard.cli import _notify_cfg
+        self._write_config('[notify]\nenabled = true\nsound = "Glass"\n')
+        self.assertEqual(_notify_cfg(self.dir), (True, "Glass"))
+
+    def test_disabled_never_shells_out(self):
+        from agentboard.cli import _notify
+        self._write_config('[notify]\nenabled = false\n')
+        with unittest.mock.patch("agentboard.cli.subprocess.run") as run:
+            _notify(self.dir, "title", "subtitle", "body")
+        run.assert_not_called()
+
+    def test_enabled_shells_out_to_osascript_with_escaped_fields(self):
+        from agentboard.cli import _notify
+        self._write_config('[notify]\nenabled = true\nsound = "Glass"\n')
+        with unittest.mock.patch("agentboard.cli.subprocess.run") as run:
+            _notify(self.dir, 'Agent "atlas"', "task title", 'Deploy "now"?')
+        run.assert_called_once()
+        cmd = run.call_args.args[0]
+        self.assertEqual(cmd[:2], ["osascript", "-e"])
+        script = cmd[2]
+        self.assertIn('display notification "Deploy \\"now\\"?"', script)
+        self.assertIn('title "Agent \\"atlas\\""', script)
+        self.assertIn('subtitle "task title"', script)
+        self.assertIn('sound name "Glass"', script)
+
+    def test_enabled_without_sound_omits_sound_clause(self):
+        from agentboard.cli import _notify
+        self._write_config('[notify]\nenabled = true\n')
+        with unittest.mock.patch("agentboard.cli.subprocess.run") as run:
+            _notify(self.dir, "t", "s", "b")
+        self.assertNotIn("sound name", run.call_args.args[0][2])
+
+    def test_never_raises_if_osascript_is_missing(self):
+        from agentboard.cli import _notify
+        self._write_config('[notify]\nenabled = true\n')
+        with unittest.mock.patch("agentboard.cli.subprocess.run", side_effect=OSError("not found")):
+            _notify(self.dir, "t", "s", "b")   # must not raise
+
+    def test_skipped_entirely_on_non_darwin(self):
+        from agentboard.cli import _notify
+        self._write_config('[notify]\nenabled = true\n')
+        with unittest.mock.patch("agentboard.cli.sys.platform", "linux"), \
+             unittest.mock.patch("agentboard.cli.subprocess.run") as run:
+            _notify(self.dir, "t", "s", "b")
+        run.assert_not_called()
+
+    def test_ask_and_review_fire_notification_when_enabled(self):
+        from agentboard.store import Store
+        from agentboard import cli
+        s = Store(self.dir)
+        self._write_config('[notify]\nenabled = true\n')
+        s.start("Ship it", "atlas")
+        with unittest.mock.patch("agentboard.cli._store", return_value=s), \
+             unittest.mock.patch("agentboard.cli.subprocess.run") as run:
+            cli.cmd_ask(argparse.Namespace(id="ship-it", question="Staging or prod?", body=None, body_file=None))
+            cli.cmd_review(argparse.Namespace(id="ship-it", text="All green", body=None, body_file=None))
+        self.assertEqual(run.call_count, 2)
+        self.assertIn("Staging or prod?", run.call_args_list[0].args[0][2])
+        self.assertIn("All green", run.call_args_list[1].args[0][2])
+
+    def test_ask_does_not_shell_out_when_disabled(self):
+        from agentboard.store import Store
+        from agentboard import cli
+        s = Store(self.dir)
+        self._write_config('[notify]\nenabled = false\n')
+        s.start("Ship it", "atlas")
+        with unittest.mock.patch("agentboard.cli._store", return_value=s), \
+             unittest.mock.patch("agentboard.cli.subprocess.run") as run:
+            cli.cmd_ask(argparse.Namespace(id="ship-it", question="Staging or prod?", body=None, body_file=None))
+        run.assert_not_called()
+
+
 class ClearTests(unittest.TestCase):
     def test_clear_archives_done_and_unarchive_restores(self):
         from agentboard import hud

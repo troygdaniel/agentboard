@@ -84,6 +84,18 @@ Press `h`, or open `/hud` in its own window (second monitor). From the top: **th
 same hour, showing working time, time waiting on you, time in review and idle gaps, plus tasks done today and a queue-depth
 lane. Optional synthesized sound cues (SND / AMB toggles).
 
+## Notifications (opt-in)
+
+Off by default. Turn on native macOS banners for **needs input** and **ready for review** so you don't have to
+keep the board or HUD open to notice a blocked or finished agent:
+
+    [notify]
+    enabled = true
+    sound = "Glass"      # optional; omit for a silent banner
+
+Fires via `osascript` — the same no-new-dependency mechanism `agentboard spawn` already uses — whenever any
+`agentboard ask`/`review` runs, from any agent, in any terminal.
+
 ## Local-only and safety
 
 Findings below come from the audit in `SECURITY.md` in the repository root (v0.2.0 plus later commits), re-checked against the code
@@ -122,6 +134,7 @@ when this README was written. Nothing here is a claim about your organization's 
 Todo cards carry a copyable prompt that makes any agent claim the card and report progress. Prompts are assembled from
 providers in `.agentboard/config.toml` (`markdown`, `file-tail`, `http`, `command`; options `max_chars`, `redact`, `private`).
 `agentboard init` writes commented examples. Set `[ui] dispatch = false` to hide Copy prompt.
+Set `[notify] enabled = true` for native desktop banners on ask/review (see [Notifications](#notifications-opt-in)).
 
 ## Commands
 
