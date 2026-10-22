@@ -129,6 +129,7 @@ providers in `.agentboard/config.toml` (`markdown`, `file-tail`, `http`, `comman
 |---|---|
 | `init` / `serve [--port N] [--no-open]` | create the board / run it |
 | `add "Title" [--status todo\|backlog] [-d TEXT] [--ctx NAME] [--project ID]` , `list [--all]`, `rm <id>` | manage tasks |
+| `tail [-n LINES] [--interval SECS]` | watch activity live in the terminal — same feed as the HUD, for CLI-only sessions |
 | `project add "Name" [--color C] [-d TEXT]`, `project list`, `project edit <id> [...]`, `project rm <id>` | manage projects |
 | `project assign <task_id> <project_id>`, `project unassign <task_id>` | tie/untie a task |
 | `clear` | archive all Done cards (history and HUD counts kept) |

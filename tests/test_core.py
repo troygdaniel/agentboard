@@ -393,6 +393,47 @@ class MarkdownTests(unittest.TestCase):
         self.assertEqual(markdown.to_html(None), '')
 
 
+class TailTests(unittest.TestCase):
+    """cmd_tail's polling loop isn't itself unit-tested (it sleeps forever until Ctrl+C); these
+    cover _tail_fresh, the pure dedup/watermark step it calls each poll."""
+
+    def test_first_poll_returns_nothing_new_against_its_own_baseline(self):
+        from agentboard.cli import _tail_fresh
+        events = [{"task": "a", "at": "2026-01-01T10:00:01", "text": "step 2"},
+                  {"task": "a", "at": "2026-01-01T10:00:00", "text": "step 1"}]
+        fresh, last_at, seen = _tail_fresh(events, events[0]["at"], {("a", events[0]["at"], "step 2")})
+        self.assertEqual(fresh, [])
+        self.assertEqual(last_at, "2026-01-01T10:00:01")
+
+    def test_new_events_after_watermark_come_back_oldest_first(self):
+        from agentboard.cli import _tail_fresh
+        last_at, seen = "2026-01-01T10:00:00", {("a", "2026-01-01T10:00:00", "step 1")}
+        events = [{"task": "b", "at": "2026-01-01T10:00:02", "text": "step 3"},
+                  {"task": "a", "at": "2026-01-01T10:00:01", "text": "step 2"},
+                  {"task": "a", "at": "2026-01-01T10:00:00", "text": "step 1"}]
+        fresh, last_at, seen = _tail_fresh(events, last_at, seen)
+        self.assertEqual([e["text"] for e in fresh], ["step 2", "step 3"])
+        self.assertEqual(last_at, "2026-01-01T10:00:02")
+
+    def test_same_second_collision_is_not_dropped_or_duplicated(self):
+        from agentboard.cli import _tail_fresh
+        t = "2026-01-01T10:00:05"
+        events = [{"task": "c", "at": t, "text": "burst-3"}, {"task": "b", "at": t, "text": "burst-2"},
+                  {"task": "a", "at": t, "text": "burst-1"}]
+        # poll 1 sees burst-1 and burst-2 at the same second
+        fresh, last_at, seen = _tail_fresh(events[1:], "2026-01-01T10:00:04", set())
+        self.assertEqual([e["text"] for e in fresh], ["burst-1", "burst-2"])
+        # poll 2: burst-3 lands at the same second as the watermark — must appear exactly once, not replay 1/2
+        fresh, last_at, seen = _tail_fresh(events, last_at, seen)
+        self.assertEqual([e["text"] for e in fresh], ["burst-3"])
+
+    def test_empty_board_advances_nothing(self):
+        from agentboard.cli import _tail_fresh
+        fresh, last_at, seen = _tail_fresh([], "2026-01-01T10:00:00", set())
+        self.assertEqual(fresh, [])
+        self.assertEqual(last_at, "2026-01-01T10:00:00")   # unseeded by an empty snapshot
+
+
 class ClearTests(unittest.TestCase):
     def test_clear_archives_done_and_unarchive_restores(self):
         from agentboard import hud

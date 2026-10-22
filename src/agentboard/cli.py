@@ -4,9 +4,11 @@ import os
 import shlex
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 from . import __version__
+from . import hud as hudlib
 from . import prompt as promptlib
 from .server import serve
 from .store import DIR_NAME, BoardError, Store, find_dir
@@ -75,6 +77,53 @@ def cmd_list(a):
             continue
         who = f"  [{t['agent']}]" if t.get("agent") else ""
         print(f"{t['id']:30} {t['status']:8} {t.get('progress', 0):3}%{who}  {t['title']}")
+
+
+TAIL_FEED_CAP = 500   # generous enough that a burst of activity between polls can't overrun a single snapshot
+
+
+def _tail_fmt(e):
+    at = e["at"].split("T", 1)[1] if "T" in e["at"] else e["at"]
+    agent = e.get("agent") or "-"
+    return f"{at}  {agent:<12.12}  {e['task']:<30.30}  {e['text']}"
+
+
+def _tail_fresh(events, last_at, seen):
+    """events: newest-first, as from hud.build(). Returns (new events oldest-first, advanced last_at, advanced seen).
+
+    Same-second collisions (two log entries sharing a timestamp) are disambiguated with a (task, at, text) set
+    rather than just the watermark, since the log's timestamp resolution is whole seconds.
+    """
+    fresh = [e for e in events
+             if e["at"] > last_at or (e["at"] == last_at and (e["task"], e["at"], e["text"]) not in seen)]
+    if events:
+        last_at = events[0]["at"]
+        seen = {(e["task"], e["at"], e["text"]) for e in events if e["at"] == last_at}
+    return list(reversed(fresh)), last_at, seen
+
+
+def cmd_tail(a):
+    """Watch board activity live in the terminal — the same event feed the HUD shows, polled from tasks.json."""
+    s = _store()
+
+    def snapshot():
+        return hudlib.build(s.load(), feed_limit=TAIL_FEED_CAP)["events"]  # newest-first
+
+    events = snapshot()
+    # seed the watermark from the true newest event regardless of how much history --lines asks to print,
+    # so a smaller --lines can never cause the first poll to replay what it skipped
+    last_at = events[0]["at"] if events else time.strftime("%Y-%m-%dT%H:%M:%S")
+    seen = {(e["task"], e["at"], e["text"]) for e in events if e["at"] == last_at}
+    for e in reversed(events[:max(0, a.lines)]):
+        print(_tail_fmt(e), flush=True)   # flush: stdout is block-buffered when piped/redirected, not a tty
+    try:
+        while True:
+            time.sleep(a.interval)
+            fresh, last_at, seen = _tail_fresh(snapshot(), last_at, seen)
+            for e in fresh:
+                print(_tail_fmt(e), flush=True)
+    except KeyboardInterrupt:
+        pass
 
 
 def cmd_project_add(a):
@@ -435,6 +484,9 @@ def main(argv=None):
     sp = add("list", cmd_list, "list tasks")
     sp.add_argument("--status")
     sp.add_argument("--all", action="store_true", help="include archived tasks")
+    sp = add("tail", cmd_tail, "watch board activity live in the terminal (same feed as the HUD); Ctrl+C stops")
+    sp.add_argument("-n", "--lines", type=int, default=10, help="recent events to print before following (default 10; 0 for none)")
+    sp.add_argument("--interval", type=float, default=1.0, help="poll interval in seconds (default 1)")
     add("clear", cmd_clear, "archive all Done tasks (kept for history and the HUD)")
     sp = add("spawn", cmd_spawn, "open a new Terminal window per name, cd here, launch an agent in each (macOS)")
     sp.add_argument("names", help="comma-separated session names, e.g. atlas,scribe,bolt")
