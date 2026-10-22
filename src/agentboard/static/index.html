@@ -220,6 +220,13 @@
   .proj::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--c, var(--neutral)); flex: none; }
   #project-filter { width: 150px; }
 
+  .blocked-row { margin-bottom: 8px; display: flex; flex-wrap: wrap; align-items: center; gap: 5px; color: var(--warn); }
+  .blocked-row svg { flex: none; }
+  .blocked-link { font: inherit; font-size: 11px; font-weight: 500; color: inherit; background: none; border: 0; padding: 0;
+    cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+  .blocked-link:hover { opacity: .75; }
+  .blocked-link + .blocked-link::before { content: ', '; text-decoration: none; }
+
 
   @media (min-width: 1100px) { body.panel-open .wrap { margin-right: 440px; max-width: none; padding-right: 32px; } }
 
@@ -540,6 +547,10 @@ function renderProjectFilter() {
   if (projects.some(p => p.id === cur)) sel.value = cur;
 }
 
+const unresolvedBlockers = t => (t.blocked_by || [])
+  .map(id => tasks.find(x => x.id === id))
+  .filter(b => b && b.status !== 'done');
+
 function ago(iso) {
   const ms = Date.now() - new Date(iso).getTime();
   if (!iso || isNaN(ms)) return { text: '', min: 0 };
@@ -555,6 +566,10 @@ function card(t) {
   const live = doing && !stale;
   const proj = t.project_id ? projectOf(t.project_id) : null;
   const projPill = proj ? `<div class="proj-row"><span class="proj" style="--c:${projColor(proj)}" title="Project: ${esc(proj.name)}">${esc(proj.name)}</span></div>` : '';
+  const blockers = unresolvedBlockers(t);
+  const blockedRow = blockers.length ? `<div class="blocked-row" title="Blocked until done">` +
+    `<svg width="11" height="11" viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="3.5" y="7" width="9" height="6.5" rx="1.3" stroke="currentColor" stroke-width="1.4"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>` +
+    blockers.map(b => `<button class="blocked-link" data-open-blocker="${esc(b.id)}">${esc(b.title)}</button>`).join('') + `</div>` : '';
   const who = t.agent
     ? `<button class="who" data-agent="${esc(t.agent)}" title="Show only ${esc(t.agent)}"><span class="av ${live ? 'live' : ''}" style="--c:${colorOf(t)}" aria-hidden="true">${esc([...t.agent][0].toUpperCase())}</span><span class="nm">${esc(t.agent)}</span></button>` : '';
   const checkIcon = done ? `<svg class="check" width="14" height="14" viewBox="0 0 16 16" fill="none" aria-label="Done"><path d="M3.5 8.5l3 3 6-7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>` : '';
@@ -579,8 +594,8 @@ function card(t) {
   const flash = !firstRender && seen.has(t.id) && lastUpdated.get(t.id) !== t.updated;
   seen.add(t.id); lastUpdated.set(t.id, t.updated);
   return `<div class="card ${done ? 'done' : ''} ${asking ? 'ask' : ''} ${reviewing ? 'review' : ''} ${live && !asking && !reviewing ? 'livebar' : ''} ${fresh ? 'enter' : ''} ${flash ? 'flash' : ''}" style="--c:${colorOf(t)}" draggable="${backlog ? 'false' : 'true'}" tabindex="0" data-id="${esc(t.id)}" data-status="${t.status}"
-      aria-label="${esc(t.title)}, ${t.status}${asking ? ', needs your input' : reviewing ? ', ready for review' : ''}${t.agent ? ', ' + esc(t.agent) : ''}${proj ? ', project ' + esc(proj.name) : ''}">
-    ${copy}${askFlag}${projPill}${top}${todo && t._q ? `<span class="qnum" aria-label="Queue position ${t._q}">${t._q}</span>` : ''}<div class="title">${esc(t.title)}</div>${desc}${note}${bar}${meta}${reviewing ? `<button class="btn markdone" data-done="${esc(t.id)}">Mark done</button>` : ''}</div>`;
+      aria-label="${esc(t.title)}, ${t.status}${asking ? ', needs your input' : reviewing ? ', ready for review' : ''}${t.agent ? ', ' + esc(t.agent) : ''}${proj ? ', project ' + esc(proj.name) : ''}${blockers.length ? ', blocked by ' + blockers.map(b => esc(b.title)).join(', ') : ''}">
+    ${copy}${askFlag}${blockedRow}${projPill}${top}${todo && t._q ? `<span class="qnum" aria-label="Queue position ${t._q}">${t._q}</span>` : ''}<div class="title">${esc(t.title)}</div>${desc}${note}${bar}${meta}${reviewing ? `<button class="btn markdone" data-done="${esc(t.id)}">Mark done</button>` : ''}</div>`;
 }
 
 function render() {
@@ -1231,6 +1246,8 @@ $('later-body').addEventListener('submit', async e => {
 $('later-body').addEventListener('click', e => {
   const mv = e.target.closest('[data-to-todo]');
   if (mv) { move(mv.dataset.toTodo, 'todo'); return; }
+  const bl = e.target.closest('[data-open-blocker]');
+  if (bl) { $('later').classList.remove('open'); openPanel(bl.dataset.openBlocker); return; }
   const c = e.target.closest('.card');
   if (c) { $('later').classList.remove('open'); openPanel(c.dataset.id); }
 });
@@ -1328,6 +1345,8 @@ $('board').addEventListener('click', async e => {
   if (lb) { move(lb.dataset.later, 'backlog'); return; }
   const md = e.target.closest('[data-done]');
   if (md) { move(md.dataset.done, 'done'); return; }
+  const bl = e.target.closest('[data-open-blocker]');
+  if (bl) { openPanel(bl.dataset.openBlocker); return; }
   const w = e.target.closest('.who');
   if (w) {
     const f = $('filter'); f.value = f.value === w.dataset.agent ? '' : w.dataset.agent;

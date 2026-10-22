@@ -243,6 +243,51 @@ class ProjectTests(unittest.TestCase):
             self.assertEqual((updated["name"], updated["color"]), ("2026 Taxes", "#222222"))
 
 
+class DependencyTests(unittest.TestCase):
+    def test_add_with_unknown_blocker_raises(self):
+        with tempfile.TemporaryDirectory() as d:
+            s = Store(Path(d) / ".agentboard")
+            with self.assertRaises(BoardError):
+                s.add("Frontend", status="todo", blocked_by=["nope"])
+
+    def test_add_stores_blocked_by(self):
+        with tempfile.TemporaryDirectory() as d:
+            s = Store(Path(d) / ".agentboard")
+            s.add("Backend", task_id="backend", status="todo")
+            t = s.add("Frontend", status="todo", blocked_by=["backend"])
+            self.assertEqual(t["blocked_by"], ["backend"])
+
+    def test_start_refuses_while_blocker_not_done(self):
+        with tempfile.TemporaryDirectory() as d:
+            s = Store(Path(d) / ".agentboard")
+            s.add("Backend", task_id="backend", status="todo")
+            with self.assertRaises(BoardError):
+                s.start("Frontend", "atlas", blocked_by=["backend"])
+            t = s.start("Frontend", "atlas", blocked_by=["backend"], force=True)
+            self.assertEqual(t["blocked_by"], ["backend"])
+
+    def test_claim_refuses_while_blocker_not_done_then_succeeds_once_done(self):
+        with tempfile.TemporaryDirectory() as d:
+            s = Store(Path(d) / ".agentboard")
+            s.add("Backend", task_id="backend", status="todo")
+            s.add("Frontend", task_id="frontend", status="todo", blocked_by=["backend"])
+            with self.assertRaises(BoardError):
+                s.claim("frontend", "atlas")
+            s.claim("frontend", "atlas", force=True)  # force bypasses the guard
+            s.move("frontend", "todo")
+            s.start("Backend done already", "bolt", task_id="backend2")
+            s.move("backend", "done")
+            s.claim("frontend", "atlas")  # now resolved on its own, no --force needed
+
+    def test_deleted_blocker_no_longer_blocks(self):
+        with tempfile.TemporaryDirectory() as d:
+            s = Store(Path(d) / ".agentboard")
+            s.add("Backend", task_id="backend", status="todo")
+            s.add("Frontend", task_id="frontend", status="todo", blocked_by=["backend"])
+            s.delete("backend")
+            s.claim("frontend", "atlas")  # missing blocker is treated as resolved
+
+
 class ClearTests(unittest.TestCase):
     def test_clear_archives_done_and_unarchive_restores(self):
         from agentboard import hud

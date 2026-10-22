@@ -63,7 +63,7 @@ def cmd_init(a):
 
 
 def cmd_add(a):
-    t = _store().add(a.title, a.description or "", a.status, a.ctx, a.id, a.project)
+    t = _store().add(a.title, a.description or "", a.status, a.ctx, a.id, a.project, blocked_by=a.blocked_by)
     print(f"added {t['id']} ({t['status']})")
 
 
@@ -164,7 +164,7 @@ def cmd_spawn(a):
 
 def cmd_start(a):
     t = _store().start(a.title, _agent_name(a), a.color or os.environ.get("AGENTBOARD_COLOR"),
-                       a.description or "", a.id, a.project)
+                       a.description or "", a.id, a.project, blocked_by=a.blocked_by, force=a.force)
     print(t["id"])  # agents use this id for update/done
 
 
@@ -195,6 +195,16 @@ Group related tasks under a project so they show up together on the board:
     agentboard project unassign <task_id>                 # untie it
     agentboard add "<title>" --project <project_id>       # or tie it at creation time
     agentboard start "<title>" --name "<you>" --project <project_id>
+
+## Dependencies
+
+Declare a task is blocked by another so parallel agents don't collide on ordering:
+
+    agentboard add "<title>" --blocked-by <task_id>            # repeat --blocked-by for more than one
+    agentboard start "<title>" --name "<you>" --blocked-by <task_id>
+    agentboard claim <id> --name "<you>"                        # refuses while a blocker isn't done (--force to override)
+
+The card shows a lock with a link to each unresolved blocker; it clears on its own once the blocker is marked done.
 """
 
 
@@ -354,6 +364,8 @@ def main(argv=None):
     sp.add_argument("--ctx", action="append", default=[], metavar="PROVIDER[:ARG]")
     sp.add_argument("--id")
     sp.add_argument("--project", help="project id to tie this task to")
+    sp.add_argument("--blocked-by", action="append", dest="blocked_by", metavar="ID",
+                     help="task id this depends on; repeat for multiple")
     sp = add("list", cmd_list, "list tasks")
     sp.add_argument("--status")
     sp.add_argument("--all", action="store_true", help="include archived tasks")
@@ -372,6 +384,9 @@ def main(argv=None):
     sp.add_argument("--color", help="(or $AGENTBOARD_COLOR)")
     sp.add_argument("--id")
     sp.add_argument("--project", help="project id to tie this task to")
+    sp.add_argument("--blocked-by", action="append", dest="blocked_by", metavar="ID",
+                     help="task id this depends on; repeat for multiple")
+    sp.add_argument("--force", action="store_true", help="start even if a blocker is not done")
     sp = add("instructions", cmd_instructions, "print a snippet to paste into CLAUDE.md / AGENTS.md")
     sp.add_argument("--absolute", action="store_true", help="embed absolute command + board path (works from any directory)")
     sp = add("demo", cmd_demo, "add sample tasks to see the board")

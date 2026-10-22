@@ -96,13 +96,17 @@ class Store:
                 return t
         raise BoardError(f"no such task: {task_id}")
 
-    def add(self, title, description="", status="backlog", ctx=None, task_id=None, project_id=None):
+    def add(self, title, description="", status="backlog", ctx=None, task_id=None, project_id=None, blocked_by=None):
         if status not in STATUSES:
             raise BoardError(f"status must be one of {STATUSES}")
         with self.transaction() as tasks:
             tid = task_id or _unique_id(title, {t["id"] for t in tasks})
             if any(t["id"] == tid for t in tasks):
                 raise BoardError(f"task id already exists: {tid}")
+            if blocked_by:
+                missing = [bid for bid in blocked_by if not any(x["id"] == bid for x in tasks)]
+                if missing:
+                    raise BoardError(f"blocked-by: no such task: {', '.join(missing)}")
             task = {
                 "id": tid,
                 "title": title,
@@ -117,11 +121,14 @@ class Store:
             }
             if project_id:
                 task["project_id"] = project_id
+            if blocked_by:
+                task["blocked_by"] = list(blocked_by)
             _log(task, f"Added to {status}")
             tasks.append(task)
             return task
 
-    def start(self, title, name, color=None, description="", task_id=None, project_id=None):
+    def start(self, title, name, color=None, description="", task_id=None, project_id=None,
+              blocked_by=None, force=False):
         """Agent announces new work: create the task already in doing, owned by name."""
         with self.transaction() as tasks:
             tid = task_id or _unique_id(title, {t["id"] for t in tasks})
@@ -130,6 +137,14 @@ class Store:
                 if existing.get("agent") == name and existing["status"] == "doing":
                     return existing
                 raise BoardError(f"task id already exists: {tid}")
+            if blocked_by:
+                missing = [bid for bid in blocked_by if not any(x["id"] == bid for x in tasks)]
+                if missing:
+                    raise BoardError(f"blocked-by: no such task: {', '.join(missing)}")
+                if not force:
+                    unresolved = _unresolved_blockers(tasks, blocked_by)
+                    if unresolved:
+                        raise BoardError(f"cannot start: blocked by {', '.join(unresolved)} (use --force)")
             task = {
                 "id": tid, "title": title, "description": description,
                 "status": "doing", "progress": 5, "status_text": f"Started by {name}",
@@ -140,6 +155,8 @@ class Store:
                 task["color"] = color
             if project_id:
                 task["project_id"] = project_id
+            if blocked_by:
+                task["blocked_by"] = list(blocked_by)
             _log(task, f"Started by {name}")
             tasks.append(task)
             return task
@@ -151,6 +168,10 @@ class Store:
                 raise BoardError(f"{task_id} is already claimed by {t['agent']} (use --force)")
             if t["status"] == "done" and not force:
                 raise BoardError(f"{task_id} is already done (use --force to reopen)")
+            if not force:
+                unresolved = _unresolved_blockers(tasks, t.get("blocked_by"))
+                if unresolved:
+                    raise BoardError(f"{task_id} is blocked by: {', '.join(unresolved)} (use --force)")
             t["status"] = "doing"
             t["agent"] = name
             if color:
@@ -375,6 +396,12 @@ def _apply_status(t, status):
         if status == "backlog":
             t["progress"] = 0
             t["status_text"] = ""
+
+
+def _unresolved_blockers(tasks, blocked_by):
+    """Blocker ids that still exist and are not done. A missing (deleted) id no longer blocks."""
+    by_id = {t["id"]: t for t in tasks}
+    return [bid for bid in (blocked_by or []) if bid in by_id and by_id[bid]["status"] != "done"]
 
 
 def _unique_id(title, taken):
