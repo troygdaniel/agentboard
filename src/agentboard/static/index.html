@@ -71,7 +71,7 @@
   /* unlike #summary (whose chips are clickable filters and must stay reachable, not ellipsized away),
      #filter-summary is plain text — safe to cap and truncate so a long project name can't push the
      HUD/sound/theme buttons out of the header at narrow widths */
-  #filter-summary { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; max-width: 240px; }
+  #filter-summary { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; max-width: 360px; }
   .summary b { color: var(--text); font-weight: 500; }
   .summary .warn { color: var(--warn); }
   .status { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
@@ -379,25 +379,39 @@
   .ln.idle { opacity: .55; }
   .ln.abandoned { box-shadow: inset 0 0 0 1px var(--hbad); }
   .ln-q, .ln-ax { flex: 0 0 auto; }
+  /* Idle agents get a separate, de-emphasized strip below the active lanes instead of a full
+     lane each — there's nothing to show on a 60-minute track for someone not working, and a
+     full-height lane of empty space for them pushed active agents (the ones actually worth
+     the room) further down. Name + avatar only is enough to show they exist without competing
+     with what's actually happening right now. */
+  .ln-idle { flex: 0 0 auto; margin-top: 4px; padding-top: 12px; border-top: 1px dashed var(--hline);
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .ln-idle-label { flex: none; color: var(--hdim); font-size: 10.5px; letter-spacing: .18em; text-transform: uppercase; }
+  .ln-idle-chip { display: inline-flex; align-items: center; gap: 6px; color: var(--hdim); font-size: 12.5px; opacity: .65; transition: opacity .15s ease; }
+  .ln-idle-chip:hover { opacity: 1; }
+  .ln-idle-av { flex: none; width: 17px; height: 17px; border-radius: 50%; display: grid; place-items: center; font-style: normal; font-size: 9px; box-shadow: inset 0 0 0 1px var(--hdim); }
   .ln-who, .ln-sum { align-self: center; }
   .ln-who { display: flex; align-items: center; gap: 9px; min-width: 0; }
   .ln-who b { font-weight: 500; color: var(--htext); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .ln-av { flex: none; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-style: normal; font-size: 11px; box-shadow: inset 0 0 0 1.5px var(--c), 0 0 10px -2px var(--c); }
   .ln-track { position: relative; height: 100%; min-height: 26px; border-radius: 6px; background: rgba(110,190,255,.045) linear-gradient(90deg, rgba(110,190,255,.14) 1px, transparent 1px) 0 0 / 25% 100%; border: 1px solid rgba(110,190,255,.1); overflow: hidden; }
   .ln-track::after { content: ''; position: absolute; right: 0; top: 0; bottom: 0; width: 2px; background: var(--hcy); box-shadow: 0 0 8px var(--hcy); opacity: .7; }
-  .sg { position: absolute; top: 3px; bottom: 3px; min-width: 3px; border-radius: 4px; background: var(--c); filter: brightness(1.25); box-shadow: 0 0 10px -1px var(--c); overflow: hidden; }
+  /* A segment's own kind (busy/waiting/review) is a fixed historical fact, independent of the
+     agent's color or their current state — a 20-minutes-ago "busy" stretch stays the same
+     "busy" cyan whether the agent is currently working fine or has since gone quiet. --c0 here
+     is the same constant the legend's "working" dot uses, so track and legend always agree. */
+  .sg { position: absolute; top: 3px; bottom: 3px; min-width: 3px; border-radius: 4px; background: var(--c0); filter: brightness(1.25); box-shadow: 0 0 10px -1px var(--c0); overflow: hidden; }
   .sg.waiting { background: repeating-linear-gradient(135deg, var(--hwarn) 0 5px, rgba(255,200,87,.55) 5px 10px); box-shadow: 0 0 10px -1px var(--hwarn); }
   .sg.review { background: rgba(93,255,176,.2); box-shadow: inset 0 0 0 1.5px var(--hok), 0 0 10px -2px var(--hok); }   /* outlined, so it never reads as "working" when the agent colour is green */
   .sg.open::after { content: ''; position: absolute; inset: 0; transform: translateX(-100%); background: linear-gradient(90deg, transparent, rgba(255,255,255,.4), transparent); animation: hsheen 3.2s ease-in-out infinite; }
   /* status word first — reading down this column answers "who's stuck/waiting/working" without
-     parsing the timeline at all; the timeline becomes supporting history, not the primary signal */
+     parsing the timeline at all; the timeline becomes supporting history, not the primary signal.
+     --c is set per lane in JS to the agent's CURRENT state color (working/waiting/review/…), not
+     their identity — a color only ever means one thing on this screen. Identity is the name text
+     and avatar glyph instead, which reads more reliably than matching shades of blue anyway. */
   .ln-sum { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; color: var(--hdim); font-size: 12px; }
   .ln-sum em { font-style: normal; font-weight: 600; font-size: 12.5px; letter-spacing: .1em; color: var(--c); }
-  .ln.waiting .ln-sum em { color: var(--hwarn); }
-  .ln.review .ln-sum em { color: var(--hok); }
-  .ln.quiet .ln-sum em { color: var(--hwarn); opacity: .85; }
-  .ln.abandoned .ln-sum em { color: var(--hbad); }
-  .ln.idle .ln-sum em { color: var(--hdim); }
+  .ln.quiet .ln-sum em { opacity: .85; }
   .ln.quiet .ln-sum em, .ln.waiting .ln-sum em, .ln.abandoned .ln-sum em { animation: hqblink 2.6s ease-in-out infinite; }
   .ln-sum span { color: var(--hdim); font-size: 11.5px; }
   .ln-q .ln-track { display: flex; align-items: flex-end; gap: 2px; padding: 0 1px; height: clamp(22px, 3.6vh, 38px); }
@@ -1445,14 +1459,22 @@ function renderTiles(t) {   // alert chips in the top bar
 function nodeGlyph(n) { const m = /(\d{1,2})\s*$/.exec(n); return m ? m[1] : [...n][0].toUpperCase(); }
 const dur = m => m < 60 ? m + 'm' : Math.floor(m / 60) + 'h' + String(m % 60).padStart(2, '0');
 
+// A color means exactly one thing on this screen: the agent's CURRENT state, not who they are
+// (identity is the name text + avatar glyph instead — more reliable to scan than matching
+// shades of blue). Same palette the legend's dots use, so the two always agree.
+const STATE_COLOR = { working: 'var(--c0)', waiting: 'var(--hwarn)', review: 'var(--hok)', quiet: 'var(--hwarn)', abandoned: 'var(--hbad)' };
+
 // ---- agent load: a lane per agent over the last hour (busy / waiting on you / in review; gaps are idle) ----
 function renderLanes(d) {
   const box = $('h-lanes'); if (!box) return;
   const win = (d.window_min || 60) * 60000, end = Date.now(), start = end - win;
   const pc = ms => Math.max(0, Math.min(100, (ms - start) / win * 100));
-  const agents = d.agents.filter(a => a.state !== 'idle');   // match Telemetry: idle agents don't earn a lane
-  const lanes = agents.map(a => {
-    const c = hudColor(a.color), tot = { busy: 0, waiting: 0, review: 0 };
+  // Idle agents get a compact strip below the active lanes (see .ln-idle) rather than a full
+  // lane each or none at all — the active ones (what's actually happening) get the prime space.
+  const active = d.agents.filter(a => a.state !== 'idle');
+  const idle = d.agents.filter(a => a.state === 'idle');
+  const lanes = active.map(a => {
+    const c = STATE_COLOR[a.state] || 'var(--hdim)', tot = { busy: 0, waiting: 0, review: 0 };
     const sg = ((d.lanes || {})[a.name] || []).map(r => {
       const open = r.b === d.now, ta = Math.max(start, new Date(r.a).getTime()), tb = open ? end : Math.min(end, new Date(r.b).getTime());
       if (tb < start) return '';
@@ -1474,7 +1496,9 @@ function renderLanes(d) {
     <div class="ln-track">${q.map(v => `<i style="height:${(v / qmax * 100).toFixed(0)}%" title="${v} waiting in Todo"></i>`).join('')}</div>
     <div class="ln-sum" title="waiting in Todo, unclaimed">${q.length ? q[q.length - 1] : 0}</div></div>`;
   const axis = `<div class="ln ln-ax"><span></span><div class="ln-ticks">${['-60m', '-45m', '-30m', '-15m', 'now'].map((t, i) => `<span style="left:${i * 25}%">${t}</span>`).join('')}</div><span></span></div>`;
-  const html = d.agents.length ? lanes + queue + axis : `<div class="h-empty">No agents yet. They appear when they run <b>agentboard start</b>.</div>`;
+  const idleStrip = idle.length ? `<div class="ln-idle"><span class="ln-idle-label">Idle · ${idle.length}</span>`
+    + idle.map(a => `<span class="ln-idle-chip" title="${hh(a.name)} — idle"><i class="ln-idle-av">${hh(nodeGlyph(a.name))}</i>${hh(a.name)}</span>`).join('') + `</div>` : '';
+  const html = d.agents.length ? lanes + queue + axis + idleStrip : `<div class="h-empty">No agents yet. They appear when they run <b>agentboard start</b>.</div>`;
   if (box.dataset.k !== html) { box.dataset.k = html; box.innerHTML = html; }
   const w = Math.round((d.waiting_s || 0) / 60);
   $('ln-wait').textContent = w ? `⚠ ${dur(w)} waiting on you` : '';
