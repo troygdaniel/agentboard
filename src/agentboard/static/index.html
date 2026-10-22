@@ -211,6 +211,15 @@
   .empty { color: var(--muted); font-size: 13px; padding: 14px; border: 1px dashed var(--line); border-radius: 12px; text-align: center; }
   .empty:empty { display: none; }
 
+  .proj-row { margin-bottom: 8px; }
+  .proj {
+    display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 500;
+    color: var(--muted); background: var(--chip); border-radius: 999px; padding: 2px 9px 2px 7px;
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c, var(--neutral)) 35%, var(--line));
+  }
+  .proj::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--c, var(--neutral)); flex: none; }
+  #project-filter { width: 150px; }
+
 
   @media (min-width: 1100px) { body.panel-open .wrap { margin-right: 440px; max-width: none; padding-right: 32px; } }
 
@@ -413,6 +422,7 @@
     <h1><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="1.5" y="2" width="3.5" height="12" rx="1.2" fill="currentColor" opacity=".35"/><rect x="6.25" y="2" width="3.5" height="8" rx="1.2" fill="currentColor"/><rect x="11" y="2" width="3.5" height="5" rx="1.2" fill="currentColor" opacity=".6"/></svg>agentboard</h1>
     <div class="status" id="status" role="status"><i></i><span>Live</span></div>
     <span class="spacer"></span>
+    <select class="filter btn" id="project-filter" aria-label="Filter by project"><option value="">All projects</option></select>
     <input class="filter" id="filter" placeholder="Filter  /" aria-label="Filter tasks">
     <span class="summary" id="summary"></span>
     <button class="btn" id="later-btn" aria-controls="later">Later <span id="later-n"></span></button>
@@ -509,12 +519,22 @@ const COLUMNS = [['backlog', 'Later'], ['todo', 'Todo'], ['doing', 'Doing'], ['d
 const EMPTY = { backlog: '', todo: 'Nothing queued', doing: 'Nothing in progress', done: 'Nothing finished yet' };
 const STALE_MIN = 10, DONE_SHOWN = 5;
 let raw = '', tasks = [], dragging = null, showAllDone = false, tick = 0;
+let projectsRaw = '', projects = [];
 const seen = new Set(), lastUpdated = new Map(), lastPct = new Map(), lastCounts = {};
 let firstRender = true, justDropped = null;
 
 const $ = id => document.getElementById(id);
 const esc = s => { const d = document.createElement('div'); d.textContent = s ?? ''; return d.innerHTML; };
 const colorOf = t => /^[#\w(),.% -]{1,32}$/.test(t.color || '') ? t.color : 'var(--neutral)';
+const projectOf = id => projects.find(p => p.id === id) || null;
+const projColor = p => /^[#\w(),.% -]{1,32}$/.test(p?.color || '') ? p.color : 'var(--neutral)';
+function renderProjectFilter() {
+  const sel = $('project-filter'), cur = sel.value;
+  sel.classList.toggle('on', projects.length > 0);
+  sel.innerHTML = '<option value="">All projects</option>' +
+    projects.map(p => `<option value="${esc(p.id)}">${esc(p.name)}</option>`).join('');
+  if (projects.some(p => p.id === cur)) sel.value = cur;
+}
 
 function ago(iso) {
   const ms = Date.now() - new Date(iso).getTime();
@@ -529,6 +549,8 @@ function card(t) {
   const doing = t.status === 'doing', done = t.status === 'done';
   const stale = doing && a.min >= STALE_MIN;
   const live = doing && !stale;
+  const proj = t.project_id ? projectOf(t.project_id) : null;
+  const projPill = proj ? `<div class="proj-row"><span class="proj" style="--c:${projColor(proj)}" title="Project: ${esc(proj.name)}">${esc(proj.name)}</span></div>` : '';
   const who = t.agent
     ? `<button class="who" data-agent="${esc(t.agent)}" title="Show only ${esc(t.agent)}"><span class="av ${live ? 'live' : ''}" style="--c:${colorOf(t)}" aria-hidden="true">${esc([...t.agent][0].toUpperCase())}</span><span class="nm">${esc(t.agent)}</span></button>` : '';
   const checkIcon = done ? `<svg class="check" width="14" height="14" viewBox="0 0 16 16" fill="none" aria-label="Done"><path d="M3.5 8.5l3 3 6-7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>` : '';
@@ -553,15 +575,17 @@ function card(t) {
   const flash = !firstRender && seen.has(t.id) && lastUpdated.get(t.id) !== t.updated;
   seen.add(t.id); lastUpdated.set(t.id, t.updated);
   return `<div class="card ${done ? 'done' : ''} ${asking ? 'ask' : ''} ${reviewing ? 'review' : ''} ${live && !asking && !reviewing ? 'livebar' : ''} ${fresh ? 'enter' : ''} ${flash ? 'flash' : ''}" style="--c:${colorOf(t)}" draggable="${backlog ? 'false' : 'true'}" tabindex="0" data-id="${esc(t.id)}" data-status="${t.status}"
-      aria-label="${esc(t.title)}, ${t.status}${asking ? ', needs your input' : reviewing ? ', ready for review' : ''}${t.agent ? ', ' + esc(t.agent) : ''}">
-    ${copy}${askFlag}${top}${todo && t._q ? `<span class="qnum" aria-label="Queue position ${t._q}">${t._q}</span>` : ''}<div class="title">${esc(t.title)}</div>${desc}${note}${bar}${meta}${reviewing ? `<button class="btn markdone" data-done="${esc(t.id)}">Mark done</button>` : ''}</div>`;
+      aria-label="${esc(t.title)}, ${t.status}${asking ? ', needs your input' : reviewing ? ', ready for review' : ''}${t.agent ? ', ' + esc(t.agent) : ''}${proj ? ', project ' + esc(proj.name) : ''}">
+    ${copy}${askFlag}${projPill}${top}${todo && t._q ? `<span class="qnum" aria-label="Queue position ${t._q}">${t._q}</span>` : ''}<div class="title">${esc(t.title)}</div>${desc}${note}${bar}${meta}${reviewing ? `<button class="btn markdone" data-done="${esc(t.id)}">Mark done</button>` : ''}</div>`;
 }
 
 function render() {
   const by = Object.fromEntries(COLUMNS.map(([k]) => [k, []]));
   const q = ($('filter').value || '').trim().toLowerCase();
   $('filter').classList.toggle('on', tasks.length > 8 || !!q);
-  tasks.filter(t => !q || [t.title, t.agent, t.description, t.status_text].some(x => (x || '').toLowerCase().includes(q)))
+  const pf = $('project-filter').value;
+  tasks.filter(t => (!q || [t.title, t.agent, t.description, t.status_text].some(x => (x || '').toLowerCase().includes(q)))
+    && (!pf || t.project_id === pf))
     .forEach(t => by[t.status] && by[t.status].push(t));
   by.done.sort((a, b) => (b.updated || '').localeCompare(a.updated || ''));
   by.todo.forEach((t, i) => { t._q = i + 1; });
@@ -629,13 +653,22 @@ function render() {
 async function load() {
   if (dragging) return;
   try {
-    const r = await fetch('/api/tasks', { cache: 'no-store' });
+    const [r, rp] = await Promise.all([
+      fetch('/api/tasks', { cache: 'no-store' }),
+      fetch('/api/projects', { cache: 'no-store' }),
+    ]);
     if (!r.ok) throw new Error('HTTP ' + r.status);
     const text = await r.text();
     const minute = Math.floor(Date.now() / 60000);
-    if (text !== raw || minute !== tick) {
-      raw = text; tick = minute; tasks = JSON.parse(text).tasks; render();
+    let changed = false;
+    if (rp.ok) {
+      const ptext = await rp.text();
+      if (ptext !== projectsRaw) { projectsRaw = ptext; projects = JSON.parse(ptext).projects; renderProjectFilter(); changed = true; }
     }
+    if (text !== raw || minute !== tick) {
+      raw = text; tick = minute; tasks = JSON.parse(text).tasks; changed = true;
+    }
+    if (changed) render();
     setStatus(true);
     checkAsks();
     refreshPanel();
@@ -714,6 +747,10 @@ function panelHtml(t) {
   const askC = t.needs_input ? `<div class="p-sec"><div class="callout ask-callout"><b>Waiting on you:</b> ${esc(t.question || t.status_text)}<small>Answer in ${esc(t.agent || 'the agent')}'s terminal — the card clears when it continues.</small></div></div>` : '';
   const revC = !t.needs_input && t.review && t.status === 'doing' ? `<div class="p-sec"><div class="callout rev-callout"><b>Ready for review:</b> ${esc(t.result || t.status_text)}<small>Look it over, then Mark done — agents don't close their own work.</small></div></div>` : '';
   const result = t.status === 'done' && t.result ? `<div class="p-sec"><h3>Result</h3><div class="callout">${esc(t.result)}</div></div>` : '';
+  const projectSel = `<div class="p-sec"><h3>Project</h3><select class="btn" id="p-project" style="width:100%" aria-label="Project">
+    <option value="">No project</option>
+    ${projects.map(p => `<option value="${esc(p.id)}" ${t.project_id === p.id ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}
+  </select></div>`;
   const desc = t.description ? `<div class="p-sec"><h3>Description</h3><div class="p-desc ${descOpen ? '' : 'clamp'}" id="p-desc">${esc(t.description)}</div><button class="p-more" id="p-desc-more" hidden>${descOpen ? 'Show less' : 'Show more'}</button></div>` : '';
   const logAll = (t.log || []).slice().reverse();
   const log = actAll ? logAll : logAll.slice(0, ACT_SHOWN);
@@ -729,7 +766,7 @@ function panelHtml(t) {
   // actions and activity sit near the top; the long description comes after, collapsed
   return `<h2>${esc(t.title)}</h2>${who}${askC}${revC}${prog}${result}
     <div class="p-actions">${mv}${copy}<button class="btn danger" id="p-del">Delete</button></div>
-    ${tl}${desc}${details}${prompt}`;
+    ${projectSel}${tl}${desc}${details}${prompt}`;
 }
 
 async function refreshPanel() {
@@ -795,6 +832,12 @@ $('p-body').addEventListener('toggle', e => {
   promptOpen = e.target.open;
   if (promptOpen) loadPrompt();
 }, true);
+$('p-body').addEventListener('change', async e => {
+  if (e.target.id !== 'p-project') return;
+  try { await api('/api/task-project', { id: openId, project_id: e.target.value || null }); showError(''); }
+  catch (err) { showError('Could not set project: ' + err.message); }
+  raw = ''; detailRaw = ''; load();
+});
 $('p-body').addEventListener('click', async e => {
   const b = e.target.closest('button'); if (!b) return;
   if (b.id === 'p-desc-more') { descOpen = !descOpen; if (lastDetail) renderPanel(lastDetail); return; }
@@ -821,6 +864,7 @@ $('p-body').addEventListener('click', async e => {
 });
 
 $('filter').oninput = render;
+$('project-filter').onchange = render;
 document.addEventListener('keydown', e => {
   if (e.key === '/' && !/^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName)) { e.preventDefault(); $('filter').classList.add('on'); $('filter').focus(); }
   if (e.key === 'Escape' && document.activeElement === $('filter')) { $('filter').value = ''; $('filter').blur(); render(); }

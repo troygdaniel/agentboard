@@ -52,11 +52,14 @@ class Store:
 
     def _read(self):
         try:
-            return json.loads(self.path.read_text())
+            data = json.loads(self.path.read_text())
         except FileNotFoundError:
-            return {"tasks": []}
+            return {"tasks": [], "projects": []}
         except ValueError as e:
             raise BoardError(f"{self.path} is not valid JSON ({e}); fix or delete it") from e
+        data.setdefault("tasks", [])
+        data.setdefault("projects", [])
+        return data
 
     def _write(self, data):
         fd, tmp = tempfile.mkstemp(dir=self.dir, prefix=".tasks-", suffix=".tmp")
@@ -76,6 +79,14 @@ class Store:
             yield data["tasks"]
             self._write(data)
 
+    @contextlib.contextmanager
+    def project_transaction(self):
+        """Yield the project list; saved on clean exit."""
+        with self._lock():
+            data = self._read()
+            yield data["projects"]
+            self._write(data)
+
     # -- helpers used by CLI and server ------------------------------------
 
     @staticmethod
@@ -85,7 +96,7 @@ class Store:
                 return t
         raise BoardError(f"no such task: {task_id}")
 
-    def add(self, title, description="", status="backlog", ctx=None, task_id=None):
+    def add(self, title, description="", status="backlog", ctx=None, task_id=None, project_id=None):
         if status not in STATUSES:
             raise BoardError(f"status must be one of {STATUSES}")
         with self.transaction() as tasks:
@@ -104,11 +115,13 @@ class Store:
                 "created": _now(),
                 "updated": _now(),
             }
+            if project_id:
+                task["project_id"] = project_id
             _log(task, f"Added to {status}")
             tasks.append(task)
             return task
 
-    def start(self, title, name, color=None, description="", task_id=None):
+    def start(self, title, name, color=None, description="", task_id=None, project_id=None):
         """Agent announces new work: create the task already in doing, owned by name."""
         with self.transaction() as tasks:
             tid = task_id or _unique_id(title, {t["id"] for t in tasks})
@@ -125,6 +138,8 @@ class Store:
             }
             if color:
                 task["color"] = color
+            if project_id:
+                task["project_id"] = project_id
             _log(task, f"Started by {name}")
             tasks.append(task)
             return task
@@ -249,6 +264,73 @@ class Store:
     def delete(self, task_id):
         with self.transaction() as tasks:
             tasks.remove(self.get(tasks, task_id))
+
+    # -- projects -------------------------------------------------------
+
+    def load_projects(self):
+        with self._lock():
+            return self._read()["projects"]
+
+    @staticmethod
+    def get_project(projects, project_id):
+        for p in projects:
+            if p["id"] == project_id:
+                return p
+        raise BoardError(f"no such project: {project_id}")
+
+    def add_project(self, name, color=None, description="", project_id=None):
+        with self.project_transaction() as projects:
+            pid = project_id or _unique_id(name, {p["id"] for p in projects})
+            if any(p["id"] == pid for p in projects):
+                raise BoardError(f"project id already exists: {pid}")
+            project = {
+                "id": pid,
+                "name": name,
+                "description": description,
+                "created": _now(),
+                "updated": _now(),
+            }
+            if color:
+                project["color"] = color
+            projects.append(project)
+            return project
+
+    def update_project(self, project_id, name=None, color=None, description=None):
+        with self.project_transaction() as projects:
+            p = self.get_project(projects, project_id)
+            if name is not None:
+                p["name"] = name
+            if color is not None:
+                p["color"] = color
+            if description is not None:
+                p["description"] = description
+            p["updated"] = _now()
+            return p
+
+    def delete_project(self, project_id):
+        """Remove the project and clear it off any tasks that referenced it."""
+        with self._lock():
+            data = self._read()
+            self.get_project(data["projects"], project_id)  # raises if missing
+            data["projects"] = [p for p in data["projects"] if p["id"] != project_id]
+            for t in data["tasks"]:
+                if t.get("project_id") == project_id:
+                    t.pop("project_id", None)
+            self._write(data)
+
+    def set_project(self, task_id, project_id):
+        """Tie (or untie, with project_id=None) a task to a project."""
+        with self._lock():
+            data = self._read()
+            t = self.get(data["tasks"], task_id)
+            if project_id:
+                self.get_project(data["projects"], project_id)  # raises if missing
+                t["project_id"] = project_id
+            else:
+                t.pop("project_id", None)
+            t["updated"] = _now()
+            self._write(data)
+            return t
 
 
 LOG_MAX = 200

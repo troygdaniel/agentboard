@@ -1,6 +1,8 @@
 """agentboard command line."""
 import argparse
 import os
+import shlex
+import subprocess
 import sys
 from pathlib import Path
 
@@ -61,7 +63,7 @@ def cmd_init(a):
 
 
 def cmd_add(a):
-    t = _store().add(a.title, a.description or "", a.status, a.ctx, a.id)
+    t = _store().add(a.title, a.description or "", a.status, a.ctx, a.id, a.project)
     print(f"added {t['id']} ({t['status']})")
 
 
@@ -75,6 +77,36 @@ def cmd_list(a):
         print(f"{t['id']:30} {t['status']:8} {t.get('progress', 0):3}%{who}  {t['title']}")
 
 
+def cmd_project_add(a):
+    p = _store().add_project(a.name, a.color, a.description or "", a.id)
+    print(f"added project {p['id']}")
+
+
+def cmd_project_list(a):
+    for p in _store().load_projects():
+        print(f"{p['id']:30} {p['name']}")
+
+
+def cmd_project_edit(a):
+    p = _store().update_project(a.id, a.name, a.color, a.description)
+    print(f"updated project {p['id']}")
+
+
+def cmd_project_rm(a):
+    _store().delete_project(a.id)
+    print(f"removed project {a.id}")
+
+
+def cmd_project_assign(a):
+    t = _store().set_project(a.task_id, a.project_id)
+    print(f"{t['id']}: tied to project {a.project_id}")
+
+
+def cmd_project_unassign(a):
+    t = _store().set_project(a.task_id, None)
+    print(f"{t['id']}: untied from its project")
+
+
 def _agent_name(a):
     name = a.name or os.environ.get("AGENTBOARD_NAME")
     if not name:
@@ -82,9 +114,57 @@ def _agent_name(a):
     return name
 
 
+SPAWN_PALETTE = ["#22d3ee", "#3b82f6", "#f97316", "#f472b6", "#8b5cf6", "#10b981"]
+
+
+def _as_escape(s):
+    """Escape a string for embedding inside a double-quoted AppleScript literal."""
+    return s.replace("\\", "\\\\").replace('"', '\\"')
+
+
+def _hex_rgb(color):
+    """'#rrggbb' -> (r, g, b) scaled to AppleScript's 0-65535 range, or None if not hex."""
+    c = color.lstrip("#")
+    if len(c) != 6:
+        return None
+    try:
+        r, g, b = (int(c[i:i + 2], 16) for i in (0, 2, 4))
+    except ValueError:
+        return None
+    return (r * 257, g * 257, b * 257)
+
+
+def cmd_spawn(a):
+    if sys.platform != "darwin":
+        raise BoardError("spawn only supports macOS Terminal.app right now")
+    names = [n.strip() for n in a.names.split(",") if n.strip()]
+    if not names:
+        raise BoardError('give at least one name, e.g. agentboard spawn atlas,scribe,bolt')
+    colors = [c.strip() for c in a.colors.split(",")] if a.colors else []
+    cwd = os.getcwd()
+    for i, name in enumerate(names):
+        color = colors[i] if i < len(colors) else SPAWN_PALETTE[i % len(SPAWN_PALETTE)]
+        cmdline = f"cd {shlex.quote(cwd)} && {a.cmd}"
+        lines = ['tell application "Terminal"', "activate",
+                 f'set newTab to do script "{_as_escape(cmdline)}"']
+        rgb = _hex_rgb(color)
+        if rgb:
+            lines.append(f"set background color of newTab to {{{rgb[0]}, {rgb[1]}, {rgb[2]}}}")
+            lines.append("set normal text color of newTab to {65535, 65535, 65535}")
+        lines.append(f'set custom title of newTab to "{_as_escape(name)}"')
+        if not a.no_rename:
+            lines.append(f"delay {a.delay}")
+            lines.append(f'do script "/rename {_as_escape(name)}" in newTab')
+            lines.append("delay 0.4")
+            lines.append(f'do script "/color {_as_escape(color)}" in newTab')
+        lines.append("end tell")
+        subprocess.run(["osascript", "-e", "\n".join(lines)], check=True)
+    print(f"spawned {len(names)} session(s): {', '.join(names)}")
+
+
 def cmd_start(a):
     t = _store().start(a.title, _agent_name(a), a.color or os.environ.get("AGENTBOARD_COLOR"),
-                       a.description or "", a.id)
+                       a.description or "", a.id, a.project)
     print(t["id"])  # agents use this id for update/done
 
 
@@ -104,6 +184,17 @@ NEVER mark your own task done. Finish with `review` and stop. Run
 If you are handed a task id instead, run `agentboard claim <id> --name "<your session name>"`.
 Use your own session name (and color, if you have one) so people can tell agents apart.
 Create one task per deliverable, not per command. Keep titles short and status lines to one line.
+
+## Projects
+
+Group related tasks under a project so they show up together on the board:
+
+    agentboard project add "<name>" [--color <color>] [--description "..."]   # prints its id
+    agentboard project list
+    agentboard project assign <task_id> <project_id>     # tie any existing card to a project
+    agentboard project unassign <task_id>                 # untie it
+    agentboard add "<title>" --project <project_id>       # or tie it at creation time
+    agentboard start "<title>" --name "<you>" --project <project_id>
 """
 
 
@@ -262,16 +353,25 @@ def main(argv=None):
     sp.add_argument("--status", default="backlog", choices=["backlog", "todo", "doing", "done"])
     sp.add_argument("--ctx", action="append", default=[], metavar="PROVIDER[:ARG]")
     sp.add_argument("--id")
+    sp.add_argument("--project", help="project id to tie this task to")
     sp = add("list", cmd_list, "list tasks")
     sp.add_argument("--status")
     sp.add_argument("--all", action="store_true", help="include archived tasks")
     add("clear", cmd_clear, "archive all Done tasks (kept for history and the HUD)")
+    sp = add("spawn", cmd_spawn, "open a new Terminal window per name, cd here, launch an agent in each (macOS)")
+    sp.add_argument("names", help="comma-separated session names, e.g. atlas,scribe,bolt")
+    sp.add_argument("--colors", help="comma-separated hex colors, one per name (default: built-in palette)")
+    sp.add_argument("--cmd", default="claude", help="command to run in each window (default: claude)")
+    sp.add_argument("--delay", type=float, default=3.0,
+                     help="seconds to wait for the agent to start before sending /rename and /color (default: 3)")
+    sp.add_argument("--no-rename", action="store_true", help="skip sending /rename and /color after launch")
     sp = add("start", cmd_start, "agent: announce new work (creates a task in doing, prints its id)")
     sp.add_argument("title")
     sp.add_argument("-d", "--description")
     sp.add_argument("--name", help="your session name (or $AGENTBOARD_NAME)")
     sp.add_argument("--color", help="(or $AGENTBOARD_COLOR)")
     sp.add_argument("--id")
+    sp.add_argument("--project", help="project id to tie this task to")
     sp = add("instructions", cmd_instructions, "print a snippet to paste into CLAUDE.md / AGENTS.md")
     sp.add_argument("--absolute", action="store_true", help="embed absolute command + board path (works from any directory)")
     sp = add("demo", cmd_demo, "add sample tasks to see the board")
@@ -307,6 +407,33 @@ def main(argv=None):
     sp = add("serve", cmd_serve, "run the board at http://localhost:8765")
     sp.add_argument("--port", type=int, default=8765)
     sp.add_argument("--no-open", action="store_true")
+
+    sp = sub.add_parser("project", help="manage projects (groups of tasks)")
+    psub = sp.add_subparsers(dest="project_cmd", required=True)
+
+    def padd(name, fn, help):
+        psp = psub.add_parser(name, help=help)
+        psp.set_defaults(fn=fn)
+        return psp
+
+    psp = padd("add", cmd_project_add, "create a project")
+    psp.add_argument("name")
+    psp.add_argument("-d", "--description")
+    psp.add_argument("--color")
+    psp.add_argument("--id")
+    padd("list", cmd_project_list, "list projects")
+    psp = padd("edit", cmd_project_edit, "rename/recolor/describe a project")
+    psp.add_argument("id")
+    psp.add_argument("--name")
+    psp.add_argument("--color")
+    psp.add_argument("--description")
+    psp = padd("rm", cmd_project_rm, "delete a project (untying any tasks from it)")
+    psp.add_argument("id")
+    psp = padd("assign", cmd_project_assign, "tie an existing task to a project")
+    psp.add_argument("task_id")
+    psp.add_argument("project_id")
+    psp = padd("unassign", cmd_project_unassign, "untie a task from its project")
+    psp.add_argument("task_id")
 
     a = p.parse_args(argv)
     if a.cmd == "rebuild" and not (a.all or a.id):

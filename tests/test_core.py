@@ -201,6 +201,48 @@ class ReviewTests(unittest.TestCase):
             self.assertEqual(hud.build(s.load())["totals"]["done_today"], 1)
 
 
+class ProjectTests(unittest.TestCase):
+    def test_add_and_assign(self):
+        with tempfile.TemporaryDirectory() as d:
+            s = Store(Path(d) / ".agentboard")
+            p = s.add_project("Kitchen Remodel", "#ff0000")
+            s.add("Pick tile", status="todo", project_id=p["id"])
+            t = Store.get(s.load(), "pick-tile")
+            self.assertEqual(t["project_id"], p["id"])
+            self.assertEqual(s.load_projects()[0]["name"], "Kitchen Remodel")
+
+    def test_assign_unknown_project_raises(self):
+        with tempfile.TemporaryDirectory() as d:
+            s = Store(Path(d) / ".agentboard")
+            s.add("A", status="todo")
+            with self.assertRaises(BoardError):
+                s.set_project("a", "nope")
+
+    def test_unassign_clears_project_id(self):
+        with tempfile.TemporaryDirectory() as d:
+            s = Store(Path(d) / ".agentboard")
+            p = s.add_project("Taxes")
+            s.add("A", status="backlog", project_id=p["id"])
+            s.set_project("a", None)
+            self.assertNotIn("project_id", Store.get(s.load(), "a"))
+
+    def test_delete_project_unties_its_tasks(self):
+        with tempfile.TemporaryDirectory() as d:
+            s = Store(Path(d) / ".agentboard")
+            p = s.add_project("Taxes")
+            s.add("A", status="backlog", project_id=p["id"])
+            s.delete_project(p["id"])
+            self.assertEqual(s.load_projects(), [])
+            self.assertNotIn("project_id", Store.get(s.load(), "a"))
+
+    def test_update_project_fields(self):
+        with tempfile.TemporaryDirectory() as d:
+            s = Store(Path(d) / ".agentboard")
+            p = s.add_project("Taxes", "#111111")
+            updated = s.update_project(p["id"], name="2026 Taxes", color="#222222")
+            self.assertEqual((updated["name"], updated["color"]), ("2026 Taxes", "#222222"))
+
+
 class ClearTests(unittest.TestCase):
     def test_clear_archives_done_and_unarchive_restores(self):
         from agentboard import hud

@@ -15,7 +15,7 @@ Requirements: **Python 3.11 or newer**, and [pipx](https://pipx.pypa.io) (`brew 
     pipx install git+https://github.com/troygdaniel/agentboard     # from GitHub
     # or, from a checkout:
     git clone https://github.com/troygdaniel/agentboard && cd agentboard && pipx install .
-    agentboard --version                                           # prints: 0.2.0
+    agentboard --version                                           # prints: 0.3.0
 
 No pipx? From inside a checkout, with `python3` being 3.11+ (`python3 --version`):
 
@@ -54,6 +54,22 @@ Or, for a task that already exists on the board: `agentboard claim <id> --name a
 - One task per deliverable, not per command; keep status lines to one line.
 
 Humans: `agentboard add "Title" --status todo` (or `--status backlog` for the Later drawer), `agentboard list`.
+
+## Projects
+
+Group related tasks under a named, colored project so they stand out together on the board:
+
+    ID=$(agentboard project add "Q4 migration" --color "#3b82f6" --description "...")   # prints its id
+    agentboard project list
+    agentboard project edit "$ID" --name "..." --color "..." --description "..."
+    agentboard project rm "$ID"                              # unties any tasks, doesn't delete them
+    agentboard add "Title" --project "$ID"                   # tie at creation
+    agentboard start "Title" --name atlas --project "$ID"
+    agentboard project assign <task_id> "$ID"                # tie an existing task
+    agentboard project unassign <task_id>                    # untie it
+
+On the board, a card tied to a project shows a colored project pill (board and the Later drawer); the header has a
+project filter dropdown; the card detail panel has a Project select to reassign or untie a task on the fly.
 
 ## The board
 
@@ -112,14 +128,16 @@ providers in `.agentboard/config.toml` (`markdown`, `file-tail`, `http`, `comman
 | For you | |
 |---|---|
 | `init` / `serve [--port N] [--no-open]` | create the board / run it |
-| `add "Title" [--status todo\|backlog] [-d TEXT] [--ctx NAME]` , `list [--all]`, `rm <id>` | manage tasks |
+| `add "Title" [--status todo\|backlog] [-d TEXT] [--ctx NAME] [--project ID]` , `list [--all]`, `rm <id>` | manage tasks |
+| `project add "Name" [--color C] [-d TEXT]`, `project list`, `project edit <id> [...]`, `project rm <id>` | manage projects |
+| `project assign <task_id> <project_id>`, `project unassign <task_id>` | tie/untie a task |
 | `clear` | archive all Done cards (history and HUD counts kept) |
 | `demo [--live]`, `rm --demo` | sample tasks / simulated agents |
 | `prompt <id> [--public]`, `rebuild [id] [--all]`, `instructions` | prompts and the agent snippet |
 
 | For agents | |
 |---|---|
-| `start "Title" --name N [--color C]` | create a task already in Doing; prints its id |
+| `start "Title" --name N [--color C] [--project ID]` | create a task already in Doing; prints its id |
 | `claim <id> --name N` | take an existing task |
 | `update <id> <0-100> ["text"]` , `ask <id> "q"`, `review <id> "result"` | report |
 | `done <id>` | user-approved only |

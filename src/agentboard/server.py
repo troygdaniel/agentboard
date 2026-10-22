@@ -76,6 +76,8 @@ def make_handler(store, port):
                 slim = [{k: v for k, v in t.items() if k not in ("log", "prompt")}
                         for t in store.load() if not t.get("archived")]
                 self._send(200, {"tasks": slim})
+            elif url.path == "/api/projects":
+                self._send(200, {"projects": store.load_projects()})
             elif url.path == "/api/hud":
                 self._send(200, hud.build(store.load()))
             elif url.path == "/api/config":
@@ -104,7 +106,20 @@ def make_handler(store, port):
                 path = urlparse(self.path).path
                 if path == "/api/tasks":
                     t = store.add(body["title"], body.get("description", ""),
-                                  body.get("status", "backlog"), body.get("ctx", []))
+                                  body.get("status", "backlog"), body.get("ctx", []),
+                                  project_id=body.get("project_id"))
+                    self._send(200, t)
+                elif path == "/api/projects":
+                    p = store.add_project(body["name"], body.get("color"), body.get("description", ""))
+                    self._send(200, p)
+                elif path == "/api/project-update":
+                    p = store.update_project(body["id"], body.get("name"), body.get("color"), body.get("description"))
+                    self._send(200, p)
+                elif path == "/api/project-delete":
+                    store.delete_project(body["id"])
+                    self._send(200, {"ok": True})
+                elif path == "/api/task-project":
+                    t = store.set_project(body["id"], body.get("project_id"))
                     self._send(200, t)
                 elif path == "/api/move":
                     prev = Store.get(store.load(), body["id"])
