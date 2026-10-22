@@ -873,7 +873,12 @@ $('p-body').addEventListener('click', async e => {
   const b = e.target.closest('button'); if (!b) return;
   if (b.id === 'p-desc-more') { descOpen = !descOpen; if (lastDetail) renderPanel(lastDetail); return; }
   if (b.id === 'p-act-more') { actAll = !actAll; if (lastDetail) renderPanel(lastDetail); return; }
-  if (b.id === 'p-move') { await move(openId, b.dataset.to); return; }
+  if (b.id === 'p-move') {
+    const to = b.dataset.to;
+    await move(openId, to);
+    if (to === 'done') closePanel();
+    return;
+  }
   if (b.id === 'p-copy') {
     try {
       const r = await fetch('/api/prompt?id=' + encodeURIComponent(openId)), d = await r.json();
