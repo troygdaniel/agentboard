@@ -209,7 +209,7 @@
   .drop { height: 2px; background: var(--accent); border-radius: 1px; margin: -5px 0; pointer-events: none; }
   .more { font-size: 12px; color: var(--muted); background: none; border: 0; padding: 4px 2px; cursor: pointer; text-align: left; }
   .more:hover { color: var(--text); }
-  .empty { color: var(--muted); font-size: 13px; padding: 14px; border: 1px dashed var(--line); border-radius: 12px; text-align: center; }
+  .empty { color: var(--muted); font-size: 13.5px; line-height: 1.5; padding: 16px 18px; border: 1px dashed var(--line); border-radius: 12px; text-align: left; }
   .empty:empty { display: none; }
 
   .proj-row { margin-bottom: 8px; }
@@ -540,7 +540,7 @@
 const SOLO = location.pathname === '/hud';
 const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;   // HUD running in its own window
 const COLUMNS = [['backlog', 'Later'], ['todo', 'Todo'], ['doing', 'Doing'], ['done', 'Done']];
-const EMPTY = { backlog: '', todo: 'Nothing queued', doing: 'Nothing in progress', done: 'Nothing finished yet' };
+const EMPTY = { backlog: '', todo: 'Nothing queued — agents claim work from here', doing: 'Nothing in progress', done: 'Nothing finished yet' };
 const STALE_MIN = 10, DONE_SHOWN = 5;
 let raw = '', tasks = [], dragging = null, showAllDone = false, tick = 0;
 let projectsRaw = '', projects = [];
