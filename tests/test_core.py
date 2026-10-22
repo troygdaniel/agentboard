@@ -289,6 +289,36 @@ class DependencyTests(unittest.TestCase):
             s.delete("backend")
             s.claim("frontend", "atlas")  # missing blocker is treated as resolved
 
+    def test_move_into_doing_refuses_while_blocker_not_done(self):
+        # the drag-and-drop / panel-button / Alt+arrow path (all go through move()) used to
+        # let a blocked task straight into doing, bypassing claim()/start()'s own guard
+        with tempfile.TemporaryDirectory() as d:
+            s = Store(Path(d) / ".agentboard")
+            s.add("Backend", task_id="backend", status="todo")
+            s.add("Frontend", task_id="frontend", status="todo", blocked_by=["backend"])
+            with self.assertRaises(BoardError):
+                s.move("frontend", "doing")
+            self.assertEqual(Store.get(s.load(), "frontend")["status"], "todo")  # untouched
+            t = s.move("frontend", "doing", force=True)
+            self.assertEqual(t["status"], "doing")
+
+    def test_move_into_doing_succeeds_once_blocker_done(self):
+        with tempfile.TemporaryDirectory() as d:
+            s = Store(Path(d) / ".agentboard")
+            s.add("Backend", task_id="backend", status="done")
+            s.add("Frontend", task_id="frontend", status="todo", blocked_by=["backend"])
+            t = s.move("frontend", "doing")
+            self.assertEqual(t["status"], "doing")
+
+    def test_move_to_a_non_doing_status_is_never_blocked(self):
+        # the gate is specifically about *starting* work, same scope as claim()/start()
+        with tempfile.TemporaryDirectory() as d:
+            s = Store(Path(d) / ".agentboard")
+            s.add("Backend", task_id="backend", status="todo")
+            s.add("Frontend", task_id="frontend", status="todo", blocked_by=["backend"])
+            s.move("frontend", "backlog")
+            s.move("frontend", "done")
+
 
 class WaitTests(unittest.TestCase):
     def test_reaches_plain_status_target(self):

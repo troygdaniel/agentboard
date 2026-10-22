@@ -248,12 +248,17 @@ class Store:
             t["updated"] = _now()
             return t
 
-    def move(self, task_id, status, before_id=None):
-        """Change column and/or position (used by drag-and-drop)."""
+    def move(self, task_id, status, before_id=None, force=False):
+        """Change column and/or position (used by drag-and-drop, the panel's move button,
+        and Alt+arrow). Entering doing is blocked the same way claim()/start() are."""
         if status not in STATUSES:
             raise BoardError(f"status must be one of {STATUSES}")
         with self.transaction() as tasks:
             t = self.get(tasks, task_id)
+            if status == "doing" and t["status"] != "doing" and not force:
+                unresolved = _unresolved_blockers(tasks, t.get("blocked_by"))
+                if unresolved:
+                    raise BoardError(f"{task_id} is blocked by: {', '.join(unresolved)}")
             tasks.remove(t)
             if t["status"] != status:
                 _apply_status(t, status)
