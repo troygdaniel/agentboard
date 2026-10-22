@@ -80,10 +80,13 @@ def make_handler(store, port):
             elif url.path == "/api/projects":
                 self._send(200, {"projects": store.load_projects()})
             elif url.path == "/api/hud":
-                self._send(200, hud.build(store.load()))
+                board_cfg = promptlib.load_config(store.dir).get("board", {})
+                self._send(200, hud.build(store.load(), abandoned_min=board_cfg.get("stale_minutes")))
             elif url.path == "/api/config":
-                ui = promptlib.load_config(store.dir).get("ui", {})
-                self._send(200, {"dispatch": bool(ui.get("dispatch", True))})
+                conf = promptlib.load_config(store.dir)
+                ui, board_cfg = conf.get("ui", {}), conf.get("board", {})
+                self._send(200, {"dispatch": bool(ui.get("dispatch", True)),
+                                  "stale_minutes": board_cfg.get("stale_minutes", hud.ABANDONED_MIN)})
             elif url.path == "/api/task":
                 try:
                     t = dict(Store.get(store.load(), (q.get("id") or [""])[0]))
@@ -94,6 +97,10 @@ def make_handler(store, port):
                     self._send(200, t)
                 except BoardError as e:
                     self._send(404, {"error": str(e)})
+            elif url.path == "/api/chat":
+                after = q.get("after", [None])[0]
+                after = int(after) if after and after.lstrip("-").isdigit() else None
+                self._send(200, {"messages": store.chat_list(after=after, limit=200)})
             elif url.path == "/api/prompt":
                 try:
                     task = Store.get(store.load(), (q.get("id") or [""])[0])
@@ -134,6 +141,17 @@ def make_handler(store, port):
                     self._send(200, {"task": moved, "prev": prev, "prev_before": prev_before})
                 elif path == "/api/restore":
                     self._send(200, store.restore(body["task"], body.get("before")))
+                elif path == "/api/bulk-move":
+                    ids = body["ids"]
+                    loaded = store.load()
+                    prev = [{"task": Store.get(loaded, i), "before": store.next_sibling(i)} for i in ids]
+                    moved = store.bulk_move(ids, body["status"])
+                    self._send(200, {"tasks": moved, "prev": prev})
+                elif path == "/api/bulk-archive":
+                    self._send(200, {"ids": store.bulk_archive(body["ids"])})
+                elif path == "/api/bulk-project":
+                    prev = store.bulk_set_project(body["ids"], body.get("project_id"))
+                    self._send(200, {"prev": prev})
                 elif path == "/api/clear-done":
                     self._send(200, {"ids": store.clear_done()})
                 elif path == "/api/unarchive":
@@ -144,6 +162,10 @@ def make_handler(store, port):
                 elif path == "/api/delete":
                     store.delete(body["id"])
                     self._send(200, {"ok": True})
+                elif path == "/api/chat":
+                    # the only HTTP poster is the board UI (agents use the CLI), so it's always "you"
+                    m = store.chat_send(body.get("sender") or "Troy", body["text"], "user")
+                    self._send(200, m)
                 else:
                     self._send(404, {"error": "not found"})
             except (BoardError, KeyError, ValueError) as e:

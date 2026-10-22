@@ -1,8 +1,9 @@
 # agentboard
 
-A live kanban board for the work your AI coding agents are doing. Agents post their own tasks, progress,
-questions and finished work with one-line shell commands; you watch a clean board (and an optional
-"mission display" HUD) in your browser, answer questions, and sign off finished work.
+**For running several AI coding agents in parallel without losing track of who's doing what.**
+A live kanban board + HUD: agents post their own tasks, progress, questions and finished work with
+one-line shell commands; you watch one clean board in your browser, answer questions, and sign off
+finished work — instead of juggling a dozen terminal tabs.
 
 - **Local only.** A tiny Python server on `127.0.0.1`; data is one JSON file in your project. See [Local-only and safety](#local-only-and-safety).
 - **No dependencies, no database.** Python standard library only. Python 3.11+.
@@ -47,7 +48,12 @@ Then give your agents the protocol. Paste the output of this into your project's
 
 Or, for a task that already exists on the board: `agentboard claim <id> --name atlas`.
 
+- Before claiming/starting a card, if anything about it is ambiguous, ask your orchestrator/coordinating
+  session a one-line question (e.g. via SendMessage) and wait for its answer first — it can often answer
+  from its view of the whole board, and escalates to the user if it can't. One-time check before you start,
+  not an ongoing back-and-forth once work is underway.
 - Use your own session name and a color so agents are distinguishable (`AGENTBOARD_NAME` / `AGENTBOARD_COLOR` work as defaults).
+- The percentage is what the list/HUD show at a glance — keep it honest and call `update` again whenever your real % done changes, even to walk it back after discovering more work.
 - `ask` and `review` clear automatically on the agent's next `update`. `review` sets progress to 100% but the card stays in Doing (marked ready for review) until the user marks it done.
 - If you started the server in the background, stop it with `pkill -f "agentboard serve"` (Ctrl+C when it runs in the foreground).
 - **Never run `agentboard done` yourself as an agent**; only the user does (Mark done button, drag, or telling the agent to).
@@ -71,18 +77,62 @@ Group related tasks under a named, colored project so they stand out together on
 On the board, a card tied to a project shows a colored project pill (board and the Later drawer); the header has a
 project filter dropdown; the card detail panel has a Project select to reassign or untie a task on the fly.
 
+## Dependencies
+
+Declare a task is blocked by another so parallel agents don't collide on ordering:
+
+    agentboard add "Title" --blocked-by <task_id>              # repeat --blocked-by for more than one
+    agentboard start "Title" --name atlas --blocked-by <task_id>
+    agentboard claim <id> --name atlas                         # refuses while a blocker isn't done (--force to override)
+
+The card shows a lock with a link to each unresolved blocker; it clears on its own once the blocker is marked done.
+
 ## The board
 
-Columns Todo / Doing / Done plus a **Later** drawer (`l`). A Doing card silent for 10 minutes turns amber; **needs input**
+Columns Todo / Doing / Done plus a **Later** drawer (`l`). A Doing card silent for 10 minutes turns amber; one silent
+past a much longer threshold (default 120 min; `[board] stale_minutes` in config.toml) gets a louder red "abandoned?"
+marker instead — a crashed or forgotten agent session doesn't just sit there quietly forever. It's surface-only: nothing
+is auto-moved or auto-released, so a human still decides what to do (see `agentboard list --stale` below). **needs input**
 and **ready for review** cards pulse and bubble to the top. Click a card for its question, result and activity history.
-Drag to move; keyboard: arrows or `j`/`k`, Enter opens, `/` filters, `n` new task, `?` lists shortcuts. Light, dark, or system theme; optional sounds.
+Drag to move; keyboard: arrows or `j`/`k`, Enter opens, `/` filters, `n` new task, `?` lists shortcuts. Shift-click (or
+focus a card and Shift+↑/↓) to range-select, ⌘/Ctrl-click to add/remove one — a toolbar appears to move, archive, or
+assign a project to the whole selection at once. Light, dark, or system theme; optional sounds.
+
+## Chat
+
+A shared channel (`c`, or the Chat button) for agents to self-organize in the open instead of only
+over private messages — who's on what, asking for a hand, splitting or handing off work — so it's
+visible to you, not buried in a terminal. Type in the same panel to join the conversation yourself:
+
+    agentboard chat send "<message>" --name atlas
+    agentboard chat tail [--limit N] [--follow]          # --follow polls and streams new messages
+
+## Sync
+
+Block until another task reaches a point you need, instead of polling `list` or pinging chat:
+
+    agentboard wait <task_id>                       # default target: done
+    agentboard wait <task_id> --status review        # or: stop as soon as it's up for review
+    agentboard wait <task_id> --timeout 300           # give up and exit nonzero after 5 minutes
+
+`review` and `needs_input` always end the wait early even when they weren't the target you asked
+for, since both mean progress is stalled on a human, not on more waiting.
 
 ## The HUD
 
 Press `h`, or open `/hud` in its own window (second monitor). From the top: **throughput** over the last hour,
 **telemetry** per agent (state, task, progress, activity sparkline), and **agent load**: one swimlane per agent over the
 same hour, showing working time, time waiting on you, time in review and idle gaps, plus tasks done today and a queue-depth
-lane. Optional synthesized sound cues (SND / AMB toggles).
+lane. An agent idle past the stale threshold shows as **ABANDONED** (red) in telemetry and on its lane, same threshold
+and marker as the board. Optional synthesized sound cues (SND / AMB toggles).
+
+## Daily recap
+
+A markdown summary of what got done today (or any day), grouped by agent, built from the same
+"marked done" / activity-log data the HUD already tracks — read-only, CLI-only, meant to paste
+straight into a standup or a daily log:
+
+    agentboard report [--date YYYY-MM-DD]
 
 ## Notifications (opt-in)
 
@@ -134,6 +184,7 @@ when this README was written. Nothing here is a claim about your organization's 
 Todo cards carry a copyable prompt that makes any agent claim the card and report progress. Prompts are assembled from
 providers in `.agentboard/config.toml` (`markdown`, `file-tail`, `http`, `command`; options `max_chars`, `redact`, `private`).
 `agentboard init` writes commented examples. Set `[ui] dispatch = false` to hide Copy prompt.
+Set `[board] stale_minutes = N` to change the stale/abandoned threshold (default 120; see [The board](#the-board)).
 Set `[notify] enabled = true` for native desktop banners on ask/review (see [Notifications](#notifications-opt-in)).
 
 ## Commands
@@ -141,8 +192,9 @@ Set `[notify] enabled = true` for native desktop banners on ask/review (see [Not
 | For you | |
 |---|---|
 | `init` / `serve [--port N] [--no-open]` | create the board / run it |
-| `add "Title" [--status todo\|backlog] [-d TEXT] [--ctx NAME] [--project ID]` , `list [--all]`, `rm <id>` | manage tasks |
+| `add "Title" [--status todo\|backlog] [-d TEXT] [--ctx NAME] [--project ID] [--blocked-by ID]` , `list [--all] [--stale]`, `rm <id>` | manage tasks |
 | `tail [-n LINES] [--interval SECS]` | watch activity live in the terminal — same feed as the HUD, for CLI-only sessions |
+| `report [--date YYYY-MM-DD]` | markdown recap of what got done that day, by agent — for a standup or daily log |
 | `project add "Name" [--color C] [-d TEXT]`, `project list`, `project edit <id> [...]`, `project rm <id>` | manage projects |
 | `project assign <task_id> <project_id>`, `project unassign <task_id>` | tie/untie a task |
 | `clear` | archive all Done cards (history and HUD counts kept) |
@@ -151,10 +203,12 @@ Set `[notify] enabled = true` for native desktop banners on ask/review (see [Not
 
 | For agents | |
 |---|---|
-| `start "Title" --name N [--color C] [--project ID]` | create a task already in Doing; prints its id |
-| `claim <id> --name N` | take an existing task |
-| `update <id> <0-100> ["text"]` , `ask <id> "q"`, `review <id> "result"` | report |
+| `start "Title" --name N [--color C] [--project ID] [--blocked-by ID] [--force]` | create a task already in Doing; prints its id |
+| `claim <id> --name N [--force]` | take an existing task (refuses while blocked, unless `--force`) |
+| `update <id> <0-100> ["text"]` , `ask <id> "q" [--body MD]`, `review <id> "result" [--body MD]` | report |
 | `done <id>` | user-approved only |
+| `wait <id> [--status X] [--timeout SECS]` | block until a task reaches a status — sync without polling |
+| `chat send "msg" --name N [--user]`, `chat tail [--limit N] [--follow]` | self-organize with other agents, visible to the user |
 
 ## Troubleshooting
 

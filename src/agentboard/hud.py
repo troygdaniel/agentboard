@@ -3,6 +3,9 @@ from datetime import datetime, timedelta
 
 FMT = "%Y-%m-%dT%H:%M:%S"
 STALE_MIN = 10
+ABANDONED_MIN = 120    # default: flag a Doing task as stale/abandoned after this many idle minutes.
+                       # Much longer than STALE_MIN's "quiet" warning; overridden by [board].stale_minutes
+                       # in config.toml (see cli.cmd_list's --stale and server.py's /api/config, /api/hud).
 SPARK_BUCKETS, SPARK_MIN = 12, 5      # last hour in 5-minute buckets
 TIMELINE_BUCKETS, TIMELINE_MIN = 30, 2   # last hour in 2-minute buckets (same window as the lanes)
 WINDOW_MIN = TIMELINE_BUCKETS * TIMELINE_MIN
@@ -13,6 +16,49 @@ def _t(s):
         return datetime.strptime(s, FMT)
     except (TypeError, ValueError):
         return None
+
+
+def _marked_at(t):
+    """Timestamp of a task's most recent 'marked done' log entry, or None."""
+    at = None
+    for e in t.get("log", []):
+        if e.get("text") in ("Marked done", "Moved to done"):
+            ts = _t(e.get("at"))
+            if ts:
+                at = ts
+    return at
+
+
+def done_on(tasks, day=None):
+    """Tasks marked done on `day` (default: today) — title, agent, result, mark time.
+
+    Same 'marked done' detection build() uses for its done_today/agent done_today counts,
+    generalized to any day so `agentboard report` can recap today or a past date.
+    """
+    day = day or datetime.now().date()
+    out = [{"id": t["id"], "title": t["title"], "agent": t.get("agent"),
+            "result": t.get("result") or t.get("status_text") or "", "at": m.strftime(FMT)}
+           for t in tasks if t["status"] == "done" and (m := _marked_at(t)) and m.date() == day]
+    out.sort(key=lambda d: d["at"])
+    return out
+
+
+def events_on(tasks, day=None):
+    """Count of activity-log entries across all tasks on `day` (default: today) — same definition as
+    build()'s events_today, generalized to any day."""
+    day = day or datetime.now().date()
+    return sum(1 for t in tasks for e in t.get("log", [])
+               if (at := _t(e.get("at"))) and at.date() == day)
+
+
+def minutes_idle(t, now=None):
+    """Minutes since a Doing task's last update, or None if it isn't Doing / has no parseable timestamp."""
+    if t.get("status") != "doing":
+        return None
+    last = _t(t.get("updated"))
+    if last is None:
+        return None
+    return ((now or datetime.now()) - last).total_seconds() / 60
 
 
 def _bucket(times, now, n, minutes):
@@ -48,8 +94,9 @@ def segments(t, now):
     return out
 
 
-def build(tasks, now=None, feed_limit=60):
+def build(tasks, now=None, feed_limit=60, abandoned_min=None):
     now = now or datetime.now()
+    abandoned_min = ABANDONED_MIN if abandoned_min is None else abandoned_min
     events, by_agent, done_minutes = [], {}, []
     done_today = events_today = 0
     today = now.date()
@@ -101,8 +148,9 @@ def build(tasks, now=None, feed_limit=60):
         cur = (asking or reviewing or doing or ts)[0]
         last = _t(cur.get("updated"))
         quiet = bool(doing) and (last is None or (now - last) > timedelta(minutes=STALE_MIN))
+        abandoned = bool(doing) and (last is None or (now - last) > timedelta(minutes=abandoned_min))
         state = ("waiting" if asking else "review" if reviewing else
-                 "idle" if not doing else ("quiet" if quiet else "working"))
+                 "idle" if not doing else ("abandoned" if abandoned else "quiet" if quiet else "working"))
         times = [_t(e["at"]) for e in events if e["agent"] == name]
         began = next((e["at"] for e in cur.get("log", []) if e.get("status") == "doing" and _t(e.get("at"))),
                      cur.get("created"))
@@ -117,7 +165,7 @@ def build(tasks, now=None, feed_limit=60):
             "done_today": agent_done_today.get(name, 0),
             "spark": _bucket([x for x in times if x], now, SPARK_BUCKETS, SPARK_MIN),
         })
-    order = {"waiting": 0, "review": 1, "working": 2, "quiet": 3, "idle": 4}
+    order = {"abandoned": 0, "waiting": 1, "review": 2, "working": 3, "quiet": 4, "idle": 5}
     agents.sort(key=lambda a: (order[a["state"]], a["name"]))
 
     for name in lanes:
@@ -140,6 +188,7 @@ def build(tasks, now=None, feed_limit=60):
             "waiting": sum(1 for t in tasks if t["status"] == "doing" and t.get("needs_input")),
             "review": sum(1 for t in tasks if t["status"] == "doing" and t.get("review")),
             "quiet": sum(1 for a in agents if a["state"] == "quiet"),
+            "abandoned": sum(1 for a in agents if a["state"] == "abandoned"),
             "done_today": done_today,
             "events_today": events_today,
             "avg_minutes": round(sum(done_minutes) / len(done_minutes), 1) if done_minutes else None,

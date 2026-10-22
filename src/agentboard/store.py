@@ -54,11 +54,13 @@ class Store:
         try:
             data = json.loads(self.path.read_text())
         except FileNotFoundError:
-            return {"tasks": [], "projects": []}
+            return {"tasks": [], "projects": [], "chat": [], "chat_seq": 0}
         except ValueError as e:
             raise BoardError(f"{self.path} is not valid JSON ({e}); fix or delete it") from e
         data.setdefault("tasks", [])
         data.setdefault("projects", [])
+        data.setdefault("chat", [])
+        data.setdefault("chat_seq", 0)
         return data
 
     def _write(self, data):
@@ -310,6 +312,67 @@ class Store:
         with self.transaction() as tasks:
             tasks.remove(self.get(tasks, task_id))
 
+    # -- multi-select bulk actions (board toolbar) --------------------------
+
+    def bulk_move(self, ids, status, force=False):
+        """Move several tasks to the end of a status column in one transaction.
+
+        All-or-nothing: if any id is missing, or (moving into doing) any task is still
+        blocked, the whole batch is rejected and nothing is written (the transaction
+        only saves on a clean exit).
+        """
+        if status not in STATUSES:
+            raise BoardError(f"status must be one of {STATUSES}")
+        with self.transaction() as tasks:
+            moved = []
+            for tid in ids:
+                t = self.get(tasks, tid)
+                if status == "doing" and t["status"] != "doing" and not force:
+                    unresolved = _unresolved_blockers(tasks, t.get("blocked_by"))
+                    if unresolved:
+                        raise BoardError(f"{tid} is blocked by: {', '.join(unresolved)}")
+                tasks.remove(t)
+                if t["status"] != status:
+                    _apply_status(t, status)
+                    _log(t, f"Moved to {status}")
+                t["updated"] = _now()
+                _insert(tasks, t, None)
+                moved.append(t)
+            return moved
+
+    def bulk_archive(self, ids):
+        """Archive several tasks (any status) in one transaction — hidden from the
+        board, kept for history, restorable with unarchive()."""
+        with self.transaction() as tasks:
+            touched = []
+            for tid in ids:
+                t = self.get(tasks, tid)
+                if not t.get("archived"):
+                    t["archived"] = True
+                    touched.append(t["id"])
+            return touched
+
+    def bulk_set_project(self, ids, project_id):
+        """Tie (or untie, with project_id=None) several tasks to a project at once.
+
+        Returns {id: previous project_id or None} so the caller can offer an undo.
+        """
+        with self._lock():
+            data = self._read()
+            if project_id:
+                self.get_project(data["projects"], project_id)  # raises if missing
+            prev = {}
+            for tid in ids:
+                t = self.get(data["tasks"], tid)
+                prev[tid] = t.get("project_id")
+                if project_id:
+                    t["project_id"] = project_id
+                else:
+                    t.pop("project_id", None)
+                t["updated"] = _now()
+            self._write(data)
+            return prev
+
     # -- projects -------------------------------------------------------
 
     def load_projects(self):
@@ -377,8 +440,36 @@ class Store:
             self._write(data)
             return t
 
+    # -- shared chat (agents self-organizing, visible to the user) ----------
+
+    def chat_send(self, sender, text, kind="agent"):
+        """Post a message to the shared channel. kind is 'agent' or 'user' (the human)."""
+        if kind not in ("agent", "user"):
+            raise BoardError("kind must be 'agent' or 'user'")
+        text = (text or "").strip()
+        if not text:
+            raise BoardError("empty chat message")
+        with self._lock():
+            data = self._read()
+            seq = data["chat_seq"] + 1
+            data["chat_seq"] = seq
+            msg = {"seq": seq, "at": _now(), "sender": sender, "text": text, "kind": kind}
+            data["chat"].append(msg)
+            del data["chat"][:-CHAT_MAX]
+            self._write(data)
+            return msg
+
+    def chat_list(self, after=None, limit=100):
+        """Messages after a given seq (for polling), or the last `limit` if after is omitted."""
+        with self._lock():
+            msgs = self._read()["chat"]
+            if after is not None:
+                return [m for m in msgs if m["seq"] > after]
+            return msgs[-limit:]
+
 
 LOG_MAX = 200
+CHAT_MAX = 500
 
 
 def _log(t, text):

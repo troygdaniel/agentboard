@@ -5,6 +5,7 @@ import shlex
 import subprocess
 import sys
 import time
+from datetime import date
 from pathlib import Path
 
 from . import __version__
@@ -43,6 +44,11 @@ SAMPLE_CONFIG = '''\
 # [ui]
 # dispatch = false            # hide Copy prompt and the prompt preview (shown by default)
 
+# [board]
+# stale_minutes = 120         # flag a Doing task as stale/abandoned after this many idle minutes
+#                              # (default 120; much longer than the board's 10-min "quiet" warning).
+#                              # Surfaced by `agentboard list --stale`, a red card marker, and the HUD.
+
 # [notify]                    # native macOS notification when a card needs input or is ready for review
 # enabled = true               # off by default; osascript only, no new dependency
 # sound = "Glass"               # optional: a macOS notification sound name (omit for silent)
@@ -74,13 +80,20 @@ def cmd_add(a):
 
 
 def cmd_list(a):
-    for t in _store().load():
+    s = _store()
+    threshold = promptlib.load_config(s.dir).get("board", {}).get("stale_minutes", hudlib.ABANDONED_MIN)
+    for t in s.load():
         if t.get("archived") and not a.all:
             continue
         if a.status and t["status"] != a.status:
             continue
+        idle = hudlib.minutes_idle(t)
+        stale = idle is not None and idle >= threshold
+        if a.stale and not stale:
+            continue
         who = f"  [{t['agent']}]" if t.get("agent") else ""
-        print(f"{t['id']:30} {t['status']:8} {t.get('progress', 0):3}%{who}  {t['title']}")
+        flag = f"  ⚠ STALE ({int(idle)}m idle)" if stale else ""
+        print(f"{t['id']:30} {t['status']:8} {t.get('progress', 0):3}%{who}{flag}  {t['title']}")
 
 
 TAIL_FEED_CAP = 500   # generous enough that a burst of activity between polls can't overrun a single snapshot
@@ -130,6 +143,46 @@ def cmd_tail(a):
         pass
 
 
+def cmd_report(a):
+    """Markdown recap of what was completed on a day (default: today), grouped by agent.
+
+    Read-only; built on the same 'marked done' / activity-log aggregation the HUD uses
+    (hud.done_on / hud.events_on), not a separate tracking mechanism. Paste it into a
+    standup or a daily log.
+    """
+    if a.date:
+        try:
+            day = date.fromisoformat(a.date)
+        except ValueError:
+            raise BoardError(f"invalid --date '{a.date}'; use YYYY-MM-DD")
+    else:
+        day = date.today()
+    tasks = _store().load()
+    done = hudlib.done_on(tasks, day)
+    events = hudlib.events_on(tasks, day)
+    s = lambda n: "" if n == 1 else "s"
+
+    print(f"# Daily recap — {day.isoformat()}")
+    print()
+    if not done:
+        print(f"No tasks completed on {day.isoformat()}.")
+    else:
+        by_agent = {}
+        for d in done:
+            by_agent.setdefault(d["agent"] or "Unassigned", []).append(d)
+        print(f"**{len(done)} task{s(len(done))} done** across {len(by_agent)} agent{s(len(by_agent))}")
+        print()
+        for agent in sorted(by_agent):
+            print(f"## {agent}")
+            for d in by_agent[agent]:
+                line = f"- **{d['title']}**"
+                if d["result"]:
+                    line += f" — {d['result']}"
+                print(line)
+            print()
+    print(f"_{events} event{s(events)} logged on {day.isoformat()}._")
+
+
 def cmd_project_add(a):
     p = _store().add_project(a.name, a.color, a.description or "", a.id)
     print(f"added project {p['id']}")
@@ -158,6 +211,38 @@ def cmd_project_assign(a):
 def cmd_project_unassign(a):
     t = _store().set_project(a.task_id, None)
     print(f"{t['id']}: untied from its project")
+
+
+def _chat_line(m):
+    who = f"{m['sender']} (you)" if m["kind"] == "user" else m["sender"]
+    return f"[{m['at']}] {who}: {m['text']}"
+
+
+def cmd_chat_send(a):
+    name = a.name or os.environ.get("AGENTBOARD_NAME") or ("Troy" if a.user else None)
+    if not name:
+        raise BoardError("give --name (or set AGENTBOARD_NAME) so the board can show who's talking")
+    m = _store().chat_send(name, a.text, kind="user" if a.user else "agent")
+    print(_chat_line(m))
+
+
+def cmd_chat_tail(a):
+    """Print recent chat; --follow polls and streams new messages (Ctrl+C stops)."""
+    s = _store()
+    msgs = s.chat_list(limit=a.limit)
+    for m in msgs:
+        print(_chat_line(m))
+    if not a.follow:
+        return
+    last = msgs[-1]["seq"] if msgs else 0
+    try:
+        while True:
+            time.sleep(a.interval)
+            for m in s.chat_list(after=last):
+                print(_chat_line(m))
+                last = m["seq"]
+    except KeyboardInterrupt:
+        pass
 
 
 WAIT_FLAGS = ("review", "needs_input")  # pseudo-targets: a flag on the task, not a column
@@ -208,7 +293,11 @@ def _agent_name(a):
     return name
 
 
-SPAWN_PALETTE = ["#22d3ee", "#3b82f6", "#f97316", "#f472b6", "#8b5cf6", "#10b981"]
+# Kept out of the status-color families (--warn/--hwarn amber ~25-50°, --ok/--hok green ~145-165°,
+# --err/--hbad red near 0/360°): an agent's color shows up on its cards' avatar ring and progress bar
+# fill at all times, not just during ask/review/abandoned, so a palette hue in one of those bands
+# would make a normal in-progress card from that agent misread as needing attention at a glance.
+SPAWN_PALETTE = ["#22d3ee", "#6366f1", "#f472b6", "#3b82f6", "#d946ef", "#8b5cf6"]
 
 
 def _as_escape(s):
@@ -293,9 +382,13 @@ INSTRUCTIONS = """\
 This project tracks agent work on a shared board (`agentboard`). When you begin a distinct piece of work:
 
     ID=$(agentboard start "<short title>" --name "<your session name>" [--color <color>])
-    agentboard update "$ID" <0-100> "<one-line status>"     # at meaningful steps
+    agentboard update "$ID" <0-100> "<one-line status>"     # your REAL % done, updated every time it changes
     agentboard review "$ID" "<one-line result>"                # work complete -> the USER signs off and marks it done
     agentboard ask "$ID" "<one-line question>"                 # ONLY if blocked on the user; keep working after they answer
+
+The percentage is what the list and HUD show at a glance, without anyone opening the card — keep
+it current. Call `update` again whenever your estimate changes, not just at fixed checkpoints, and
+walk it back if you discover more work than you thought; don't leave it sitting at a stale number.
 
 Add `--body "<markdown>"` (or `--body-file <path>` for multi-line content) to `review`/`ask`
 for a proper recap, diff, or report — it renders as formatted markdown in the detail panel,
@@ -308,6 +401,11 @@ If you are handed a task id instead, run `agentboard claim <id> --name "<your se
 Use your own session name (and color, if you have one) so people can tell agents apart.
 Create one task per deliverable, not per command. Keep titles short and status lines to one line.
 
+Before claiming or starting a card, if anything about it is ambiguous, ask your orchestrator/coordinating
+session a one-line question (e.g. via SendMessage) and wait for its answer first. It has visibility into
+the whole board and can often answer without bothering the user; it escalates to them if it can't. This
+is a one-time check before you start, not an ongoing back-and-forth once work is underway.
+
 ## Projects
 
 Group related tasks under a project so they show up together on the board:
@@ -318,6 +416,30 @@ Group related tasks under a project so they show up together on the board:
     agentboard project unassign <task_id>                 # untie it
     agentboard add "<title>" --project <project_id>       # or tie it at creation time
     agentboard start "<title>" --name "<you>" --project <project_id>
+
+## Talking to other agents
+
+Coordinating with another agent — who's on what, asking for a hand, splitting or handing off
+work — goes in the shared chat, not only a private message, so the user can see it and jump in:
+
+    agentboard chat send "<message>" --name "<your session name>"
+    agentboard chat tail                                   # catch up, including the user jumping in
+    agentboard chat tail --follow                           # keep watching live (Ctrl+C stops)
+
+Write it like a quick Slack message to a teammate, not a status report: short, plain, skimmable in
+a second — what you're doing or what you need, then stop.
+
+    Good:          "grabbing the HUD legend task, shout if you're already on it"
+    Good:          "done with the scroll-jump fix, up for review"
+    Over-formal:   "I have completed the scroll-jump bug fix. The render() function's focus-restore
+                    logic now uses preventScroll:true. The card is ready for your review."
+
+Got a lot to say (a commit audit, a multi-part handoff)? Say it briefly and point at the card/task
+id for the detail — don't paste the whole report inline.
+
+Check it when you're blocked on coordinating with another agent, same as you'd check for a reply
+to a private message. Use a private message instead only for something that genuinely shouldn't
+be visible on the board.
 
 ## Dependencies
 
@@ -362,7 +484,7 @@ def cmd_demo(a):
     for pct, text in ((20, "Mapped call sites (41 files)"), (45, "Extracted BillingService, tests green"),
                       (70, "Updating call sites in invoices/")):
         seed(s.update, "demo-billing", pct, text)
-    seed(s.start, "Draft API docs", "scribe", "#f97316", task_id="demo-docs")
+    seed(s.start, "Draft API docs", "scribe", "#6366f1", task_id="demo-docs")
     seed(s.update, "demo-docs", 30, "Reading route handlers")
     seed(s.start, "Set up CI", "bolt", "#8b5cf6", task_id="demo-ci")
     seed(s.update, "demo-ci", text="GitHub Actions: lint, test, deploy in 3 jobs", status="done")
@@ -375,7 +497,7 @@ def _demo_live(s, minutes):
     """Simulate agents working so the board and HUD have live activity."""
     import random
     import time
-    agents = [("nova", "#22d3ee"), ("atlas", "#3b82f6"), ("scribe", "#f97316"), ("echo", "#f472b6")]
+    agents = [("nova", "#22d3ee"), ("atlas", "#3b82f6"), ("scribe", "#6366f1"), ("echo", "#f472b6")]
     titles = ["Tune cache eviction", "Backfill audit log", "Split payments worker", "Harden webhook retries",
               "Trim bundle size", "Index search facets", "Rotate API keys", "Profile slow queries"]
     steps = ["Reading code", "Mapping call sites", "Writing tests", "Refactoring", "Running test suite",
@@ -470,7 +592,9 @@ def cmd_review(a):
 
 
 def cmd_done(a):
-    _store().update(a.id, text=a.text or "", status="done")
+    # a.text, not `a.text or ""`: an explicit "" would blank out a review's result/status_text
+    # (store.update treats "not None" as "replace it"); omitting it should leave them alone.
+    _store().update(a.id, text=a.text, status="done")
     print(f"{a.id}: done")
 
 
@@ -521,9 +645,14 @@ def main(argv=None):
     sp = add("list", cmd_list, "list tasks")
     sp.add_argument("--status")
     sp.add_argument("--all", action="store_true", help="include archived tasks")
+    sp.add_argument("--stale", action="store_true",
+                     help="only show Doing tasks idle past the stale threshold (default "
+                          f"{hudlib.ABANDONED_MIN} min; see [board].stale_minutes in config.toml)")
     sp = add("tail", cmd_tail, "watch board activity live in the terminal (same feed as the HUD); Ctrl+C stops")
     sp.add_argument("-n", "--lines", type=int, default=10, help="recent events to print before following (default 10; 0 for none)")
     sp.add_argument("--interval", type=float, default=1.0, help="poll interval in seconds (default 1)")
+    sp = add("report", cmd_report, "markdown recap of what was completed today (or --date), by agent — for a standup or daily log")
+    sp.add_argument("--date", help="YYYY-MM-DD (default: today)")
     add("clear", cmd_clear, "archive all Done tasks (kept for history and the HUD)")
     sp = add("spawn", cmd_spawn, "open a new Terminal window per name, cd here, launch an agent in each (macOS)")
     sp.add_argument("names", help="comma-separated session names, e.g. atlas,scribe,bolt")
@@ -617,6 +746,23 @@ def main(argv=None):
     psp.add_argument("project_id")
     psp = padd("unassign", cmd_project_unassign, "untie a task from its project")
     psp.add_argument("task_id")
+
+    sp = sub.add_parser("chat", help="shared channel for agents (and you) to self-organize, visible on the board")
+    csub = sp.add_subparsers(dest="chat_cmd", required=True)
+
+    def cadd(name, fn, help):
+        csp = csub.add_parser(name, help=help)
+        csp.set_defaults(fn=fn)
+        return csp
+
+    csp = cadd("send", cmd_chat_send, "post a message (who's on what, asking for a hand, handing off work)")
+    csp.add_argument("text")
+    csp.add_argument("--name", help="your session name (or $AGENTBOARD_NAME)")
+    csp.add_argument("--user", action="store_true", help="post as the human (Troy), not an agent")
+    csp = cadd("tail", cmd_chat_tail, "read recent messages, optionally following live")
+    csp.add_argument("--limit", type=int, default=30)
+    csp.add_argument("--follow", action="store_true", help="keep polling and print new messages (Ctrl+C stops)")
+    csp.add_argument("--interval", type=float, default=2.0, help="seconds between polls with --follow")
 
     a = p.parse_args(argv)
     if a.cmd == "rebuild" and not (a.all or a.id):

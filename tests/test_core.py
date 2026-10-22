@@ -245,6 +245,55 @@ class ProjectTests(unittest.TestCase):
             self.assertEqual((updated["name"], updated["color"]), ("2026 Taxes", "#222222"))
 
 
+class BodyTests(unittest.TestCase):
+    def test_ask_and_review_store_body_md_and_clear_it_on_next_transition(self):
+        with tempfile.TemporaryDirectory() as d:
+            s = Store(Path(d) / ".agentboard")
+            s.start("Deploy", "atlas")
+            t = s.ask("deploy", "Staging or prod?", "- a\n- b")
+            self.assertEqual(t["body_md"], "- a\n- b")
+            t = s.update("deploy", 60, "resuming")
+            self.assertNotIn("body_md", t)
+            t = s.review("deploy", "Shipped", "## Recap\nDone.")
+            self.assertEqual(t["body_md"], "## Recap\nDone.")
+            t = s.move("deploy", "done")
+            self.assertNotIn("body_md", t)
+
+    def test_body_md_is_optional(self):
+        with tempfile.TemporaryDirectory() as d:
+            s = Store(Path(d) / ".agentboard")
+            s.start("Deploy", "atlas")
+            t = s.ask("deploy", "Staging or prod?")
+            self.assertNotIn("body_md", t)
+
+
+class MarkdownTests(unittest.TestCase):
+    def test_escapes_raw_html_instead_of_passing_it_through(self):
+        from agentboard import markdown
+        html = markdown.to_html('<script>alert(1)</script>')
+        self.assertNotIn('<script>', html)
+        self.assertIn('&lt;script&gt;', html)
+
+    def test_renders_headings_lists_code_and_links(self):
+        from agentboard import markdown
+        html = markdown.to_html(
+            "## Recap\n- did a\n- did b\n\n```diff\n-old\n+new\n```\n\nSee [docs](https://example.com).")
+        self.assertIn('<h2>Recap</h2>', html)
+        self.assertIn('<ul><li>did a</li><li>did b</li></ul>', html)
+        self.assertIn('<pre><code class="lang-diff">-old\n+new</code></pre>', html)
+        self.assertIn('<a href="https://example.com" target="_blank" rel="noopener noreferrer">docs</a>', html)
+
+    def test_rejects_non_http_link_schemes(self):
+        from agentboard import markdown
+        html = markdown.to_html('[click](javascript:alert(1))')
+        self.assertNotIn('<a ', html)
+
+    def test_empty_input(self):
+        from agentboard import markdown
+        self.assertEqual(markdown.to_html(''), '')
+        self.assertEqual(markdown.to_html(None), '')
+
+
 class DependencyTests(unittest.TestCase):
     def test_add_with_unknown_blocker_raises(self):
         with tempfile.TemporaryDirectory() as d:
@@ -319,108 +368,18 @@ class DependencyTests(unittest.TestCase):
             s.move("frontend", "backlog")
             s.move("frontend", "done")
 
-
-class WaitTests(unittest.TestCase):
-    def test_reaches_plain_status_target(self):
-        from agentboard import cli
-        self.assertEqual(cli._wait_result({"status": "done"}, "done"), "reached done")
-        self.assertIsNone(cli._wait_result({"status": "doing"}, "done"))
-
-    def test_review_target_needs_the_review_flag(self):
-        from agentboard import cli
-        self.assertEqual(
-            cli._wait_result({"status": "doing", "review": True, "result": "shipped"}, "review"),
-            "ready for review — shipped")
-        self.assertIsNone(cli._wait_result({"status": "doing"}, "review"))
-
-    def test_needs_input_target(self):
-        from agentboard import cli
-        self.assertEqual(
-            cli._wait_result({"status": "doing", "needs_input": True, "question": "A or B?"}, "needs_input"),
-            "needs input — A or B?")
-        self.assertIsNone(cli._wait_result({"status": "doing"}, "needs_input"))
-
-    def test_review_and_needs_input_end_the_wait_early_even_when_not_the_target(self):
-        from agentboard import cli
-        self.assertEqual(
-            cli._wait_result({"status": "doing", "review": True, "result": "x"}, "done"),
-            "ready for review (target was done) — x")
-        self.assertEqual(
-            cli._wait_result({"status": "doing", "needs_input": True, "question": "y?"}, "done"),
-            "needs input (target was done) — y?")
-
-    def test_wait_cli_returns_immediately_when_already_at_target(self):
-        import io
-        from contextlib import redirect_stdout
-        from agentboard import cli
+    def test_bulk_move_into_doing_is_all_or_nothing_if_any_task_is_blocked(self):
         with tempfile.TemporaryDirectory() as d:
             s = Store(Path(d) / ".agentboard")
-            s.start("Deploy", "atlas", task_id="deploy")
-            s.update("deploy", text="shipped", status="done")
-            out = io.StringIO()
-            a = argparse.Namespace(id="deploy", status="done", interval=0.01, timeout=None)
-            with redirect_stdout(out), unittest.mock.patch.object(cli, "_store", return_value=s):
-                cli.cmd_wait(a)
-            self.assertIn("reached done", out.getvalue())
-
-    def test_wait_cli_times_out(self):
-        from agentboard import cli
-        with tempfile.TemporaryDirectory() as d:
-            s = Store(Path(d) / ".agentboard")
-            s.start("Deploy", "atlas", task_id="deploy")
-            a = argparse.Namespace(id="deploy", status="done", interval=0.01, timeout=0.03)
-            with unittest.mock.patch.object(cli, "_store", return_value=s):
-                with self.assertRaises(SystemExit):
-                    cli.cmd_wait(a)
-
-
-class BodyTests(unittest.TestCase):
-    def test_ask_and_review_store_body_md_and_clear_it_on_next_transition(self):
-        with tempfile.TemporaryDirectory() as d:
-            s = Store(Path(d) / ".agentboard")
-            s.start("Deploy", "atlas")
-            t = s.ask("deploy", "Staging or prod?", "- a\n- b")
-            self.assertEqual(t["body_md"], "- a\n- b")
-            t = s.update("deploy", 60, "resuming")
-            self.assertNotIn("body_md", t)
-            t = s.review("deploy", "Shipped", "## Recap\nDone.")
-            self.assertEqual(t["body_md"], "## Recap\nDone.")
-            t = s.move("deploy", "done")
-            self.assertNotIn("body_md", t)
-
-    def test_body_md_is_optional(self):
-        with tempfile.TemporaryDirectory() as d:
-            s = Store(Path(d) / ".agentboard")
-            s.start("Deploy", "atlas")
-            t = s.ask("deploy", "Staging or prod?")
-            self.assertNotIn("body_md", t)
-
-
-class MarkdownTests(unittest.TestCase):
-    def test_escapes_raw_html_instead_of_passing_it_through(self):
-        from agentboard import markdown
-        html = markdown.to_html('<script>alert(1)</script>')
-        self.assertNotIn('<script>', html)
-        self.assertIn('&lt;script&gt;', html)
-
-    def test_renders_headings_lists_code_and_links(self):
-        from agentboard import markdown
-        html = markdown.to_html(
-            "## Recap\n- did a\n- did b\n\n```diff\n-old\n+new\n```\n\nSee [docs](https://example.com).")
-        self.assertIn('<h2>Recap</h2>', html)
-        self.assertIn('<ul><li>did a</li><li>did b</li></ul>', html)
-        self.assertIn('<pre><code class="lang-diff">-old\n+new</code></pre>', html)
-        self.assertIn('<a href="https://example.com" target="_blank" rel="noopener noreferrer">docs</a>', html)
-
-    def test_rejects_non_http_link_schemes(self):
-        from agentboard import markdown
-        html = markdown.to_html('[click](javascript:alert(1))')
-        self.assertNotIn('<a ', html)
-
-    def test_empty_input(self):
-        from agentboard import markdown
-        self.assertEqual(markdown.to_html(''), '')
-        self.assertEqual(markdown.to_html(None), '')
+            s.add("Backend", task_id="backend", status="todo")
+            s.add("A", task_id="a", status="todo")
+            s.add("B", task_id="b", status="todo", blocked_by=["backend"])
+            with self.assertRaises(BoardError):
+                s.bulk_move(["a", "b"], "doing")
+            # all-or-nothing: "a" was not moved either, even though it has no blocker
+            self.assertEqual(Store.get(s.load(), "a")["status"], "todo")
+            moved = s.bulk_move(["a", "b"], "doing", force=True)
+            self.assertEqual({t["id"] for t in moved}, {"a", "b"})
 
 
 class TailTests(unittest.TestCase):
@@ -556,6 +515,60 @@ class NotifyTests(unittest.TestCase):
              unittest.mock.patch("agentboard.cli.subprocess.run") as run:
             cli.cmd_ask(argparse.Namespace(id="ship-it", question="Staging or prod?", body=None, body_file=None))
         run.assert_not_called()
+
+
+class WaitTests(unittest.TestCase):
+    def test_reaches_plain_status_target(self):
+        from agentboard import cli
+        self.assertEqual(cli._wait_result({"status": "done"}, "done"), "reached done")
+        self.assertIsNone(cli._wait_result({"status": "doing"}, "done"))
+
+    def test_review_target_needs_the_review_flag(self):
+        from agentboard import cli
+        self.assertEqual(
+            cli._wait_result({"status": "doing", "review": True, "result": "shipped"}, "review"),
+            "ready for review — shipped")
+        self.assertIsNone(cli._wait_result({"status": "doing"}, "review"))
+
+    def test_needs_input_target(self):
+        from agentboard import cli
+        self.assertEqual(
+            cli._wait_result({"status": "doing", "needs_input": True, "question": "A or B?"}, "needs_input"),
+            "needs input — A or B?")
+        self.assertIsNone(cli._wait_result({"status": "doing"}, "needs_input"))
+
+    def test_review_and_needs_input_end_the_wait_early_even_when_not_the_target(self):
+        from agentboard import cli
+        self.assertEqual(
+            cli._wait_result({"status": "doing", "review": True, "result": "x"}, "done"),
+            "ready for review (target was done) — x")
+        self.assertEqual(
+            cli._wait_result({"status": "doing", "needs_input": True, "question": "y?"}, "done"),
+            "needs input (target was done) — y?")
+
+    def test_wait_cli_returns_immediately_when_already_at_target(self):
+        import io
+        from contextlib import redirect_stdout
+        from agentboard import cli
+        with tempfile.TemporaryDirectory() as d:
+            s = Store(Path(d) / ".agentboard")
+            s.start("Deploy", "atlas", task_id="deploy")
+            s.update("deploy", text="shipped", status="done")
+            out = io.StringIO()
+            a = argparse.Namespace(id="deploy", status="done", interval=0.01, timeout=None)
+            with redirect_stdout(out), unittest.mock.patch.object(cli, "_store", return_value=s):
+                cli.cmd_wait(a)
+            self.assertIn("reached done", out.getvalue())
+
+    def test_wait_cli_times_out(self):
+        from agentboard import cli
+        with tempfile.TemporaryDirectory() as d:
+            s = Store(Path(d) / ".agentboard")
+            s.start("Deploy", "atlas", task_id="deploy")
+            a = argparse.Namespace(id="deploy", status="done", interval=0.01, timeout=0.03)
+            with unittest.mock.patch.object(cli, "_store", return_value=s):
+                with self.assertRaises(SystemExit):
+                    cli.cmd_wait(a)
 
 
 class ClearTests(unittest.TestCase):
