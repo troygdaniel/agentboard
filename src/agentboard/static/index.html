@@ -386,7 +386,11 @@
   .p-sec > h3 .n { color: var(--muted); font-weight: 400; margin-left: 4px; }
   .btn.danger:hover { color: var(--warn); border-color: var(--warn); }
   @media (prefers-reduced-motion: reduce) { #panel, #later { transition: none; } }
-  #later { width: min(400px, 100vw); }
+  #later {
+    width: min(400px, 100vw); left: 0; right: auto;
+    border-left: 0; border-right: 1px solid var(--line); box-shadow: 12px 0 40px rgba(0,0,0,.12);
+    transform: translateX(-100%);
+  }
   .later-add { display: flex; gap: 8px; margin-bottom: 18px; }
   .later-add input { flex: 1; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 6px 12px; min-height: 32px; }
   #later .cards { gap: 10px; }
@@ -421,11 +425,11 @@
   <header>
     <h1><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="1.5" y="2" width="3.5" height="12" rx="1.2" fill="currentColor" opacity=".35"/><rect x="6.25" y="2" width="3.5" height="8" rx="1.2" fill="currentColor"/><rect x="11" y="2" width="3.5" height="5" rx="1.2" fill="currentColor" opacity=".6"/></svg>agentboard</h1>
     <div class="status" id="status" role="status"><i></i><span>Live</span></div>
+    <button class="btn" id="later-btn" aria-controls="later">Later <span id="later-n"></span></button>
     <span class="spacer"></span>
     <select class="filter btn" id="project-filter" aria-label="Filter by project"><option value="">All projects</option></select>
     <input class="filter" id="filter" placeholder="Filter  /" aria-label="Filter tasks">
     <span class="summary" id="summary"></span>
-    <button class="btn" id="later-btn" aria-controls="later">Later <span id="later-n"></span></button>
     <button class="btn" id="hud-btn" aria-controls="hud">HUD</button>
     <button class="btn" id="snd2" aria-label="Toggle sounds" aria-pressed="true"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M2.5 6v4h2.6L9 13V3L5.1 6H2.5z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M11.2 5.5a3.6 3.6 0 0 1 0 5M13 3.6a6 6 0 0 1 0 8.8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></button>
     <button class="btn" id="theme" aria-label="Color theme">Auto</button>
