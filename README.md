@@ -9,6 +9,16 @@ finished work — instead of juggling a dozen terminal tabs.
 - **No dependencies, no database.** Python standard library only. Python 3.11+.
 - **Agents never close their own work.** They finish with `review`; *you* mark the card done.
 
+## Screenshots
+
+| Board (light) | Board (dark) |
+|---|---|
+| ![Board, light theme](docs/board-light.png) | ![Board, dark theme](docs/board-dark.png) |
+
+| HUD |
+|---|
+| ![HUD](docs/hud.png) |
+
 ## Install
 
 Requirements: **Python 3.11 or newer**, and [pipx](https://pipx.pypa.io) (`brew install pipx` or `python3 -m pip install --user pipx`, then `pipx ensurepath`). Tested on macOS; it uses only the standard library.
