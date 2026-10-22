@@ -344,6 +344,55 @@ class WaitTests(unittest.TestCase):
                     cli.cmd_wait(a)
 
 
+class BodyTests(unittest.TestCase):
+    def test_ask_and_review_store_body_md_and_clear_it_on_next_transition(self):
+        with tempfile.TemporaryDirectory() as d:
+            s = Store(Path(d) / ".agentboard")
+            s.start("Deploy", "atlas")
+            t = s.ask("deploy", "Staging or prod?", "- a\n- b")
+            self.assertEqual(t["body_md"], "- a\n- b")
+            t = s.update("deploy", 60, "resuming")
+            self.assertNotIn("body_md", t)
+            t = s.review("deploy", "Shipped", "## Recap\nDone.")
+            self.assertEqual(t["body_md"], "## Recap\nDone.")
+            t = s.move("deploy", "done")
+            self.assertNotIn("body_md", t)
+
+    def test_body_md_is_optional(self):
+        with tempfile.TemporaryDirectory() as d:
+            s = Store(Path(d) / ".agentboard")
+            s.start("Deploy", "atlas")
+            t = s.ask("deploy", "Staging or prod?")
+            self.assertNotIn("body_md", t)
+
+
+class MarkdownTests(unittest.TestCase):
+    def test_escapes_raw_html_instead_of_passing_it_through(self):
+        from agentboard import markdown
+        html = markdown.to_html('<script>alert(1)</script>')
+        self.assertNotIn('<script>', html)
+        self.assertIn('&lt;script&gt;', html)
+
+    def test_renders_headings_lists_code_and_links(self):
+        from agentboard import markdown
+        html = markdown.to_html(
+            "## Recap\n- did a\n- did b\n\n```diff\n-old\n+new\n```\n\nSee [docs](https://example.com).")
+        self.assertIn('<h2>Recap</h2>', html)
+        self.assertIn('<ul><li>did a</li><li>did b</li></ul>', html)
+        self.assertIn('<pre><code class="lang-diff">-old\n+new</code></pre>', html)
+        self.assertIn('<a href="https://example.com" target="_blank" rel="noopener noreferrer">docs</a>', html)
+
+    def test_rejects_non_http_link_schemes(self):
+        from agentboard import markdown
+        html = markdown.to_html('[click](javascript:alert(1))')
+        self.assertNotIn('<a ', html)
+
+    def test_empty_input(self):
+        from agentboard import markdown
+        self.assertEqual(markdown.to_html(''), '')
+        self.assertEqual(markdown.to_html(None), '')
+
+
 class ClearTests(unittest.TestCase):
     def test_clear_archives_done_and_unarchive_restores(self):
         from agentboard import hud

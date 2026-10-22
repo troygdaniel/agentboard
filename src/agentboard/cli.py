@@ -219,6 +219,10 @@ This project tracks agent work on a shared board (`agentboard`). When you begin 
     agentboard review "$ID" "<one-line result>"                # work complete -> the USER signs off and marks it done
     agentboard ask "$ID" "<one-line question>"                 # ONLY if blocked on the user; keep working after they answer
 
+Add `--body "<markdown>"` (or `--body-file <path>` for multi-line content) to `review`/`ask`
+for a proper recap, diff, or report — it renders as formatted markdown in the detail panel,
+which opens automatically when your card needs input or is ready for review.
+
 NEVER mark your own task done. Finish with `review` and stop. Run
 `agentboard done "$ID"` only if the user explicitly tells you to.
 
@@ -359,13 +363,23 @@ def cmd_update(a):
     print(f"{t['id']}: {t['progress']}%")
 
 
+def _read_body(a):
+    """--body-file wins if given (handles multi-line content without shell quoting pain)."""
+    if a.body_file:
+        try:
+            return Path(a.body_file).expanduser().read_text()
+        except OSError as e:
+            raise BoardError(f"could not read --body-file: {e}") from e
+    return a.body
+
+
 def cmd_ask(a):
-    t = _store().ask(a.id, a.question)
+    t = _store().ask(a.id, a.question, _read_body(a))
     print(f"{t['id']}: waiting on user — {a.question}")
 
 
 def cmd_review(a):
-    t = _store().review(a.id, a.text)
+    t = _store().review(a.id, a.text, _read_body(a))
     print(f"{t['id']}: ready for review — waiting on the user to mark it done")
 
 
@@ -459,9 +473,15 @@ def main(argv=None):
     sp = add("ask", cmd_ask, "agent: flag that you are blocked on the user")
     sp.add_argument("id")
     sp.add_argument("question")
+    g = sp.add_mutually_exclusive_group()
+    g.add_argument("--body", help="markdown body (recap/diff/report) shown in the detail panel")
+    g.add_argument("--body-file", help="read --body from a file instead (handles multi-line content)")
     sp = add("review", cmd_review, "agent: work complete — hand to the user for sign-off")
     sp.add_argument("id")
     sp.add_argument("text", help="one-line result")
+    g = sp.add_mutually_exclusive_group()
+    g.add_argument("--body", help="markdown body (recap/diff/report) shown in the detail panel")
+    g.add_argument("--body-file", help="read --body from a file instead (handles multi-line content)")
     sp = add("done", cmd_done, "USER-APPROVED completion (agents: use review instead)")
     sp.add_argument("id")
     sp.add_argument("text", nargs="?")

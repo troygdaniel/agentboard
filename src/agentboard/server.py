@@ -7,6 +7,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 from . import hud
+from . import markdown as mdlib
 from . import prompt as promptlib
 from .store import BoardError, Store
 
@@ -72,8 +73,8 @@ def make_handler(store, port):
             if url.path in ("/", "/index.html", "/hud"):
                 self._send(200, (STATIC / "index.html").read_bytes(), "text/html; charset=utf-8")
             elif url.path == "/api/tasks":
-                # list view stays light; history and prompt come from /api/task
-                slim = [{k: v for k, v in t.items() if k not in ("log", "prompt")}
+                # list view stays light; history, prompt and the rich body come from /api/task
+                slim = [{k: v for k, v in t.items() if k not in ("log", "prompt", "body_md")}
                         for t in store.load() if not t.get("archived")]
                 self._send(200, {"tasks": slim})
             elif url.path == "/api/projects":
@@ -85,7 +86,12 @@ def make_handler(store, port):
                 self._send(200, {"dispatch": bool(ui.get("dispatch", True))})
             elif url.path == "/api/task":
                 try:
-                    self._send(200, Store.get(store.load(), (q.get("id") or [""])[0]))
+                    t = dict(Store.get(store.load(), (q.get("id") or [""])[0]))
+                    if t.get("body_md"):
+                        # rendered here, not stored: agent text is untrusted, and to_html()
+                        # never passes raw HTML through, so the client can insert it as-is
+                        t["body_html"] = mdlib.to_html(t["body_md"])
+                    self._send(200, t)
                 except BoardError as e:
                     self._send(404, {"error": str(e)})
             elif url.path == "/api/prompt":

@@ -181,24 +181,38 @@ class Store:
             t.pop("needs_input", None)
             t.pop("question", None)
             t.pop("review", None)
+            t.pop("body_md", None)
             t["status_text"] = f"Claimed by {name}"
             _log(t, f"Claimed by {name}")
             t["updated"] = _now()
             return t
 
-    def ask(self, task_id, question):
-        """Agent flags that it is blocked on the user. Cleared by the next update."""
+    def ask(self, task_id, question, body_md=None):
+        """Agent flags that it is blocked on the user. Cleared by the next update.
+
+        body_md is an optional richer markdown body (a recap, a diff, a report) shown
+        in the detail panel alongside the one-line question; it is untrusted agent
+        text, rendered safely by the server (see markdown.to_html) rather than here.
+        """
         with self.transaction() as tasks:
             t = self.get(tasks, task_id)
             t["needs_input"] = True
             t["question"] = question
             t["status_text"] = question
+            if body_md:
+                t["body_md"] = body_md
+            else:
+                t.pop("body_md", None)
             _log(t, f"Needs input: {question}")
             t["updated"] = _now()
             return t
 
-    def review(self, task_id, summary):
-        """Agent reports the work complete and hands it to the user for sign-off."""
+    def review(self, task_id, summary, body_md=None):
+        """Agent reports the work complete and hands it to the user for sign-off.
+
+        body_md is an optional richer markdown body (a recap, a diff, a report); see
+        ask() for how it's handled.
+        """
         with self.transaction() as tasks:
             t = self.get(tasks, task_id)
             t.pop("needs_input", None)
@@ -207,6 +221,10 @@ class Store:
             t["progress"] = 100
             t["result"] = summary
             t["status_text"] = summary
+            if body_md:
+                t["body_md"] = body_md
+            else:
+                t.pop("body_md", None)
             _log(t, f"Ready for review: {summary}")
             t["updated"] = _now()
             return t
@@ -217,6 +235,7 @@ class Store:
             t.pop("needs_input", None)
             t.pop("question", None)
             t.pop("review", None)
+            t.pop("body_md", None)
             if progress is not None:
                 t["progress"] = max(0, min(100, int(progress)))
             if text is not None:
@@ -384,6 +403,7 @@ def _apply_status(t, status):
         t.pop("needs_input", None)
         t.pop("question", None)
         t.pop("review", None)
+        t.pop("body_md", None)
         t["progress"] = 100
         t["status_text"] = ""
     elif status in ("backlog", "todo"):
@@ -391,6 +411,7 @@ def _apply_status(t, status):
         t.pop("needs_input", None)
         t.pop("question", None)
         t.pop("review", None)
+        t.pop("body_md", None)
         t.pop("agent", None)
         t.pop("color", None)
         if status == "backlog":
