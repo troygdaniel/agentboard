@@ -107,6 +107,47 @@ def cmd_project_unassign(a):
     print(f"{t['id']}: untied from its project")
 
 
+WAIT_FLAGS = ("review", "needs_input")  # pseudo-targets: a flag on the task, not a column
+
+
+def _wait_result(t, target):
+    """A result line once `wait --status target` should stop on t, else None.
+
+    'review' and 'needs_input' always end the wait early even when they aren't the target:
+    a task stuck on 'review' may never reach 'done' until a human clicks Mark done, and
+    'needs_input' means progress is stalled on the user, not on more polling.
+    """
+    if target == "review" and t.get("review"):
+        return f"ready for review — {t.get('result', '')}"
+    if target == "needs_input" and t.get("needs_input"):
+        return f"needs input — {t.get('question', '')}"
+    if target not in WAIT_FLAGS and t["status"] == target:
+        return f"reached {target}"
+    if target not in WAIT_FLAGS and t.get("review"):
+        return f"ready for review (target was {target}) — {t.get('result', '')}"
+    if target != "needs_input" and t.get("needs_input"):
+        return f"needs input (target was {target}) — {t.get('question', '')}"
+    return None
+
+
+def cmd_wait(a):
+    """Block (polling tasks.json) until a task reaches --status, or flags review/needs input."""
+    s = _store()
+    start = time.time()
+    try:
+        while True:
+            t = Store.get(s.load(), a.id)
+            msg = _wait_result(t, a.status)
+            if msg:
+                print(f"{a.id}: {msg}")
+                return
+            if a.timeout and time.time() - start >= a.timeout:
+                sys.exit(f"agentboard: wait timed out after {a.timeout}s ({a.id} still {t['status']})")
+            time.sleep(a.interval)
+    except KeyboardInterrupt:
+        pass
+
+
 def _agent_name(a):
     name = a.name or os.environ.get("AGENTBOARD_NAME")
     if not name:
@@ -205,6 +246,17 @@ Declare a task is blocked by another so parallel agents don't collide on orderin
     agentboard claim <id> --name "<you>"                        # refuses while a blocker isn't done (--force to override)
 
 The card shows a lock with a link to each unresolved blocker; it clears on its own once the blocker is marked done.
+
+## Sync
+
+Block until another task reaches a point you need, instead of polling `list` or pinging chat:
+
+    agentboard wait <task_id>                       # default target: done
+    agentboard wait <task_id> --status review        # or: stop as soon as it's up for review
+    agentboard wait <task_id> --timeout 300           # give up and exit nonzero after 5 minutes
+
+`review` and `needs_input` always end the wait early even when they weren't the target you asked
+for, since both mean progress is stalled on a human, not on more waiting.
 """
 
 
@@ -413,6 +465,13 @@ def main(argv=None):
     sp = add("done", cmd_done, "USER-APPROVED completion (agents: use review instead)")
     sp.add_argument("id")
     sp.add_argument("text", nargs="?")
+    sp = add("wait", cmd_wait, "block (polling) until a task reaches a status — sync on another agent's work")
+    sp.add_argument("id")
+    sp.add_argument("--status", default="done", choices=["backlog", "todo", "doing", "done", "review", "needs_input"],
+                     help="target to wait for (default: done); 'review'/'needs_input' also always end the wait early "
+                          "when they aren't the target, since those are blocked-on-a-human moments too")
+    sp.add_argument("--interval", type=float, default=2.0, help="poll interval in seconds (default 2)")
+    sp.add_argument("--timeout", type=float, help="give up and exit nonzero after this many seconds (default: wait forever)")
     sp = add("prompt", cmd_prompt, "print a task's assembled prompt")
     sp.add_argument("id")
     sp.add_argument("--public", action="store_true", help="skip private providers")

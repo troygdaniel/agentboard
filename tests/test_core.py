@@ -1,6 +1,8 @@
+import argparse
 import tempfile
 import threading
 import unittest
+import unittest.mock
 from pathlib import Path
 
 from agentboard import prompt, providers
@@ -286,6 +288,60 @@ class DependencyTests(unittest.TestCase):
             s.add("Frontend", task_id="frontend", status="todo", blocked_by=["backend"])
             s.delete("backend")
             s.claim("frontend", "atlas")  # missing blocker is treated as resolved
+
+
+class WaitTests(unittest.TestCase):
+    def test_reaches_plain_status_target(self):
+        from agentboard import cli
+        self.assertEqual(cli._wait_result({"status": "done"}, "done"), "reached done")
+        self.assertIsNone(cli._wait_result({"status": "doing"}, "done"))
+
+    def test_review_target_needs_the_review_flag(self):
+        from agentboard import cli
+        self.assertEqual(
+            cli._wait_result({"status": "doing", "review": True, "result": "shipped"}, "review"),
+            "ready for review — shipped")
+        self.assertIsNone(cli._wait_result({"status": "doing"}, "review"))
+
+    def test_needs_input_target(self):
+        from agentboard import cli
+        self.assertEqual(
+            cli._wait_result({"status": "doing", "needs_input": True, "question": "A or B?"}, "needs_input"),
+            "needs input — A or B?")
+        self.assertIsNone(cli._wait_result({"status": "doing"}, "needs_input"))
+
+    def test_review_and_needs_input_end_the_wait_early_even_when_not_the_target(self):
+        from agentboard import cli
+        self.assertEqual(
+            cli._wait_result({"status": "doing", "review": True, "result": "x"}, "done"),
+            "ready for review (target was done) — x")
+        self.assertEqual(
+            cli._wait_result({"status": "doing", "needs_input": True, "question": "y?"}, "done"),
+            "needs input (target was done) — y?")
+
+    def test_wait_cli_returns_immediately_when_already_at_target(self):
+        import io
+        from contextlib import redirect_stdout
+        from agentboard import cli
+        with tempfile.TemporaryDirectory() as d:
+            s = Store(Path(d) / ".agentboard")
+            s.start("Deploy", "atlas", task_id="deploy")
+            s.update("deploy", text="shipped", status="done")
+            out = io.StringIO()
+            a = argparse.Namespace(id="deploy", status="done", interval=0.01, timeout=None)
+            with redirect_stdout(out), unittest.mock.patch.object(cli, "_store", return_value=s):
+                cli.cmd_wait(a)
+            self.assertIn("reached done", out.getvalue())
+
+    def test_wait_cli_times_out(self):
+        from agentboard import cli
+        with tempfile.TemporaryDirectory() as d:
+            s = Store(Path(d) / ".agentboard")
+            s.start("Deploy", "atlas", task_id="deploy")
+            a = argparse.Namespace(id="deploy", status="done", interval=0.01, timeout=0.03)
+            with unittest.mock.patch.object(cli, "_store", return_value=s):
+                with self.assertRaises(SystemExit):
+                    cli.cmd_wait(a)
 
 
 class ClearTests(unittest.TestCase):
