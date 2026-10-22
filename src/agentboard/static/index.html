@@ -276,6 +276,12 @@
   .hud {
     --hbg: #04070c; --hline: rgba(110,190,255,.17); --htext: #d6e9ff; --hdim: #7f95ad;
     --hcy: #5ee7ff; --hok: #5dffb0; --hwarn: #ffc857; --hbad: #ff6b6b;
+    --c0: var(--hcy);   /* the "working" color: one token, used by the legend dot, track segments and lane state alike */
+    /* Type scale + tracking. Pick from these rather than inventing a 12.5px — the HUD had grown
+       14 distinct font sizes across separate passes, which is what made it read as a collection
+       of separately-styled pieces rather than one instrument panel. */
+    --fs-xs: 10.5px; --fs-sm: 12px; --fs-md: 15px; --fs-lg: 18.5px;
+    --tr-wide: .24em; --tr-label: .16em; --tr-tight: .06em;
     position: relative; height: 100%; max-width: 1440px; margin: 0 auto; overflow: hidden;
     border: 1px solid var(--hline); border-radius: 16px; color: var(--htext);
     font: 13.5px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; font-variant-numeric: tabular-nums;
@@ -292,12 +298,12 @@
   #hud.full { padding: 0; }
   #hud.full .hud { max-width: none; border-radius: 0; border: 0; padding: 18px 24px 24px; }
   .h-bar { display: flex; align-items: center; gap: 14px; }
-  .h-title { letter-spacing: .24em; font-size: 13px; color: var(--hcy); text-shadow: 0 0 14px rgba(94,231,255,.6); }
+  .h-title { letter-spacing: var(--tr-wide); color: var(--hcy); text-shadow: 0 0 14px rgba(94,231,255,.6); }
   .h-title i { color: var(--hdim); font-style: normal; }
-  .h-clock { color: var(--htext); font-size: 15px; letter-spacing: .12em; }
+  .h-clock { color: var(--htext); font-size: var(--fs-md); letter-spacing: .12em; }
   .h-btn { background: none; border: 1px solid var(--hline); color: var(--hdim); border-radius: 6px; padding: 3px 10px; font: inherit; cursor: pointer; }
   .h-btn:hover { color: var(--hcy); border-color: rgba(94,231,255,.5); }
-  .h-live { display: inline-flex; align-items: center; gap: 6px; color: var(--hok); letter-spacing: .14em; font-size: 10.5px; }
+  .h-live { display: inline-flex; align-items: center; gap: 6px; color: var(--hok); letter-spacing: var(--tr-label); font-size: var(--fs-xs); }
   .h-live::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--hok); box-shadow: 0 0 10px var(--hok); animation: hblink 1.6s ease-in-out infinite; }
   @keyframes hblink { 50% { opacity: .35; } }
   .h-ticker.tk { animation: htk .45s ease-out; }
@@ -306,7 +312,7 @@
   .h-ticker b { color: var(--htext); font-weight: 500; }
   .h-btn[aria-pressed="false"] { opacity: .55; }
   .h-alerts { display: flex; gap: 8px; }
-  .h-chip { border: 1px solid; border-radius: 999px; padding: 1px 10px; font-size: 11.5px; letter-spacing: .06em; white-space: nowrap; }
+  .h-chip { border: 1px solid; border-radius: 999px; padding: 1px 10px; font-size: var(--fs-sm); letter-spacing: var(--tr-tight); white-space: nowrap; }
   .h-chip.warn { color: var(--hwarn); border-color: rgba(255,200,87,.45); background: rgba(255,200,87,.08); animation: hqblink 2.6s ease-in-out infinite; }
   .h-chip.ok { color: var(--hok); border-color: rgba(93,255,176,.4); background: rgba(93,255,176,.07); }
   .h-chip.dim { color: var(--hwarn); border-color: rgba(255,200,87,.25); opacity: .8; }
@@ -320,25 +326,25 @@
      height so it still scrolls internally once there are enough agents to fill it. */
   .hp:has(#h-lanes) { align-self: start; max-height: 100%; }
   .hp { border: 1px solid var(--hline); border-radius: 10px; background: rgba(9,17,26,.62); padding: 10px 14px 12px; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
-  .hp h4 { margin: 0 0 10px; font-weight: 500; font-size: 11px; letter-spacing: .2em; color: var(--hdim); text-transform: uppercase; flex: none; }
+  .hp h4 { margin: 0 0 10px; font-weight: 500; font-size: var(--fs-xs); letter-spacing: var(--tr-label); color: var(--hdim); text-transform: uppercase; flex: none; }
   .hp h4::before { content: '// '; color: var(--hcy); }
-  .ln-sub { margin-left: 10px; font-weight: 400; letter-spacing: .04em; text-transform: none; color: var(--hdim); opacity: .6; font-size: 10.5px; }
+  .ln-sub { margin-left: 10px; font-weight: 400; letter-spacing: var(--tr-tight); text-transform: none; color: var(--hdim); opacity: .6; font-size: var(--fs-xs); }
   .h-scroll { overflow-y: auto; min-height: 0; flex: 1; }
   .h-scroll::-webkit-scrollbar { width: 6px; } .h-scroll::-webkit-scrollbar-thumb { background: var(--hline); border-radius: 3px; }
-  .h-row { display: grid; grid-template-columns: 38px minmax(0, 1.5fr) minmax(140px, 1.3fr) 92px; gap: 16px; align-items: center; padding: 14px 0; border-top: 1px solid rgba(110,190,255,.08); font-size: 15.5px; }
+  .h-row { display: grid; grid-template-columns: 38px minmax(0, 1.5fr) minmax(140px, 1.3fr) 92px; gap: 16px; align-items: center; padding: 14px 0; border-top: 1px solid rgba(110,190,255,.08); }
   .h-row:first-child { border-top: 0; }
-  .h-av { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; font-size: 15px; color: var(--htext);
+  .h-av { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; font-size: var(--fs-md); color: var(--htext);
     box-shadow: inset 0 0 0 1.5px var(--c), 0 0 12px -2px var(--c); }
   .h-row.idle { opacity: .5; }
-  .h-name { color: var(--htext); display: flex; gap: 9px; align-items: baseline; font-size: 18.5px; font-weight: 500; } .h-name em { font-style: normal; font-weight: 600; font-size: 12.5px; letter-spacing: .14em; color: var(--hcy); }
+  .h-name { color: var(--htext); display: flex; gap: 8px; align-items: baseline; font-size: var(--fs-lg); font-weight: 500; } .h-name em { font-style: normal; font-weight: 600; font-size: var(--fs-sm); letter-spacing: var(--tr-label); color: var(--hcy); }
   .h-row.quiet .h-name em { color: var(--hwarn); } .h-row.idle .h-name em { color: var(--hdim); }
   .h-row.abandoned .h-name em { color: var(--hbad); }
-  .h-task { color: var(--hdim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; font-size: 15px; margin-top: 3px; }
+  .h-task { color: var(--hdim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; font-size: var(--fs-md); margin-top: 3px; }
   /* The status line is the agent's live narration — genuinely worth reading when something
      needs you (waiting/review/quiet/abandoned), but for a normal working agent it just
      restates the task title in more words. Hidden by default so a 2-second scan only has to
      read one line per row; the exceptional states that actually need a look get the detail. */
-  .h-status { display: none; color: var(--hdim); opacity: .72; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 13px; margin-top: 2px; }
+  .h-status { display: none; color: var(--hdim); opacity: .72; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
   .h-row.quiet .h-status, .h-row.waiting .h-status, .h-row.review .h-status, .h-row.abandoned .h-status { display: block; }
   .h-prog { height: 7px; border-radius: 3.5px; background: rgba(110,190,255,.12); overflow: hidden; position: relative; }
   .h-prog::after { content: ''; position: absolute; inset: 0; transform: translateX(-100%);
@@ -353,12 +359,11 @@
   @keyframes hqblink { 50% { opacity: .45; } }
   .h-prog b { display: block; height: 100%; background: var(--c); box-shadow: 0 0 10px var(--c); transition: width .7s ease; }
   .h-row.idle .h-prgw { visibility: hidden; }
-  .h-pct { color: var(--hdim); font-size: 14.5px; margin-top: 4px; display: block; }
-  .h-since { text-align: right; color: var(--hdim); font-size: 15px; } .h-row.quiet .h-since { color: var(--hwarn); }
+  .h-pct { color: var(--hdim); font-size: var(--fs-md); margin-top: 4px; display: block; }
+  .h-since { text-align: right; color: var(--hdim); font-size: var(--fs-md); } .h-row.quiet .h-since { color: var(--hwarn); }
   .h-row.abandoned .h-since { color: var(--hbad); }
   /* ----- agent load: one lane per agent over the last hour ----- */
-  .hud { --c0: #5ee7ff; }
-  .ln-leg { margin-left: 18px; letter-spacing: .05em; text-transform: none; font-size: 12.5px; display: inline-flex; align-items: center; gap: 2px; }
+  .ln-leg { margin-left: 18px; letter-spacing: var(--tr-tight); text-transform: none; font-size: var(--fs-sm); display: inline-flex; align-items: center; gap: 2px; }
   .ln-leg u { text-decoration: none; color: color-mix(in srgb, var(--k) 65%, var(--hdim)); cursor: default;
     padding: 2px 7px; border-radius: 6px; transition: background .15s ease, color .15s ease; }
   .ln-leg u::before { content: ''; display: inline-block; width: 9px; height: 9px; border-radius: 3px; margin-right: 6px; background: var(--k); box-shadow: 0 0 8px var(--k); vertical-align: -1px; }
@@ -373,7 +378,7 @@
   #hud-inner[data-hk="waiting"] .sg.waiting, #hud-inner[data-hk="waiting"] .ln-leg u[data-k="waiting"],
   #hud-inner[data-hk="review"] .sg.review, #hud-inner[data-hk="review"] .ln-leg u[data-k="review"]
     { opacity: 1; filter: brightness(1.4); }
-  .ln-wait { float: right; color: var(--hwarn); letter-spacing: .06em; text-transform: none; font-size: 12px; }
+  .ln-wait { float: right; color: var(--hwarn); letter-spacing: var(--tr-tight); text-transform: none; font-size: var(--fs-sm); }
   #h-lanes { display: flex; flex-direction: column; gap: clamp(4px, 1vh, 14px); }
   .ln { display: grid; grid-template-columns: 124px minmax(0, 1fr) 118px; gap: 14px; align-items: stretch; flex: 1 1 0; min-height: 30px; max-height: 64px; }
   .ln.idle { opacity: .55; }
@@ -386,14 +391,14 @@
      with what's actually happening right now. */
   .ln-idle { flex: 0 0 auto; margin-top: 4px; padding-top: 12px; border-top: 1px dashed var(--hline);
     display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-  .ln-idle-label { flex: none; color: var(--hdim); font-size: 10.5px; letter-spacing: .18em; text-transform: uppercase; }
-  .ln-idle-chip { display: inline-flex; align-items: center; gap: 6px; color: var(--hdim); font-size: 12.5px; opacity: .65; transition: opacity .15s ease; }
+  .ln-idle-label { flex: none; color: var(--hdim); font-size: var(--fs-xs); letter-spacing: var(--tr-label); text-transform: uppercase; }
+  .ln-idle-chip { display: inline-flex; align-items: center; gap: 6px; color: var(--hdim); font-size: var(--fs-sm); opacity: .65; transition: opacity .15s ease; }
   .ln-idle-chip:hover { opacity: 1; }
-  .ln-idle-av { flex: none; width: 17px; height: 17px; border-radius: 50%; display: grid; place-items: center; font-style: normal; font-size: 9px; box-shadow: inset 0 0 0 1px var(--hdim); }
+  .ln-idle-av { flex: none; width: 17px; height: 17px; border-radius: 50%; display: grid; place-items: center; font-style: normal; font-size: var(--fs-xs); box-shadow: inset 0 0 0 1px var(--hdim); }
   .ln-who, .ln-sum { align-self: center; }
-  .ln-who { display: flex; align-items: center; gap: 9px; min-width: 0; }
+  .ln-who { display: flex; align-items: center; gap: 8px; min-width: 0; }
   .ln-who b { font-weight: 500; color: var(--htext); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .ln-av { flex: none; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-style: normal; font-size: 11px; box-shadow: inset 0 0 0 1.5px var(--c), 0 0 10px -2px var(--c); }
+  .ln-av { flex: none; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-style: normal; font-size: var(--fs-xs); box-shadow: inset 0 0 0 1.5px var(--c), 0 0 10px -2px var(--c); }
   .ln-track { position: relative; height: 100%; min-height: 26px; border-radius: 6px; background: rgba(110,190,255,.045) linear-gradient(90deg, rgba(110,190,255,.14) 1px, transparent 1px) 0 0 / 25% 100%; border: 1px solid rgba(110,190,255,.1); overflow: hidden; }
   .ln-track::after { content: ''; position: absolute; right: 0; top: 0; bottom: 0; width: 2px; background: var(--hcy); box-shadow: 0 0 8px var(--hcy); opacity: .7; }
   /* A segment's own kind (busy/waiting/review) is a fixed historical fact, independent of the
@@ -409,17 +414,17 @@
      --c is set per lane in JS to the agent's CURRENT state color (working/waiting/review/…), not
      their identity — a color only ever means one thing on this screen. Identity is the name text
      and avatar glyph instead, which reads more reliably than matching shades of blue anyway. */
-  .ln-sum { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; color: var(--hdim); font-size: 12px; }
-  .ln-sum em { font-style: normal; font-weight: 600; font-size: 12.5px; letter-spacing: .1em; color: var(--c); }
+  .ln-sum { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; color: var(--hdim); font-size: var(--fs-sm); }
+  .ln-sum em { font-style: normal; font-weight: 600; font-size: var(--fs-sm); letter-spacing: var(--tr-label); color: var(--c); }
   .ln.quiet .ln-sum em { opacity: .85; }
   .ln.quiet .ln-sum em, .ln.waiting .ln-sum em, .ln.abandoned .ln-sum em { animation: hqblink 2.6s ease-in-out infinite; }
-  .ln-sum span { color: var(--hdim); font-size: 11.5px; }
+  .ln-sum span { color: var(--hdim); font-size: var(--fs-sm); }
   .ln-q .ln-track { display: flex; align-items: flex-end; gap: 2px; padding: 0 1px; height: clamp(22px, 3.6vh, 38px); }
   .ln-q .ln-track i { flex: 1; min-height: 0; background: linear-gradient(180deg, var(--hcy), rgba(94,231,255,.25)); border-radius: 2px 2px 0 0; opacity: .8; }
-  .ln-q .ln-who { color: var(--hdim); letter-spacing: .14em; font-size: 10.5px; padding-left: 4px; }
+  .ln-q .ln-who { color: var(--hdim); letter-spacing: var(--tr-label); font-size: var(--fs-xs); padding-left: 4px; }
   .ln-q .ln-sum { justify-content: flex-end; color: var(--hcy); }
   .ln-ax { margin-top: 2px; }
-  .ln-ticks { position: relative; height: 14px; color: var(--hdim); font-size: 10px; }
+  .ln-ticks { position: relative; height: 14px; color: var(--hdim); font-size: var(--fs-xs); }
   .ln-ticks span { position: absolute; top: 0; transform: translateX(-50%); } .ln-ticks span:first-child { transform: none; } .ln-ticks span:last-child { transform: translateX(-100%); }
   .h-empty { color: var(--hdim); padding: 6px 0; }
   @media (max-width: 980px) { .h-grid { overflow-y: auto; } }
