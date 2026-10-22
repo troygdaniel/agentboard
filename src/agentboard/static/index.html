@@ -314,9 +314,22 @@
   .h-axis { display: flex; justify-content: space-between; color: var(--hdim); font-size: 10px; margin-top: 6px; flex: none; }
   /* ----- agent load: one lane per agent over the last hour ----- */
   .hud { --c0: #5ee7ff; }
-  .ln-leg { margin-left: 18px; letter-spacing: .06em; text-transform: none; font-size: 11.5px; }
-  .ln-leg u { text-decoration: none; margin-right: 14px; color: var(--hdim); }
-  .ln-leg u::before { content: ''; display: inline-block; width: 9px; height: 9px; border-radius: 3px; margin-right: 6px; background: var(--k); box-shadow: 0 0 8px var(--k); }
+  .ln-leg { margin-left: 18px; letter-spacing: .05em; text-transform: none; font-size: 12.5px; display: inline-flex; align-items: center; gap: 2px; }
+  .ln-leg u { text-decoration: none; color: color-mix(in srgb, var(--k) 65%, var(--hdim)); cursor: default;
+    padding: 2px 7px; border-radius: 6px; transition: background .15s ease, color .15s ease; }
+  .ln-leg u::before { content: ''; display: inline-block; width: 9px; height: 9px; border-radius: 3px; margin-right: 6px; background: var(--k); box-shadow: 0 0 8px var(--k); vertical-align: -1px; }
+  .ln-leg u:hover { background: color-mix(in srgb, var(--k) 16%, transparent); color: var(--htext); }
+  /* two-way hover highlight between the legend and the lanes below, matched by kind */
+  .hud:has(.ln-leg u:hover) .sg, .hud:has(.ln-leg u:hover) .ln-mix b { opacity: .3; transition: opacity .15s ease; }
+  .hud:has(.ln-leg u[data-k="busy"]:hover) .sg:not(.waiting):not(.review), .hud:has(.ln-leg u[data-k="busy"]:hover) .m-busy,
+  .hud:has(.ln-leg u[data-k="waiting"]:hover) .sg.waiting, .hud:has(.ln-leg u[data-k="waiting"]:hover) .m-wait,
+  .hud:has(.ln-leg u[data-k="review"]:hover) .sg.review, .hud:has(.ln-leg u[data-k="review"]:hover) .m-rev
+    { opacity: 1; filter: brightness(1.4); }
+  .hud:has(.sg:hover) .ln-leg u, .hud:has(.ln-mix b:hover) .ln-leg u { opacity: .45; transition: opacity .15s ease; }
+  .hud:has(.sg:not(.waiting):not(.review):hover) .ln-leg u[data-k="busy"], .hud:has(.m-busy:hover) .ln-leg u[data-k="busy"],
+  .hud:has(.sg.waiting:hover) .ln-leg u[data-k="waiting"], .hud:has(.m-wait:hover) .ln-leg u[data-k="waiting"],
+  .hud:has(.sg.review:hover) .ln-leg u[data-k="review"], .hud:has(.m-rev:hover) .ln-leg u[data-k="review"]
+    { opacity: 1; background: color-mix(in srgb, var(--k) 20%, transparent); color: var(--htext); }
   .ln-wait { float: right; color: var(--hwarn); letter-spacing: .06em; text-transform: none; font-size: 12px; }
   #h-lanes { display: flex; flex-direction: column; gap: clamp(8px, 1.4vh, 16px); }
   .ln { display: grid; grid-template-columns: 124px minmax(0, 1fr) 118px; gap: 14px; align-items: center; }
@@ -483,7 +496,7 @@
     </div>
     <div class="h-grid">
       <section class="hp"><h4>Telemetry</h4><div class="h-scroll" id="h-tele"></div></section>
-      <section class="hp"><h4>Agent load <span class="ln-leg"><u style="--k:var(--c0)">working</u><u style="--k:var(--hwarn)">waiting on you</u><u style="--k:var(--hok)">in review</u></span><span class="ln-wait" id="ln-wait"></span></h4>
+      <section class="hp"><h4>Agent load <span class="ln-leg"><u data-k="busy" style="--k:var(--c0)">working</u><u data-k="waiting" style="--k:var(--hwarn)">waiting on you</u><u data-k="review" style="--k:var(--hok)">in review</u></span><span class="ln-wait" id="ln-wait"></span></h4>
         <div class="h-scroll" id="h-lanes"></div></section>
     </div>
   </div>
