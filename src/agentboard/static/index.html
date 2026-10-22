@@ -319,17 +319,16 @@
     padding: 2px 7px; border-radius: 6px; transition: background .15s ease, color .15s ease; }
   .ln-leg u::before { content: ''; display: inline-block; width: 9px; height: 9px; border-radius: 3px; margin-right: 6px; background: var(--k); box-shadow: 0 0 8px var(--k); vertical-align: -1px; }
   .ln-leg u:hover { background: color-mix(in srgb, var(--k) 16%, transparent); color: var(--htext); }
-  /* two-way hover highlight between the legend and the lanes below, matched by kind */
-  .hud:has(.ln-leg u:hover) .sg, .hud:has(.ln-leg u:hover) .ln-mix b { opacity: .3; transition: opacity .15s ease; }
-  .hud:has(.ln-leg u[data-k="busy"]:hover) .sg:not(.waiting):not(.review), .hud:has(.ln-leg u[data-k="busy"]:hover) .m-busy,
-  .hud:has(.ln-leg u[data-k="waiting"]:hover) .sg.waiting, .hud:has(.ln-leg u[data-k="waiting"]:hover) .m-wait,
-  .hud:has(.ln-leg u[data-k="review"]:hover) .sg.review, .hud:has(.ln-leg u[data-k="review"]:hover) .m-rev
+  /* Two-way hover highlight between the legend and the lanes below, matched by kind.
+     #h-lanes gets its innerHTML replaced on most 1s polls (segment positions shift with
+     the clock), which would reset a plain :hover every tick and read as flicker. Instead
+     JS tracks the hovered kind as a data attribute on the never-replaced #hud-inner, so
+     the highlight survives a lane rebuild untouched until the pointer actually moves. */
+  #hud-inner[data-hk] .sg, #hud-inner[data-hk] .ln-mix b, #hud-inner[data-hk] .ln-leg u { opacity: .35; transition: opacity .15s ease; }
+  #hud-inner[data-hk="busy"] .sg:not(.waiting):not(.review), #hud-inner[data-hk="busy"] .m-busy, #hud-inner[data-hk="busy"] .ln-leg u[data-k="busy"],
+  #hud-inner[data-hk="waiting"] .sg.waiting, #hud-inner[data-hk="waiting"] .m-wait, #hud-inner[data-hk="waiting"] .ln-leg u[data-k="waiting"],
+  #hud-inner[data-hk="review"] .sg.review, #hud-inner[data-hk="review"] .m-rev, #hud-inner[data-hk="review"] .ln-leg u[data-k="review"]
     { opacity: 1; filter: brightness(1.4); }
-  .hud:has(.sg:hover) .ln-leg u, .hud:has(.ln-mix b:hover) .ln-leg u { opacity: .45; transition: opacity .15s ease; }
-  .hud:has(.sg:not(.waiting):not(.review):hover) .ln-leg u[data-k="busy"], .hud:has(.m-busy:hover) .ln-leg u[data-k="busy"],
-  .hud:has(.sg.waiting:hover) .ln-leg u[data-k="waiting"], .hud:has(.m-wait:hover) .ln-leg u[data-k="waiting"],
-  .hud:has(.sg.review:hover) .ln-leg u[data-k="review"], .hud:has(.m-rev:hover) .ln-leg u[data-k="review"]
-    { opacity: 1; background: color-mix(in srgb, var(--k) 20%, transparent); color: var(--htext); }
   .ln-wait { float: right; color: var(--hwarn); letter-spacing: .06em; text-transform: none; font-size: 12px; }
   #h-lanes { display: flex; flex-direction: column; gap: clamp(8px, 1.4vh, 16px); }
   .ln { display: grid; grid-template-columns: 124px minmax(0, 1fr) 118px; gap: 14px; align-items: center; }
@@ -1190,6 +1189,25 @@ function renderLanes(d) {
   const w = Math.round((d.waiting_s || 0) / 60);
   $('ln-wait').textContent = w ? `⚠ ${dur(w)} waiting on you` : '';
 }
+
+// Hover-kind tracking for the Agent Load legend highlight (see the #hud-inner[data-hk]
+// rules): delegated on #hud-inner, which #h-lanes' per-second rebuild never replaces, so
+// the hovered kind survives that rebuild untouched instead of flickering on/off with it.
+function laneKindOf(el) {
+  if (el.dataset.k) return el.dataset.k;   // the legend's own <u data-k="...">
+  if (el.classList.contains('sg')) return el.classList.contains('waiting') ? 'waiting' : el.classList.contains('review') ? 'review' : 'busy';
+  if (el.classList.contains('m-busy')) return 'busy';
+  if (el.classList.contains('m-wait')) return 'waiting';
+  if (el.classList.contains('m-rev')) return 'review';
+  return null;
+}
+$('hud-inner')?.addEventListener('pointermove', e => {
+  const el = e.target.closest('.ln-leg u, .sg, .m-busy, .m-wait, .m-rev');
+  const k = el ? laneKindOf(el) : null;
+  const inner = $('hud-inner');
+  if (k) inner.dataset.hk = k; else delete inner.dataset.hk;
+});
+$('hud-inner')?.addEventListener('pointerleave', () => delete $('hud-inner').dataset.hk);
 
 function renderTele(agents) {
   const box = $('h-tele');
