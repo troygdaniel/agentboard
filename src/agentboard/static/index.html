@@ -287,6 +287,8 @@
     font: 13.5px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; font-variant-numeric: tabular-nums;
     background:
       radial-gradient(900px 520px at 50% -25%, rgba(94,231,255,.13), transparent 70%),
+      radial-gradient(700px 420px at 92% 108%, rgba(93,255,176,.07), transparent 70%),
+      radial-gradient(520px 360px at 4% 96%, rgba(94,231,255,.06), transparent 70%),
       linear-gradient(rgba(94,231,255,.035) 1px, transparent 1px) 0 0 / 40px 40px,
       linear-gradient(90deg, rgba(94,231,255,.035) 1px, transparent 1px) 0 0 / 40px 40px,
       var(--hbg);
@@ -298,7 +300,7 @@
   #hud.full { padding: 0; }
   #hud.full .hud { max-width: none; border-radius: 0; border: 0; padding: 18px 24px 24px; }
   .h-bar { display: flex; align-items: center; gap: 14px; }
-  .h-title { letter-spacing: var(--tr-wide); color: var(--hcy); text-shadow: 0 0 14px rgba(94,231,255,.6); }
+  .h-title { letter-spacing: var(--tr-wide); color: var(--hcy); text-shadow: 0 0 6px rgba(94,231,255,.55), 0 0 22px rgba(94,231,255,.4); }
   .h-title i { color: var(--hdim); font-style: normal; }
   .h-clock { color: var(--htext); font-size: var(--fs-md); letter-spacing: .12em; }
   .h-btn { background: none; border: 1px solid var(--hline); color: var(--hdim); border-radius: 6px; padding: 3px 10px; font: inherit; cursor: pointer; }
@@ -320,20 +322,30 @@
   .h-chip.today { color: var(--hcy); border-color: rgba(94,231,255,.35); background: rgba(94,231,255,.06); }
   .h-grid { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); gap: 12px; min-height: 0; }
   .h-grid > .hp:first-child .h-scroll { max-height: 34vh; }
-  /* Agent load shrinks to its (height-capped) lanes instead of grid-stretching to fill the
-     row, which used to leave either oversized lanes or a big empty bordered box with few
-     agents. align-self: start restores content sizing; max-height caps it back at the row's
-     height so it still scrolls internally once there are enough agents to fill it. */
-  .hp:has(#h-lanes) { align-self: start; max-height: 100%; }
-  .hp { border: 1px solid var(--hline); border-radius: 10px; background: rgba(9,17,26,.62); padding: 10px 14px 12px; display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+  /* Agent load fills its grid row again (an earlier shrink-wrap left the bottom two-thirds of
+     the screen as empty grid). What keeps a 1-agent board from looking ridiculous now is the
+     per-lane caps below, scaled to the viewport, plus the idle rows absorbing whatever height
+     the active lanes don't — the panel reads full without any one lane ballooning. */
+  .hp { border: 1px solid var(--hline); border-radius: 12px; padding: 12px 16px 14px; display: flex; flex-direction: column; min-height: 0; overflow: hidden;
+    background: linear-gradient(180deg, rgba(14,25,38,.74), rgba(8,15,24,.66));
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.045), 0 18px 40px -26px rgba(0,0,0,.9); }
   .hp h4 { margin: 0 0 10px; font-weight: 500; font-size: var(--fs-xs); letter-spacing: var(--tr-label); color: var(--hdim); text-transform: uppercase; flex: none; }
   .hp h4::before { content: '// '; color: var(--hcy); }
   .ln-sub { margin-left: 10px; font-weight: 400; letter-spacing: var(--tr-tight); text-transform: none; color: var(--hdim); opacity: .6; font-size: var(--fs-xs); }
   .h-scroll { overflow-y: auto; min-height: 0; flex: 1; }
   .h-scroll::-webkit-scrollbar { width: 6px; } .h-scroll::-webkit-scrollbar-thumb { background: var(--hline); border-radius: 3px; }
-  .h-row { display: grid; grid-template-columns: 38px minmax(0, 1.5fr) minmax(140px, 1.3fr) 92px; gap: 16px; align-items: center; padding: 14px 0; border-top: 1px solid rgba(110,190,255,.08); }
+  /* each telemetry row is a lit strip: a state-colored accent bar on the left edge that glows
+     (and breathes while working), so a column of rows reads as a stack of live instruments */
+  .h-row { position: relative; display: grid; grid-template-columns: 38px minmax(0, 1.5fr) minmax(140px, 1.3fr) 92px; gap: 16px; align-items: center;
+    padding: 14px 12px 14px 16px; border-top: 1px solid rgba(110,190,255,.08); border-radius: 10px; transition: background .2s ease; }
+  .h-row:hover { background: rgba(110,190,255,.04); }
   .h-row:first-child { border-top: 0; }
+  .h-row::before { content: ''; position: absolute; left: 0; top: 14px; bottom: 14px; width: 3px; border-radius: 2px;
+    background: var(--c); box-shadow: 0 0 10px var(--c); opacity: .9; }
+  .h-row.working::before { animation: hbar 3s ease-in-out infinite; }
+  @keyframes hbar { 50% { box-shadow: 0 0 18px 2px var(--c); } }
   .h-av { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; font-size: var(--fs-md); color: var(--htext);
+    background: color-mix(in srgb, var(--c) 14%, transparent);
     box-shadow: inset 0 0 0 1.5px var(--c), 0 0 12px -2px var(--c); }
   .h-row.idle { opacity: .5; }
   .h-name { color: var(--htext); display: flex; gap: 8px; align-items: baseline; font-size: var(--fs-lg); font-weight: 500; } .h-name em { font-style: normal; font-weight: 600; font-size: var(--fs-sm); letter-spacing: var(--tr-label); color: var(--hcy); }
@@ -379,34 +391,65 @@
   #hud-inner[data-hk="review"] .sg.review, #hud-inner[data-hk="review"] .ln-leg u[data-k="review"]
     { opacity: 1; filter: brightness(1.4); }
   .ln-wait { float: right; color: var(--hwarn); letter-spacing: var(--tr-tight); text-transform: none; font-size: var(--fs-sm); }
-  #h-lanes { display: flex; flex-direction: column; gap: clamp(4px, 1vh, 14px); }
-  .ln { display: grid; grid-template-columns: 124px minmax(0, 1fr) 118px; gap: 14px; align-items: stretch; flex: 1 1 0; min-height: 30px; max-height: 64px; }
-  .ln.idle { opacity: .55; }
+  /* safe center: when the group is shorter than the panel (1-2 agents) it sits composed in the
+     middle instead of huddling at the top over a void; when it's taller it top-aligns and scrolls
+     as normal (the "safe" keyword is what prevents centered overflow clipping the top rows) */
+  #h-lanes { display: flex; flex-direction: column; justify-content: safe center; gap: clamp(6px, 1.4vh, 18px); }
+  /* lane caps scale with the viewport: a lone agent gets a generous hero lane on a tall screen
+     without ever turning into a 500px slab; active lanes and the idle block share the leftover */
+  .ln { position: relative; display: grid; grid-template-columns: 124px minmax(0, 1fr) 118px; gap: 14px; align-items: stretch; flex: 1 1 0;
+    min-height: 44px; max-height: clamp(56px, 9vh, 104px); border-radius: 10px; isolation: isolate; }
+  /* an active lane is "lit": a soft state-colored glow bleeds in from its left edge and breathes
+     slowly — the lane itself tells you it's alive before you read anything. isolation: isolate on
+     .ln gives the z-index:-1 glow a stacking context to sit behind, instead of vanishing behind
+     the panel background; the bar lives inside the lane box (not at a negative offset) because
+     #h-lanes scrolls, and anything hanging outside it gets clipped. */
+  .ln:not(.idle):not(.ln-q):not(.ln-ax)::before { content: ''; position: absolute; inset: 0; border-radius: 10px; pointer-events: none; z-index: -1;
+    background: radial-gradient(420px 100% at 0% 50%, color-mix(in srgb, var(--c) 12%, transparent), transparent 72%);
+    animation: hlit 4.5s ease-in-out infinite; }
+  @keyframes hlit { 50% { opacity: .5; } }
+  .ln:not(.idle):not(.ln-q):not(.ln-ax)::after { content: ''; position: absolute; left: 0; top: 6px; bottom: 6px; width: 3px; border-radius: 2px;
+    background: var(--c); box-shadow: 0 0 12px var(--c); }
+  .ln-who { padding-left: 12px; }
   .ln.abandoned { box-shadow: inset 0 0 0 1px var(--hbad); }
   .ln-q, .ln-ax { flex: 0 0 auto; }
-  /* Idle agents get a separate, de-emphasized strip below the active lanes instead of a full
-     lane each — there's nothing to show on a 60-minute track for someone not working, and a
-     full-height lane of empty space for them pushed active agents (the ones actually worth
-     the room) further down. Name + avatar only is enough to show they exist without competing
-     with what's actually happening right now. */
-  .ln-idle { flex: 0 0 auto; margin-top: 4px; padding-top: 12px; border-top: 1px dashed var(--hline);
-    display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-  .ln-idle-label { flex: none; color: var(--hdim); font-size: var(--fs-xs); letter-spacing: var(--tr-label); text-transform: uppercase; }
-  .ln-idle-chip { display: inline-flex; align-items: center; gap: 6px; color: var(--hdim); font-size: var(--fs-sm); opacity: .65; transition: opacity .15s ease; }
-  .ln-idle-chip:hover { opacity: 1; }
-  .ln-idle-av { flex: none; width: 17px; height: 17px; border-radius: 50%; display: grid; place-items: center; font-style: normal; font-size: var(--fs-xs); box-shadow: inset 0 0 0 1px var(--hdim); }
+  /* Idle agents: proper rows, column-aligned with the active lanes, that absorb the height the
+     active lanes don't use — so the panel fills the screen instead of ending in a dashed one-liner.
+     They stay visibly "asleep" (desaturated, dim, no glow, no accent bar) so active lanes keep
+     priority, but each one still says who, what they last did, and when it wrapped. */
+  /* grows to soak up spare height, but when the board is over capacity it is the idle block that
+     gives way — shrinking to a short strip that scrolls within itself — so the active lanes
+     above never get squeezed down to the idle rows' size. Active work always wins the room. */
+  .ln-idle { flex: 0 1 auto; min-height: 92px; overflow-y: auto; scrollbar-gutter: stable; margin-top: 6px; padding: 12px 0 2px 0; border-top: 1px solid var(--hline);
+    display: flex; flex-direction: column; gap: clamp(4px, 1vh, 12px); }
+  .ln-idle::-webkit-scrollbar { width: 6px; } .ln-idle::-webkit-scrollbar-thumb { background: var(--hline); border-radius: 3px; }
+  .ln-idle-label { flex: none; color: var(--hdim); font-size: var(--fs-xs); letter-spacing: var(--tr-label); text-transform: uppercase; margin-bottom: 2px; }
+  .ln.idle { flex: 0 0 auto; height: clamp(44px, 7vh, 78px); max-height: none; opacity: .62; filter: saturate(.35); transition: opacity .2s ease, filter .2s ease, background .2s ease; }
+  .ln.idle:hover { opacity: 1; filter: none; background: rgba(110,190,255,.04); }
+  .ln-rest { align-self: stretch; display: flex; flex-direction: column; justify-content: center; gap: 2px; min-width: 0; padding: 0 14px;
+    border-radius: 6px; border: 1px dashed rgba(110,190,255,.14); background: rgba(110,190,255,.025); }
+  .ln-rest-t { color: var(--htext); font-size: var(--fs-sm); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ln-rest-when { color: var(--hdim); font-size: var(--fs-xs); letter-spacing: var(--tr-tight); }
   .ln-who, .ln-sum { align-self: center; }
   .ln-who { display: flex; align-items: center; gap: 8px; min-width: 0; }
   .ln-who b { font-weight: 500; color: var(--htext); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .ln-av { flex: none; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-style: normal; font-size: var(--fs-xs); box-shadow: inset 0 0 0 1.5px var(--c), 0 0 10px -2px var(--c); }
-  .ln-track { position: relative; height: 100%; min-height: 26px; border-radius: 6px; background: rgba(110,190,255,.045) linear-gradient(90deg, rgba(110,190,255,.14) 1px, transparent 1px) 0 0 / 25% 100%; border: 1px solid rgba(110,190,255,.1); overflow: hidden; }
-  .ln-track::after { content: ''; position: absolute; right: 0; top: 0; bottom: 0; width: 2px; background: var(--hcy); box-shadow: 0 0 8px var(--hcy); opacity: .7; }
+  .ln-av { flex: none; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font-style: normal; font-size: var(--fs-xs);
+    background: color-mix(in srgb, var(--c) 14%, transparent); box-shadow: inset 0 0 0 1.5px var(--c), 0 0 10px -2px var(--c); }
+  /* the track is a recessed channel: lighter at the top edge, shadowed at the bottom, with the
+     15-minute gridlines showing through — segments sit "in" it rather than on a flat strip */
+  .ln-track { position: relative; height: 100%; min-height: 28px; border-radius: 7px; overflow: hidden; border: 1px solid rgba(110,190,255,.14);
+    background: linear-gradient(90deg, rgba(110,190,255,.16) 1px, transparent 1px) 0 0 / 25% 100%, linear-gradient(180deg, rgba(110,190,255,.075), rgba(110,190,255,.03));
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.05), inset 0 -10px 18px -14px rgba(0,0,0,.75); }
+  .ln-track::after { content: ''; position: absolute; right: 0; top: 0; bottom: 0; width: 3px; background: var(--hcy); box-shadow: 0 0 12px 2px rgba(94,231,255,.55); opacity: .8; }
   /* A segment's own kind (busy/waiting/review) is a fixed historical fact, independent of the
      agent's color or their current state — a 20-minutes-ago "busy" stretch stays the same
      "busy" cyan whether the agent is currently working fine or has since gone quiet. --c0 here
      is the same constant the legend's "working" dot uses, so track and legend always agree. */
-  .sg { position: absolute; top: 3px; bottom: 3px; min-width: 3px; border-radius: 4px; background: var(--c0); filter: brightness(1.25); box-shadow: 0 0 10px -1px var(--c0); overflow: hidden; }
-  .sg.waiting { background: repeating-linear-gradient(135deg, var(--hwarn) 0 5px, rgba(255,200,87,.55) 5px 10px); box-shadow: 0 0 10px -1px var(--hwarn); }
+  /* segments as neon tubes: a 1px highlight along the top edge gives them a bevel, the glow underneath lifts them off the channel */
+  .sg { position: absolute; top: 4px; bottom: 4px; min-width: 3px; border-radius: 4px; background: var(--c0); filter: brightness(1.25); overflow: hidden;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.4), inset 0 -1px 0 rgba(0,0,0,.25), 0 0 12px -1px var(--c0); }
+  .sg.waiting { background: repeating-linear-gradient(135deg, var(--hwarn) 0 5px, rgba(255,200,87,.55) 5px 10px);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.35), 0 0 12px -1px var(--hwarn); }
   .sg.review { background: rgba(93,255,176,.2); box-shadow: inset 0 0 0 1.5px var(--hok), 0 0 10px -2px var(--hok); }   /* outlined, so it never reads as "working" when the agent colour is green */
   .sg.open::after { content: ''; position: absolute; inset: 0; transform: translateX(-100%); background: linear-gradient(90deg, transparent, rgba(255,255,255,.4), transparent); animation: hsheen 3.2s ease-in-out infinite; }
   /* status word first — reading down this column answers "who's stuck/waiting/working" without
@@ -421,7 +464,7 @@
   .ln-sum span { color: var(--hdim); font-size: var(--fs-sm); }
   .ln-q .ln-track { display: flex; align-items: flex-end; gap: 2px; padding: 0 1px; height: clamp(22px, 3.6vh, 38px); }
   .ln-q .ln-track i { flex: 1; min-height: 0; background: linear-gradient(180deg, var(--hcy), rgba(94,231,255,.25)); border-radius: 2px 2px 0 0; opacity: .8; }
-  .ln-q .ln-who { color: var(--hdim); letter-spacing: var(--tr-label); font-size: var(--fs-xs); padding-left: 4px; }
+  .ln-q .ln-who { color: var(--hdim); letter-spacing: var(--tr-label); font-size: var(--fs-xs); padding-left: 12px; }
   .ln-q .ln-sum { justify-content: flex-end; color: var(--hcy); }
   .ln-ax { margin-top: 2px; }
   .ln-ticks { position: relative; height: 14px; color: var(--hdim); font-size: var(--fs-xs); }
@@ -1501,9 +1544,14 @@ function renderLanes(d) {
     <div class="ln-track">${q.map(v => `<i style="height:${(v / qmax * 100).toFixed(0)}%" title="${v} waiting in Todo"></i>`).join('')}</div>
     <div class="ln-sum" title="waiting in Todo, unclaimed">${q.length ? q[q.length - 1] : 0}</div></div>`;
   const axis = `<div class="ln ln-ax"><span></span><div class="ln-ticks">${['-60m', '-45m', '-30m', '-15m', 'now'].map((t, i) => `<span style="left:${i * 25}%">${t}</span>`).join('')}</div><span></span></div>`;
-  const idleStrip = idle.length ? `<div class="ln-idle"><span class="ln-idle-label">Idle · ${idle.length}</span>`
-    + idle.map(a => `<span class="ln-idle-chip" title="${hh(a.name)} — idle"><i class="ln-idle-av">${hh(nodeGlyph(a.name))}</i>${hh(a.name)}</span>`).join('') + `</div>` : '';
-  const html = d.agents.length ? lanes + queue + axis + idleStrip : `<div class="h-empty">No agents yet. They appear when they run <b>agentboard start</b>.</div>`;
+  // idle rows share the lane grid so their columns line up with the active lanes above; the middle
+  // column is a dashed "resting" channel carrying what they last did and when it wrapped
+  const idleRows = idle.length ? `<div class="ln-idle"><div class="ln-idle-label">Idle · ${idle.length}</div>`
+    + idle.map(a => `<div class="ln idle" style="--c:var(--hdim)">
+      <div class="ln-who"><i class="ln-av">${hh(nodeGlyph(a.name))}</i><b title="${hh(a.name)}">${hh(a.name)}</b></div>
+      <div class="ln-rest" title="${hh(a.task || '')}"><span class="ln-rest-t">${hh(a.task || '—')}</span><span class="ln-rest-when">${a.updated ? 'wrapped ' + hh(ago(a.updated).text) : 'no activity yet'}</span></div>
+      <div class="ln-sum"><em>IDLE</em><span title="tasks signed off today">✓ ${a.done_today || 0} done</span></div></div>`).join('') + `</div>` : '';
+  const html = d.agents.length ? lanes + queue + axis + idleRows : `<div class="h-empty">No agents yet. They appear when they run <b>agentboard start</b>.</div>`;
   if (box.dataset.k !== html) { box.dataset.k = html; box.innerHTML = html; }
   const w = Math.round((d.waiting_s || 0) / 60);
   $('ln-wait').textContent = w ? `⚠ ${dur(w)} waiting on you` : '';
