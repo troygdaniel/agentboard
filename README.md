@@ -97,6 +97,28 @@ Declare a task is blocked by another so parallel agents don't collide on orderin
 
 The card shows a lock with a link to each unresolved blocker; it clears on its own once the blocker is marked done.
 
+## Subtasks
+
+Split a big card into subtasks (one level deep). A subtask is a normal task with a parent:
+
+    agentboard add "Title" --parent <parent_id>                  # follows the parent's column, inherits its project
+    agentboard start "Title" --name atlas --parent <parent_id>   # an agent adding one mid-flight
+    agentboard claim <parent_id> --name atlas                    # takes the parent AND all its open subtasks
+    agentboard update <sub_id> 60 "wiring it up"                 # each subtask has its own %, status line and log
+    agentboard review <parent_id> "result"                       # the deliverable is ready; open subtasks close with it
+
+- A subtask at 100% **closes itself** (no review step) and gets its own compact card in Done, while the parent stays
+  in Doing. Agents never call `review`/`done` on a subtask.
+- The parent's % is **computed** (the mean of its subtasks, shown with a Σ). `update <parent>` only sets its status
+  line. The parent does not auto-review: the agent calls `review <parent>` when it is ready.
+- On the board the parent has one **segmented bar**, a cell per subtask (green done, agent-colored live, empty
+  queued), plus `done/total`. It is also the expand toggle: Doing parents start open, the rest collapsed. Open subtasks
+  are quiet rows under it; click one for its own detail.
+- `done <parent>` (you) marks whatever is left done, `rm <parent>` removes the subtasks too, and once a parent is
+  done its finished subtasks fold back under it. `blocked-by` works between subtasks.
+- `list` indents subtasks under their parent, the HUD feed labels their events "parent › subtask" (the agent rows and
+  totals count the parent only), and `report` groups them under the parent.
+
 ## The board
 
 Columns Todo / Doing / Done plus a **Later** drawer (`l`). A Doing card silent for 10 minutes turns amber; one silent
@@ -202,7 +224,7 @@ Set `[notify] enabled = true` for native desktop banners on ask/review (see [Not
 | For you | |
 |---|---|
 | `init` / `serve [--port N] [--no-open]` | create the board / run it |
-| `add "Title" [--status todo\|backlog] [-d TEXT] [--ctx NAME] [--project ID] [--blocked-by ID]` , `list [--all] [--stale]`, `rm <id>` | manage tasks |
+| `add "Title" [--status todo\|backlog] [-d TEXT] [--ctx NAME] [--project ID] [--blocked-by ID] [--parent ID]` , `list [--all] [--stale]`, `rm <id>` | manage tasks (`--parent` makes a subtask) |
 | `tail [-n LINES] [--interval SECS]` | watch activity live in the terminal — same feed as the HUD, for CLI-only sessions |
 | `report [--date YYYY-MM-DD]` | markdown recap of what got done that day, by agent — for a standup or daily log |
 | `project add "Name" [--color C] [-d TEXT]`, `project list`, `project edit <id> [...]`, `project rm <id>` | manage projects |
@@ -213,8 +235,8 @@ Set `[notify] enabled = true` for native desktop banners on ask/review (see [Not
 
 | For agents | |
 |---|---|
-| `start "Title" --name N [--color C] [--project ID] [--blocked-by ID] [--force]` | create a task already in Doing; prints its id |
-| `claim <id> --name N [--force]` | take an existing task (refuses while blocked, unless `--force`) |
+| `start "Title" --name N [--color C] [--project ID] [--blocked-by ID] [--parent ID] [--force]` | create a task already in Doing; prints its id |
+| `claim <id> --name N [--force]` | take an existing task and its subtasks (refuses while blocked, unless `--force`) |
 | `update <id> <0-100> ["text"]` , `ask <id> "q" [--body MD]`, `review <id> "result" [--body MD]` | report |
 | `done <id>` | user-approved only |
 | `wait <id> [--status X] [--timeout SECS]` | block until a task reaches a status — sync without polling |

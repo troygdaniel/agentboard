@@ -9,7 +9,7 @@ from urllib.parse import parse_qs, urlparse
 from . import hud
 from . import markdown as mdlib
 from . import prompt as promptlib
-from .store import BoardError, Store
+from .store import BoardError, Store, subtask_counts
 
 STATIC = Path(__file__).parent / "static"
 MAX_BODY = 1_000_000
@@ -74,8 +74,16 @@ def make_handler(store, port):
                 self._send(200, (STATIC / "index.html").read_bytes(), "text/html; charset=utf-8")
             elif url.path == "/api/tasks":
                 # list view stays light; history, prompt and the rich body come from /api/task
-                slim = [{k: v for k, v in t.items() if k not in ("log", "prompt", "body_md")}
-                        for t in store.load() if not t.get("archived")]
+                everything = store.load()
+                counts = subtask_counts(everything)   # archived subtasks still count toward a parent's segments
+                slim = []
+                for t in everything:
+                    if t.get("archived"):
+                        continue
+                    d = {k: v for k, v in t.items() if k not in ("log", "prompt", "body_md")}
+                    if t["id"] in counts:
+                        d["subs_total"], d["subs_done"] = counts[t["id"]]
+                    slim.append(d)
                 self._send(200, {"tasks": slim})
             elif url.path == "/api/projects":
                 self._send(200, {"projects": store.load_projects()})
@@ -119,8 +127,8 @@ def make_handler(store, port):
                 path = urlparse(self.path).path
                 if path == "/api/tasks":
                     t = store.add(body["title"], body.get("description", ""),
-                                  body.get("status", "backlog"), body.get("ctx", []),
-                                  project_id=body.get("project_id"))
+                                  body.get("status"), body.get("ctx", []),
+                                  project_id=body.get("project_id"), parent_id=body.get("parent_id"))
                     self._send(200, t)
                 elif path == "/api/projects":
                     p = store.add_project(body["name"], body.get("color"), body.get("description", ""))
@@ -135,16 +143,19 @@ def make_handler(store, port):
                     t = store.set_project(body["id"], body.get("project_id"))
                     self._send(200, t)
                 elif path == "/api/move":
-                    prev = Store.get(store.load(), body["id"])
+                    loaded = store.load()
+                    prev = Store.get(loaded, body["id"])
+                    prev_kids = [k for k in loaded if k.get("parent_id") == body["id"]]   # a move cascades onto them
                     prev_before = store.next_sibling(body["id"])
                     moved = store.move(body["id"], body["status"], body.get("before"))
-                    self._send(200, {"task": moved, "prev": prev, "prev_before": prev_before})
+                    self._send(200, {"task": moved, "prev": prev, "prev_before": prev_before, "prev_kids": prev_kids})
                 elif path == "/api/restore":
-                    self._send(200, store.restore(body["task"], body.get("before")))
+                    self._send(200, store.restore(body["task"], body.get("before"), body.get("kids")))
                 elif path == "/api/bulk-move":
                     ids = body["ids"]
                     loaded = store.load()
-                    prev = [{"task": Store.get(loaded, i), "before": store.next_sibling(i)} for i in ids]
+                    prev = [{"task": Store.get(loaded, i), "before": store.next_sibling(i),
+                             "kids": [k for k in loaded if k.get("parent_id") == i]} for i in ids]
                     moved = store.bulk_move(ids, body["status"])
                     self._send(200, {"tasks": moved, "prev": prev})
                 elif path == "/api/bulk-archive":

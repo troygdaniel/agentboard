@@ -98,10 +98,20 @@ class Store:
                 return t
         raise BoardError(f"no such task: {task_id}")
 
-    def add(self, title, description="", status="backlog", ctx=None, task_id=None, project_id=None, blocked_by=None):
-        if status not in STATUSES:
+    def add(self, title, description="", status=None, ctx=None, task_id=None, project_id=None, blocked_by=None,
+            parent_id=None):
+        """Add a task. With parent_id it becomes a subtask: it follows its parent's column and owner and
+        inherits its project (one level only)."""
+        if status is not None and status not in STATUSES:
             raise BoardError(f"status must be one of {STATUSES}")
         with self.transaction() as tasks:
+            parent = _check_parent(tasks, parent_id)
+            if parent:
+                if status is not None and status != parent["status"]:
+                    raise BoardError(f"a subtask follows its parent ({parent['status']}); drop --status")
+                status = parent["status"]
+                project_id = project_id or parent.get("project_id")
+            status = status or "backlog"
             tid = task_id or _unique_id(title, {t["id"] for t in tasks})
             if any(t["id"] == tid for t in tasks):
                 raise BoardError(f"task id already exists: {tid}")
@@ -125,14 +135,27 @@ class Store:
                 task["project_id"] = project_id
             if blocked_by:
                 task["blocked_by"] = list(blocked_by)
+            if parent:
+                task["parent_id"] = parent["id"]
+                if parent.get("agent") and status == "doing":
+                    task["agent"] = parent["agent"]
+                    if parent.get("color"):
+                        task["color"] = parent["color"]
             _log(task, f"Added to {status}")
             tasks.append(task)
+            if parent:
+                _touch_parent(tasks, parent)
             return task
 
     def start(self, title, name, color=None, description="", task_id=None, project_id=None,
-              blocked_by=None, force=False):
-        """Agent announces new work: create the task already in doing, owned by name."""
+              blocked_by=None, force=False, parent_id=None):
+        """Agent announces new work: create the task already in doing, owned by name.
+
+        With parent_id it is a subtask of that card (inherits its project)."""
         with self.transaction() as tasks:
+            parent = _check_parent(tasks, parent_id)
+            if parent:
+                project_id = project_id or parent.get("project_id")
             tid = task_id or _unique_id(title, {t["id"] for t in tasks})
             existing = next((t for t in tasks if t["id"] == tid), None)
             if existing:  # same agent re-announcing the same work is a no-op
@@ -159,8 +182,12 @@ class Store:
                 task["project_id"] = project_id
             if blocked_by:
                 task["blocked_by"] = list(blocked_by)
+            if parent:
+                task["parent_id"] = parent["id"]
             _log(task, f"Started by {name}")
             tasks.append(task)
+            if parent:
+                _touch_parent(tasks, parent)
             return task
 
     def claim(self, task_id, name, color=None, force=False):
@@ -182,11 +209,23 @@ class Store:
                 t["progress"] = 5
             t.pop("needs_input", None)
             t.pop("question", None)
+            t.pop("ask_child", None)
             t.pop("review", None)
             t.pop("body_md", None)
             t["status_text"] = f"Claimed by {name}"
             _log(t, f"Claimed by {name}")
             t["updated"] = _now()
+            # claiming a parent takes all of its open subtasks too (quietly: each one's own log
+            # starts with its first real update, so a queued subtask doesn't read as busy)
+            for k in _kids(tasks, t["id"]):
+                if k["status"] != "done":
+                    k["status"], k["agent"] = "doing", name
+                    if color:
+                        k["color"] = color
+                    for f in ("needs_input", "question", "review", "body_md"):
+                        k.pop(f, None)
+                    k["updated"] = t["updated"]
+            _recompute(tasks, t)
             return t
 
     def ask(self, task_id, question, body_md=None):
@@ -207,6 +246,13 @@ class Store:
                 t.pop("body_md", None)
             _log(t, f"Needs input: {question}")
             t["updated"] = _now()
+            parent = _parent_of(tasks, t)
+            if parent:   # surface it on the parent card, which is what the board and HUD watch
+                parent["needs_input"] = True
+                parent["question"] = f"{t['title']}: {question}"
+                parent["status_text"] = parent["question"]
+                parent["ask_child"] = t["id"]
+                parent["updated"] = t["updated"]
             return t
 
     def review(self, task_id, summary, body_md=None):
@@ -217,8 +263,12 @@ class Store:
         """
         with self.transaction() as tasks:
             t = self.get(tasks, task_id)
+            if t.get("parent_id"):
+                # subtasks have no review step: reporting one finished is just 100%, which completes it
+                return self._update(tasks, t, 100, summary, None)
             t.pop("needs_input", None)
             t.pop("question", None)
+            t.pop("ask_child", None)
             t["review"] = True
             t["progress"] = 100
             t["result"] = summary
@@ -229,26 +279,46 @@ class Store:
                 t.pop("body_md", None)
             _log(t, f"Ready for review: {summary}")
             t["updated"] = _now()
+            for k in _kids(tasks, t["id"]):   # the deliverable is ready, so any still-open subtask is too
+                if k["status"] != "done":
+                    _finish(k, t["updated"])
             return t
 
     def update(self, task_id, progress=None, text=None, status=None):
         with self.transaction() as tasks:
-            t = self.get(tasks, task_id)
-            t.pop("needs_input", None)
-            t.pop("question", None)
-            t.pop("review", None)
-            t.pop("body_md", None)
-            if progress is not None:
-                t["progress"] = max(0, min(100, int(progress)))
-            if text is not None:
-                t["status_text"] = text
-                if status == "done":
-                    t["result"] = text
-            if status:
-                _apply_status(t, status)
+            return self._update(tasks, self.get(tasks, task_id), progress, text, status)
+
+    def _update(self, tasks, t, progress, text, status):
+        for f in ("needs_input", "question", "review", "body_md"):
+            t.pop(f, None)
+        parent = _parent_of(tasks, t)
+        if parent and parent.get("ask_child") == t["id"]:   # this was the question the parent was showing
+            for f in ("needs_input", "question", "ask_child"):
+                parent.pop(f, None)
+        kids = _kids(tasks, t["id"])
+        t.pop("ask_child", None)
+        if progress is not None and not kids:   # a parent's % is computed from its subtasks, never set
+            t["progress"] = max(0, min(100, int(progress)))
+        if text is not None:
+            t["status_text"] = text
+            if status == "done":
+                t["result"] = text
+        auto_done = bool(parent) and t.get("progress", 0) >= 100 and t["status"] != "done" and not status
+        if auto_done:   # a subtask at 100% closes itself; no review step
+            t["result"] = text or t.get("status_text") or ""
+        if status:   # log after the move so the entry carries the new column
+            _set_status(tasks, t, status)
             _log(t, "Marked done" if status == "done" else text)
-            t["updated"] = _now()
-            return t
+        elif auto_done:
+            _log(t, text)
+            _apply_status(t, "done")
+            _log(t, "Marked done")
+        else:
+            _log(t, text)
+        t["updated"] = _now()
+        if parent:
+            _touch_parent(tasks, parent, text)
+        return t
 
     def move(self, task_id, status, before_id=None, force=False):
         """Change column and/or position (used by drag-and-drop, the panel's move button,
@@ -257,13 +327,14 @@ class Store:
             raise BoardError(f"status must be one of {STATUSES}")
         with self.transaction() as tasks:
             t = self.get(tasks, task_id)
+            _not_a_subtask(t, "move")
             if status == "doing" and t["status"] != "doing" and not force:
                 unresolved = _unresolved_blockers(tasks, t.get("blocked_by"))
                 if unresolved:
                     raise BoardError(f"{task_id} is blocked by: {', '.join(unresolved)}")
             tasks.remove(t)
             if t["status"] != status:
-                _apply_status(t, status)
+                _set_status(tasks, t, status)
                 _log(t, f"Moved to {status}")
             t["updated"] = _now()
             _insert(tasks, t, before_id)
@@ -277,14 +348,19 @@ class Store:
         i = col.index(task_id)
         return col[i + 1] if i + 1 < len(col) else None
 
-    def restore(self, snapshot, before_id=None):
-        """Put a task back exactly as it was (undo for moves)."""
+    def restore(self, snapshot, before_id=None, kids=None):
+        """Put a task back exactly as it was (undo for moves). `kids` are the snapshots of its
+        subtasks, which a move may have cascaded onto."""
         if snapshot.get("status") not in STATUSES:
             raise BoardError(f"status must be one of {STATUSES}")
         with self.transaction() as tasks:
             tasks.remove(self.get(tasks, snapshot["id"]))
             snap = dict(snapshot)
             _insert(tasks, snap, before_id)
+            for ks in kids or []:
+                for i, x in enumerate(tasks):
+                    if x["id"] == ks["id"]:
+                        tasks[i] = dict(ks)
             return snap
 
     def clear_done(self):
@@ -306,11 +382,23 @@ class Store:
         with self.transaction() as tasks:
             t = self.get(tasks, task_id)
             t["color"] = color
+            for k in _kids(tasks, task_id):
+                k["color"] = color
             return t
 
     def delete(self, task_id):
+        """Remove a task; a parent takes its subtasks with it, a subtask just leaves its parent."""
         with self.transaction() as tasks:
-            tasks.remove(self.get(tasks, task_id))
+            t = self.get(tasks, task_id)
+            tasks.remove(t)
+            for k in _kids(tasks, task_id):
+                tasks.remove(k)
+            parent = _parent_of(tasks, t)
+            if parent:
+                if parent.get("ask_child") == task_id:
+                    for f in ("needs_input", "question", "ask_child"):
+                        parent.pop(f, None)
+                _touch_parent(tasks, parent)
 
     # -- multi-select bulk actions (board toolbar) --------------------------
 
@@ -327,13 +415,14 @@ class Store:
             moved = []
             for tid in ids:
                 t = self.get(tasks, tid)
+                _not_a_subtask(t, "move")
                 if status == "doing" and t["status"] != "doing" and not force:
                     unresolved = _unresolved_blockers(tasks, t.get("blocked_by"))
                     if unresolved:
                         raise BoardError(f"{tid} is blocked by: {', '.join(unresolved)}")
                 tasks.remove(t)
                 if t["status"] != status:
-                    _apply_status(t, status)
+                    _set_status(tasks, t, status)
                     _log(t, f"Moved to {status}")
                 t["updated"] = _now()
                 _insert(tasks, t, None)
@@ -346,10 +435,10 @@ class Store:
         with self.transaction() as tasks:
             touched = []
             for tid in ids:
-                t = self.get(tasks, tid)
-                if not t.get("archived"):
-                    t["archived"] = True
-                    touched.append(t["id"])
+                for t in (self.get(tasks, tid), *_kids(tasks, tid)):   # a parent's subtasks go with it
+                    if not t.get("archived"):
+                        t["archived"] = True
+                        touched.append(t["id"])
             return touched
 
     def bulk_set_project(self, ids, project_id):
@@ -364,12 +453,13 @@ class Store:
             prev = {}
             for tid in ids:
                 t = self.get(data["tasks"], tid)
-                prev[tid] = t.get("project_id")
-                if project_id:
-                    t["project_id"] = project_id
-                else:
-                    t.pop("project_id", None)
-                t["updated"] = _now()
+                for x in (t, *_kids(data["tasks"], tid)):   # subtasks inherit the parent's project
+                    prev.setdefault(x["id"], x.get("project_id"))
+                    if project_id:
+                        x["project_id"] = project_id
+                    else:
+                        x.pop("project_id", None)
+                    x["updated"] = _now()
             self._write(data)
             return prev
 
@@ -433,10 +523,12 @@ class Store:
             t = self.get(data["tasks"], task_id)
             if project_id:
                 self.get_project(data["projects"], project_id)  # raises if missing
-                t["project_id"] = project_id
-            else:
-                t.pop("project_id", None)
-            t["updated"] = _now()
+            for x in (t, *_kids(data["tasks"], task_id)):
+                if project_id:
+                    x["project_id"] = project_id
+                else:
+                    x.pop("project_id", None)
+                x["updated"] = _now()
             self._write(data)
             return t
 
@@ -479,6 +571,89 @@ def _log(t, text):
     t.setdefault("log", []).append(
         {"at": _now(), "status": t["status"], "progress": t.get("progress", 0), "text": text})
     del t["log"][:-LOG_MAX]
+
+
+def _kids(tasks, parent_id):
+    """A task's subtasks, in board order."""
+    return [x for x in tasks if x.get("parent_id") == parent_id]
+
+
+def _parent_of(tasks, t):
+    pid = t.get("parent_id")
+    return next((x for x in tasks if x["id"] == pid), None) if pid else None
+
+
+def _check_parent(tasks, parent_id):
+    """The parent a new subtask would hang under; raises if it can't (missing, itself a subtask, done)."""
+    if not parent_id:
+        return None
+    parent = next((x for x in tasks if x["id"] == parent_id), None)
+    if not parent:
+        raise BoardError(f"parent: no such task: {parent_id}")
+    if parent.get("parent_id"):
+        raise BoardError(f"{parent_id} is itself a subtask; subtasks go one level deep")
+    if parent["status"] == "done":
+        raise BoardError(f"{parent_id} is done; reopen it before adding subtasks")
+    return parent
+
+
+def _not_a_subtask(t, verb):
+    if t.get("parent_id"):
+        raise BoardError(f"{t['id']} is a subtask of {t['parent_id']}; subtasks {verb} with their parent")
+
+
+def _recompute(tasks, parent):
+    """A parent's progress is the mean of its subtasks' (done ones count as 100)."""
+    kids = _kids(tasks, parent["id"])
+    if kids:
+        parent["progress"] = int(sum(100 if k["status"] == "done" else k.get("progress", 0) for k in kids)
+                                 / len(kids) + .5)
+
+
+def _touch_parent(tasks, parent, text=None):
+    """A subtask changed: refresh the parent's computed %, show the latest note, bump its clock."""
+    _recompute(tasks, parent)
+    if text:
+        parent["status_text"] = text
+    parent["updated"] = _now()
+
+
+def _finish(t, at):
+    """Close a subtask without a review step (the parent said the deliverable is ready)."""
+    if t.get("status_text"):
+        t["result"] = t["status_text"]   # keep its last note as the result; marking done clears the line
+    _apply_status(t, "done")
+    _log(t, "Marked done")
+    t["updated"] = at
+
+
+def _set_status(tasks, t, status):
+    """Change a task's column, taking its open subtasks along (done ones stay done)."""
+    _apply_status(t, status)
+    for k in _kids(tasks, t["id"]):
+        if k["status"] == "done":
+            continue
+        if status == "done":
+            _finish(k, _now())
+        else:
+            _apply_status(k, status)
+            if status == "doing" and t.get("agent"):
+                k["agent"] = t["agent"]
+                if t.get("color"):
+                    k["color"] = t["color"]
+    _recompute(tasks, t)
+
+
+def subtask_counts(tasks):
+    """{parent_id: (total, done)} over every subtask, archived ones included, so a parent's
+    segments keep counting work whose card was cleared from the Done column."""
+    out = {}
+    for x in tasks:
+        pid = x.get("parent_id")
+        if pid:
+            n, d = out.get(pid, (0, 0))
+            out[pid] = (n + 1, d + (x["status"] == "done"))
+    return out
 
 
 def _insert(tasks, t, before_id):

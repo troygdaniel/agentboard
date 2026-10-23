@@ -34,11 +34,38 @@ def done_on(tasks, day=None):
 
     Same 'marked done' detection build() uses for its done_today/agent done_today counts,
     generalized to any day so `agentboard report` can recap today or a past date.
+
+    Subtasks are grouped under their parent in "subs". A parent finished that day lists all its
+    finished subtasks; one still in progress shows up (partial=True) only if some of its subtasks
+    finished that day. "n"/"n_done" are its subtask totals.
     """
     day = day or datetime.now().date()
-    out = [{"id": t["id"], "title": t["title"], "agent": t.get("agent"),
-            "result": t.get("result") or t.get("status_text") or "", "at": m.strftime(FMT)}
-           for t in tasks if t["status"] == "done" and (m := _marked_at(t)) and m.date() == day]
+    by_id = {t["id"]: t for t in tasks}
+    kids = {}
+    for t in tasks:
+        if t.get("parent_id") in by_id:
+            kids.setdefault(t["parent_id"], []).append(t)
+
+    def brief(k):
+        return {"id": k["id"], "title": k["title"], "result": k.get("result") or k.get("status_text") or ""}
+
+    out = []
+    for t in tasks:
+        if t.get("parent_id") in by_id:
+            continue
+        ks = kids.get(t["id"], [])
+        m = _marked_at(t) if t["status"] == "done" else None
+        full = bool(m and m.date() == day)
+        ended = [(_marked_at(k), k) for k in ks if k["status"] == "done"]
+        today = [(mk, k) for mk, k in ended if mk and mk.date() == day]
+        if not full and not today:
+            continue
+        shown = ended if full else today
+        at = m if full else max(mk for mk, _ in today)
+        out.append({"id": t["id"], "title": t["title"], "agent": t.get("agent"),
+                    "result": t.get("result") or t.get("status_text") or "", "at": at.strftime(FMT),
+                    "partial": not full, "n": len(ks), "n_done": len(ended),
+                    "subs": [brief(k) for _, k in sorted(shown, key=lambda x: x[0] or datetime.min)]})
     out.sort(key=lambda d: d["at"])
     return out
 
@@ -103,21 +130,33 @@ def build(tasks, now=None, feed_limit=60, abandoned_min=None):
     win_start = now - timedelta(minutes=WINDOW_MIN)
     lanes, agent_done_today = {}, {}
     queue_runs = []
+    by_id = {t["id"]: t for t in tasks}
+    parents = {t["parent_id"] for t in tasks if t.get("parent_id") in by_id}
+    # Subtasks are detail of their parent: the agent rows, the totals and the queue count the parent
+    # only (a 4-subtask card is one piece of work), while the activity feed and the lanes show each
+    # subtask's own events, labelled "parent › subtask" so they read in context.
+    top = [t for t in tasks if t.get("parent_id") not in by_id]
+
+    def label(t):
+        p = by_id.get(t.get("parent_id"))
+        return f"{p['title']} › {t['title']}" if p else t["title"]
 
     for t in tasks:
+        is_sub = t.get("parent_id") in by_id
         marked = None
         for e in t.get("log", []):
             at = _t(e.get("at"))
             if not at:
                 continue
-            events.append({"at": e["at"], "task": t["id"], "title": t["title"], "agent": t.get("agent"),
+            events.append({"at": e["at"], "task": t["id"], "title": label(t), "agent": t.get("agent"),
                            "color": t.get("color"), "text": e.get("text", ""), "progress": e.get("progress", 0),
-                           "status": e.get("status")})
+                           "status": e.get("status"),
+                           "label": f"{t['parent_id']} › {t['id']}" if is_sub else t["id"]})
             if at.date() == today:
                 events_today += 1
             if e.get("text") in ("Marked done", "Moved to done"):
                 marked = at
-        if t["status"] == "done" and marked:
+        if t["status"] == "done" and marked and not is_sub:
             if marked.date() == today:
                 done_today += 1
                 if t.get("agent"):
@@ -125,17 +164,20 @@ def build(tasks, now=None, feed_limit=60, abandoned_min=None):
             created = _t(t.get("created"))
             if created and marked >= created:
                 done_minutes.append((marked - created).total_seconds() / 60)
-        if t.get("agent"):
+        if t.get("agent") and not is_sub:
             by_agent.setdefault(t["agent"], []).append(t)
         for kind, a, b in segments(t, now):
             if b < win_start:
                 continue
             a = max(a, win_start)
             if kind == "queue":
-                queue_runs.append((a, b))
+                if not is_sub:
+                    queue_runs.append((a, b))
+            elif kind == "busy" and t["id"] in parents:
+                continue   # its subtasks' own runs say what the agent was doing; don't paint over them
             elif t.get("agent"):
                 lanes.setdefault(t["agent"], []).append(
-                    {"k": kind, "a": a.strftime(FMT), "b": b.strftime(FMT), "t": t["title"]})
+                    {"k": kind, "a": a.strftime(FMT), "b": b.strftime(FMT), "t": label(t)})
 
     events.sort(key=lambda e: e["at"], reverse=True)
 
@@ -154,7 +196,10 @@ def build(tasks, now=None, feed_limit=60, abandoned_min=None):
         times = [_t(e["at"]) for e in events if e["agent"] == name]
         began = next((e["at"] for e in cur.get("log", []) if e.get("status") == "doing" and _t(e.get("at"))),
                      cur.get("created"))
-        recent = [{"at": e["at"], "text": e.get("text", "")} for e in reversed(cur.get("log", []))][:3]   # newest first
+        feed = [(e, "") for e in cur.get("log", [])] + [
+            (e, k["title"] + ": ") for k in tasks if k.get("parent_id") == cur["id"] for e in k.get("log", [])]
+        feed.sort(key=lambda x: x[0].get("at", ""))
+        recent = [{"at": e["at"], "text": pre + e.get("text", "")} for e, pre in reversed(feed)][:3]   # newest first
         agents.append({
             "name": name, "color": next((t.get("color") for t in ts if t.get("color")), None),
             "state": state,
@@ -184,15 +229,15 @@ def build(tasks, now=None, feed_limit=60, abandoned_min=None):
         "agents": agents,
         "events": events[:feed_limit],
         "totals": {
-            "working": sum(1 for t in tasks if t["status"] == "doing"),
-            "waiting": sum(1 for t in tasks if t["status"] == "doing" and t.get("needs_input")),
-            "review": sum(1 for t in tasks if t["status"] == "doing" and t.get("review")),
+            "working": sum(1 for t in top if t["status"] == "doing"),
+            "waiting": sum(1 for t in top if t["status"] == "doing" and t.get("needs_input")),
+            "review": sum(1 for t in top if t["status"] == "doing" and t.get("review")),
             "quiet": sum(1 for a in agents if a["state"] == "quiet"),
             "abandoned": sum(1 for a in agents if a["state"] == "abandoned"),
             "done_today": done_today,
             "events_today": events_today,
             "avg_minutes": round(sum(done_minutes) / len(done_minutes), 1) if done_minutes else None,
-            "queued": sum(1 for t in tasks if t["status"] == "todo"),
+            "queued": sum(1 for t in top if t["status"] == "todo"),
         },
         "timeline": _bucket([_t(e["at"]) for e in events if _t(e["at"])], now, TIMELINE_BUCKETS, TIMELINE_MIN),
     }

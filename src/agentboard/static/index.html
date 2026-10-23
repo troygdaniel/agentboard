@@ -309,13 +309,57 @@
   }
   .proj::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--c, var(--neutral)); flex: none; }
   #project-filter { width: 150px; }
-  /* Project membership gets a second, peripheral-vision cue distinct from the .proj pill
-     (which you have to read) and from agent color (which owns the card's border/glow/background) —
-     a thin stripe hugging the top edge, inset to sit just inside the 1px border. */
-  .card.has-project::before {
-    content: ''; position: absolute; top: 1px; left: 1px; right: 1px; height: 3px;
-    border-radius: 11px 11px 0 0; background: var(--pc); pointer-events: none;
-  }
+  /* (No project stripe along the top of cards: the pill carries project membership; the agent's
+     color owns the left bar.) */
+
+  /* ---- subtasks: a parent's ONE progress bar is segmented (a cell per subtask) and is also the
+     expand toggle; open subtasks are quiet rows inside the parent, finished ones leave for Done ---- */
+  .title.has-check { display: flex; align-items: center; gap: 8px; }
+  .subs-toggle { display: flex; align-items: center; gap: 10px; width: 100%; margin-top: 10px; padding: 0; background: none; border: 0;
+    font: inherit; font-size: var(--fs-sm); color: var(--muted); cursor: pointer; text-align: left; border-radius: 6px; }
+  .subs-toggle:hover { color: var(--text); }
+  .segs { display: flex; gap: 3px; flex: 1; min-width: 0; height: 5px; }
+  .segs i { flex: 1; border-radius: 2px; background: var(--chip); box-shadow: inset 0 1px 2px var(--well), inset 0 -1px 0 var(--card-hi); transition: background .3s; }
+  .segs i.done { background: var(--ok); box-shadow: none; }
+  .segs i.part { background: linear-gradient(90deg, var(--c, var(--neutral)) var(--p, 50%), var(--chip) var(--p, 50%)); box-shadow: none; }
+  .card.livebar .segs i.part { position: relative; overflow: hidden; }
+  .card.livebar .segs i.part::after { content: ''; position: absolute; inset: 0; transform: translateX(-100%);
+    background: linear-gradient(90deg, transparent, var(--sheen), transparent); animation: hsheen 3.2s ease-in-out infinite; }
+  .subs-count { font-variant-numeric: tabular-nums; font-weight: 600; flex: none; }
+  .subs-count.all { color: var(--ok); }
+  .chev { flex: none; transition: transform .18s ease; }
+  .subs-toggle[aria-expanded="true"] .chev { transform: rotate(90deg); }
+  .pct.computed::before { content: '\03A3 '; opacity: .55; font-weight: 600; }
+  .subs { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--line); display: flex; flex-direction: column; }
+  .subs[hidden] { display: none; }
+  .sub { display: grid; grid-template-columns: 16px 1fr auto; gap: 10px; align-items: center; padding: 5px 0; font-size: var(--fs-md); color: var(--text); min-width: 0; cursor: pointer; }
+  .sub:hover .name { text-decoration: underline; text-underline-offset: 3px; }
+  .sub .name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sub .st { font-size: var(--fs-xs); color: var(--muted); margin-left: 6px; }
+  .sub .p { font-variant-numeric: tabular-nums; font-size: var(--fs-sm); color: var(--muted); min-width: 34px; text-align: right; }
+  .sub .g { width: 14px; height: 14px; border-radius: 50%; display: grid; place-items: center; justify-self: center; }
+  .sub.queued .g { box-shadow: inset 0 0 0 1.5px var(--line); }
+  .sub.queued { color: var(--muted); }
+  .sub.live .g { background: color-mix(in srgb, var(--c, var(--neutral)) 18%, transparent); box-shadow: inset 0 0 0 1.5px var(--c, var(--neutral)); }
+  .sub.live .g::after { content: ''; width: 5px; height: 5px; border-radius: 50%; background: var(--c, var(--neutral)); animation: subpulse 2.2s ease-in-out infinite; }
+  @keyframes subpulse { 50% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--c, var(--neutral)) 25%, transparent); } }
+  .sub.live .p { color: var(--text); }
+  .sub.live .name { font-weight: 500; }
+  .sub.ask .g { background: color-mix(in srgb, var(--warn) 18%, transparent); box-shadow: inset 0 0 0 1.5px var(--warn); }
+  .sub.ask .st { color: var(--warn); }
+  /* a finished subtask's own card in Done: compact, a crumb back to its parent */
+  .card.subcard { padding: 10px 14px; cursor: pointer; }
+  .card.subcard .crumb { font-size: var(--fs-xs); color: var(--muted); margin-bottom: 2px; display: flex; align-items: center; gap: 6px; min-width: 0; }
+  .card.subcard .crumb::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--c, var(--neutral)); flex: none; }
+  .card.subcard .crumb .cr-p { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .card.subcard .crumb .cr-r { flex: none; white-space: nowrap; }
+  .card.subcard .title { font-size: var(--fs-base); }
+  .p-subs { list-style: none; padding: 0; margin: 0; }
+  .p-subs li { display: flex; gap: 10px; align-items: baseline; padding: 4px 0; font-size: var(--fs-md); cursor: pointer; }
+  .p-subs li:hover .sn { text-decoration: underline; text-underline-offset: 3px; }
+  .p-subs .sn { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+  .p-subs .sp { font-variant-numeric: tabular-nums; color: var(--muted); font-size: var(--fs-sm); }
+  .p-subs li.sdone .sn { color: var(--muted); }
 
   .blocked-row { margin-bottom: 8px; display: flex; flex-wrap: wrap; align-items: center; gap: 5px; color: var(--warn); }
   .blocked-row svg { flex: none; }
@@ -668,7 +712,7 @@
     .cards { overflow: visible; flex: none; }
     .empty { min-height: 100px; }
   }
-  @media (prefers-reduced-motion: reduce) { .bar b, .card { transition: none; } .card.enter, .card.flash, .card.ask, .card.review, .card.abandoned, .card.livebar::after, .av.live, .pres i, .col h2 .cnt.tick { animation: none; } .card.ask { box-shadow: 0 0 0 2px var(--warn); } .card.review { box-shadow: 0 0 0 2px var(--ok); } .card.abandoned { box-shadow: 0 0 0 2px var(--err); } .card.livebar .bar::after { animation: none; opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) { .bar b, .card { transition: none; } .card.enter, .card.flash, .card.ask, .card.review, .card.abandoned, .card.livebar::after, .card.livebar .segs i.part::after, .sub.live .g::after, .av.live, .pres i, .col h2 .cnt.tick { animation: none; } .card.ask { box-shadow: 0 0 0 2px var(--warn); } .card.review { box-shadow: 0 0 0 2px var(--ok); } .card.abandoned { box-shadow: 0 0 0 2px var(--err); } .card.livebar .bar::after { animation: none; opacity: 0; } }
 </style>
 </head>
 <body>
@@ -810,6 +854,10 @@ let raw = '', tasks = [], dragging = null, showAllDone = false, tick = 0;
 let flagFilter = null;   // 'needs_input' | 'review' | null — set by clicking the header's attention counts
 let projectsRaw = '', projects = [];
 const seen = new Set(), lastUpdated = new Map(), lastPct = new Map(), lastCounts = {};
+// subtasks: a parent's open subtasks live inside its card; each finished one gets its own card in Done
+let byId = new Map(), kidsMap = new Map();
+const subsOpen = new Map();   // parent id -> expanded? (unset: Doing parents start open, the rest collapsed)
+const isKid = t => !!t.parent_id && byId.has(t.parent_id);
 let firstRender = true, justDropped = null;
 let selected = new Set(), selectAnchor = null;   // multi-select: shift-click/shift-arrows range, ⌘/ctrl-click toggle
 
@@ -863,17 +911,18 @@ function card(t) {
     blockers.map(b => `<button class="blocked-link" data-open-blocker="${esc(b.id)}">${esc(b.title)}</button>`).join('') + `</div>` : '';
   const who = t.agent
     ? `<button class="who" data-agent="${esc(t.agent)}" title="Show only ${esc(t.agent)}"><span class="av ${live ? 'live' : ''}" style="--c:${colorOf(t)}" aria-hidden="true">${esc(nodeGlyph(t.agent))}</span><span class="nm">${esc(t.agent)}</span></button>` : '';
-  const checkIcon = done ? `<svg class="check" width="14" height="14" viewBox="0 0 16 16" fill="none" aria-label="Done"><path d="M3.5 8.5l3 3 6-7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>` : '';
+  const checkIcon = done ? `<svg class="check" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-label="Done"><path d="M3.5 8.5l3 3 6-7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>` : '';
   const when = a.text ? `<span class="when ${abandoned ? 'abandoned' : stale ? 'stale' : ''}">${abandoned ? '⚠ abandoned? no update ' : stale ? 'no update ' : ''}${a.text}</span>` : '';
-  const top = who ? `<div class="top">${checkIcon}${who}${when}</div>` : '';
+  const top = who ? `<div class="top">${who}${when}</div>` : '';
   const todo = t.status === 'todo', backlog = t.status === 'backlog';
   const laterBtn = todo ? `<button class="card-act" data-later="${esc(t.id)}" title="Move to Later (backlog)"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 3v7m0 0L5 7m3 3l3-3M3 13h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Later</button>` : '';
   const toTodoBtn = backlog ? `<button class="card-act" data-to-todo="${esc(t.id)}" title="Move to Todo"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 13V6m0 0L5 9m3-3l3 3M3 3h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Move to Todo</button>` : '';
   const queued = todo ? `<span class="when"><svg width="11" height="11" viewBox="0 0 16 16" fill="none" aria-hidden="true" style="vertical-align:-1px;margin-right:4px"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5"/><path d="M8 5v3l2 1.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>queued ${a.text}</span>` : when;
   const meta = !who && (queued || laterBtn || toTodoBtn) ? `<div class="meta">${laterBtn}${toTodoBtn}${queued}</div>` : '';
-  const note = doing ? `<div class="note"><span title="${esc(t.status_text)}">${esc(t.status_text)}</span><span class="pct">${t.progress || 0}%</span></div>`
+  const nSubs = t.subs_total || 0;   // a parent's % is the computed mean of its subtasks (Σ), and its one bar is the segmented toggle
+  const note = doing ? `<div class="note"><span title="${esc(t.status_text)}">${esc(t.status_text)}</span><span class="pct ${nSubs ? 'computed' : ''}">${t.progress || 0}%</span></div>`
     : (done && t.result ? `<div class="note"><span title="${esc(t.result)}">${esc(t.result)}</span></div>` : '');
-  const bar = doing
+  const bar = nSubs ? subsBlock(t, live) : doing
     ? `<div class="bar" role="progressbar" aria-valuenow="${t.progress || 0}" aria-valuemin="0" aria-valuemax="100" aria-label="Progress"><b style="width:${lastPct.has(t.id) ? lastPct.get(t.id) : t.progress || 0}%;background:${colorOf(t)}" data-to="${t.progress || 0}"></b></div>` : '';
   const desc = t.status === 'todo' || t.status === 'backlog'
     ? (t.description ? `<div class="desc">${esc(t.description)}</div>` : '') : '';
@@ -884,9 +933,51 @@ function card(t) {
   const fresh = !firstRender && !seen.has(t.id);
   const flash = !firstRender && seen.has(t.id) && lastUpdated.get(t.id) !== t.updated;
   seen.add(t.id); lastUpdated.set(t.id, t.updated);
-  return `<div class="card ${done ? 'done' : ''} ${asking ? 'ask' : ''} ${reviewing ? 'review' : ''} ${abandoned && !asking && !reviewing ? 'abandoned' : ''} ${live && !asking && !reviewing ? 'livebar' : ''} ${fresh ? 'enter' : ''} ${flash ? 'flash' : ''} ${selected.has(t.id) ? 'selected' : ''} ${proj ? 'has-project' : ''}" style="--c:${colorOf(t)}${proj ? `;--pc:${projColor(proj)}` : ''}" draggable="${backlog ? 'false' : 'true'}" tabindex="0" data-id="${esc(t.id)}" data-status="${t.status}"
+  return `<div class="card ${done ? 'done' : ''} ${asking ? 'ask' : ''} ${reviewing ? 'review' : ''} ${abandoned && !asking && !reviewing ? 'abandoned' : ''} ${live && !asking && !reviewing ? 'livebar' : ''} ${fresh ? 'enter' : ''} ${flash ? 'flash' : ''} ${selected.has(t.id) ? 'selected' : ''} " style="--c:${colorOf(t)}" draggable="${backlog ? 'false' : 'true'}" tabindex="0" data-id="${esc(t.id)}" data-status="${t.status}"
       aria-label="${esc(t.title)}, ${t.status}${asking ? ', needs your input' : reviewing ? ', ready for review' : abandoned ? ', no update in a long time, possibly abandoned' : ''}${t.agent ? ', ' + esc(t.agent) : ''}${proj ? ', project ' + esc(proj.name) : ''}${blockers.length ? ', blocked by ' + blockers.map(b => esc(b.title)).join(', ') : ''}">
-    ${copy}${askFlag}${blockedRow}${projPill}${top}${todo && t._q ? `<span class="qnum" aria-label="Queue position ${t._q}">${t._q}</span>` : ''}<div class="title">${esc(t.title)}</div>${desc}${note}${bar}${meta}${reviewing ? `<button class="btn markdone" data-done="${esc(t.id)}">Mark done</button>` : ''}</div>`;
+    ${copy}${askFlag}${blockedRow}${top}${projPill}${todo && t._q ? `<span class="qnum" aria-label="Queue position ${t._q}">${t._q}</span>` : ''}<div class="title ${done ? 'has-check' : ''}">${checkIcon}${done ? `<span>${esc(t.title)}</span>` : esc(t.title)}</div>${desc}${note}${bar}${meta}${reviewing ? `<button class="btn markdone" data-done="${esc(t.id)}">Mark done</button>` : ''}</div>`;
+}
+
+// the parent's segmented bar (one cell per subtask), which doubles as the expand toggle, plus its quiet rows
+function subsBlock(t, live) {
+  const open = subsOpen.has(t.id) ? subsOpen.get(t.id) : t.status === 'doing';
+  const kids = kidsMap.get(t.id) || [], isDone = t.status === 'done', n = t.subs_total, d = isDone ? n : (t.subs_done || 0);
+  const rows = kids.filter(k => isDone ? k.status === 'done' : k.status !== 'done');
+  const cells = [];
+  for (let i = 0; i < d; i++) cells.push('<i class="done"></i>');
+  if (!isDone) rows.forEach(k => cells.push(k.progress > 0 && k.status === 'doing' ? `<i class="part" style="--p:${k.progress}%"></i>` : '<i></i>'));
+  while (cells.length < n) cells.push('<i></i>');
+  const tick = '<svg class="check" width="9" height="9" viewBox="0 0 10 10" aria-hidden="true"><path d="M1.5 5.5l2.5 2.5 4.5-5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>';
+  const html = rows.map(k => {
+    const kdone = k.status === 'done', klive = !kdone && k.status === 'doing' && k.progress > 0, kask = !kdone && !!k.needs_input;
+    const blocked = unresolvedBlockers(k)[0];
+    const st = kask ? (k.question || k.status_text) : blocked ? 'blocked by ' + blocked.title : (klive ? k.status_text : '');
+    return `<div class="sub ${klive ? 'live' : 'queued'} ${kask ? 'ask' : ''}" data-sub-id="${esc(k.id)}" role="button" tabindex="0" style="--c:${colorOf(k)}"><span class="g">${kdone ? tick : ''}</span>` +
+      `<span class="name">${esc(k.title)}${st ? `<span class="st">${esc(st)}</span>` : ''}</span><span class="p">${kdone ? 100 : (k.progress || 0)}%</span></div>`;
+  }).join('');
+  const sid = 'subs-' + t.id;
+  return `<button class="subs-toggle" type="button" data-toggle-subs="${esc(t.id)}" aria-expanded="${open}" aria-controls="${esc(sid)}" aria-label="${d} of ${n} subtasks done, ${open ? 'hide' : 'show'} subtasks">` +
+    `<span class="segs">${cells.join('')}</span><span class="subs-count ${d === n ? 'all' : ''}">${d}/${n}</span>` +
+    `<svg class="chev" width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M3 1l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6"/></svg></button>` +
+    `<div class="subs" id="${esc(sid)}" ${open ? '' : 'hidden'}>${html}</div>`;
+}
+function toggleSubs(btn) {
+  const id = btn.dataset.toggleSubs, open = btn.getAttribute('aria-expanded') !== 'true';
+  subsOpen.set(id, open);
+  btn.setAttribute('aria-expanded', String(open));
+  const panel = btn.nextElementSibling; if (panel) panel.hidden = !open;
+}
+// a finished subtask's own compact card in Done (its open siblings stay in the parent's rows)
+function subCard(t) {
+  const parent = byId.get(t.parent_id), a = ago(t.updated);
+  const fresh = !firstRender && !seen.has(t.id);
+  const flash = !firstRender && seen.has(t.id) && lastUpdated.get(t.id) !== t.updated;
+  seen.add(t.id); lastUpdated.set(t.id, t.updated);
+  const tick = `<svg class="check" width="14" height="14" viewBox="0 0 14 14" fill="none" aria-label="Done"><path d="M2.5 7.5l3 3 6-6.5" stroke="currentColor" stroke-width="1.8"/></svg>`;
+  const rest = [t.agent, a.text].filter(Boolean).join(' · ');
+  return `<div class="card subcard done ${fresh ? 'enter' : ''} ${flash ? 'flash' : ''}" style="--c:${colorOf(t)}" draggable="false" tabindex="0" data-id="${esc(t.id)}" data-status="done" data-subtask="1"
+      aria-label="${esc(t.title)}, finished subtask of ${esc(parent.title)}${t.agent ? ', ' + esc(t.agent) : ''}">
+    <div class="crumb"><span class="cr-p">${esc(parent.title)}</span><span class="cr-r">· ${esc(rest)}</span></div><div class="title has-check">${tick}<span>${esc(t.title)}</span></div></div>`;
 }
 
 const FLAG_LABEL = { needs_input: 'needs input', review: 'to review' };
@@ -896,23 +987,29 @@ function render() {
   const rawQ = ($('filter').value || '').trim(), q = rawQ.toLowerCase();
   $('filter').classList.toggle('on', tasks.length > 8 || !!q);
   const pf = $('project-filter').value;
-  const working = tasks.filter(t => t.status === 'doing');
+  byId = new Map(tasks.map(t => [t.id, t])); kidsMap = new Map();
+  tasks.forEach(t => { if (isKid(t)) { if (!kidsMap.has(t.parent_id)) kidsMap.set(t.parent_id, []); kidsMap.get(t.parent_id).push(t); } });
+  // cards on the board: every top-level task, plus a card in Done for each finished subtask whose parent is still open
+  const top = tasks.filter(t => !isKid(t));
+  const subcards = tasks.filter(t => isKid(t) && t.status === 'done' && byId.get(t.parent_id).status !== 'done');
+  const working = top.filter(t => t.status === 'doing');
   const asks = working.filter(t => t.needs_input).length;
   const revs = working.filter(t => !t.needs_input && t.review).length;
   // the filter it drives can't outlive what it's filtering to — once the last matching card
   // clears (answered / signed off), drop it instead of silently filtering to nothing forever
   if (flagFilter === 'needs_input' && !asks) flagFilter = null;
   if (flagFilter === 'review' && !revs) flagFilter = null;
-  const matches = t => (!q || [t.title, t.agent, t.description, t.status_text].some(x => (x || '').toLowerCase().includes(q)))
+  const textHit = t => [t.title, t.agent, t.description, t.status_text].some(x => (x || '').toLowerCase().includes(q));
+  const matches = t => (!q || textHit(t) || (kidsMap.get(t.id) || []).some(textHit))   // a parent also matches on its subtasks
     && (!pf || t.project_id === pf)
     && (!flagFilter || (t.status === 'doing' && (flagFilter === 'needs_input' ? t.needs_input : (!t.needs_input && t.review))));
-  const filtered = tasks.filter(matches);
+  const filtered = [...top, ...subcards].filter(matches);
   filtered.forEach(t => by[t.status] && by[t.status].push(t));
   // "Systems should explain themselves": confirm what a combined filter found, not just how many cards survived
   if (q || pf || flagFilter) {
     const proj = pf ? projectOf(pf) : null;
     const parts = [rawQ && `"${rawQ}"`, proj && `in ${proj.name}`, flagFilter && FLAG_LABEL[flagFilter]].filter(Boolean);
-    const summaryText = `${filtered.length} of ${tasks.length}` + (parts.length ? ` · ${parts.join(' · ')}` : '');
+    const summaryText = `${filtered.length} of ${top.length + subcards.length}` + (parts.length ? ` · ${parts.join(' · ')}` : '');
     $('filter-summary').textContent = summaryText;
     $('filter-summary').title = summaryText;   // full text on hover if it's long enough to get ellipsized
   } else {
@@ -929,6 +1026,7 @@ function render() {
   $('board').style.display = tasks.length ? '' : 'none';
 
   const focusId = document.activeElement?.dataset?.id;
+  const focusToggle = document.activeElement?.dataset?.toggleSubs;
   // FLIP: remember where every card was, so moves and reorders glide instead of snapping
   const before = new Map();
   if (!RM && !firstRender) $('board').querySelectorAll('.card').forEach(c => before.set(c.dataset.id, c.getBoundingClientRect()));
@@ -952,7 +1050,7 @@ function render() {
         const bucket = dayBucket(t.updated);
         const div = bucket !== lastBucket ? `<div class="day-div">${bucket}</div>` : '';
         lastBucket = bucket;
-        return div + card(t);
+        return div + (isKid(t) ? subCard(t) : card(t));
       }).join('');
     } else {
       body = list.length ? list.map(card).join('') : `<div class="empty">${(q || pf || flagFilter) ? 'No matches' : EMPTY[k]}</div>`;
@@ -994,6 +1092,7 @@ function render() {
   // background poll tick, not a deliberate user navigation; a plain focus() would silently drag
   // the viewport to wherever this card now sits (the reported "page auto-scrolls" bug)
   if (focusId) $('board').querySelector(`.card[data-id="${CSS.escape(focusId)}"]`)?.focus({ preventScroll: true });
+  else if (focusToggle) $('board').querySelector(`[data-toggle-subs="${CSS.escape(focusToggle)}"]`)?.focus({ preventScroll: true });
   // drop selections for cards that no longer exist (archived/deleted elsewhere), then reapply highlight
   [...selected].forEach(id => { if (!tasks.some(t => t.id === id)) selected.delete(id); });
   renderSelection();
@@ -1110,7 +1209,7 @@ $('toast-undo').onclick = async () => {
   try {
     if (u.ids) await api('/api/unarchive', { ids: u.ids });
     else if (u.replay) await Promise.all(u.replay.map(r => api(r.path, r.body)));   // bulk actions: one request per affected card
-    else await api('/api/restore', { task: u.prev, before: u.before });
+    else await api('/api/restore', { task: u.prev, before: u.before, kids: u.kids });
     showError('');
   }
   catch (e) { showError('Could not undo: ' + e.message); }
@@ -1121,7 +1220,7 @@ async function move(id, status, before) {
   try {
     const r = await api('/api/move', { id, status, before: before || null });
     showError('');
-    if (t && t.status !== status) toast(`Moved “${t.title}” to ${LABELS[status]}`, { prev: r.prev, before: r.prev_before });
+    if (t && t.status !== status) toast(`Moved “${t.title}” to ${LABELS[status]}`, { prev: r.prev, before: r.prev_before, kids: r.prev_kids });
   } catch (e) { showError('Could not move task: ' + e.message); }
   raw = ''; detailRaw = ''; load();
 }
@@ -1140,7 +1239,7 @@ $('bulk-move').onchange = async e => {
   try {
     const r = await api('/api/bulk-move', { ids, status });
     toast(`Moved ${ids.length} task${ids.length === 1 ? '' : 's'} to ${LABELS[status]}`,
-          { replay: r.prev.map(p => ({ path: '/api/restore', body: { task: p.task, before: p.before } })) });
+          { replay: r.prev.map(p => ({ path: '/api/restore', body: { task: p.task, before: p.before, kids: p.kids } })) });
     showError('');
   } catch (err) { showError('Could not move: ' + err.message); }
   clearSelection(); raw = ''; detailRaw = ''; load();
@@ -1202,7 +1301,7 @@ function panelHtml(t) {
   const doing = t.status === 'doing', stale = doing && ago(t.updated).min >= STALE_MIN;
   const abandoned = doing && ago(t.updated).min >= (cfg.stale_minutes || DEFAULT_STALE_MIN);
   const who = t.agent ? `<div class="p-who"><span class="av ${doing && !stale ? 'live' : ''}" style="--c:${colorOf(t)}" aria-hidden="true">${esc(nodeGlyph(t.agent))}</span><span class="name">${esc(t.agent)}</span><span>${t.status === 'done' ? 'finished' : 'working'} ${ago(t.updated).text}</span></div>` : '';
-  const prog = doing ? `<div class="p-sec"><div class="bar" style="margin:0" role="progressbar" aria-valuenow="${t.progress || 0}" aria-valuemin="0" aria-valuemax="100" aria-label="Progress"><b style="width:${t.progress || 0}%;background:${colorOf(t)}"></b></div><div class="p-pct"><span>${t.review || t.needs_input ? '' : esc(t.status_text || '')}</span><b>${t.progress || 0}%</b></div>${abandoned ? `<div class="p-pct"><span style="color:var(--err)">⚠ No update for ${ago(t.updated).text.replace(' ago', '')} — possibly abandoned</span></div>` : stale ? `<div class="p-pct"><span style="color:var(--warn)">No update for ${ago(t.updated).text.replace(' ago', '')}</span></div>` : ''}</div>` : '';
+  const prog = doing ? `<div class="p-sec"><div class="bar" style="margin:0" role="progressbar" aria-valuenow="${t.progress || 0}" aria-valuemin="0" aria-valuemax="100" aria-label="Progress"><b style="width:${t.progress || 0}%;background:${colorOf(t)}"></b></div><div class="p-pct"><span>${t.review || t.needs_input ? '' : esc(t.status_text || '')}</span><b>${(kidsMap.get(t.id) || []).length ? 'Σ ' : ''}${t.progress || 0}%</b></div>${abandoned ? `<div class="p-pct"><span style="color:var(--err)">⚠ No update for ${ago(t.updated).text.replace(' ago', '')} — possibly abandoned</span></div>` : stale ? `<div class="p-pct"><span style="color:var(--warn)">No update for ${ago(t.updated).text.replace(' ago', '')}</span></div>` : ''}</div>` : '';
   const bodyHtml = t.body_html ? `<div class="rich-body">${t.body_html}</div>` : '';   // server-rendered + sanitized; safe to insert as-is
   const askC = t.needs_input ? `<div class="p-sec"><div class="callout ask-callout"><b>Waiting on you:</b> ${esc(t.question || t.status_text)}${bodyHtml}<small>Answer in ${esc(t.agent || 'the agent')}'s terminal — the card clears when it continues.</small></div></div>` : '';
   const revC = !t.needs_input && t.review && t.status === 'doing' ? `<div class="p-sec"><div class="callout rev-callout"><b>Ready for review:</b> ${esc(t.result || t.status_text)}${bodyHtml}<small>Look it over, then Mark done — agents don't close their own work.</small></div></div>` : '';
@@ -1222,11 +1321,16 @@ function panelHtml(t) {
   const prompt = !cfg.dispatch ? '' : `<div class="p-sec"><details id="pd" ${promptOpen ? 'open' : ''}><summary>Prompt</summary><pre id="pre">${esc(promptText || 'Loading…')}</pre></details></div>`;
   const copy = cfg.dispatch ? `<button class="btn" id="p-copy">Copy prompt</button>` : '';
   const next = { doing: ['done', 'Mark done'], done: ['doing', 'Reopen'], backlog: ['todo', 'Move to Todo'], todo: ['backlog', 'Move to Later'] }[t.status];
-  const mv = next ? `<button class="btn primary" id="p-move" data-to="${next[0]}">${next[1]}</button>` : '';
+  const mv = next && !t.parent_id ? `<button class="btn primary" id="p-move" data-to="${next[0]}">${next[1]}</button>` : '';   // a subtask moves with its parent
+  const par = t.parent_id && byId.get(t.parent_id)
+    ? `<div class="p-sec"><h3>Subtask of</h3><ul class="p-subs"><li data-sub-id="${esc(t.parent_id)}"><span class="sn">${esc(byId.get(t.parent_id).title)}</span></li></ul></div>` : '';
+  const kids = kidsMap.get(t.id) || [];
+  const subsList = kids.length ? `<div class="p-sec"><h3>Subtasks<span class="n">${kids.filter(k => k.status === 'done').length}/${kids.length}</span></h3><ul class="p-subs">${kids.map(k =>
+    `<li class="${k.status === 'done' ? 'sdone' : ''}" data-sub-id="${esc(k.id)}"><span class="sn">${esc(k.title)}</span><span class="sp">${k.status === 'done' ? 'done' : (k.progress || 0) + '%'}</span></li>`).join('')}</ul></div>` : '';
   // actions and activity sit near the top; the long description comes after, collapsed
   return `<h2>${esc(t.title)}</h2>${who}${askC}${revC}${prog}${result}
     <div class="p-actions">${mv}${copy}<button class="btn danger" id="p-del">Delete</button></div>
-    ${projectSel}${tl}${desc}${details}${prompt}`;
+    ${par}${subsList}${projectSel}${tl}${desc}${details}${prompt}`;
 }
 
 async function refreshPanel() {
@@ -1300,6 +1404,8 @@ $('p-body').addEventListener('change', async e => {
   raw = ''; detailRaw = ''; load();
 });
 $('p-body').addEventListener('click', async e => {
+  const sr = e.target.closest('[data-sub-id]');
+  if (sr) { openPanel(sr.dataset.subId); return; }
   const b = e.target.closest('button'); if (!b) return;
   if (b.id === 'p-desc-more') { descOpen = !descOpen; if (lastDetail) renderPanel(lastDetail); return; }
   if (b.id === 'p-act-more') { actAll = !actAll; if (lastDetail) renderPanel(lastDetail); return; }
@@ -1691,7 +1797,7 @@ function setSide(which) {            // one surface at a time
   if (which !== 'panel' && openId) closePanel(true);
   if (which !== 'chat') $('chat').classList.remove('open');
 }
-function openLater() { setSide('later'); $('later').classList.add('open'); renderLater(tasks.filter(t => t.status === 'backlog')); $('later-input')?.focus(); }
+function openLater() { setSide('later'); $('later').classList.add('open'); renderLater(tasks.filter(t => t.status === 'backlog' && !isKid(t))); $('later-input')?.focus(); }
 function closeLater() { $('later').classList.remove('open'); $('later-btn').focus(); }
 $('later-btn').onclick = () => $('later').classList.contains('open') ? closeLater() : openLater();
 $('later-close').onclick = closeLater;
@@ -1724,6 +1830,10 @@ $('later-body').addEventListener('click', e => {
   if (mv) { move(mv.dataset.toTodo, 'todo'); return; }
   const bl = e.target.closest('[data-open-blocker]');
   if (bl) { $('later').classList.remove('open'); openPanel(bl.dataset.openBlocker); return; }
+  const tg = e.target.closest('[data-toggle-subs]');
+  if (tg) { toggleSubs(tg); return; }
+  const sr = e.target.closest('[data-sub-id]');
+  if (sr) { $('later').classList.remove('open'); openPanel(sr.dataset.subId); return; }
   const c = e.target.closest('.card');
   if (c) { $('later').classList.remove('open'); openPanel(c.dataset.id); }
 });
@@ -1767,7 +1877,7 @@ function toggleSelect(id) {
   renderSelection();
 }
 function selectRangeTo(id) {
-  const ids = cardsGrid().flat().map(c => c.dataset.id);
+  const ids = cardsGrid().flat().filter(c => !c.dataset.subtask).map(c => c.dataset.id);
   const ai = selectAnchor ? ids.indexOf(selectAnchor) : -1, bi = ids.indexOf(id);
   if (ai === -1 || bi === -1) { selectAnchor = id; selected = new Set([id]); renderSelection(); return; }
   const [lo, hi] = ai < bi ? [ai, bi] : [bi, ai];
@@ -1776,8 +1886,8 @@ function selectRangeTo(id) {
 }
 function extendSelectionVertical(dir) {
   const grid = cardsGrid(), cur = document.activeElement?.closest?.('.card');
-  if (!cur) return;
-  const col = grid.find(c => c.includes(cur)); if (!col) return;
+  if (!cur || cur.dataset.subtask) return;
+  const col = (grid.find(c => c.includes(cur)) || []).filter(c => !c.dataset.subtask); if (!col.length) return;
   if (!selectAnchor || !col.some(c => c.dataset.id === selectAnchor)) {
     selectAnchor = cur.dataset.id;
     if (!selected.has(selectAnchor)) selected = new Set([selectAnchor]);
@@ -1822,7 +1932,8 @@ $('keys').addEventListener('click', e => { if (e.target.id === 'keys') $('keys')
 let prevBoard = null, askPingAt = 0;
 function checkAsks() {
   const snap = {};
-  tasks.forEach(t => snap[t.id] = t.status === 'doing' && t.needs_input ? 'ask' : t.status === 'doing' && t.review ? 'rev' : t.status);
+  tasks.forEach(t => snap[t.id] = isKid(t) ? t.status   // a subtask's question already shows on its parent
+    : t.status === 'doing' && t.needs_input ? 'ask' : t.status === 'doing' && t.review ? 'rev' : t.status);
   const prev = prevBoard; prevBoard = snap;
   if (!prev) { askPingAt = Date.now(); return; }       // first load: baseline, no catch-up noise
   const ids = Object.keys(snap), was = id => prev[id];
@@ -1874,9 +1985,14 @@ $('board').addEventListener('click', async e => {
   const selCard = e.target.closest('.card');
   if (selCard && (e.shiftKey || e.metaKey || e.ctrlKey)) {
     e.preventDefault();
+    if (selCard.dataset.subtask) return;   // subtasks move with their parent, so they can't be bulk-selected
     if (e.shiftKey) selectRangeTo(selCard.dataset.id); else toggleSelect(selCard.dataset.id);
     return;
   }
+  const tg = e.target.closest('[data-toggle-subs]');
+  if (tg) { toggleSubs(tg); return; }
+  const sr = e.target.closest('[data-sub-id]');
+  if (sr) { openPanel(sr.dataset.subId); return; }
   if (e.target.id === 'more') { showAllDone = true; return render(); }
   if (e.target.id === 'clear-done') {
     try {
@@ -1919,7 +2035,9 @@ $('board').addEventListener('click', async e => {
 $('board').addEventListener('keydown', e => {
   const c = e.target.closest?.('.card');
   if (c && e.target === c && (e.key === 'Enter' || e.key === ' ') && !e.altKey) { e.preventDefault(); openPanel(c.dataset.id); return; }
-  if (!c || !e.altKey || !e.key.startsWith('Arrow')) return;
+  const row = e.target.closest?.('[data-sub-id]');
+  if (row && e.target === row && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openPanel(row.dataset.subId); return; }
+  if (!c || c.dataset.subtask || !e.altKey || !e.key.startsWith('Arrow')) return;
   e.preventDefault();
   const keys = [...$('board').querySelectorAll('.col')].map(x => x.dataset.status);
   const i = keys.indexOf(c.dataset.status), sibs = [...c.parentElement.children];

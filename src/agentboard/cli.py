@@ -12,7 +12,7 @@ from . import __version__
 from . import hud as hudlib
 from . import prompt as promptlib
 from .server import serve
-from .store import DIR_NAME, BoardError, Store, find_dir
+from .store import DIR_NAME, BoardError, Store, find_dir, subtask_counts
 
 SAMPLE_CONFIG = '''\
 # agentboard config. Providers add context to task prompts.
@@ -75,14 +75,18 @@ def cmd_init(a):
 
 
 def cmd_add(a):
-    t = _store().add(a.title, a.description or "", a.status, a.ctx, a.id, a.project, blocked_by=a.blocked_by)
+    t = _store().add(a.title, a.description or "", a.status, a.ctx, a.id, a.project, blocked_by=a.blocked_by,
+                     parent_id=a.parent)
     print(f"added {t['id']} ({t['status']})")
 
 
 def cmd_list(a):
     s = _store()
     threshold = promptlib.load_config(s.dir).get("board", {}).get("stale_minutes", hudlib.ABANDONED_MIN)
-    for t in s.load():
+    tasks = s.load()
+    counts = subtask_counts(tasks)
+    ids = {t["id"] for t in tasks}
+    for t in _tree_order(tasks):
         if t.get("archived") and not a.all:
             continue
         if a.status and t["status"] != a.status:
@@ -93,7 +97,21 @@ def cmd_list(a):
             continue
         who = f"  [{t['agent']}]" if t.get("agent") else ""
         flag = f"  ⚠ STALE ({int(idle)}m idle)" if stale else ""
-        print(f"{t['id']:30} {t['status']:8} {t.get('progress', 0):3}%{who}{flag}  {t['title']}")
+        sub = t.get("parent_id") in ids
+        n, d = counts.get(t["id"], (0, 0))
+        kids = f"  [{d}/{n} subtasks]" if n else ""
+        name = f"  ↳ {t['id']}" if sub else t["id"]   # subtasks hang under their parent
+        print(f"{name:30} {t['status']:8} {'Σ' if n else ' '}{t.get('progress', 0):3}%{who}{kids}{flag}  {t['title']}")
+
+
+def _tree_order(tasks):
+    """Board order, but each subtask listed right under its parent."""
+    ids = {t["id"] for t in tasks}
+    for t in tasks:
+        if t.get("parent_id") in ids:
+            continue
+        yield t
+        yield from (k for k in tasks if k.get("parent_id") == t["id"])
 
 
 TAIL_FEED_CAP = 500   # generous enough that a burst of activity between polls can't overrun a single snapshot
@@ -102,7 +120,7 @@ TAIL_FEED_CAP = 500   # generous enough that a burst of activity between polls c
 def _tail_fmt(e):
     at = e["at"].split("T", 1)[1] if "T" in e["at"] else e["at"]
     agent = e.get("agent") or "-"
-    return f"{at}  {agent:<12.12}  {e['task']:<30.30}  {e['text']}"
+    return f"{at}  {agent:<12.12}  {e.get('label') or e['task']:<30.30}  {e['text']}"
 
 
 def _tail_fresh(events, last_at, seen):
@@ -160,6 +178,7 @@ def cmd_report(a):
     tasks = _store().load()
     done = hudlib.done_on(tasks, day)
     events = hudlib.events_on(tasks, day)
+    finished = [d for d in done if not d["partial"]]
     s = lambda n: "" if n == 1 else "s"
 
     print(f"# Daily recap — {day.isoformat()}")
@@ -170,15 +189,20 @@ def cmd_report(a):
         by_agent = {}
         for d in done:
             by_agent.setdefault(d["agent"] or "Unassigned", []).append(d)
-        print(f"**{len(done)} task{s(len(done))} done** across {len(by_agent)} agent{s(len(by_agent))}")
+        print(f"**{len(finished)} task{s(len(finished))} done** across {len(by_agent)} agent{s(len(by_agent))}"
+              if finished else f"**No task finished**, {len(done)} in progress")
         print()
         for agent in sorted(by_agent):
             print(f"## {agent}")
             for d in by_agent[agent]:
                 line = f"- **{d['title']}**"
-                if d["result"]:
+                if d["partial"]:
+                    line += f" _(in progress, {d['n_done']}/{d['n']} subtasks done)_"
+                elif d["result"]:
                     line += f" — {d['result']}"
                 print(line)
+                for k in d["subs"]:   # subtasks grouped under their parent
+                    print(f"  - {k['title']}" + (f" — {k['result']}" if k["result"] else ""))
             print()
     print(f"_{events} event{s(events)} logged on {day.isoformat()}._")
 
@@ -372,7 +396,8 @@ def cmd_spawn(a):
 
 def cmd_start(a):
     t = _store().start(a.title, _agent_name(a), a.color or os.environ.get("AGENTBOARD_COLOR"),
-                       a.description or "", a.id, a.project, blocked_by=a.blocked_by, force=a.force)
+                       a.description or "", a.id, a.project, blocked_by=a.blocked_by, force=a.force,
+                       parent_id=a.parent)
     print(t["id"])  # agents use this id for update/done
 
 
@@ -416,6 +441,23 @@ Group related tasks under a project so they show up together on the board:
     agentboard project unassign <task_id>                 # untie it
     agentboard add "<title>" --project <project_id>       # or tie it at creation time
     agentboard start "<title>" --name "<you>" --project <project_id>
+
+## Subtasks
+
+A big card can be split into subtasks (one level deep). A subtask is a normal task with a parent:
+
+    agentboard add "<title>" --parent <parent_id>              # Troy/ORCH at planning time; follows the parent's column
+    agentboard start "<title>" --name "<you>" --parent <id>    # an agent adding one mid-flight
+
+When you claim a parent that has no subtasks yet, break it down first (same command). `claim <parent>`
+takes every subtask with it. Then work the subtasks, not the parent:
+
+    agentboard update <sub_id> <0-100> "<one-line status>"     # a subtask at 100% closes itself: no review step
+    agentboard review <parent_id> "<one-line result>"          # the deliverable is ready; open subtasks close with it
+
+The parent's % is computed (the mean of its subtasks, shown with a Σ), so `update <parent>` only sets its
+status line. Never call `review` or `done` on a subtask. Finished subtasks show up as their own small cards in
+Done while the parent stays in Doing. `rm <parent>` and `done <parent>` take the remaining subtasks with them.
 
 ## Talking to other agents
 
@@ -551,9 +593,14 @@ def cmd_clear(a):
 def cmd_rm(a):
     s = _store()
     ids = [t["id"] for t in s.load() if t["id"].startswith("demo-")] if a.demo else [a.id]
+    n = 0
     for i in ids:
+        gone = {t["id"] for t in s.load()}
+        if i not in gone:   # already taken out with its parent
+            continue
         s.delete(i)
-    print(f"removed {len(ids)} task(s)")
+        n += len(gone - {t["id"] for t in s.load()})   # a parent takes its subtasks with it
+    print(f"removed {n} task(s)")
 
 
 def cmd_claim(a):
@@ -563,8 +610,15 @@ def cmd_claim(a):
 
 
 def cmd_update(a):
-    t = _store().update(a.id, a.progress, a.text)
-    print(f"{t['id']}: {t['progress']}%")
+    s = _store()
+    kids = [k for k in s.load() if k.get("parent_id") == a.id]
+    t = s.update(a.id, a.progress, a.text)
+    if kids:
+        print(f"{t['id']}: Σ {t['progress']}% (a parent's % is computed from its subtasks; update those instead)")
+    elif t["status"] == "done" and t.get("parent_id"):
+        print(f"{t['id']}: 100% — subtask done")
+    else:
+        print(f"{t['id']}: {t['progress']}%")
 
 
 def _read_body(a):
@@ -587,6 +641,9 @@ def cmd_ask(a):
 def cmd_review(a):
     s = _store()
     t = s.review(a.id, a.text, _read_body(a))
+    if t.get("parent_id"):
+        print(f"{t['id']}: subtask finished (100%) — subtasks have no review step; review the parent, {t['parent_id']}, when the deliverable is ready")
+        return
     _notify(s.dir, f"{t.get('agent') or 'An agent'} ready for review", t["title"], a.text)
     print(f"{t['id']}: ready for review — waiting on the user to mark it done")
 
@@ -636,10 +693,12 @@ def main(argv=None):
     sp = add("add", cmd_add, "add a task")
     sp.add_argument("title")
     sp.add_argument("-d", "--description")
-    sp.add_argument("--status", default="backlog", choices=["backlog", "todo", "doing", "done"])
+    sp.add_argument("--status", choices=["backlog", "todo", "doing", "done"],
+                    help="column to add to (default: backlog; a subtask follows its parent)")
     sp.add_argument("--ctx", action="append", default=[], metavar="PROVIDER[:ARG]")
     sp.add_argument("--id")
-    sp.add_argument("--project", help="project id to tie this task to")
+    sp.add_argument("--project", help="project id to tie this task to (a subtask inherits its parent's)")
+    sp.add_argument("--parent", metavar="ID", help="make this a subtask of that task (one level deep)")
     sp.add_argument("--blocked-by", action="append", dest="blocked_by", metavar="ID",
                      help="task id this depends on; repeat for multiple")
     sp = add("list", cmd_list, "list tasks")
@@ -668,6 +727,7 @@ def main(argv=None):
     sp.add_argument("--color", help="(or $AGENTBOARD_COLOR)")
     sp.add_argument("--id")
     sp.add_argument("--project", help="project id to tie this task to")
+    sp.add_argument("--parent", metavar="ID", help="start it as a subtask of that task (one level deep)")
     sp.add_argument("--blocked-by", action="append", dest="blocked_by", metavar="ID",
                      help="task id this depends on; repeat for multiple")
     sp.add_argument("--force", action="store_true", help="start even if a blocker is not done")

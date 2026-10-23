@@ -585,3 +585,235 @@ class ClearTests(unittest.TestCase):
             self.assertEqual(hud.build(s.load())["totals"]["done_today"], 1)   # HUD still counts it
             s.unarchive(["a"])
             self.assertNotIn("archived", Store.get(s.load(), "a"))
+
+
+class SubtaskTests(unittest.TestCase):
+    """A subtask is a normal task with a parent_id (one level). The parent's % is computed, a subtask at
+    100% closes itself, and claim/done/rm cascade."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.s = Store(Path(self.tmp.name) / ".agentboard")
+        self.s.add("Big job", status="todo", task_id="big")
+        for sid in ("one", "two", "three", "four"):
+            self.s.add(sid, parent_id="big", task_id=sid)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def get(self, tid):
+        return Store.get(self.s.load(), tid)
+
+    def test_subtask_follows_parent_column_and_inherits_project(self):
+        self.s.add_project("P", project_id="p")
+        self.s.set_project("big", "p")
+        self.s.add("five", parent_id="big", task_id="five")
+        five = self.get("five")
+        self.assertEqual((five["status"], five["parent_id"], five.get("project_id")), ("todo", "big", "p"))
+        with self.assertRaises(BoardError):
+            self.s.add("x", status="doing", parent_id="big")   # contradicts the parent's column
+
+    def test_one_level_only_and_parent_must_exist_and_be_open(self):
+        with self.assertRaises(BoardError):
+            self.s.add("deep", parent_id="one")
+        with self.assertRaises(BoardError):
+            self.s.add("orphan", parent_id="nope")
+        self.s.claim("big", "atlas")
+        self.s.update("big", status="done")
+        with self.assertRaises(BoardError):
+            self.s.add("late", parent_id="big")
+
+    def test_claim_cascades_owner_to_open_subtasks_only(self):
+        self.s.claim("big", "atlas", "#123456")
+        for sid in ("one", "two", "three", "four"):
+            t = self.get(sid)
+            self.assertEqual((t["status"], t["agent"], t["color"]), ("doing", "atlas", "#123456"))
+        self.assertEqual(self.get("one")["progress"], 0)   # claimed, but not started: still "queued"
+
+    def test_parent_progress_is_the_mean_and_update_on_parent_only_sets_text(self):
+        self.s.claim("big", "atlas")
+        self.s.update("one", 100)
+        self.s.update("two", 60, "half way")
+        big = self.get("big")
+        self.assertEqual(big["progress"], 40)   # (100 + 60 + 0 + 0) / 4
+        self.assertEqual(big["status_text"], "half way")   # the latest subtask note shows on the parent
+        self.s.update("big", 90, "just text")
+        big = self.get("big")
+        self.assertEqual((big["progress"], big["status_text"]), (40, "just text"))
+
+    def test_subtask_at_100_marks_itself_done_without_review(self):
+        self.s.claim("big", "atlas")
+        t = self.s.update("one", 100, "all set")
+        self.assertEqual((t["status"], t["progress"]), ("done", 100))
+        self.assertNotIn("review", t)
+        self.assertEqual(t["result"], "all set")
+        self.assertEqual([e["text"] for e in t["log"]][-2:], ["all set", "Marked done"])
+        self.assertEqual(self.get("big")["status"], "doing")   # the parent stays in Doing
+        self.assertEqual(self.get("big")["progress"], 25)
+
+    def test_review_on_a_subtask_just_finishes_it(self):
+        self.s.claim("big", "atlas")
+        t = self.s.review("two", "done it")
+        self.assertEqual(t["status"], "done")
+        self.assertNotIn("review", t)
+
+    def test_parent_review_closes_still_open_subtasks_and_does_not_auto_review(self):
+        self.s.claim("big", "atlas")
+        self.s.update("one", 100)
+        self.assertNotIn("review", self.get("big"))   # all-but-one done is not a review request
+        self.s.update("two", 100); self.s.update("three", 100); self.s.update("four", 100)
+        big = self.get("big")
+        self.assertEqual(big["progress"], 100)
+        self.assertNotIn("review", big)               # even at 100% the agent has to ask for it
+        self.s.claim("big", "atlas")
+        self.s.add("six", parent_id="big", task_id="six")
+        self.s.review("big", "shipped")
+        self.assertEqual(self.get("six")["status"], "done")
+        self.assertTrue(self.get("big")["review"])
+
+    def test_done_on_parent_finishes_remaining_children_and_moving_back_follows(self):
+        self.s.claim("big", "atlas")
+        self.s.update("one", 100)
+        self.s.move("big", "done")
+        self.assertEqual({self.get(i)["status"] for i in ("one", "two", "three", "four")}, {"done"})
+        self.s.move("big", "todo")
+        self.assertEqual(self.get("one")["status"], "done")   # finished work stays finished
+
+    def test_moving_a_parent_back_to_todo_releases_open_subtasks(self):
+        self.s.claim("big", "atlas")
+        self.s.move("big", "todo")
+        t = self.get("two")
+        self.assertEqual(t["status"], "todo")
+        self.assertNotIn("agent", t)
+
+    def test_a_subtask_cannot_be_moved_on_its_own(self):
+        with self.assertRaises(BoardError):
+            self.s.move("one", "doing")
+        with self.assertRaises(BoardError):
+            self.s.bulk_move(["one"], "doing")
+
+    def test_delete_parent_takes_children_and_delete_child_recomputes(self):
+        self.s.claim("big", "atlas")
+        self.s.update("one", 100)
+        self.s.delete("one")
+        self.assertEqual(self.get("big")["progress"], 0)   # three open subtasks at 0 remain
+        self.s.delete("big")
+        self.assertEqual(self.s.load(), [])
+
+    def test_ask_on_a_subtask_surfaces_on_the_parent_and_clears_on_update(self):
+        self.s.claim("big", "atlas")
+        self.s.ask("two", "which db?")
+        big = self.get("big")
+        self.assertTrue(big["needs_input"])
+        self.assertEqual(big["question"], "two: which db?")
+        self.s.update("two", 10, "using sqlite")
+        big = self.get("big")
+        self.assertNotIn("needs_input", big)
+        self.assertNotIn("ask_child", big)
+        self.assertNotIn("needs_input", self.get("two"))
+
+    def test_blocked_by_works_between_subtasks(self):
+        self.s.add("tail", parent_id="big", task_id="tail", blocked_by=["one"])
+        with self.assertRaises(BoardError):
+            self.s.claim("tail", "atlas")
+        self.s.claim("big", "atlas")   # claiming the parent still takes everything
+        self.s.update("one", 100)
+        self.assertEqual(self.s.claim("tail", "atlas")["status"], "doing")
+
+    def test_start_with_parent_and_archive_and_project_cascade(self):
+        self.s.claim("big", "atlas")
+        k = self.s.start("extra", "atlas", parent_id="big", task_id="extra")
+        self.assertEqual(k["parent_id"], "big")
+        self.assertEqual(self.get("big")["progress"], 1)   # the new subtask starts at 5%: mean of (0, 0, 0, 0, 5)
+        self.assertEqual(set(self.s.bulk_archive(["big"])), {"big", "one", "two", "three", "four", "extra"})
+        self.s.add_project("P", project_id="p")
+        self.s.bulk_set_project(["big"], "p")
+        self.assertEqual({t.get("project_id") for t in self.s.load()}, {"p"})
+
+    def test_restore_puts_cascaded_children_back(self):
+        self.s.claim("big", "atlas")
+        before = self.get("big")
+        kids = [dict(self.get(i)) for i in ("one", "two", "three", "four")]
+        self.s.move("big", "done")
+        self.s.restore(before, None, kids)
+        self.assertEqual(self.get("two")["status"], "doing")
+        self.assertEqual(self.get("big")["status"], "doing")
+
+    def test_plain_tasks_are_unaffected(self):
+        self.s.add("solo", status="doing", task_id="solo")
+        t = self.s.update("solo", 100)
+        self.assertEqual((t["status"], t["progress"]), ("doing", 100))   # no auto-done without a parent
+
+    def test_subtask_counts_include_archived(self):
+        from agentboard.store import subtask_counts
+        self.s.claim("big", "atlas")
+        self.s.update("one", 100)
+        self.s.clear_done()
+        self.assertEqual(subtask_counts(self.s.load())["big"], (4, 1))
+
+
+class SubtaskViewTests(unittest.TestCase):
+    """CLI list/rm, the HUD and the report treat subtasks as detail of their parent."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.s = Store(Path(self.tmp.name) / ".agentboard")
+        self.s.add("Big job", status="todo", task_id="big")
+        self.s.add("Part A", parent_id="big", task_id="a")
+        self.s.add("Part B", parent_id="big", task_id="b")
+        self.s.claim("big", "atlas")
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_list_indents_subtasks_under_their_parent(self):
+        import contextlib
+        import io
+        from agentboard import cli
+        self.s.add("Other", status="todo", task_id="other")
+        out = io.StringIO()
+        with unittest.mock.patch.dict("os.environ", {"AGENTBOARD_DIR": str(self.s.dir)}), contextlib.redirect_stdout(out):
+            cli.cmd_list(argparse.Namespace(status=None, all=False, stale=False))
+        lines = out.getvalue().splitlines()
+        self.assertEqual([l.split()[0] for l in lines], ["big", "↳", "↳", "other"])
+        self.assertIn("a", lines[1].split())
+        self.assertIn("Σ", lines[0])
+
+    def test_hud_counts_the_parent_only_but_feed_labels_subtasks(self):
+        from agentboard import hud
+        self.s.update("a", 50, "wiring")
+        h = hud.build(self.s.load())
+        self.assertEqual(h["totals"]["working"], 1)
+        self.assertEqual([a["name"] for a in h["agents"]], ["atlas"])
+        self.assertEqual(h["agents"][0]["task_id"], "big")
+        ev = next(e for e in h["events"] if e["text"] == "wiring")
+        self.assertEqual(ev["title"], "Big job › Part A")
+        self.assertEqual(ev["label"], "big › a")
+        self.s.update("a", 100)
+        self.s.update("b", 100)
+        self.assertEqual(hud.build(self.s.load())["totals"]["done_today"], 0)   # the parent isn't done yet
+        self.s.review("big", "ok")
+        self.s.move("big", "done")
+        self.assertEqual(hud.build(self.s.load())["totals"]["done_today"], 1)
+
+    def test_report_groups_subtasks_under_their_parent(self):
+        from agentboard import hud
+        self.s.update("a", 100, "A shipped")
+        d = hud.done_on(self.s.load())
+        self.assertEqual(len(d), 1)
+        self.assertTrue(d[0]["partial"])
+        self.assertEqual((d[0]["id"], d[0]["n"], d[0]["n_done"]), ("big", 2, 1))
+        self.assertEqual([k["title"] for k in d[0]["subs"]], ["Part A"])
+        self.s.update("big", status="done")
+        d = hud.done_on(self.s.load())
+        self.assertEqual((len(d), d[0]["partial"], [k["title"] for k in d[0]["subs"]]), (1, False, ["Part A", "Part B"]))
+
+    def test_rm_parent_removes_children_too(self):
+        import contextlib
+        import io
+        from agentboard import cli
+        out = io.StringIO()
+        with unittest.mock.patch.dict("os.environ", {"AGENTBOARD_DIR": str(self.s.dir)}), contextlib.redirect_stdout(out):
+            cli.cmd_rm(argparse.Namespace(id="big", demo=False))
+        self.assertIn("removed 3 task(s)", out.getvalue())
+        self.assertEqual(self.s.load(), [])
