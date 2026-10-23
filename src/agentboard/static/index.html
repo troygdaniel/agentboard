@@ -335,16 +335,14 @@
   .pct.computed::before { content: '\03A3 '; opacity: .55; font-weight: 600; }
   .subs { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--line); display: flex; flex-direction: column; }
   .subs[hidden] { display: none; }
-  .sub { display: grid; grid-template-columns: 16px 1fr auto; gap: 0 10px; align-items: center; padding: 5px 0; font-size: var(--fs-md); color: var(--text); min-width: 0; cursor: pointer; }
+  .sub { display: grid; grid-template-columns: 16px 1fr auto; gap: 10px; align-items: center; padding: 6px 0; font-size: var(--fs-md); color: var(--text); min-width: 0; cursor: pointer; }
   .sub:hover .name { text-decoration: underline; text-underline-offset: 3px; }
-  /* each open subtask gets its own thin bar under its title: this is where parallel work shows */
-  .sub .sbar { grid-column: 2 / 4; grid-row: 2; height: 3px; margin-top: 4px; border-radius: 2px; background: var(--chip); box-shadow: inset 0 1px 1px var(--well); overflow: hidden; }
-  .sub .sbar b { display: block; height: 100%; border-radius: 2px; background: var(--c, var(--neutral)); transition: width .4s ease; }
+  .sub:focus-visible { outline-offset: 2px; border-radius: 6px; }
   .sub .name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .sub .st { font-size: var(--fs-xs); color: var(--muted); margin-left: 6px; }
   .sub .p { font-variant-numeric: tabular-nums; font-size: var(--fs-sm); color: var(--muted); min-width: 34px; text-align: right; }
   .sub .g { width: 14px; height: 14px; border-radius: 50%; display: grid; place-items: center; justify-self: center; }
-  .sub.queued .g { box-shadow: inset 0 0 0 1.5px var(--line); }
+  .sub.queued .g { box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--neutral) 55%, var(--line)); }   /* hollow ring */
   .sub.queued { color: var(--muted); }
   .sub.live .g { background: color-mix(in srgb, var(--c, var(--neutral)) 18%, transparent); box-shadow: inset 0 0 0 1.5px var(--c, var(--neutral)); }
   .sub.live .g::after { content: ''; width: 5px; height: 5px; border-radius: 50%; background: var(--c, var(--neutral)); animation: subpulse 2.2s ease-in-out infinite; }
@@ -596,7 +594,14 @@
     display: flex; flex-direction: column;
   }
   #panel.open, #later.open, #chat.open { transform: none; visibility: visible; }
-  .p-head { display: flex; align-items: center; gap: 10px; padding: 18px 28px; border-bottom: 1px solid var(--line); }
+  /* The header never scrolls away: it sits above .p-body (the scroller) in the panel's flex column, so the status
+     action in it ("Mark done" etc.) stays reachable however long the review body is. */
+  .p-head { display: flex; align-items: center; gap: 10px; padding: 18px 28px; border-bottom: 1px solid var(--line); flex: none; }
+  .p-head .pill, #p-move { white-space: nowrap; flex: none; }
+  #p-move[hidden] { display: none; }
+  #p-move { font-size: var(--fs-md); padding: 4px 14px; }
+  .btn.primary.go { background: color-mix(in srgb, var(--ok) 14%, var(--surface)); color: var(--ok); border-color: var(--ok); }   /* Mark done on a card that's ready for review */
+  .btn.primary.go:hover { background: color-mix(in srgb, var(--ok) 22%, var(--surface)); }
   .pill { font-size: var(--fs-md); font-weight: 500; border-radius: 999px; padding: 2px 12px; background: var(--chip); color: var(--muted); }
   .pill.doing { color: var(--text); } .pill.done { color: var(--ok); }
   .icon-btn { background: none; border: 0; cursor: pointer; color: var(--muted); width: 32px; height: 32px; border-radius: 8px; display: grid; place-items: center; }
@@ -853,6 +858,7 @@
   <div class="p-head">
     <span class="pill" id="p-status"></span>
     <span class="spacer"></span>
+    <button class="btn" id="p-move" type="button" hidden></button>
     <button class="icon-btn" id="p-close" aria-label="Close details">
       <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
     </button>
@@ -995,8 +1001,7 @@ function subsBlock(t, live) {
     const blocked = kdone ? null : unresolvedBlockers(k)[0];
     const st = kask ? (k.question || k.status_text) : blocked ? 'blocked by ' + blocked.title : (klive ? k.status_text : '');
     return `<div class="sub ${kdone ? 'done' : klive ? 'live' : 'queued'} ${kask ? 'ask' : ''}" data-sub-id="${esc(k.id)}" role="button" tabindex="0" style="--c:${colorOf(k)}"><span class="g">${kdone ? tick : ''}</span>` +
-      `<span class="name">${esc(k.title)}${st ? `<span class="st">${esc(st)}</span>` : ''}</span><span class="p">${kdone ? 100 : (k.progress || 0)}%</span>` +
-      (kdone ? '' : `<span class="sbar" aria-hidden="true"><b style="width:${k.progress || 0}%"></b></span>`) + `</div>`;
+      `<span class="name">${esc(k.title)}${st ? `<span class="st">${esc(st)}</span>` : ''}</span><span class="p">${kdone ? 100 : (k.progress || 0)}%</span></div>`;
   }).join('');
   const sid = 'subs-' + t.id;
   return `<button class="subs-toggle" type="button" data-toggle-subs="${esc(t.id)}" aria-expanded="${open}" aria-controls="${esc(sid)}" aria-label="${d} of ${n} subtasks done, ${open ? 'hide' : 'show'} subtasks">` +
@@ -1356,8 +1361,6 @@ function panelHtml(t) {
   const details = `<div class="p-sec"><h3>Details</h3><dl><dt>ID</dt><dd><code>${esc(t.id)}</code></dd><dt>Created</dt><dd>${stamp(t.created)}</dd><dt>Updated</dt><dd>${stamp(t.updated)}</dd>${ctx}</dl></div>`;
   const prompt = !cfg.dispatch ? '' : `<div class="p-sec"><details id="pd" ${promptOpen ? 'open' : ''}><summary>Prompt</summary><pre id="pre">${esc(promptText || 'Loading…')}</pre></details></div>`;
   const copy = cfg.dispatch ? `<button class="btn" id="p-copy">Copy prompt</button>` : '';
-  const next = { doing: ['done', 'Mark done'], done: ['doing', 'Reopen'], backlog: ['todo', 'Move to Todo'], todo: ['backlog', 'Move to Later'] }[t.status];
-  const mv = next && !t.parent_id ? `<button class="btn primary" id="p-move" data-to="${next[0]}">${next[1]}</button>` : '';   // a subtask moves with its parent
   const par = t.parent_id && byId.get(t.parent_id)
     ? `<div class="p-sec"><h3>Subtask of</h3><ul class="p-subs"><li data-sub-id="${esc(t.parent_id)}"><span class="sn">${esc(byId.get(t.parent_id).title)}</span></li></ul></div>` : '';
   const kids = kidsMap.get(t.id) || [];
@@ -1366,7 +1369,7 @@ function panelHtml(t) {
     `<li class="${subDone(k) ? 'sdone' : ''}" data-sub-id="${esc(k.id)}"><span class="sn">${esc(k.title)}</span><span class="sp">${subDone(k) ? 'done' : (k.progress || 0) + '%'}</span></li>`).join('')}</ul></div>` : '';
   // actions and activity sit near the top; the long description comes after, collapsed
   return `<h2>${esc(t.title)}</h2>${who}${askC}${revC}${prog}${result}
-    <div class="p-actions">${mv}${copy}<button class="btn danger" id="p-del">Delete</button></div>
+    <div class="p-actions">${copy}<button class="btn danger" id="p-del">Delete</button></div>
     ${par}${subsList}${projectSel}${tl}${desc}${details}${prompt}`;
 }
 
@@ -1388,6 +1391,15 @@ function renderPanel(t) {
     const rv = !t.needs_input && t.review && t.status === 'doing';
     $('p-status').textContent = t.needs_input ? 'Needs input' : rv ? 'To review' : (LABELS[t.status] || t.status);
     $('p-status').className = 'pill ' + (t.needs_input ? 'askp' : rv ? 'revp' : t.status);
+    // the status action lives in the header (see .p-head); a subtask has none, it moves with its parent
+    const next = { doing: ['done', 'Mark done'], done: ['doing', 'Reopen'], backlog: ['todo', 'Move to Todo'], todo: ['backlog', 'Move to Later'] }[t.status];
+    const mv = $('p-move');
+    mv.hidden = !next || !!t.parent_id;
+    if (next) {
+      mv.textContent = next[1]; mv.dataset.to = next[0];
+      mv.className = 'btn' + (t.status === 'doing' ? ' primary' : '') + (rv ? ' go' : '');
+      mv.disabled = false; delete mv.dataset.confirmed;   // confirmDoneClick() freezes the button; each card starts fresh
+    }
     const keep = $('p-body').scrollTop;
     $('p-body').innerHTML = panelHtml(t);
     $('p-body').scrollTop = keep;
@@ -1422,6 +1434,13 @@ function closePanel(skipFocus) {
   if (!skipFocus) lastFocus?.focus?.();
 }
 $('p-close').onclick = () => closePanel();
+$('p-move').addEventListener('click', async e => {
+  const b = e.currentTarget, to = b.dataset.to;
+  if (!to || b.dataset.confirmed) return;
+  if (to === 'done') confirmDoneClick(b);
+  await move(openId, to);
+  if (to === 'done') closePanel();
+});
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && openId && !$('add').classList.contains('open')) closePanel(); });
 document.addEventListener('click', e => {
   if (!e.target.isConnected) return;    // the click re-rendered its own button; not an outside click
@@ -1446,13 +1465,6 @@ $('p-body').addEventListener('click', async e => {
   const b = e.target.closest('button'); if (!b) return;
   if (b.id === 'p-desc-more') { descOpen = !descOpen; if (lastDetail) renderPanel(lastDetail); return; }
   if (b.id === 'p-act-more') { actAll = !actAll; if (lastDetail) renderPanel(lastDetail); return; }
-  if (b.id === 'p-move') {
-    const to = b.dataset.to;
-    if (to === 'done') confirmDoneClick(b);
-    await move(openId, to);
-    if (to === 'done') closePanel();
-    return;
-  }
   if (b.id === 'p-copy') {
     try {
       const r = await fetch('/api/prompt?id=' + encodeURIComponent(openId)), d = await r.json();
