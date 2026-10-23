@@ -637,9 +637,46 @@ class SubtaskTests(unittest.TestCase):
         big = self.get("big")
         self.assertEqual(big["progress"], 40)   # (100 + 60 + 0 + 0) / 4
         self.assertEqual(big["status_text"], "half way")   # the latest subtask note shows on the parent
-        self.s.update("big", 90, "just text")
+        self.s.update("big", 0, "just text")   # the documented status-line-only form
         big = self.get("big")
         self.assertEqual((big["progress"], big["status_text"]), (40, "just text"))
+
+    def test_setting_a_percent_on_a_parent_with_open_subtasks_is_refused_with_their_ids(self):
+        self.s.claim("big", "atlas")
+        self.s.update("one", 100)
+        before = self.get("big")
+        with self.assertRaises(BoardError) as cm:
+            self.s.update("big", 60, "text that must not land either")
+        msg = str(cm.exception)
+        self.assertIn("computed from its subtasks", msg)
+        for open_id in ("two", "three", "four"):
+            self.assertIn(open_id, msg)
+        self.assertNotIn("one  ", msg + " ")   # the finished subtask is not offered as one to update
+        after = self.get("big")
+        self.assertEqual((after["progress"], after["status_text"], after["log"]),
+                         (before["progress"], before["status_text"], before["log"]))   # refused before touching anything
+
+    def test_text_only_update_on_a_parent_still_works(self):
+        self.s.claim("big", "atlas")
+        t = self.s.update("big", None, "just a status line")
+        self.assertEqual(t["status_text"], "just a status line")
+        self.assertEqual(t["progress"], 0)
+
+    def test_parent_with_every_subtask_done_ignores_a_percent_instead_of_refusing(self):
+        self.s.claim("big", "atlas")
+        for sid in ("one", "two", "three", "four"):
+            self.s.update(sid, 100)
+        t = self.s.update("big", 30, "wrapping up")
+        self.assertEqual((t["progress"], t["status_text"]), (100, "wrapping up"))
+
+    def test_refusal_and_parent_prompt_say_the_same_thing(self):
+        self.s.claim("big", "atlas")
+        with self.assertRaises(BoardError) as cm:
+            self.s.update("big", 50)
+        tasks = self.s.load()
+        text, _ = prompt.build_prompt(Store.get(tasks, "big"), self.s.dir, tasks=tasks)
+        for said in (text, str(cm.exception)):   # the parent's prompt and the refusal tell the agent the same thing
+            self.assertIn("(the mean), so you do not set it", said)
 
     def test_subtask_at_100_marks_itself_done_without_review(self):
         self.s.claim("big", "atlas")
@@ -1130,3 +1167,70 @@ class SubtaskPromptTests(unittest.TestCase):
         (self.dir / "config.toml").write_text('[prompt]\ntemplate = "mine {task_id}"\n')
         text, _ = prompt.build_prompt(self.kids[0], self.dir, tasks=self.tasks)
         self.assertEqual(text, "mine one")
+
+
+class SubtaskCliTests(unittest.TestCase):
+    """What an agent sees in its terminal: the subtask ids on claim / start --parent, and the refusal."""
+
+    def setUp(self):
+        import contextlib
+        import io
+        from agentboard import cli
+        self.cli, self.io, self.contextlib = cli, io, contextlib
+        self.tmp = tempfile.TemporaryDirectory()
+        self.dir = str(Path(self.tmp.name) / ".agentboard")
+        s = Store(Path(self.dir))
+        s.add("Big job", status="todo", task_id="big")
+        for sid in ("one", "two"):
+            s.add(f"Title of {sid}", parent_id="big", task_id=sid)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def run_cli(self, *argv):
+        out, err = self.io.StringIO(), self.io.StringIO()
+        with unittest.mock.patch.dict("os.environ", {"AGENTBOARD_DIR": self.dir}), \
+             self.contextlib.redirect_stdout(out), self.contextlib.redirect_stderr(err):
+            try:
+                self.cli.main(list(argv))
+                code = 0
+            except SystemExit as e:
+                code = e.code if isinstance(e.code, int) else 1
+                if isinstance(e.code, str):
+                    err.write(e.code)
+        return code, out.getvalue(), err.getvalue()
+
+    def test_claiming_a_parent_prints_each_subtask_id_and_title(self):
+        code, out, _ = self.run_cli("claim", "big", "--name", "atlas")
+        self.assertEqual(code, 0)
+        self.assertIn("claimed big as atlas", out)
+        self.assertIn("  one  Title of one", out)
+        self.assertIn("  two  Title of two", out)
+
+    def test_claiming_a_plain_task_prints_nothing_extra(self):
+        Store(Path(self.dir)).add("Solo", status="todo", task_id="solo")
+        _, out, _ = self.run_cli("claim", "solo", "--name", "atlas")
+        self.assertEqual(out.strip(), "claimed solo as atlas")
+
+    def test_start_under_a_parent_keeps_stdout_to_the_bare_id_and_lists_siblings_on_stderr(self):
+        self.run_cli("claim", "big", "--name", "atlas")
+        code, out, err = self.run_cli("start", "Another bit", "--name", "atlas", "--parent", "big")
+        self.assertEqual((code, out.strip()), (0, "another-bit"))   # `ID=$(agentboard start ...)` still captures only the id
+        for sid in ("one", "two", "another-bit"):
+            self.assertIn(f"  {sid}  ", err)
+
+    def test_percent_on_a_parent_exits_1_and_lists_the_open_subtasks(self):
+        self.run_cli("claim", "big", "--name", "atlas")
+        code, _, err = self.run_cli("update", "big", "40", "text")
+        self.assertEqual(code, 1)
+        self.assertIn("computed from its subtasks", err)
+        self.assertIn("one  two", err)
+
+    def test_text_only_update_is_accepted_and_keeps_the_percent(self):
+        self.run_cli("claim", "big", "--name", "atlas")
+        code, _, _ = self.run_cli("update", "big", "just words")
+        self.assertEqual(code, 0)
+        self.assertEqual(Store.get(Store(Path(self.dir)).load(), "big")["status_text"], "just words")
+        code, _, err = self.run_cli("update", "one", "ten", "text")   # a non-number followed by text is a typo, not text-only
+        self.assertEqual(code, 1)
+        self.assertIn("number from 0 to 100", err)

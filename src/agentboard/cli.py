@@ -400,7 +400,9 @@ def cmd_start(a):
     t = _store().start(a.title, _agent_name(a), a.color or os.environ.get("AGENTBOARD_COLOR"),
                        a.description or "", a.id, a.project, blocked_by=a.blocked_by, force=a.force,
                        parent_id=a.parent)
-    print(t["id"])  # agents use this id for update/done
+    print(t["id"])  # agents use this id for update/done; the sibling list goes to stderr so $(...) still captures only the id
+    if a.parent:
+        _print_subtasks(_store().load(), a.parent, file=sys.stderr)
 
 
 INSTRUCTIONS = """\
@@ -607,14 +609,37 @@ def cmd_rm(a):
 
 def cmd_claim(a):
     name = _agent_name(a)
-    t = _store().claim(a.id, name, a.color or os.environ.get("AGENTBOARD_COLOR"), a.force)
+    s = _store()
+    t = s.claim(a.id, name, a.color or os.environ.get("AGENTBOARD_COLOR"), a.force)
     print(f"claimed {t['id']} as {name}")
+    _print_subtasks(s.load(), t["id"])
+
+
+def _print_subtasks(tasks, parent_id, file=None):
+    """Under a parent, list its subtasks (id  title) so the ids to update are in the agent's terminal."""
+    kids = [k for k in tasks if k.get("parent_id") == parent_id]
+    if not kids:
+        return
+    print(f"{parent_id} is split into subtasks: update these (its % is computed from them), not the parent:", file=file)
+    for k in kids:
+        print(f"  {k['id']}  {k['title']}" + ("  (done)" if k["status"] == "done" else ""), file=file)
+
+
+def _pct_and_text(a):
+    """`update ID 50 "text"`, or text-only `update ID "text"` (the % stays as it was)."""
+    try:
+        return int(a.progress), a.text
+    except ValueError:
+        if a.text is not None:
+            raise BoardError(f"progress must be a number from 0 to 100, got {a.progress!r}") from None
+        return None, a.progress
 
 
 def cmd_update(a):
     s = _store()
     kids = [k for k in s.load() if k.get("parent_id") == a.id]
-    t = s.update(a.id, a.progress, a.text)
+    pct, text = _pct_and_text(a)
+    t = s.update(a.id, pct, text)
     if kids:
         print(f"{t['id']}: Σ {t['progress']}% (a parent's % is computed from its subtasks; update those instead)")
     elif t["status"] == "done" and t.get("parent_id"):
@@ -749,7 +774,7 @@ def main(argv=None):
     sp.add_argument("--force", action="store_true")
     sp = add("update", cmd_update, "agent: report progress")
     sp.add_argument("id")
-    sp.add_argument("progress", type=int)
+    sp.add_argument("progress", metavar="PCT", help="0-100; or, with no PCT, the status text alone")
     sp.add_argument("text", nargs="?")
     sp = add("ask", cmd_ask, "agent: flag that you are blocked on the user")
     sp.add_argument("id")

@@ -301,6 +301,10 @@ class Store:
 
     def _update(self, tasks, t, progress, text, status):
         _parent_must_be_doing(_parent_of(tasks, t), t, "update")
+        kids = _kids(tasks, t["id"])
+        open_kids = [k for k in kids if k["status"] != "done"]
+        if progress and open_kids:   # 0 is the documented "status line only" form, so it never claims to set a %
+            raise BoardError(parent_pct_hint(t["id"], open_kids))
         resumed = bool(t.get("needs_input") or t.get("review"))
         for f in ("needs_input", "question", "review", "body_md"):
             t.pop(f, None)
@@ -308,7 +312,6 @@ class Store:
         if parent and parent.get("ask_child") == t["id"]:   # this was the question the parent was showing
             for f in ("needs_input", "question", "ask_child"):
                 parent.pop(f, None)
-        kids = _kids(tasks, t["id"])
         t.pop("ask_child", None)
         if t["status"] == "done" and not status:   # finished work stays at 100%, whatever a late update says
             progress = None
@@ -636,6 +639,15 @@ def _check_parent(tasks, parent_id):
 def _not_a_subtask(t, verb):
     if t.get("parent_id"):
         raise BoardError(f"{t['id']} is a subtask of {t['parent_id']}; subtasks {verb} with their parent")
+
+
+def parent_pct_hint(task_id, open_kids):
+    """Why `update <parent> <pct>` is refused, naming the subtasks to update instead. The prompt for a
+    parent (prompt.py) says the same: its % is computed from its subtasks, so you do not set it."""
+    ids = "  ".join(k["id"] for k in open_kids)
+    return (f"{task_id}: its % is computed from its subtasks (the mean), so you do not set it. "
+            f"Update the one you're on: {ids}   "
+            f"(for its status line only: agentboard update {task_id} \"<text>\")")
 
 
 def _recompute(tasks, parent):

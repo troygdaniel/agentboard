@@ -924,6 +924,15 @@ function renderKeepingCardFocus() {
   if (id) $('board').querySelector(`.card[data-id="${CSS.escape(id)}"]`)?.focus({ preventScroll: true });
 }
 
+// A Doing parent's status line: when a live subtask changed more recently than the parent's own text, show
+// that subtask's note ("Dashboard tiles · Implementing badge…") so the card says where the agent is.
+function parentLine(t) {
+  const live = (kidsMap.get(t.id) || []).filter(k => k.status === 'doing' && k.progress > 0 && k.status_text && Date.parse(k.updated) >= Date.parse(t.updated) - 2000);   // 2s slack: a subtask update bumps its parent a moment later
+  if (!live.length) return t.status_text;
+  const k = live.reduce((a, b) => Date.parse(b.updated) > Date.parse(a.updated) ? b : a);
+  return `${k.title} · ${k.status_text}`;
+}
+
 function card(t) {
   const a = ago(t.updated);
   const doing = t.status === 'doing', done = t.status === 'done';
@@ -951,7 +960,8 @@ function card(t) {
       `<svg class="cp-x" width="11" height="11" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg>Copied</button>` : '';
   const meta = !who && (queued || laterBtn || toTodoBtn || copiedBadge) ? `<div class="meta">${laterBtn}${toTodoBtn}${queued}${copiedBadge}</div>` : '';
   const nSubs = t.subs_total || 0;   // a parent's % is the computed mean of its subtasks (Σ), and its one bar is the segmented toggle
-  const note = doing ? `<div class="note"><span title="${esc(t.status_text)}">${esc(t.status_text)}</span><span class="pct ${nSubs ? 'computed' : ''}">${t.progress || 0}%</span></div>`
+  const line = doing && nSubs ? parentLine(t) : t.status_text;
+  const note = doing ? `<div class="note"><span title="${esc(line)}">${esc(line)}</span><span class="pct ${nSubs ? 'computed' : ''}">${t.progress || 0}%</span></div>`
     : (done && t.result ? `<div class="note"><span title="${esc(t.result)}">${esc(t.result)}</span></div>` : '');
   const bar = nSubs ? subsBlock(t, live) : doing
     ? `<div class="bar" role="progressbar" aria-valuenow="${t.progress || 0}" aria-valuemin="0" aria-valuemax="100" aria-label="Progress"><b style="width:${lastPct.has(t.id) ? lastPct.get(t.id) : t.progress || 0}%;background:${colorOf(t)}" data-to="${t.progress || 0}"></b></div>` : '';
