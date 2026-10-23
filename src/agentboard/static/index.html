@@ -1075,6 +1075,8 @@ function render() {
   const pres = [...new Map(activeNow.map(t => [t.agent, colorOf(t)])).entries()]
     .map(([n, c]) => `<i style="--c:${c}" title="${esc(n)} is working"></i>`).join('');
   const cols = COLUMNS.filter(([k]) => k !== 'backlog');
+  // each column scrolls on its own, and the rebuild below replaces those scrollers: remember where they were
+  const scrolls = Object.fromEntries([...$('board').querySelectorAll('.col')].map(c => [c.dataset.status, c.querySelector('.cards')?.scrollTop || 0]));
   $('board').style.setProperty('--tracks', cols.map(([k]) => k === 'doing' ? 'minmax(0, 1.4fr)' : 'minmax(0, 1fr)').join(' '));
   $('board').innerHTML = cols.map(([k, label]) => {
     let list = by[k], more = '';
@@ -1100,6 +1102,7 @@ function render() {
     const p = k === 'doing' && pres ? `<b class="pres" aria-hidden="true">${pres}</b>` : '';
     return `<section class="col ${k}" data-status="${k}"><h2>${label} <span class="cnt">${by[k].length}</span>${p}${clr}</h2><div class="cards">${body}</div>${more}</section>`;
   }).join('');
+  $('board').querySelectorAll('.col').forEach(c => { const k = c.querySelector('.cards'); if (k) k.scrollTop = scrolls[c.dataset.status] || 0; });
   // live counts: a brief tick when a column's count changes
   if (!firstRender) $('board').querySelectorAll('.col').forEach(col => {
     const k = col.dataset.status, n = by[k].length;
@@ -1853,10 +1856,11 @@ function renderLater(list) {
   const body = $('later-body');
   if (!body || !$('later').classList.contains('open')) return;
   const typed = document.getElementById('later-input')?.value || '';
-  const hadFocus = document.activeElement?.id === 'later-input';
+  const hadFocus = document.activeElement?.id === 'later-input', keepScroll = body.scrollTop;
   body.innerHTML = `<form class="later-add" id="later-form"><input id="later-input" placeholder="Park an idea…" aria-label="Park an idea" required><button class="btn primary">Add</button></form>` +
     (list.length ? `<div class="cards">${list.map(card).join('')}</div>`
       : `<div class="empty">Nothing parked. Ideas you are not ready to start live here, out of the way.</div>`);
+  body.scrollTop = keepScroll;
   const inp = $('later-input'); inp.value = typed; if (hadFocus) inp.focus();
 }
 function setSide(which) {            // one surface at a time
