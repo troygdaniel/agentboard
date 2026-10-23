@@ -1089,3 +1089,44 @@ class MarkdownTableTests(unittest.TestCase):
         out = self.md("before\n\n| a |\n|---|\n| 1 |\n\nafter")
         self.assertTrue(out.startswith("<p>before</p><div class=\"md-table\">"))
         self.assertTrue(out.endswith("</table></div><p>after</p>"))
+
+
+class SubtaskPromptTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.dir = Path(self.tmp.name) / ".agentboard"
+        self.dir.mkdir()
+        self.parent = {"id": "big", "title": "Big job", "status": "todo", "progress": 0}
+        self.kids = [{"id": "one", "title": "Part one", "parent_id": "big", "status": "todo", "progress": 0},
+                     {"id": "two", "title": "Part two", "parent_id": "big", "status": "done", "progress": 100}]
+        self.tasks = [self.parent, *self.kids]
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_subtask_prompt_says_update_to_100_and_review_the_parent(self):
+        text, _ = prompt.build_prompt(self.kids[0], self.dir, tasks=self.tasks)
+        self.assertIn("claim big", text)                        # the parent is what gets claimed
+        self.assertNotIn("claim one", text)
+        self.assertIn("update one 100", text)
+        self.assertIn('review big "', text)                     # review goes on the parent
+        self.assertNotIn("review one", text)
+        self.assertIn("no review step", text)
+
+    def test_parent_prompt_lists_its_subtasks_and_computes_progress(self):
+        text, _ = prompt.build_prompt(self.parent, self.dir, tasks=self.tasks)
+        self.assertIn("- one: Part one", text)
+        self.assertIn("- two: Part two", text)
+        self.assertIn("update <subtask id>", text)
+        self.assertIn('review big "', text)
+        self.assertIn("computed", text)
+
+    def test_plain_task_prompt_is_unchanged(self):
+        text, _ = prompt.build_prompt({"id": "solo", "title": "Solo"}, self.dir, tasks=self.tasks)
+        self.assertIn('review solo "<one-line result>"', text)
+        self.assertNotIn("subtask", text.lower())
+
+    def test_custom_templates_are_left_alone(self):
+        (self.dir / "config.toml").write_text('[prompt]\ntemplate = "mine {task_id}"\n')
+        text, _ = prompt.build_prompt(self.kids[0], self.dir, tasks=self.tasks)
+        self.assertEqual(text, "mine one")

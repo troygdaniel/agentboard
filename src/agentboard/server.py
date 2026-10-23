@@ -127,7 +127,7 @@ def make_handler(store, port):
             elif url.path == "/api/prompt":
                 try:
                     task = Store.get(store.load(), (q.get("id") or [""])[0])
-                    text, warnings = promptlib.build_prompt(task, store.dir, public=False)
+                    text, warnings = promptlib.build_prompt(task, store.dir, public=False, tasks=store.load())
                     self._send(200, {"prompt": text, "warnings": warnings})
                 except BoardError as e:
                     self._send(404, {"error": str(e)})

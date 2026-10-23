@@ -659,7 +659,8 @@ def cmd_done(a):
 
 def cmd_prompt(a):
     s = _store()
-    text, warnings = promptlib.build_prompt(Store.get(s.load(), a.id), s.dir, public=a.public)
+    all_tasks = s.load()
+    text, warnings = promptlib.build_prompt(Store.get(all_tasks, a.id), s.dir, public=a.public, tasks=all_tasks)
     for w in warnings:
         print(f"warning: {w}", file=sys.stderr)
     print(text)
@@ -671,7 +672,7 @@ def cmd_rebuild(a):
     with s.transaction() as tasks:
         for tid in ids:
             t = Store.get(tasks, tid)
-            t["prompt"], warnings = promptlib.build_prompt(t, s.dir)
+            t["prompt"], warnings = promptlib.build_prompt(t, s.dir, tasks=tasks)
             for w in warnings:
                 print(f"{tid}: warning: {w}", file=sys.stderr)
     print(f"rebuilt {len(ids)} prompt(s)")
