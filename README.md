@@ -107,6 +107,8 @@ Split a big card into subtasks (one level deep). A subtask is a normal task with
     agentboard update <sub_id> 60 "wiring it up"                 # each subtask has its own %, status line and log
     agentboard review <parent_id> "result"                       # the deliverable is ready; open subtasks close with it
 
+- Subtasks follow their parent: an open subtask can only be claimed or updated while the parent is in Doing, so
+  claim the parent first. Finished subtasks stay done if the parent later moves back.
 - A subtask at 100% **closes itself** (no review step) and gets its own compact card in Done, while the parent stays
   in Doing. Agents never call `review`/`done` on a subtask.
 - The parent's % is **computed** (the mean of its subtasks, shown with a Σ). `update <parent>` only sets its status

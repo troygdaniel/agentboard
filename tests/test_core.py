@@ -987,3 +987,56 @@ class BugHuntServerTests(unittest.TestCase):
         (self.store.dir / "config.toml").write_text('[board]\nstale_minutes = "x"\n')
         self.assertEqual(self.call("GET", "/api/hud")[0], 200)
         self.assertEqual(self.call("GET", "/api/config")[0], 200)
+
+
+class SubtaskStateRuleTests(unittest.TestCase):
+    """Subtasks follow their parent: an open subtask can only be claimed or updated while the parent is in Doing."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.s = Store(Path(self.tmp.name) / ".agentboard")
+        self.s.add("Big", status="todo", task_id="big")
+        self.s.add("One", parent_id="big", task_id="one")
+        self.s.add("Two", parent_id="big", task_id="two")
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def get(self, tid):
+        return Store.get(self.s.load(), tid)
+
+    def test_claiming_a_subtask_needs_the_parent_in_doing(self):
+        with self.assertRaises(BoardError) as cm:
+            self.s.claim("one", "atlas")
+        self.assertIn("claim the parent", str(cm.exception))
+        self.assertEqual((self.get("one")["status"], self.get("big")["status"]), ("todo", "todo"))
+        self.assertEqual(self.s.claim("one", "atlas", force=True)["status"], "doing")   # --force stays the escape hatch
+
+    def test_updating_an_open_subtask_needs_the_parent_in_doing(self):
+        with self.assertRaises(BoardError) as cm:
+            self.s.update("one", 100, "early")
+        self.assertIn("claim the parent", str(cm.exception))
+        self.assertEqual(self.get("one")["status"], "todo")   # did not close itself
+        self.s.claim("big", "atlas")
+        self.assertEqual(self.s.update("one", 100)["status"], "done")
+
+    def test_starting_a_subtask_needs_the_parent_in_doing(self):
+        with self.assertRaises(BoardError):
+            self.s.start("Three", "atlas", parent_id="big")
+        self.s.claim("big", "atlas")
+        self.assertEqual(self.s.start("Three", "atlas", parent_id="big")["parent_id"], "big")
+
+    def test_finished_subtasks_stay_done_when_the_parent_goes_back(self):
+        self.s.claim("big", "atlas")
+        self.s.update("one", 100)
+        self.s.move("big", "todo")
+        self.assertEqual(self.get("one")["status"], "done")   # finished work never un-finishes
+        self.assertEqual(self.get("two")["status"], "todo")
+        with self.assertRaises(BoardError):
+            self.s.update("two", 50)   # the open one follows the parent back to Todo
+
+    def test_a_done_subtask_ignores_late_updates_even_with_the_parent_back_in_todo(self):
+        self.s.claim("big", "atlas")
+        self.s.update("one", 100)
+        self.s.move("big", "todo")
+        self.assertEqual(self.s.update("one", 20, "late")["progress"], 100)

@@ -159,6 +159,8 @@ class Store:
         with self.transaction() as tasks:
             parent = _check_parent(tasks, parent_id)
             if parent:
+                if not force:
+                    _parent_must_be_doing(parent, {"id": "a new subtask"}, "start")
                 project_id = project_id or parent.get("project_id")
             tid = task_id or _unique_id(title, {t["id"] for t in tasks})
             existing = next((t for t in tasks if t["id"] == tid), None)
@@ -197,6 +199,8 @@ class Store:
     def claim(self, task_id, name, color=None, force=False):
         with self.transaction() as tasks:
             t = self.get(tasks, task_id)
+            if not force:
+                _parent_must_be_doing(_parent_of(tasks, t), t, "claim")
             if t.get("agent") and t["agent"] != name and not force and t["status"] == "doing":
                 raise BoardError(f"{task_id} is already claimed by {t['agent']} (use --force)")
             if t["status"] == "done" and not force:
@@ -296,6 +300,7 @@ class Store:
             return self._update(tasks, self.get(tasks, task_id), progress, text, status)
 
     def _update(self, tasks, t, progress, text, status):
+        _parent_must_be_doing(_parent_of(tasks, t), t, "update")
         resumed = bool(t.get("needs_input") or t.get("review"))
         for f in ("needs_input", "question", "review", "body_md"):
             t.pop(f, None)
@@ -587,6 +592,13 @@ def _clean_title(title):
     if not isinstance(title, str) or not title.strip():
         raise BoardError("a task needs a title")
     return title.strip()
+
+
+def _parent_must_be_doing(parent, t, verb):
+    """Subtasks follow their parent: an open one can only be claimed or updated while the parent is in
+    Doing (claim the parent and its open subtasks come with it). Finished subtasks are exempt."""
+    if parent and t.get("status") != "done" and parent["status"] != "doing":
+        raise BoardError(f"cannot {verb} {t['id']}: its parent {parent['id']} is in {parent['status']}; claim the parent first")
 
 
 def _require_doing(t, verb):

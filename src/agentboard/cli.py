@@ -452,7 +452,7 @@ A big card can be split into subtasks (one level deep). A subtask is a normal ta
     agentboard start "<title>" --name "<you>" --parent <id>    # an agent adding one mid-flight
 
 When you claim a parent that has no subtasks yet, break it down first (same command). `claim <parent>`
-takes every subtask with it. Then work the subtasks, not the parent:
+takes every subtask with it. Then work the subtasks, not the parent (updating a subtask before its parent is in Doing is refused):
 
     agentboard update <sub_id> <0-100> "<one-line status>"     # a subtask at 100% closes itself: no review step
     agentboard review <parent_id> "<one-line result>"          # the deliverable is ready; open subtasks close with it
