@@ -88,7 +88,7 @@
   .wrap { width: min(100%, 1800px); margin: 0 auto; padding: 18px 28px 22px; height: 100vh; height: 100dvh;
     display: flex; flex-direction: column; }
 
-  header { display: flex; align-items: center; gap: 14px; flex: none; margin-bottom: 18px; padding-bottom: 14px;
+  header { display: flex; flex-wrap: wrap; row-gap: 8px; align-items: center; gap: 14px; flex: none; margin-bottom: 18px; padding-bottom: 14px;
     border-bottom: 1px solid var(--line); }
   h1 { font-size: var(--fs-lg); font-weight: 600; letter-spacing: -.015em; display: flex; align-items: center; gap: 9px; }
   h1 svg { color: var(--text); }
@@ -96,6 +96,7 @@
   .filter.on { display: block; }
   .filter::placeholder { color: var(--muted); }
   .summary { font-size: var(--fs-md); color: var(--muted); }
+  header .btn { white-space: nowrap; }   /* "Later (1)" must not wrap onto two lines when the header gets tight */
   /* unlike #summary (whose chips are clickable filters and must stay reachable, not ellipsized away),
      #filter-summary is plain text — safe to cap and truncate so a long project name can't push the
      HUD/sound/theme buttons out of the header at narrow widths */
@@ -731,9 +732,8 @@
   }
   #error { color: var(--warn); font-size: var(--fs-md); margin-bottom: 16px; display: none; }
   /* stacked on a phone: the page scrolls as one, columns size to their cards */
-  @media (max-width: 760px) {
+  @media (max-width: 900px) {   /* below this three columns no longer fit (cards and the header overflowed at ~780px) */
     .wrap { height: auto; min-height: 100vh; padding: 16px 16px 40px; }
-    header { flex-wrap: wrap; }
     .board { grid-template-columns: minmax(0, 1fr); }
     .col { min-height: 160px; min-width: 0; }
     .cards { overflow: visible; flex: none; }
