@@ -1,0 +1,338 @@
+<title>Subtasks Mockup</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+  /* Layout: the real agentboard three-column board (Todo / Doing / Done) with the board's own tokens.
+     A parent card's only progress bar is segmented (one cell per subtask) and doubles as the expand toggle.
+     Open subtasks are quiet rows inside the parent; finished ones leave the parent and land in Done. */
+  :root {
+    --bg: #fafaf9; --surface: #ffffff; --line: #e7e5e4;
+    --text: #1c1917; --muted: #6b6560; --accent: #1c1917;
+    --warn: #b45309; --ok: #15803d; --err: #b42318; --neutral: #a8a29e;
+    --chip: #f2f0ee; --well: rgba(28,25,23,.1); --card-hi: rgba(255,255,255,.8);
+    --glow1: rgba(99,102,241,.08); --glow2: rgba(251,146,60,.09); --dot: rgba(28,25,23,.07); --sheen: rgba(28,25,23,.22);
+    --panel: linear-gradient(180deg, rgba(255,255,255,.72), rgba(255,255,255,.4));
+    --panel-hi: rgba(255,255,255,.95); --panel-sh: 0 18px 40px -28px rgba(28,25,23,.35);
+    --shadow: 0 1px 2px rgba(28,25,23,.05), 0 1px 1px rgba(28,25,23,.03);
+    --fs-xs: 11px; --fs-sm: 12px; --fs-md: 13px; --fs-base: 14px; --fs-lg: 15px;
+    --tr-label: .16em; --tr-tight: .06em;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #070b12; --surface: #0f1722; --line: #1c2a3a;
+      --text: #d6e9ff; --muted: #7f95ad; --accent: #d6e9ff;
+      --warn: #ffc857; --ok: #5dffb0; --err: #ff6b6b; --neutral: #4b5f75;
+      --chip: #15202e; --well: rgba(0,0,0,.45); --card-hi: rgba(255,255,255,.05);
+      --glow1: rgba(94,231,255,.12); --glow2: rgba(93,255,176,.06); --dot: rgba(110,190,255,.05); --sheen: rgba(255,255,255,.5);
+      --panel: linear-gradient(180deg, rgba(14,25,38,.74), rgba(8,15,24,.66));
+      --panel-hi: rgba(255,255,255,.045); --panel-sh: 0 18px 40px -26px rgba(0,0,0,.9);
+      --shadow: inset 0 1px 0 rgba(255,255,255,.03);
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+      --bg: #070b12; --surface: #0f1722; --line: #1c2a3a;
+      --text: #d6e9ff; --muted: #7f95ad; --accent: #d6e9ff;
+      --warn: #ffc857; --ok: #5dffb0; --err: #ff6b6b; --neutral: #4b5f75;
+      --chip: #15202e; --well: rgba(0,0,0,.45); --card-hi: rgba(255,255,255,.05);
+      --glow1: rgba(94,231,255,.12); --glow2: rgba(93,255,176,.06); --dot: rgba(110,190,255,.05); --sheen: rgba(255,255,255,.5);
+      --panel: linear-gradient(180deg, rgba(14,25,38,.74), rgba(8,15,24,.66));
+      --panel-hi: rgba(255,255,255,.045); --panel-sh: 0 18px 40px -26px rgba(0,0,0,.9);
+      --shadow: inset 0 1px 0 rgba(255,255,255,.03);
+      color-scheme: dark;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body {
+    background:
+      radial-gradient(1000px 460px at 10% -8%, var(--glow1), transparent 70%) no-repeat,
+      radial-gradient(760px 420px at 96% -6%, var(--glow2), transparent 70%) no-repeat,
+      radial-gradient(var(--dot) 1px, transparent 1px) 0 0 / 22px 22px,
+      var(--bg);
+    min-height: 100vh; color: var(--text);
+    font: var(--fs-base)/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased; letter-spacing: -.003em;
+  }
+  .wrap { width: min(100%, 1500px); margin: 0 auto; padding-block: 18px 28px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  header { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 18px; padding-bottom: 14px; border-bottom: 1px solid var(--line); }
+  h1 { font-size: var(--fs-lg); font-weight: 600; letter-spacing: -.015em; display: flex; align-items: center; gap: 10px; }
+  .mock { font-size: var(--fs-xs); font-weight: 600; letter-spacing: var(--tr-label); text-transform: uppercase; color: var(--muted); }
+  .summary { font-size: var(--fs-md); color: var(--muted); }
+  .summary b { color: var(--text); font-weight: 500; }
+  .spacer { flex: 1; }
+  .btn { background: none; border: 1px solid var(--line); border-radius: 8px; padding: 6px 12px; cursor: pointer; color: var(--text); min-height: 32px; font: inherit; }
+  .btn:hover { background: var(--surface); border-color: var(--neutral); }
+  .btn.primary { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+  .btn:disabled { opacity: .5; cursor: default; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .board { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; align-items: start; }
+  @media (max-width: 900px) { .board { grid-template-columns: 1fr; } }
+  .col { position: relative; display: flex; flex-direction: column; isolation: isolate; min-width: 0;
+    border: 1px solid var(--line); border-radius: 16px; padding: 14px 8px 8px;
+    background: var(--panel); box-shadow: inset 0 1px 0 var(--panel-hi), var(--panel-sh); }
+  .col.doing { border-color: color-mix(in srgb, var(--accent) 14%, var(--line)); }
+  .col.doing::before { content: ''; position: absolute; inset: 0; border-radius: 16px; pointer-events: none; z-index: -1;
+    background: radial-gradient(70% 38% at 50% 0%, var(--glow1), transparent 70%); }
+  .col h2 { font-size: var(--fs-xs); font-weight: 600; color: var(--muted); letter-spacing: var(--tr-label); text-transform: uppercase;
+    display: flex; align-items: center; gap: 8px; margin-bottom: 12px; padding: 0 10px; }
+  .col.doing h2 { color: var(--text); }
+  .cnt { background: var(--chip); border-radius: 999px; padding: 0 7px; font-size: var(--fs-xs); line-height: 18px; letter-spacing: 0; font-variant-numeric: tabular-nums; box-shadow: inset 0 0 0 1px var(--line); }
+  .pres { display: inline-flex; gap: 4px; margin-left: 2px; }
+  .pres i { width: 7px; height: 7px; border-radius: 50%; background: var(--c); }
+  .cards { display: flex; flex-direction: column; gap: 10px; padding: 4px 6px 10px; }
+
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; position: relative;
+    box-shadow: inset 0 1px 0 var(--card-hi), var(--shadow); min-width: 0; }
+  /* agent color: left bar + tint while in Doing. (No project stripe on top any more; the pill carries that.) */
+  .card::after { content: ''; position: absolute; left: 1px; top: 12px; bottom: 12px; width: 3px; border-radius: 0 2px 2px 0; pointer-events: none;
+    background: var(--c, var(--neutral)); box-shadow: 0 0 10px var(--c, var(--neutral)); opacity: 0; }
+  .col.doing .card:not(.done)::after { opacity: .9; }
+  .col.doing .card:not(.done) { background: linear-gradient(180deg, color-mix(in srgb, var(--c, var(--neutral)) 9%, var(--surface)), var(--surface) 75%);
+    border-color: color-mix(in srgb, var(--c, var(--neutral)) 30%, var(--line)); }
+  .card.livebar::after { animation: cbar 3s ease-in-out infinite; }
+  @keyframes cbar { 50% { box-shadow: 0 0 18px 2px var(--c, var(--neutral)); } }
+  .card[data-status="todo"] { background: linear-gradient(180deg, color-mix(in srgb, var(--glow1) 70%, var(--surface)), var(--surface) 65%); }
+  .card.review { border-color: var(--ok); }
+  .card.review::after { background: var(--ok); box-shadow: 0 0 10px var(--ok); opacity: 1; }
+  .top { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: var(--fs-sm); color: var(--muted); min-height: 20px; }
+  .top .when { margin-left: auto; white-space: nowrap; }
+  .who { display: inline-flex; align-items: center; gap: 8px; color: var(--text); font-weight: 500; font-size: var(--fs-sm); }
+  .av { width: 20px; height: 20px; border-radius: 50%; flex: none; display: grid; place-items: center; font-size: var(--fs-xs); font-weight: 600; color: var(--text);
+    background: color-mix(in srgb, var(--c, var(--neutral)) 16%, var(--chip)); box-shadow: inset 0 0 0 1.5px var(--c, var(--neutral)); }
+  .proj-row { margin-bottom: 8px; }
+  .proj { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-xs); font-weight: 500; color: var(--muted); background: var(--chip); border-radius: 999px; padding: 2px 9px 2px 7px;
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--pc, var(--neutral)) 35%, var(--line)); }
+  .proj::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--pc, var(--neutral)); flex: none; }
+  .title { font-weight: 550; font-size: var(--fs-lg); line-height: 1.4; letter-spacing: -.01em; overflow-wrap: anywhere; display: flex; align-items: center; gap: 8px; }
+  .desc { color: var(--muted); font-size: var(--fs-md); margin-top: 2px; }
+  .note { margin-top: 8px; font-size: var(--fs-sm); color: var(--muted); display: flex; gap: 10px; }
+  .note span:first-child { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .note .pct { font-variant-numeric: tabular-nums; color: var(--text); }
+  .bar { height: 5px; background: var(--chip); border-radius: 3px; margin-top: 10px; overflow: hidden; position: relative; box-shadow: inset 0 1px 2px var(--well), inset 0 -1px 0 var(--card-hi); }
+  .bar b { display: block; height: 100%; border-radius: 3px; background: var(--c, var(--neutral)); transition: width .4s ease; box-shadow: 0 0 8px -1px var(--c, var(--neutral)); }
+  .card.livebar .bar::after { content: ''; position: absolute; inset: 0; transform: translateX(-100%); background: linear-gradient(90deg, transparent, var(--sheen), transparent); animation: hsheen 3.2s ease-in-out infinite; }
+  @keyframes hsheen { to { transform: translateX(100%); } }
+  .done .title { color: var(--muted); font-weight: 400; }
+  .check { color: var(--ok); flex: none; }
+  .flag { display: flex; align-items: center; gap: 6px; color: var(--ok); font-size: var(--fs-xs); font-weight: 600; letter-spacing: var(--tr-tight); text-transform: uppercase; margin-bottom: 6px; }
+
+  /* ---------- NEW: subtasks ---------- */
+  /* The parent's ONE progress bar is segmented: a cell per subtask (green done, agent-colored and partly
+     filled while live, empty when queued). The whole row is the expand toggle: bar + done/total + chevron. */
+  .subs-toggle { display: flex; align-items: center; gap: 10px; width: 100%; margin-top: 10px; padding: 0; background: none; border: 0;
+    font: inherit; font-size: var(--fs-sm); color: var(--muted); cursor: pointer; text-align: left; border-radius: 6px; }
+  .subs-toggle:hover { color: var(--text); }
+  .segs { display: flex; gap: 3px; flex: 1; min-width: 0; height: 5px; }
+  .segs i { flex: 1; border-radius: 2px; background: var(--chip); box-shadow: inset 0 1px 2px var(--well), inset 0 -1px 0 var(--card-hi); transition: background .3s; }
+  .segs i.done { background: var(--ok); box-shadow: none; }
+  .segs i.part { background: linear-gradient(90deg, var(--c, var(--neutral)) var(--p, 50%), var(--chip) var(--p, 50%)); box-shadow: none; }
+  .card.livebar .segs i.part { position: relative; overflow: hidden; }
+  .card.livebar .segs i.part::after { content: ''; position: absolute; inset: 0; transform: translateX(-100%); background: linear-gradient(90deg, transparent, var(--sheen), transparent); animation: hsheen 3.2s ease-in-out infinite; }
+  .subs-count { font-variant-numeric: tabular-nums; font-weight: 600; flex: none; }
+  .subs-count.all { color: var(--ok); }
+  .chev { flex: none; transition: transform .18s ease; }
+  .subs-toggle[aria-expanded="true"] .chev { transform: rotate(90deg); }
+  .pct.computed::before { content: '\03A3 '; opacity: .55; font-weight: 600; }
+
+  /* expanded: one hairline, then a quiet row per OPEN subtask (done ones have left for the Done column) */
+  .subs { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--line); display: flex; flex-direction: column; }
+  .subs[hidden] { display: none; }
+  .sub { display: grid; grid-template-columns: 16px 1fr auto; gap: 10px; align-items: center; padding: 5px 0; font-size: var(--fs-md); color: var(--text); min-width: 0; }
+  .sub .name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sub .st { font-size: var(--fs-xs); color: var(--muted); margin-left: 6px; }
+  .sub .p { font-variant-numeric: tabular-nums; font-size: var(--fs-sm); color: var(--muted); min-width: 34px; text-align: right; }
+  .g { width: 14px; height: 14px; border-radius: 50%; display: grid; place-items: center; justify-self: center; }
+  .sub.queued .g { box-shadow: inset 0 0 0 1.5px var(--line); }
+  .sub.queued { color: var(--muted); }
+  .sub.live .g { background: color-mix(in srgb, var(--c, var(--neutral)) 18%, transparent); box-shadow: inset 0 0 0 1.5px var(--c, var(--neutral)); }
+  .sub.live .g::after { content: ''; width: 5px; height: 5px; border-radius: 50%; background: var(--c, var(--neutral)); animation: pulse 2.2s ease-in-out infinite; }
+  @keyframes pulse { 50% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--c, var(--neutral)) 25%, transparent); } }
+  .sub.live .p { color: var(--text); }
+  .sub.live .name { font-weight: 500; }
+  .sub.leave { animation: leave .25s ease-in forwards; }
+  @keyframes leave { to { opacity: 0; transform: translateX(14px); } }
+  .sub.enter, .card.enter { animation: enter .25s ease-out; }
+  @keyframes enter { from { opacity: 0; transform: translateY(3px); } }
+
+  /* a finished subtask's card in Done: compact, crumb back to its parent */
+  .card.subcard { padding: 10px 14px; }
+  .card.subcard .crumb { font-size: var(--fs-xs); color: var(--muted); margin-bottom: 2px; display: flex; align-items: center; gap: 6px; }
+  .card.subcard .crumb::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--c, var(--neutral)); }
+  .card.subcard .title { font-size: var(--fs-base); }
+
+  /* ---------- notes ---------- */
+  .legend { margin-top: 22px; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 18px 28px; padding: 0 4px; }
+  .legend div { font-size: var(--fs-sm); color: var(--muted); line-height: 1.5; }
+  .legend b { display: block; font-size: var(--fs-xs); letter-spacing: var(--tr-tight); text-transform: uppercase; color: var(--text); margin-bottom: 2px; font-weight: 600; }
+  .legend code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: var(--fs-xs); color: var(--text); }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>agentboard <span class="mock">subtasks mockup</span></h1>
+    <span class="summary"><b>1</b> todo · <b>2</b> doing · <b id="sum-done">2</b> done</span>
+    <span class="spacer"></span>
+    <button class="btn primary" id="sim" type="button">▶ Simulate agent progress</button>
+    <button class="btn" id="reset" type="button">Reset</button>
+  </header>
+
+  <div class="board">
+
+    <!-- TODO -->
+    <section class="col">
+      <h2>Todo <span class="cnt">1</span></h2>
+      <div class="cards">
+        <div class="card" data-status="todo" style="--pc:#f59e0b; --c:var(--neutral)">
+          <div class="proj-row"><span class="proj" style="--pc:#f59e0b">agentboard Polish</span></div>
+          <div class="title">Subtasks: child cards under a parent task</div>
+          <div class="desc">A task can have child tasks, one level deep. Parent % is computed from the children.</div>
+          <button class="subs-toggle" type="button" aria-expanded="false" aria-controls="todo-subs">
+            <span class="segs"><i></i><i></i><i></i><i></i></span>
+            <span class="subs-count">0/4</span>
+            <svg class="chev" width="10" height="10" viewBox="0 0 10 10"><path d="M3 1l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>
+          </button>
+          <div class="subs" id="todo-subs" hidden>
+            <div class="sub queued"><span class="g"></span><span class="name">store.py: parent_id, cascade on claim / done / rm</span><span class="p">0%</span></div>
+            <div class="sub queued"><span class="g"></span><span class="name">cli.py: --parent on add / start, indented list</span><span class="p">0%</span></div>
+            <div class="sub queued"><span class="g"></span><span class="name">index.html: rows in card, segmented toggle</span><span class="p">0%</span></div>
+            <div class="sub queued"><span class="g"></span><span class="name">hud.py + report: parent › subtask labels</span><span class="p">0%</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- DOING -->
+    <section class="col doing">
+      <h2>Doing <span class="cnt">2</span> <span class="pres"><i style="--c:#6366f1"></i><i style="--c:#0ea5e9"></i></span></h2>
+      <div class="cards">
+
+        <!-- parent with subtasks, claimed by AGENT-1. Subtask #1 is already done and lives in the Done column. -->
+        <div class="card livebar" data-status="doing" id="parent" style="--c:#6366f1; --pc:#8b5cf6">
+          <div class="top"><span class="who"><span class="av">A1</span><span class="nm">AGENT-1</span></span><span class="when">2m ago</span></div>
+          <div class="proj-row"><span class="proj" style="--pc:#8b5cf6">Q4 Reporting</span></div>
+          <div class="title">Ship the export pipeline</div>
+          <div class="note"><span id="p-text">PDF exporter 2 of 3 done, checking page breaks</span><span class="pct computed" id="p-pct">40%</span></div>
+          <button class="subs-toggle" type="button" aria-expanded="true" aria-controls="doing-subs">
+            <span class="segs" id="p-segs"><i class="done"></i><i class="part" style="--p:60%"></i><i></i><i></i></span>
+            <span class="subs-count" id="p-count">1/4</span>
+            <svg class="chev" width="10" height="10" viewBox="0 0 10 10"><path d="M3 1l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>
+          </button>
+          <div class="subs" id="doing-subs">
+            <div class="sub live" data-sub="2"><span class="g"></span><span class="name">Build CSV + PDF exporters <span class="st s-text">PDF 2 of 3 done</span></span><span class="p s-pct">60%</span></div>
+            <div class="sub queued" data-sub="3"><span class="g"></span><span class="name">Wire exports into the dashboard <span class="st s-text"></span></span><span class="p s-pct">0%</span></div>
+            <div class="sub queued" data-sub="4"><span class="g"></span><span class="name">Docs + release notes <span class="st s-text"></span></span><span class="p s-pct">0%</span></div>
+          </div>
+        </div>
+
+        <!-- a plain card with no subtasks: unchanged, keeps the normal bar -->
+        <div class="card" data-status="doing" style="--c:#0ea5e9; --pc:#f59e0b">
+          <div class="top"><span class="who"><span class="av">A2</span><span class="nm">AGENT-2</span></span><span class="when">8m ago</span></div>
+          <div class="proj-row"><span class="proj" style="--pc:#f59e0b">agentboard Polish</span></div>
+          <div class="title">Add screenshots to README</div>
+          <div class="note"><span>Wiring images into README.md</span><span class="pct">85%</span></div>
+          <div class="bar"><b style="width:85%"></b></div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- DONE -->
+    <section class="col">
+      <h2>Done <span class="cnt" id="done-cnt">2</span></h2>
+      <div class="cards" id="done-cards">
+        <div class="card subcard done" style="--c:#6366f1">
+          <div class="crumb">Export pipeline · AGENT-1 · 14m ago</div>
+          <div class="title"><svg class="check" width="14" height="14" viewBox="0 0 14 14"><path d="M2.5 7.5l3 3 6-6.5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>Audit current export formats</div>
+        </div>
+        <div class="card done" data-status="done" style="--c:#0ea5e9; --pc:#f59e0b">
+          <div class="top"><span class="who"><span class="av">A2</span><span class="nm">AGENT-2</span></span><span class="when">yesterday</span></div>
+          <div class="proj-row"><span class="proj" style="--pc:#f59e0b">agentboard Polish</span></div>
+          <div class="title"><svg class="check" width="16" height="16" viewBox="0 0 16 16"><path d="M3 8.5l3.5 3.5 6.5-7" fill="none" stroke="currentColor" stroke-width="2"/></svg>Shared agent chat panel</div>
+          <button class="subs-toggle" type="button" aria-expanded="false" aria-controls="done-subs">
+            <span class="segs"><i class="done"></i><i class="done"></i><i class="done"></i></span>
+            <span class="subs-count all">3/3</span>
+            <svg class="chev" width="10" height="10" viewBox="0 0 10 10"><path d="M3 1l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>
+          </button>
+          <div class="subs" id="done-subs" hidden>
+            <div class="sub queued"><span class="g"><svg class="check" width="9" height="9" viewBox="0 0 10 10"><path d="M1.5 5.5l2.5 2.5 4.5-5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg></span><span class="name">store: chat list + seq</span><span class="p">100%</span></div>
+            <div class="sub queued"><span class="g"><svg class="check" width="9" height="9" viewBox="0 0 10 10"><path d="M1.5 5.5l2.5 2.5 4.5-5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg></span><span class="name">cli: chat send / tail --follow</span><span class="p">100%</span></div>
+            <div class="sub queued"><span class="g"><svg class="check" width="9" height="9" viewBox="0 0 10 10"><path d="M1.5 5.5l2.5 2.5 4.5-5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg></span><span class="name">board: chat drawer</span><span class="p">100%</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <div class="legend">
+    <div><b>Authoring</b><code>agentboard add "…" --parent &lt;id&gt;</code> by the user or the orchestrator, or by the agent at claim time if the parent has none. Agents can add more mid-flight.</div>
+    <div><b>Claim</b>Claiming the parent takes all its subtasks too. Any parent can collapse or expand; Doing starts expanded, other columns start collapsed.</div>
+    <div><b>Autocomplete</b>A subtask at 100% is done on its own: its row leaves the parent and it becomes a card in Done, while the parent stays in Doing. Parent % is Σ, the mean of its subtasks. The parent still waits for the agent's <code>review</code>.</div>
+    <div><b>Done parent</b>Once the parent itself is done, its finished subtasks fold back under it (collapsed) so Done isn't cluttered with the history twice.</div>
+  </div>
+</div>
+
+<script>
+  document.querySelectorAll('.subs-toggle').forEach(b => {
+    b.addEventListener('click', () => {
+      const subs = document.getElementById(b.getAttribute('aria-controls'));
+      const open = b.getAttribute('aria-expanded') === 'true';
+      b.setAttribute('aria-expanded', String(!open));
+      subs.hidden = open;
+    });
+  });
+
+  const steps = [
+    {sub:2, pct:100, text:'exporters built'},
+    {sub:3, pct:50,  text:'dashboard buttons wired'},
+    {sub:3, pct:100, text:'dashboard wiring done'},
+    {sub:4, pct:70,  text:'docs drafted'},
+    {sub:4, pct:100, text:'release notes written'},
+    {review:true}
+  ];
+  const TOTAL = 4;
+  let i = 0;
+  const sim = document.getElementById('sim'), parent = document.getElementById('parent');
+  const CHECK = '<svg class="check" width="14" height="14" viewBox="0 0 14 14"><path d="M2.5 7.5l3 3 6-6.5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>';
+  function recompute(){
+    const rows = [...document.querySelectorAll('#doing-subs .sub:not(.leave)')];
+    const open = rows.map(r => parseInt(r.querySelector('.p').textContent));
+    const done = TOTAL - rows.length;
+    const mean = Math.round((done*100 + open.reduce((a,b)=>a+b,0)) / TOTAL);
+    document.getElementById('p-pct').textContent = mean + '%';
+    const cnt = document.getElementById('p-count'); cnt.textContent = `${done}/${TOTAL}`; cnt.classList.toggle('all', done===TOTAL);
+    const segs = [];
+    for (let k=0;k<done;k++) segs.push('<i class="done"></i>');
+    rows.forEach(r => segs.push(r.classList.contains('live') ? `<i class="part" style="--p:${r.querySelector('.p').textContent}"></i>` : '<i></i>'));
+    document.getElementById('p-segs').innerHTML = segs.join('');
+  }
+  sim.addEventListener('click', () => {
+    const s = steps[i++]; if (!s) return;
+    if (s.review) {
+      parent.classList.add('review'); parent.classList.remove('livebar');
+      parent.querySelector('.note').insertAdjacentHTML('beforebegin', '<div class="flag">Ready for review</div>');
+      document.getElementById('p-text').textContent = 'Export pipeline shipped, 2 open questions';
+      sim.disabled = true; sim.textContent = 'Parent up for review';
+      return;
+    }
+    const row = document.querySelector(`#doing-subs .sub[data-sub="${s.sub}"]`);
+    document.querySelectorAll('#doing-subs .sub.live').forEach(r => { if (r!==row) r.classList.remove('live'); });
+    row.classList.remove('queued'); row.classList.add('live');
+    row.querySelector('.s-text').textContent = s.text;
+    row.querySelector('.s-pct').textContent = s.pct + '%';
+    document.getElementById('p-text').textContent = s.text;
+    if (s.pct === 100) {
+      const name = row.querySelector('.name').childNodes[0].textContent.trim();
+      row.classList.add('leave'); setTimeout(() => row.remove(), 260);
+      const dc = document.getElementById('done-cards');
+      dc.insertAdjacentHTML('afterbegin', `<div class="card subcard done enter" style="--c:#6366f1"><div class="crumb">Export pipeline · AGENT-1 · just now</div><div class="title">${CHECK}${name}</div></div>`);
+      const n = dc.querySelectorAll('.card').length;
+      document.getElementById('done-cnt').textContent = n; document.getElementById('sum-done').textContent = n;
+      if (i === steps.length - 1) { const subs = document.getElementById('doing-subs'); setTimeout(() => subs.hidden = true, 260); }
+    }
+    recompute();
+    if (i === steps.length - 1) sim.textContent = '▶ Agent calls review';
+  });
+  document.getElementById('reset').addEventListener('click', () => location.reload());
+</script>
