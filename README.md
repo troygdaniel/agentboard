@@ -109,15 +109,15 @@ Split a big card into subtasks (one level deep). A subtask is a normal task with
 
 - Subtasks follow their parent: an open subtask can only be claimed or updated while the parent is in Doing, so
   claim the parent first. Finished subtasks stay done if the parent later moves back.
-- A subtask at 100% **closes itself** (no review step) and gets its own compact card in Done, while the parent stays
+- A subtask at 100% **closes itself** (no review step), is shown as completed inside its parent's card (with the done sound), while the parent stays
   in Doing. Agents never call `review`/`done` on a subtask.
 - The parent's % is **computed** (the mean of its subtasks, shown with a Σ). `update <parent>` only sets its status
   line. The parent does not auto-review: the agent calls `review <parent>` when it is ready.
 - On the board the parent has one **segmented bar**, a cell per subtask (green done, agent-colored live, empty
-  queued), plus `done/total`. It is also the expand toggle: Doing parents start open, the rest collapsed. Open subtasks
-  are quiet rows under it; click one for its own detail.
-- `done <parent>` (you) marks whatever is left done, `rm <parent>` removes the subtasks too, and once a parent is
-  done its finished subtasks fold back under it. `blocked-by` works between subtasks.
+  queued), plus `done/total`. It is also the expand toggle: Doing parents start open, the rest collapsed. Every subtask is a quiet
+  row under it, finished ones with a check and 100%; click one for its own detail.
+- `done <parent>` (you) marks whatever is left done, `rm <parent>` removes the subtasks too, and the Done
+  column only ever shows parents. `blocked-by` works between subtasks.
 - `list` indents subtasks under their parent, the HUD feed labels their events "parent › subtask" (the agent rows and
   totals count the parent only), and `report` groups them under the parent.
 

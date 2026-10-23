@@ -313,7 +313,7 @@
      color owns the left bar.) */
 
   /* ---- subtasks: a parent's ONE progress bar is segmented (a cell per subtask) and is also the
-     expand toggle; open subtasks are quiet rows inside the parent, finished ones leave for Done ---- */
+     expand toggle; every subtask is a quiet row inside the parent, finished ones shown as completed ---- */
   .title.has-check { display: flex; align-items: center; gap: 8px; }
   .subs-toggle { display: flex; align-items: center; gap: 10px; width: 100%; margin-top: 10px; padding: 0; background: none; border: 0;
     font: inherit; font-size: var(--fs-sm); color: var(--muted); cursor: pointer; text-align: left; border-radius: 6px; }
@@ -347,13 +347,9 @@
   .sub.live .name { font-weight: 500; }
   .sub.ask .g { background: color-mix(in srgb, var(--warn) 18%, transparent); box-shadow: inset 0 0 0 1.5px var(--warn); }
   .sub.ask .st { color: var(--warn); }
-  /* a finished subtask's own card in Done: compact, a crumb back to its parent */
-  .card.subcard { padding: 10px 14px; cursor: pointer; }
-  .card.subcard .crumb { font-size: var(--fs-xs); color: var(--muted); margin-bottom: 2px; display: flex; align-items: center; gap: 6px; min-width: 0; }
-  .card.subcard .crumb::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--c, var(--neutral)); flex: none; }
-  .card.subcard .crumb .cr-p { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .card.subcard .crumb .cr-r { flex: none; white-space: nowrap; }
-  .card.subcard .title { font-size: var(--fs-base); }
+  /* a finished subtask stays in its parent's list: check in the glyph, muted, 100% */
+  .sub.done { color: var(--muted); }
+  .sub.done .g { background: color-mix(in srgb, var(--ok) 16%, transparent); box-shadow: inset 0 0 0 1.5px var(--ok); color: var(--ok); }
   .p-subs { list-style: none; padding: 0; margin: 0; }
   .p-subs li { display: flex; gap: 10px; align-items: baseline; padding: 4px 0; font-size: var(--fs-md); cursor: pointer; }
   .p-subs li:hover .sn { text-decoration: underline; text-underline-offset: 3px; }
@@ -946,18 +942,17 @@ function card(t) {
 // the parent's segmented bar (one cell per subtask), which doubles as the expand toggle, plus its quiet rows
 function subsBlock(t, live) {
   const open = subsOpen.has(t.id) ? subsOpen.get(t.id) : t.status === 'doing';
-  const kids = kidsMap.get(t.id) || [], isDone = t.status === 'done', n = t.subs_total, d = isDone ? n : (t.subs_done || 0);
-  const rows = kids.filter(k => isDone ? k.status === 'done' : k.status !== 'done');
-  const cells = [];
-  for (let i = 0; i < d; i++) cells.push('<i class="done"></i>');
-  if (!isDone) rows.forEach(k => cells.push(k.progress > 0 && k.status === 'doing' ? `<i class="part" style="--p:${k.progress}%"></i>` : '<i></i>'));
-  while (cells.length < n) cells.push('<i></i>');
+  const rows = kidsMap.get(t.id) || [], n = Math.max(t.subs_total || 0, rows.length);
+  const cells = rows.map(k => k.status === 'done' ? '<i class="done"></i>'
+    : k.progress > 0 && k.status === 'doing' ? `<i class="part" style="--p:${k.progress}%"></i>` : '<i></i>');
+  while (cells.length < n) cells.push('<i class="done"></i>');   // subtasks archived out of sight were finished ones
+  const d = cells.filter(c => c === '<i class="done"></i>').length;
   const tick = '<svg class="check" width="9" height="9" viewBox="0 0 10 10" aria-hidden="true"><path d="M1.5 5.5l2.5 2.5 4.5-5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>';
   const html = rows.map(k => {
     const kdone = k.status === 'done', klive = !kdone && k.status === 'doing' && k.progress > 0, kask = !kdone && !!k.needs_input;
-    const blocked = unresolvedBlockers(k)[0];
+    const blocked = kdone ? null : unresolvedBlockers(k)[0];
     const st = kask ? (k.question || k.status_text) : blocked ? 'blocked by ' + blocked.title : (klive ? k.status_text : '');
-    return `<div class="sub ${klive ? 'live' : 'queued'} ${kask ? 'ask' : ''}" data-sub-id="${esc(k.id)}" role="button" tabindex="0" style="--c:${colorOf(k)}"><span class="g">${kdone ? tick : ''}</span>` +
+    return `<div class="sub ${kdone ? 'done' : klive ? 'live' : 'queued'} ${kask ? 'ask' : ''}" data-sub-id="${esc(k.id)}" role="button" tabindex="0" style="--c:${colorOf(k)}"><span class="g">${kdone ? tick : ''}</span>` +
       `<span class="name">${esc(k.title)}${st ? `<span class="st">${esc(st)}</span>` : ''}</span><span class="p">${kdone ? 100 : (k.progress || 0)}%</span></div>`;
   }).join('');
   const sid = 'subs-' + t.id;
@@ -972,19 +967,6 @@ function toggleSubs(btn) {
   btn.setAttribute('aria-expanded', String(open));
   const panel = btn.nextElementSibling; if (panel) panel.hidden = !open;
 }
-// a finished subtask's own compact card in Done (its open siblings stay in the parent's rows)
-function subCard(t) {
-  const parent = byId.get(t.parent_id), a = ago(t.updated);
-  const fresh = !firstRender && !seen.has(t.id);
-  const flash = !firstRender && seen.has(t.id) && lastUpdated.get(t.id) !== t.updated;
-  seen.add(t.id); lastUpdated.set(t.id, t.updated);
-  const tick = `<svg class="check" width="14" height="14" viewBox="0 0 14 14" fill="none" aria-label="Done"><path d="M2.5 7.5l3 3 6-6.5" stroke="currentColor" stroke-width="1.8"/></svg>`;
-  const rest = [t.agent, a.text].filter(Boolean).join(' · ');
-  return `<div class="card subcard done ${fresh ? 'enter' : ''} ${flash ? 'flash' : ''}" style="--c:${colorOf(t)}" draggable="false" tabindex="0" data-id="${esc(t.id)}" data-status="done" data-subtask="1"
-      aria-label="${esc(t.title)}, finished subtask of ${esc(parent.title)}${t.agent ? ', ' + esc(t.agent) : ''}">
-    <div class="crumb"><span class="cr-p">${esc(parent.title)}</span><span class="cr-r">· ${esc(rest)}</span></div><div class="title has-check">${tick}<span>${esc(t.title)}</span></div></div>`;
-}
-
 const FLAG_LABEL = { needs_input: 'needs input', review: 'to review' };
 
 function render() {
@@ -994,9 +976,8 @@ function render() {
   const pf = $('project-filter').value;
   byId = new Map(tasks.map(t => [t.id, t])); kidsMap = new Map();
   tasks.forEach(t => { if (isKid(t)) { if (!kidsMap.has(t.parent_id)) kidsMap.set(t.parent_id, []); kidsMap.get(t.parent_id).push(t); } });
-  // cards on the board: every top-level task, plus a card in Done for each finished subtask whose parent is still open
+  // cards on the board: top-level tasks only; every subtask (finished ones too) lives inside its parent
   const top = tasks.filter(t => !isKid(t));
-  const subcards = tasks.filter(t => isKid(t) && t.status === 'done' && byId.get(t.parent_id).status !== 'done');
   const working = top.filter(t => t.status === 'doing');
   const asks = working.filter(t => t.needs_input).length;
   const revs = working.filter(t => !t.needs_input && t.review).length;
@@ -1008,13 +989,13 @@ function render() {
   const matches = t => (!q || textHit(t) || (kidsMap.get(t.id) || []).some(textHit))   // a parent also matches on its subtasks
     && (!pf || t.project_id === pf)
     && (!flagFilter || (t.status === 'doing' && (flagFilter === 'needs_input' ? t.needs_input : (!t.needs_input && t.review))));
-  const filtered = [...top, ...subcards].filter(matches);
+  const filtered = top.filter(matches);
   filtered.forEach(t => by[t.status] && by[t.status].push(t));
   // "Systems should explain themselves": confirm what a combined filter found, not just how many cards survived
   if (q || pf || flagFilter) {
     const proj = pf ? projectOf(pf) : null;
     const parts = [rawQ && `"${rawQ}"`, proj && `in ${proj.name}`, flagFilter && FLAG_LABEL[flagFilter]].filter(Boolean);
-    const summaryText = `${filtered.length} of ${top.length + subcards.length}` + (parts.length ? ` · ${parts.join(' · ')}` : '');
+    const summaryText = `${filtered.length} of ${top.length}` + (parts.length ? ` · ${parts.join(' · ')}` : '');
     $('filter-summary').textContent = summaryText;
     $('filter-summary').title = summaryText;   // full text on hover if it's long enough to get ellipsized
   } else {
@@ -1055,7 +1036,7 @@ function render() {
         const bucket = dayBucket(t.updated);
         const div = bucket !== lastBucket ? `<div class="day-div">${bucket}</div>` : '';
         lastBucket = bucket;
-        return div + (isKid(t) ? subCard(t) : card(t));
+        return div + card(t);
       }).join('');
     } else {
       body = list.length ? list.map(card).join('') : `<div class="empty">${(q || pf || flagFilter) ? 'No matches' : EMPTY[k]}</div>`;
@@ -1899,7 +1880,7 @@ function toggleSelect(id) {
   renderSelection();
 }
 function selectRangeTo(id) {
-  const ids = cardsGrid().flat().filter(c => !c.dataset.subtask).map(c => c.dataset.id);
+  const ids = cardsGrid().flat().map(c => c.dataset.id);
   const ai = selectAnchor ? ids.indexOf(selectAnchor) : -1, bi = ids.indexOf(id);
   if (ai === -1 || bi === -1) { selectAnchor = id; selected = new Set([id]); renderSelection(); return; }
   const [lo, hi] = ai < bi ? [ai, bi] : [bi, ai];
@@ -1908,8 +1889,8 @@ function selectRangeTo(id) {
 }
 function extendSelectionVertical(dir) {
   const grid = cardsGrid(), cur = document.activeElement?.closest?.('.card');
-  if (!cur || cur.dataset.subtask) return;
-  const col = (grid.find(c => c.includes(cur)) || []).filter(c => !c.dataset.subtask); if (!col.length) return;
+  if (!cur) return;
+  const col = grid.find(c => c.includes(cur)); if (!col) return;
   if (!selectAnchor || !col.some(c => c.dataset.id === selectAnchor)) {
     selectAnchor = cur.dataset.id;
     if (!selected.has(selectAnchor)) selected = new Set([selectAnchor]);
@@ -2007,7 +1988,6 @@ $('board').addEventListener('click', async e => {
   const selCard = e.target.closest('.card');
   if (selCard && (e.shiftKey || e.metaKey || e.ctrlKey)) {
     e.preventDefault();
-    if (selCard.dataset.subtask) return;   // subtasks move with their parent, so they can't be bulk-selected
     if (e.shiftKey) selectRangeTo(selCard.dataset.id); else toggleSelect(selCard.dataset.id);
     return;
   }
@@ -2059,7 +2039,7 @@ $('board').addEventListener('keydown', e => {
   if (c && e.target === c && (e.key === 'Enter' || e.key === ' ') && !e.altKey) { e.preventDefault(); openPanel(c.dataset.id); return; }
   const row = e.target.closest?.('[data-sub-id]');
   if (row && e.target === row && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openPanel(row.dataset.subId); return; }
-  if (!c || c.dataset.subtask || !e.altKey || !e.key.startsWith('Arrow')) return;
+  if (!c || !e.altKey || !e.key.startsWith('Arrow')) return;
   e.preventDefault();
   const keys = [...$('board').querySelectorAll('.col')].map(x => x.dataset.status);
   const i = keys.indexOf(c.dataset.status), sibs = [...c.parentElement.children].filter(x => x.classList.contains('card'));   // not the Done column's day dividers

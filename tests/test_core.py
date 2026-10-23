@@ -748,8 +748,16 @@ class SubtaskTests(unittest.TestCase):
         from agentboard.store import subtask_counts
         self.s.claim("big", "atlas")
         self.s.update("one", 100)
-        self.s.clear_done()
+        self.s.bulk_archive(["one"])
         self.assertEqual(subtask_counts(self.s.load())["big"], (4, 1))
+
+    def test_clearing_done_leaves_a_still_open_parents_finished_subtasks_in_place(self):
+        self.s.claim("big", "atlas")
+        self.s.update("one", 100)
+        self.assertEqual(self.s.clear_done(), [])
+        self.assertNotIn("archived", self.get("one"))
+        self.s.update("big", status="done")
+        self.assertEqual(set(self.s.clear_done()), {"big", "one", "two", "three", "four"})
 
 
 class SubtaskViewTests(unittest.TestCase):

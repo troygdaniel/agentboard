@@ -458,8 +458,8 @@ takes every subtask with it. Then work the subtasks, not the parent (updating a 
     agentboard review <parent_id> "<one-line result>"          # the deliverable is ready; open subtasks close with it
 
 The parent's % is computed (the mean of its subtasks, shown with a Σ), so `update <parent>` only sets its
-status line. Never call `review` or `done` on a subtask. Finished subtasks show up as their own small cards in
-Done while the parent stays in Doing. `rm <parent>` and `done <parent>` take the remaining subtasks with them.
+status line. Never call `review` or `done` on a subtask. Finished subtasks stay in their parent's card, shown as
+completed, while the parent stays in Doing. `rm <parent>` and `done <parent>` take the remaining subtasks with them.
 
 ## Talking to other agents
 

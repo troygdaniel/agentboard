@@ -381,7 +381,10 @@ class Store:
     def clear_done(self):
         """Archive every Done task: hidden from the board, kept for history and the HUD."""
         with self.transaction() as tasks:
-            ids = [t["id"] for t in tasks if t["status"] == "done" and not t.get("archived")]
+            parents_done = {t["id"] for t in tasks if t["status"] == "done"}
+            # a finished subtask lives in its parent's card: only clear it together with a done parent
+            ids = [t["id"] for t in tasks if t["status"] == "done" and not t.get("archived")
+                   and (not t.get("parent_id") or t["parent_id"] in parents_done)]
             for t in tasks:
                 if t["id"] in ids:
                     t["archived"] = True
