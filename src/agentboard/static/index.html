@@ -1647,8 +1647,16 @@ async function hudLoad() {
     if (!res.ok) throw new Error(res.status);
     const d = await res.json();
     setHudLive(true);
-    const { now, ...rest } = d;
-    const key = JSON.stringify(rest) + Math.floor(Date.now() / 15000);
+    // Open lane segments end at the server's "now" and waiting_s grows every second, so the raw payload
+    // differed on every poll: the lanes were rebuilt once a second, restarting every glow/sheen
+    // animation partway (a visible stutter) and resetting the idle block's scroll. Normalise them out;
+    // the 15s bucket below still refreshes positions and relative times.
+    const { now, lanes, waiting_s, ...rest } = d;
+    // (A segment that began before the window is also clamped to the sliding window start, which moves too.)
+    const edge = Date.parse(now) - (d.window_min || 60) * 60000;
+    const steady = Object.fromEntries(Object.entries(lanes || {}).map(([k, rs]) => [k, rs.map(r =>
+      ({ ...r, a: Date.parse(r.a) <= edge ? 'edge' : r.a, b: r.b === now ? 'open' : r.b }))]));
+    const key = JSON.stringify({ ...rest, lanes: steady }) + Math.floor(Date.now() / 15000);
     if (key === hudKey) return;
     hudKey = key; hudRender(d);
   } catch (e) { setHudLive(false); }   // the board's own status pill is hidden in the pop-out window, so the HUD says so itself
