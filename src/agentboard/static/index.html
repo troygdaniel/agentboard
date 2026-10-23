@@ -401,7 +401,10 @@
     background: repeating-linear-gradient(transparent 0 2px, rgba(0,0,0,.22) 2px 3px); }
   #hud.full { padding: 0; }
   #hud.full .hud { max-width: none; border-radius: 0; border: 0; padding: 18px 24px 24px; }
-  .h-bar { display: flex; align-items: center; gap: 14px; }
+  /* wraps instead of overflowing: with several alert chips the bar outgrew 1440px and the title/buttons
+     broke onto two lines, the ticker collapsed to 0 and (half-screen) the clock/buttons clipped off-screen */
+  .h-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+  .h-title, .h-live, .h-clock, .h-btn { white-space: nowrap; }
   .h-title { letter-spacing: var(--tr-wide); color: var(--hcy); text-shadow: 0 0 6px rgba(94,231,255,.55), 0 0 22px rgba(94,231,255,.4); }
   .h-title i { color: var(--hdim); font-style: normal; }
   .h-clock { color: var(--htext); font-size: var(--fs-md); letter-spacing: .12em; }
@@ -412,10 +415,10 @@
   @keyframes hblink { 50% { opacity: .35; } }
   .h-ticker.tk { animation: htk .45s ease-out; }
   @keyframes htk { from { opacity: 0; transform: translateY(3px); } }
-  .h-ticker { flex: 1; min-width: 0; text-align: center; color: var(--hdim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .h-ticker { flex: 1 1 160px; min-width: 0; text-align: center; color: var(--hdim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .h-ticker b { color: var(--htext); font-weight: 500; }
   .h-btn[aria-pressed="false"] { opacity: .55; }
-  .h-alerts { display: flex; gap: 8px; }
+  .h-alerts { display: flex; flex-wrap: wrap; gap: 6px 8px; }
   .h-chip { border: 1px solid; border-radius: 999px; padding: 1px 10px; font-size: var(--fs-sm); letter-spacing: var(--tr-tight); white-space: nowrap; }
   .h-chip.warn { color: var(--hwarn); border-color: rgba(255,200,87,.45); background: rgba(255,200,87,.08); animation: hqblink 2.6s ease-in-out infinite; }
   .h-chip.ok { color: var(--hok); border-color: rgba(93,255,176,.4); background: rgba(93,255,176,.07); }
