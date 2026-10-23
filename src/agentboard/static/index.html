@@ -1023,7 +1023,7 @@ function render() {
   by.todo.forEach((t, i) => { t._q = i + 1; });
   // Alphabetical by agent name — same ordering as the HUD. Needs-input/review
   // cards stay findable by their flag and colored border, not by forcing them to the top.
-  by.doing.sort((a, b) => (a.agent || '').localeCompare(b.agent || '', undefined, { sensitivity: 'base' }));
+  by.doing.sort((a, b) => (a.agent || '').localeCompare(b.agent || '', undefined, { sensitivity: 'base', numeric: true }));   // numeric: AGENT-2 before AGENT-10
 
   $('welcome').style.display = tasks.length ? 'none' : 'block';
   $('board').style.display = tasks.length ? '' : 'none';
@@ -1653,7 +1653,7 @@ async function hudLoad() {
 let teleKey = '';
 
 // Agents display alphabetically by name, consistently with the kanban board. Display only; data is untouched.
-const byName = (a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+const byName = (a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base', numeric: true });   // AGENT-2 before AGENT-10
 
 function hudRender(d) {
   d.agents = [...d.agents].sort(byName);
