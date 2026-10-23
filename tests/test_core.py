@@ -1234,3 +1234,30 @@ class SubtaskCliTests(unittest.TestCase):
         code, _, err = self.run_cli("update", "one", "ten", "text")   # a non-number followed by text is a typo, not text-only
         self.assertEqual(code, 1)
         self.assertIn("number from 0 to 100", err)
+
+
+class SubtaskSlotTests(unittest.TestCase):
+    """Every subtask keeps its own slot in the parent's bar: the server sends an ordered per-parent list
+    that includes archived subtasks, so a cleared finished one can't shift the live cell."""
+
+    def test_ordered_subtask_list_is_creation_order_and_includes_archived(self):
+        from agentboard.store import subtask_list
+        with tempfile.TemporaryDirectory() as d:
+            s = Store(Path(d) / ".agentboard")
+            s.add("Big", status="todo", task_id="big")
+            for sid in ("a", "b", "c", "d"):
+                s.add(sid, parent_id="big", task_id=sid)
+            s.claim("big", "atlas")
+            s.update("a", 100); s.update("b", 100); s.update("c", 40)
+            s.bulk_archive(["a", "b"])
+            lst = subtask_list(s.load())["big"]
+            self.assertEqual([(x["id"], x["status"], x["progress"]) for x in lst],
+                             [("a", "done", 100), ("b", "done", 100), ("c", "doing", 40), ("d", "doing", 0)])
+            self.assertTrue(lst[0]["archived"] and not lst[2]["archived"])
+
+    def test_list_order_follows_creation_not_file_position(self):
+        from agentboard.store import subtask_list
+        tasks = [{"id": "p", "status": "todo"},
+                 {"id": "late", "parent_id": "p", "status": "todo", "progress": 0, "created": "2026-01-01T10:00:09"},
+                 {"id": "early", "parent_id": "p", "status": "todo", "progress": 0, "created": "2026-01-01T10:00:01"}]
+        self.assertEqual([x["id"] for x in subtask_list(tasks)["p"]], ["early", "late"])

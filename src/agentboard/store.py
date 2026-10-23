@@ -704,6 +704,18 @@ def subtask_counts(tasks):
     return out
 
 
+def subtask_list(tasks):
+    """{parent_id: [{id, status, progress, archived}, ...]} in creation order, archived subtasks included.
+
+    The board draws a parent's segmented bar from this, so every subtask keeps one fixed slot even after a
+    finished one is cleared out of the task list."""
+    out = {}
+    for x in sorted((x for x in tasks if x.get("parent_id")), key=lambda x: x.get("created", "")):   # stable: ties keep file order
+        out.setdefault(x["parent_id"], []).append(
+            {"id": x["id"], "status": x["status"], "progress": x.get("progress", 0), "archived": bool(x.get("archived"))})
+    return out
+
+
 def _insert(tasks, t, before_id):
     idx = next((i for i, x in enumerate(tasks) if x["id"] == before_id), None)
     if idx is None:

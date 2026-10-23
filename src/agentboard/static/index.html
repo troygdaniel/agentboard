@@ -876,6 +876,7 @@ const seen = new Set(), lastUpdated = new Map(), lastPct = new Map(), lastCounts
 let byId = new Map(), kidsMap = new Map();
 const subsOpen = new Map();   // parent id -> expanded? (unset: Doing parents start open, the rest collapsed)
 const isKid = t => !!t.parent_id && byId.has(t.parent_id);
+const subDone = k => k.status === 'done' || (k.progress || 0) >= 100;   // 100% is finished even if its status lags a poll behind
 let firstRender = true, justDropped = null;
 const copied = new Set();   // Todo card ids whose prompt was copied this page-load (in-memory on purpose: a refresh clears it)
 let selected = new Set(), selectAnchor = null;   // multi-select: shift-click/shift-arrows range, ⌘/ctrl-click toggle
@@ -982,14 +983,17 @@ function card(t) {
 // the parent's segmented bar (one cell per subtask), which doubles as the expand toggle, plus its quiet rows
 function subsBlock(t, live) {
   const open = subsOpen.has(t.id) ? subsOpen.get(t.id) : t.status === 'doing';
-  const rows = kidsMap.get(t.id) || [], n = Math.max(t.subs_total || 0, rows.length);
-  const cells = rows.map(k => k.status === 'done' ? '<i class="done"></i>'
-    : k.progress > 0 && k.status === 'doing' ? `<i class="part" style="--p:${k.progress}%"></i>` : '<i></i>');
-  while (cells.length < n) cells.push('<i class="done"></i>');   // subtasks archived out of sight were finished ones
-  const d = cells.filter(c => c === '<i class="done"></i>').length;
+  const rows = kidsMap.get(t.id) || [];
+  // one cell per subtask slot, in creation order; slots whose card is archived come from the server's list
+  const slots = t.subs && t.subs.length ? t.subs : rows;
+  const cells = slots.map(sl => {
+    const k = byId.get(sl.id) || sl;
+    return subDone(k) ? '<i class="done"></i>' : (k.progress || 0) > 0 ? `<i class="part" style="--p:${k.progress}%"></i>` : '<i></i>';
+  });
+  const n = cells.length, d = slots.filter(sl => subDone(byId.get(sl.id) || sl)).length;
   const tick = '<svg class="check" width="9" height="9" viewBox="0 0 10 10" aria-hidden="true"><path d="M1.5 5.5l2.5 2.5 4.5-5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>';
   const html = rows.map(k => {
-    const kdone = k.status === 'done', klive = !kdone && k.status === 'doing' && k.progress > 0, kask = !kdone && !!k.needs_input;
+    const kdone = subDone(k), klive = !kdone && (k.progress || 0) > 0, kask = !kdone && !!k.needs_input;
     const blocked = kdone ? null : unresolvedBlockers(k)[0];
     const st = kask ? (k.question || k.status_text) : blocked ? 'blocked by ' + blocked.title : (klive ? k.status_text : '');
     return `<div class="sub ${kdone ? 'done' : klive ? 'live' : 'queued'} ${kask ? 'ask' : ''}" data-sub-id="${esc(k.id)}" role="button" tabindex="0" style="--c:${colorOf(k)}"><span class="g">${kdone ? tick : ''}</span>` +
@@ -1017,6 +1021,12 @@ function render() {
   byId = new Map(tasks.map(t => [t.id, t])); kidsMap = new Map();
   copied.forEach(id => { if (byId.get(id)?.status !== 'todo') copied.delete(id); });   // claimed/moved/deleted: a later return to Todo starts clean
   tasks.forEach(t => { if (isKid(t)) { if (!kidsMap.has(t.parent_id)) kidsMap.set(t.parent_id, []); kidsMap.get(t.parent_id).push(t); } });
+  // one order for the bar's cells, the rows and the panel list: the server's creation-ordered slots (which
+  // include subtasks archived out of /api/tasks), never whatever order the task list happens to arrive in
+  kidsMap.forEach((list, pid) => {
+    const slots = (byId.get(pid).subs || []).map(x => x.id);
+    if (slots.length) list.sort((a, b) => slots.indexOf(a.id) - slots.indexOf(b.id));
+  });
   // cards on the board: top-level tasks only; every subtask (finished ones too) lives inside its parent
   const top = tasks.filter(t => !isKid(t));
   const working = top.filter(t => t.status === 'doing');
@@ -1352,8 +1362,9 @@ function panelHtml(t) {
   const par = t.parent_id && byId.get(t.parent_id)
     ? `<div class="p-sec"><h3>Subtask of</h3><ul class="p-subs"><li data-sub-id="${esc(t.parent_id)}"><span class="sn">${esc(byId.get(t.parent_id).title)}</span></li></ul></div>` : '';
   const kids = kidsMap.get(t.id) || [];
-  const subsList = kids.length ? `<div class="p-sec"><h3>Subtasks<span class="n">${kids.filter(k => k.status === 'done').length}/${kids.length}</span></h3><ul class="p-subs">${kids.map(k =>
-    `<li class="${k.status === 'done' ? 'sdone' : ''}" data-sub-id="${esc(k.id)}"><span class="sn">${esc(k.title)}</span><span class="sp">${k.status === 'done' ? 'done' : (k.progress || 0) + '%'}</span></li>`).join('')}</ul></div>` : '';
+  const slots = byId.get(t.id)?.subs || kids;   // same slots as the card's bar, archived ones included in the count
+  const subsList = kids.length ? `<div class="p-sec"><h3>Subtasks<span class="n">${slots.filter(sl => subDone(byId.get(sl.id) || sl)).length}/${slots.length}</span></h3><ul class="p-subs">${kids.map(k =>
+    `<li class="${subDone(k) ? 'sdone' : ''}" data-sub-id="${esc(k.id)}"><span class="sn">${esc(k.title)}</span><span class="sp">${subDone(k) ? 'done' : (k.progress || 0) + '%'}</span></li>`).join('')}</ul></div>` : '';
   // actions and activity sit near the top; the long description comes after, collapsed
   return `<h2>${esc(t.title)}</h2>${who}${askC}${revC}${prog}${result}
     <div class="p-actions">${mv}${copy}<button class="btn danger" id="p-del">Delete</button></div>

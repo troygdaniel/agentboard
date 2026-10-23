@@ -9,7 +9,7 @@ from urllib.parse import parse_qs, urlparse
 from . import hud
 from . import markdown as mdlib
 from . import prompt as promptlib
-from .store import BoardError, Store, subtask_counts
+from .store import BoardError, Store, subtask_counts, subtask_list
 
 STATIC = Path(__file__).parent / "static"
 MAX_BODY = 1_000_000
@@ -93,6 +93,7 @@ def make_handler(store, port):
                 # list view stays light; history, prompt and the rich body come from /api/task
                 everything = store.load()
                 counts = subtask_counts(everything)   # archived subtasks still count toward a parent's segments
+                lists = subtask_list(everything)      # ...and keep their slot, in creation order
                 slim = []
                 for t in everything:
                     if t.get("archived"):
@@ -100,6 +101,7 @@ def make_handler(store, port):
                     d = {k: v for k, v in t.items() if k not in ("log", "prompt", "body_md")}
                     if t["id"] in counts:
                         d["subs_total"], d["subs_done"] = counts[t["id"]]
+                        d["subs"] = lists[t["id"]]
                     slim.append(d)
                 self._send(200, {"tasks": slim})
             elif url.path == "/api/projects":
