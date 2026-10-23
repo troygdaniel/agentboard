@@ -287,14 +287,15 @@
   .card[data-status="todo"] .copy { opacity: .75; }
   .card:hover .copy, .card:focus-within .copy { opacity: 1; }
   .card[data-status="todo"]:has(.copy) .title { padding-right: 96px; }
+  .card[data-status="todo"]:has(.copy.copied) .title { padding-right: 104px; }   /* the copied state is a little wider than "Copy prompt" */
+  .card[data-status="todo"]:has(.copy.wide) .title { padding-right: 172px; }     /* "Copied, with warnings" */
   .copy:hover { color: var(--text); }
-  /* "Copied" marker on a Todo card: a real button, so keyboard works; the check swaps to an x on hover/focus to say it's removable */
-  .copied { display: inline-flex; align-items: center; gap: 5px; margin-left: auto; background: color-mix(in srgb, var(--ok) 10%, transparent);
-    border: 1px solid color-mix(in srgb, var(--ok) 35%, var(--line)); color: var(--ok); border-radius: 999px; padding: 1px 9px 1px 7px;
-    font: inherit; font-size: var(--fs-sm); cursor: pointer; min-height: 22px; transition: background .12s, border-color .12s, color .12s; }
-  .copied .cp-x, .copied:hover .cp-ok, .copied:focus-visible .cp-ok { display: none; }
-  .copied:hover .cp-x, .copied:focus-visible .cp-x { display: inline; }
-  .copied:hover, .copied:focus-visible { color: var(--text); border-color: var(--neutral); background: var(--chip); }
+  /* The same button after a successful copy: green check + "Copied". Hover/focus swaps the check for an x (click undoes it). */
+  .copy.copied { display: inline-flex; align-items: center; gap: 5px; opacity: 1; color: var(--ok); padding: 2px 9px 2px 7px;
+    background: color-mix(in srgb, var(--ok) 10%, var(--surface)); border-color: color-mix(in srgb, var(--ok) 35%, var(--line)); }
+  .copy.copied .cp-x, .copy.copied:hover .cp-ok, .copy.copied:focus-visible .cp-ok { display: none; }
+  .copy.copied:hover .cp-x, .copy.copied:focus-visible .cp-x { display: inline; }
+  .copy.copied:hover, .copy.copied:focus-visible { color: var(--text); border-color: var(--neutral); background: var(--chip); }
   .drop { height: 2px; background: var(--accent); border-radius: 1px; margin: -5px 0; pointer-events: none; }
   .more { font-size: var(--fs-sm); color: var(--muted); background: none; border: 0; padding: 6px 10px 2px; cursor: pointer; text-align: left; flex: none; }
   .more:hover { color: var(--text); }
@@ -325,13 +326,8 @@
   .subs-toggle { display: flex; align-items: center; gap: 10px; width: 100%; margin-top: 10px; padding: 0; background: none; border: 0;
     font: inherit; font-size: var(--fs-sm); color: var(--muted); cursor: pointer; text-align: left; border-radius: 6px; }
   .subs-toggle:hover { color: var(--text); }
-  .segs { display: flex; gap: 3px; flex: 1; min-width: 0; height: 5px; }
-  .segs i { flex: 1; border-radius: 2px; background: var(--chip); box-shadow: inset 0 1px 2px var(--well), inset 0 -1px 0 var(--card-hi); transition: background .3s; }
-  .segs i.done { background: var(--ok); box-shadow: none; }
-  .segs i.part { background: linear-gradient(90deg, var(--c, var(--neutral)) var(--p, 50%), var(--chip) var(--p, 50%)); box-shadow: none; }
-  .card.livebar .segs i.part { position: relative; overflow: hidden; }
-  .card.livebar .segs i.part::after { content: ''; position: absolute; inset: 0; transform: translateX(-100%);
-    background: linear-gradient(90deg, transparent, var(--sheen), transparent); animation: hsheen 3.2s ease-in-out infinite; }
+  /* the parent's one bar is the same total bar a plain card has (the computed mean), inside the expand toggle */
+  .subs-toggle .bar { margin: 0; flex: 1; min-width: 0; }
   .subs-count { font-variant-numeric: tabular-nums; font-weight: 600; flex: none; }
   .subs-count.all { color: var(--ok); }
   .chev { flex: none; transition: transform .18s ease; }
@@ -339,8 +335,11 @@
   .pct.computed::before { content: '\03A3 '; opacity: .55; font-weight: 600; }
   .subs { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--line); display: flex; flex-direction: column; }
   .subs[hidden] { display: none; }
-  .sub { display: grid; grid-template-columns: 16px 1fr auto; gap: 10px; align-items: center; padding: 5px 0; font-size: var(--fs-md); color: var(--text); min-width: 0; cursor: pointer; }
+  .sub { display: grid; grid-template-columns: 16px 1fr auto; gap: 0 10px; align-items: center; padding: 5px 0; font-size: var(--fs-md); color: var(--text); min-width: 0; cursor: pointer; }
   .sub:hover .name { text-decoration: underline; text-underline-offset: 3px; }
+  /* each open subtask gets its own thin bar under its title: this is where parallel work shows */
+  .sub .sbar { grid-column: 2 / 4; grid-row: 2; height: 3px; margin-top: 4px; border-radius: 2px; background: var(--chip); box-shadow: inset 0 1px 1px var(--well); overflow: hidden; }
+  .sub .sbar b { display: block; height: 100%; border-radius: 2px; background: var(--c, var(--neutral)); transition: width .4s ease; }
   .sub .name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .sub .st { font-size: var(--fs-xs); color: var(--muted); margin-left: 6px; }
   .sub .p { font-variant-numeric: tabular-nums; font-size: var(--fs-sm); color: var(--muted); min-width: 34px; text-align: right; }
@@ -730,7 +729,7 @@
     .cards { overflow: visible; flex: none; }
     .empty { min-height: 100px; }
   }
-  @media (prefers-reduced-motion: reduce) { .bar b, .card { transition: none; } .card.enter, .card.flash, .card.ask, .card.review, .card.abandoned, .card.livebar::after, .card.livebar .segs i.part::after, .sub.live .g::after, .av.live, .pres i, .col h2 .cnt.tick { animation: none; } .card.ask { box-shadow: 0 0 0 2px var(--warn); } .card.review { box-shadow: 0 0 0 2px var(--ok); } .card.abandoned { box-shadow: 0 0 0 2px var(--err); } .card.livebar .bar::after { animation: none; opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) { .bar b, .card { transition: none; } .card.enter, .card.flash, .card.ask, .card.review, .card.abandoned, .card.livebar::after, .sub.live .g::after, .av.live, .pres i, .col h2 .cnt.tick { animation: none; } .card.ask { box-shadow: 0 0 0 2px var(--warn); } .card.review { box-shadow: 0 0 0 2px var(--ok); } .card.abandoned { box-shadow: 0 0 0 2px var(--err); } .card.livebar .bar::after { animation: none; opacity: 0; } }
 </style>
 </head>
 <body>
@@ -878,7 +877,7 @@ const subsOpen = new Map();   // parent id -> expanded? (unset: Doing parents st
 const isKid = t => !!t.parent_id && byId.has(t.parent_id);
 const subDone = k => k.status === 'done' || (k.progress || 0) >= 100;   // 100% is finished even if its status lags a poll behind
 let firstRender = true, justDropped = null;
-const copied = new Set();   // Todo card ids whose prompt was copied this page-load (in-memory on purpose: a refresh clears it)
+const copied = new Map();   // Todo card id -> its copied-state label; this page-load only (in-memory on purpose: a refresh clears it)
 let selected = new Set(), selectAnchor = null;   // multi-select: shift-click/shift-arrows range, ⌘/ctrl-click toggle
 
 const $ = id => document.getElementById(id);
@@ -955,11 +954,7 @@ function card(t) {
   const laterBtn = todo ? `<button class="card-act" data-later="${esc(t.id)}" title="Move to Later (backlog)"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 3v7m0 0L5 7m3 3l3-3M3 13h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Later</button>` : '';
   const toTodoBtn = backlog ? `<button class="card-act" data-to-todo="${esc(t.id)}" title="Move to Todo"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 13V6m0 0L5 9m3-3l3 3M3 3h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Move to Todo</button>` : '';
   const queued = todo ? `<span class="when"><svg width="11" height="11" viewBox="0 0 16 16" fill="none" aria-hidden="true" style="vertical-align:-1px;margin-right:4px"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5"/><path d="M8 5v3l2 1.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>queued ${a.text}</span>` : when;
-  const copiedBadge = todo && copied.has(t.id)
-    ? `<button class="copied" type="button" data-clear-copied="${esc(t.id)}" title="Prompt copied. Click to clear" aria-label="Prompt copied, click to clear">` +
-      `<svg class="cp-ok" width="11" height="11" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>` +
-      `<svg class="cp-x" width="11" height="11" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg>Copied</button>` : '';
-  const meta = !who && (queued || laterBtn || toTodoBtn || copiedBadge) ? `<div class="meta">${laterBtn}${toTodoBtn}${queued}${copiedBadge}</div>` : '';
+  const meta = !who && (queued || laterBtn || toTodoBtn) ? `<div class="meta">${laterBtn}${toTodoBtn}${queued}</div>` : '';
   const nSubs = t.subs_total || 0;   // a parent's % is the computed mean of its subtasks (Σ), and its one bar is the segmented toggle
   const line = doing && nSubs ? parentLine(t) : t.status_text;
   const note = doing ? `<div class="note"><span title="${esc(line)}">${esc(line)}</span><span class="pct ${nSubs ? 'computed' : ''}">${t.progress || 0}%</span></div>`
@@ -968,7 +963,14 @@ function card(t) {
     ? `<div class="bar" role="progressbar" aria-valuenow="${t.progress || 0}" aria-valuemin="0" aria-valuemax="100" aria-label="Progress"><b style="width:${lastPct.has(t.id) ? lastPct.get(t.id) : t.progress || 0}%;background:${colorOf(t)}" data-to="${t.progress || 0}"></b></div>` : '';
   const desc = t.status === 'todo' || t.status === 'backlog'
     ? (t.description ? `<div class="desc">${esc(t.description)}</div>` : '') : '';
-  const copy = cfg.dispatch && t.status === 'todo' ? `<button class="copy">Copy prompt</button>` : '';   // Doing cards: it's in the detail panel
+  // One control in one place: "Copy prompt", which after a successful copy becomes the green "Copied" state; clicking that undoes it.
+  // Doing cards: the copy button is in the detail panel instead.
+  const copiedLabel = todo ? copied.get(t.id) : null;
+  const copy = !(cfg.dispatch && todo) ? '' : copiedLabel
+    ? `<button class="copy copied${copiedLabel.length > 6 ? ' wide' : ''}" type="button" title="Prompt copied. Click to clear" aria-label="${esc(copiedLabel)}, click to clear">` +
+      `<svg class="cp-ok" width="11" height="11" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>` +
+      `<svg class="cp-x" width="11" height="11" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg>${esc(copiedLabel)}</button>`
+    : `<button class="copy" type="button">Copy prompt</button>`;
   const asking = !!t.needs_input && doing;
   const reviewing = !!t.review && doing && !asking;
   const askFlag = asking ? `<div class="ask-flag"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 2a4 4 0 0 0-4 4v3L2.8 11h10.4L12 9V6a4 4 0 0 0-4-4z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M6.5 13a1.5 1.5 0 0 0 3 0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Needs your input</div>` : reviewing ? `<div class="ask-flag rev"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>Ready for review</div>` : '';
@@ -984,24 +986,21 @@ function card(t) {
 function subsBlock(t, live) {
   const open = subsOpen.has(t.id) ? subsOpen.get(t.id) : t.status === 'doing';
   const rows = kidsMap.get(t.id) || [];
-  // one cell per subtask slot, in creation order; slots whose card is archived come from the server's list
+  // count from the server's slot list, so subtasks archived out of the task list still count as done
   const slots = t.subs && t.subs.length ? t.subs : rows;
-  const cells = slots.map(sl => {
-    const k = byId.get(sl.id) || sl;
-    return subDone(k) ? '<i class="done"></i>' : (k.progress || 0) > 0 ? `<i class="part" style="--p:${k.progress}%"></i>` : '<i></i>';
-  });
-  const n = cells.length, d = slots.filter(sl => subDone(byId.get(sl.id) || sl)).length;
+  const n = slots.length, d = slots.filter(sl => subDone(byId.get(sl.id) || sl)).length;
   const tick = '<svg class="check" width="9" height="9" viewBox="0 0 10 10" aria-hidden="true"><path d="M1.5 5.5l2.5 2.5 4.5-5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>';
   const html = rows.map(k => {
     const kdone = subDone(k), klive = !kdone && (k.progress || 0) > 0, kask = !kdone && !!k.needs_input;
     const blocked = kdone ? null : unresolvedBlockers(k)[0];
     const st = kask ? (k.question || k.status_text) : blocked ? 'blocked by ' + blocked.title : (klive ? k.status_text : '');
     return `<div class="sub ${kdone ? 'done' : klive ? 'live' : 'queued'} ${kask ? 'ask' : ''}" data-sub-id="${esc(k.id)}" role="button" tabindex="0" style="--c:${colorOf(k)}"><span class="g">${kdone ? tick : ''}</span>` +
-      `<span class="name">${esc(k.title)}${st ? `<span class="st">${esc(st)}</span>` : ''}</span><span class="p">${kdone ? 100 : (k.progress || 0)}%</span></div>`;
+      `<span class="name">${esc(k.title)}${st ? `<span class="st">${esc(st)}</span>` : ''}</span><span class="p">${kdone ? 100 : (k.progress || 0)}%</span>` +
+      (kdone ? '' : `<span class="sbar" aria-hidden="true"><b style="width:${k.progress || 0}%"></b></span>`) + `</div>`;
   }).join('');
   const sid = 'subs-' + t.id;
   return `<button class="subs-toggle" type="button" data-toggle-subs="${esc(t.id)}" aria-expanded="${open}" aria-controls="${esc(sid)}" aria-label="${d} of ${n} subtasks done, ${open ? 'hide' : 'show'} subtasks">` +
-    `<span class="segs">${cells.join('')}</span><span class="subs-count ${d === n ? 'all' : ''}">${d}/${n}</span>` +
+    `<span class="bar" aria-hidden="true"><b style="width:${t.progress || 0}%;background:${t.status === 'done' ? 'var(--ok)' : colorOf(t)}"></b></span><span class="subs-count ${d === n ? 'all' : ''}">${d}/${n}</span>` +
     `<svg class="chev" width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M3 1l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6"/></svg></button>` +
     `<div class="subs" id="${esc(sid)}" ${open ? '' : 'hidden'}>${html}</div>`;
 }
@@ -1019,9 +1018,9 @@ function render() {
   $('filter').classList.toggle('on', tasks.length > 8 || !!q);
   const pf = $('project-filter').value;
   byId = new Map(tasks.map(t => [t.id, t])); kidsMap = new Map();
-  copied.forEach(id => { if (byId.get(id)?.status !== 'todo') copied.delete(id); });   // claimed/moved/deleted: a later return to Todo starts clean
+  [...copied.keys()].forEach(id => { if (byId.get(id)?.status !== 'todo') copied.delete(id); });   // claimed/moved/deleted: a later return to Todo starts clean
   tasks.forEach(t => { if (isKid(t)) { if (!kidsMap.has(t.parent_id)) kidsMap.set(t.parent_id, []); kidsMap.get(t.parent_id).push(t); } });
-  // one order for the bar's cells, the rows and the panel list: the server's creation-ordered slots (which
+  // one order for the rows and the panel list: the server's creation-ordered slots (which
   // include subtasks archived out of /api/tasks), never whatever order the task list happens to arrive in
   kidsMap.forEach((list, pid) => {
     const slots = (byId.get(pid).subs || []).map(x => x.id);
@@ -1461,7 +1460,7 @@ $('p-body').addEventListener('click', async e => {
       await navigator.clipboard.writeText(d.prompt);
       b.textContent = d.warnings.length ? 'Copied, with warnings' : 'Copied';
       if (d.warnings.length) showError(d.warnings.join(' · '));
-      if (byId.get(openId)?.status === 'todo') { copied.add(openId); render(); }
+      if (byId.get(openId)?.status === 'todo') { copied.set(openId, d.warnings.length ? 'Copied, with warnings' : 'Copied'); render(); }
     } catch (err) { b.textContent = 'Failed'; showError('Copy failed: ' + err.message); }
     setTimeout(() => { if (b.isConnected) b.textContent = 'Copy prompt'; }, 1800);
   } else if (b.id === 'p-del') {
@@ -2063,8 +2062,6 @@ $('board').addEventListener('click', async e => {
   if (md) { confirmDoneClick(md); move(md.dataset.done, 'done'); return; }
   const bl = e.target.closest('[data-open-blocker]');
   if (bl) { openPanel(bl.dataset.openBlocker); return; }
-  const cc = e.target.closest('[data-clear-copied]');
-  if (cc) { copied.delete(cc.dataset.clearCopied); return renderKeepingCardFocus(); }
   const w = e.target.closest('.who');
   if (w) {
     const f = $('filter'); f.value = f.value === w.dataset.agent ? '' : w.dataset.agent;
@@ -2077,6 +2074,7 @@ $('board').addEventListener('click', async e => {
     return;
   }
   const id = btn.closest('.card').dataset.id;
+  if (copied.has(id)) { copied.delete(id); return renderKeepingCardFocus(); }   // the copied state is a toggle: click/Enter/Space undoes it
   try {
     const r = await fetch('/api/prompt?id=' + encodeURIComponent(id));
     const d = await r.json();
@@ -2084,7 +2082,7 @@ $('board').addEventListener('click', async e => {
     await navigator.clipboard.writeText(d.prompt);
     btn.textContent = d.warnings.length ? 'Copied, with warnings' : 'Copied';
     if (d.warnings.length) showError(d.warnings.join(' · '));
-    if (byId.get(id)?.status === 'todo') { copied.add(id); renderKeepingCardFocus(); }   // only after the clipboard write actually succeeded
+    if (byId.get(id)?.status === 'todo') { copied.set(id, d.warnings.length ? 'Copied, with warnings' : 'Copied'); renderKeepingCardFocus(); }   // only after the clipboard write actually succeeded
   } catch (err) { btn.textContent = 'Failed'; showError('Copy failed: ' + err.message); }
   setTimeout(() => { btn.textContent = 'Copy prompt'; }, 1800);
 });

@@ -113,9 +113,9 @@ Split a big card into subtasks (one level deep). A subtask is a normal task with
   in Doing. Agents never call `review`/`done` on a subtask.
 - The parent's % is **computed** (the mean of its subtasks, shown with a Σ). `update <parent>` only sets its status
   line. The parent does not auto-review: the agent calls `review <parent>` when it is ready.
-- On the board the parent has one **segmented bar**, a cell per subtask (green done, agent-colored live, empty
-  queued), plus `done/total`. It is also the expand toggle: Doing parents start open, the rest collapsed. Every subtask is a quiet
-  row under it, finished ones with a check and 100%; click one for its own detail.
+- On the board the parent has one total bar (the computed Σ) next to `done/total`, which is also the expand toggle:
+  Doing parents start open, the rest collapsed. Every subtask is a quiet row under it with its own thin progress
+  bar (finished ones show a check and 100%); click one for its own detail.
 - `done <parent>` (you) marks whatever is left done, `rm <parent>` removes the subtasks too, and the Done
   column only ever shows parents. `blocked-by` works between subtasks.
 - `list` indents subtasks under their parent, the HUD feed labels their events "parent › subtask" (the agent rows and
