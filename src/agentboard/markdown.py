@@ -22,16 +22,25 @@ _LANG = re.compile(r'^[\w-]+$')
 _INLINE_CODE = re.compile(r'`([^`]+)`')
 _LINK = re.compile(r'\[([^\]]+)\]\((https?://[^\s)]+)\)')
 _BOLD = re.compile(r'\*\*(.+?)\*\*|__(.+?)__')
-_ITALIC = re.compile(r'(?<!\*)\*([^*]+)\*(?!\*)|(?<!_)_([^_]+)_(?!_)')
+# emphasis only opens next to a non-word, non-space character, and closes the same way: snake_case_names
+# and "2 * 3 * 4" stay as typed, while *this* and _this_ still work
+_ITALIC = re.compile(r'(?<![\w*])\*(?![\s*])([^*]+?)(?<![\s*])\*(?![\w*])|(?<![\w_])_(?![\s_])([^_]+?)(?<![\s_])_(?![\w_])')
 
 
 def _inline(text):
     text = html.escape(text)
-    text = _INLINE_CODE.sub(lambda m: f'<code>{m.group(1)}</code>', text)
+    # code spans are verbatim: lift them out before any other rule runs, put them back at the end
+    spans = []
+
+    def stash(m):
+        spans.append(f'<code>{m.group(1)}</code>')
+        return f'\x00{len(spans) - 1}\x00'
+
+    text = _INLINE_CODE.sub(stash, text.replace('\x00', ''))
     text = _LINK.sub(lambda m: f'<a href="{m.group(2)}" target="_blank" rel="noopener noreferrer">{m.group(1)}</a>', text)
     text = _BOLD.sub(lambda m: f'<strong>{m.group(1) or m.group(2)}</strong>', text)
     text = _ITALIC.sub(lambda m: f'<em>{m.group(1) or m.group(2)}</em>', text)
-    return text
+    return re.sub(r'\x00(\d+)\x00', lambda m: spans[int(m.group(1))], text)
 
 
 def to_html(md):

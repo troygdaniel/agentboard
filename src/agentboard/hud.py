@@ -11,6 +11,12 @@ TIMELINE_BUCKETS, TIMELINE_MIN = 30, 2   # last hour in 2-minute buckets (same w
 WINDOW_MIN = TIMELINE_BUCKETS * TIMELINE_MIN
 
 
+def stale_minutes(conf):
+    """The [board] stale_minutes setting, or the default when it is missing or not a positive number."""
+    v = (conf or {}).get("board", {}).get("stale_minutes", ABANDONED_MIN)
+    return v if isinstance(v, (int, float)) and not isinstance(v, bool) and v > 0 else ABANDONED_MIN
+
+
 def _t(s):
     try:
         return datetime.strptime(s, FMT)

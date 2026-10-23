@@ -412,6 +412,8 @@
   .h-btn:hover { color: var(--hcy); border-color: rgba(94,231,255,.5); }
   .h-live { display: inline-flex; align-items: center; gap: 6px; color: var(--hok); letter-spacing: var(--tr-label); font-size: var(--fs-xs); }
   .h-live::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--hok); box-shadow: 0 0 10px var(--hok); animation: hblink 1.6s ease-in-out infinite; }
+  .h-live.off { color: var(--hbad); }
+  .h-live.off::before { background: var(--hbad); box-shadow: 0 0 10px var(--hbad); animation: none; }
   @keyframes hblink { 50% { opacity: .35; } }
   .h-ticker.tk { animation: htk .45s ease-out; }
   @keyframes htk { from { opacity: 0; transform: translateY(3px); } }
@@ -1641,12 +1643,21 @@ function tickClock() { $('h-clock').textContent = new Date().toLocaleTimeString(
 
 async function hudLoad() {
   try {
-    const d = await (await fetch('/api/hud', { cache: 'no-store' })).json();
+    const res = await fetch('/api/hud', { cache: 'no-store' });
+    if (!res.ok) throw new Error(res.status);
+    const d = await res.json();
+    setHudLive(true);
     const { now, ...rest } = d;
     const key = JSON.stringify(rest) + Math.floor(Date.now() / 15000);
     if (key === hudKey) return;
     hudKey = key; hudRender(d);
-  } catch (e) { /* board status shows connectivity */ }
+  } catch (e) { setHudLive(false); }   // the board's own status pill is hidden in the pop-out window, so the HUD says so itself
+}
+// A dead server used to leave the HUD frozen on stale numbers under a blinking green LIVE.
+function setHudLive(on) {
+  const el = document.querySelector('.h-live');
+  if (!el || el.classList.contains('off') === !on) return;
+  el.classList.toggle('off', !on); el.textContent = on ? 'LIVE' : 'OFFLINE';
 }
 
 // ---- HUD rendering: incremental updates, so animations glide instead of restarting ----

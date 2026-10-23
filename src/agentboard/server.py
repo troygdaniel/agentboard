@@ -15,7 +15,21 @@ STATIC = Path(__file__).parent / "static"
 MAX_BODY = 1_000_000
 
 
+def _ids(body):
+    ids = body["ids"]
+    if not isinstance(ids, list) or not all(isinstance(i, str) for i in ids):
+        raise BoardError("ids must be a list of task ids")
+    return ids
+
+
 def make_handler(store, port):
+    def _config():
+        """config.toml, or {} if it is unreadable: a typo there must not blank the HUD or the board."""
+        try:
+            return promptlib.load_config(store.dir)
+        except BoardError:
+            return {}
+
     allowed_hosts = {f"localhost:{port}", f"127.0.0.1:{port}"}
 
     class Handler(BaseHTTPRequestHandler):
@@ -40,9 +54,12 @@ def make_handler(store, port):
 
         def _json_body(self):
             n = int(self.headers.get("Content-Length") or 0)
-            if n > MAX_BODY:
-                raise BoardError("body too large")
-            return json.loads(self.rfile.read(n) or b"{}")
+            if n < 0 or n > MAX_BODY:   # a negative length would make read() wait for the client to hang up
+                raise BoardError("bad body length")
+            body = json.loads(self.rfile.read(n) or b"{}")
+            if not isinstance(body, dict):
+                raise BoardError("expected a JSON object")
+            return body
 
         def _guard(self, post=False):
             if not self._host_ok():
@@ -88,13 +105,11 @@ def make_handler(store, port):
             elif url.path == "/api/projects":
                 self._send(200, {"projects": store.load_projects()})
             elif url.path == "/api/hud":
-                board_cfg = promptlib.load_config(store.dir).get("board", {})
-                self._send(200, hud.build(store.load(), abandoned_min=board_cfg.get("stale_minutes")))
+                self._send(200, hud.build(store.load(), abandoned_min=hud.stale_minutes(_config())))
             elif url.path == "/api/config":
-                conf = promptlib.load_config(store.dir)
-                ui, board_cfg = conf.get("ui", {}), conf.get("board", {})
-                self._send(200, {"dispatch": bool(ui.get("dispatch", True)),
-                                  "stale_minutes": board_cfg.get("stale_minutes", hud.ABANDONED_MIN)})
+                conf = _config()
+                self._send(200, {"dispatch": bool(conf.get("ui", {}).get("dispatch", True)),
+                                  "stale_minutes": hud.stale_minutes(conf)})
             elif url.path == "/api/task":
                 try:
                     t = dict(Store.get(store.load(), (q.get("id") or [""])[0]))
@@ -152,21 +167,21 @@ def make_handler(store, port):
                 elif path == "/api/restore":
                     self._send(200, store.restore(body["task"], body.get("before"), body.get("kids")))
                 elif path == "/api/bulk-move":
-                    ids = body["ids"]
+                    ids = _ids(body)
                     loaded = store.load()
                     prev = [{"task": Store.get(loaded, i), "before": store.next_sibling(i),
                              "kids": [k for k in loaded if k.get("parent_id") == i]} for i in ids]
                     moved = store.bulk_move(ids, body["status"])
                     self._send(200, {"tasks": moved, "prev": prev})
                 elif path == "/api/bulk-archive":
-                    self._send(200, {"ids": store.bulk_archive(body["ids"])})
+                    self._send(200, {"ids": store.bulk_archive(_ids(body))})
                 elif path == "/api/bulk-project":
-                    prev = store.bulk_set_project(body["ids"], body.get("project_id"))
+                    prev = store.bulk_set_project(_ids(body), body.get("project_id"))
                     self._send(200, {"prev": prev})
                 elif path == "/api/clear-done":
                     self._send(200, {"ids": store.clear_done()})
                 elif path == "/api/unarchive":
-                    store.unarchive(body["ids"])
+                    store.unarchive(_ids(body))
                     self._send(200, {"ok": True})
                 elif path == "/api/color":
                     self._send(200, store.set_agent_color(body["id"], body["color"]))
@@ -175,11 +190,14 @@ def make_handler(store, port):
                     self._send(200, {"ok": True})
                 elif path == "/api/chat":
                     # the only HTTP poster is the board UI (agents use the CLI), so it's always "you"
-                    m = store.chat_send(body.get("sender") or "Troy", body["text"], "user")
+                    sender = body.get("sender") or "Troy"
+                    if not isinstance(sender, str) or not isinstance(body["text"], str):
+                        raise BoardError("sender and text must be strings")
+                    m = store.chat_send(sender, body["text"], "user")
                     self._send(200, m)
                 else:
                     self._send(404, {"error": "not found"})
-            except (BoardError, KeyError, ValueError) as e:
+            except (BoardError, KeyError, ValueError, TypeError, AttributeError) as e:   # bad shapes are the client's mistake: 400, never a dropped connection
                 self._send(400, {"error": str(e) or e.__class__.__name__})
 
     return Handler

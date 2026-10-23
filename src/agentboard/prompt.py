@@ -1,4 +1,5 @@
 """Assemble a task prompt from a template plus context providers."""
+import re
 import shlex
 import shutil
 import sys
@@ -6,6 +7,7 @@ import tomllib
 from pathlib import Path
 
 from . import providers
+from .store import BoardError
 
 DEFAULT_TEMPLATE = """\
 # Task: {title}
@@ -59,8 +61,11 @@ def load_config(board_dir):
     path = Path(board_dir) / "config.toml"
     if not path.exists():
         return {}
-    with open(path, "rb") as f:
-        return tomllib.load(f)
+    try:
+        with open(path, "rb") as f:
+            return tomllib.load(f)
+    except (tomllib.TOMLDecodeError, OSError) as e:
+        raise BoardError(f"{path} is not valid config ({e}); fix or delete it") from e
 
 
 def agentboard_cmd(board_dir):
@@ -101,7 +106,10 @@ def build_prompt(task, board_dir, public=False):
     ptconf = conf.get("prompt", {})
     template = DEFAULT_TEMPLATE
     if ptconf.get("template_file"):
-        template = (Path(board_dir) / ptconf["template_file"]).expanduser().read_text()
+        try:
+            template = (Path(board_dir) / ptconf["template_file"]).expanduser().read_text()
+        except OSError as e:
+            raise BoardError(f"prompt template_file: {e}") from e
     elif ptconf.get("template"):
         template = ptconf["template"]
 
@@ -113,7 +121,7 @@ def build_prompt(task, board_dir, public=False):
         "context": context,
         "color_hint": ptconf.get("color_hint", " and color if you know it (add --color <color>)"),
     }
-    out = template
-    for k, v in values.items():  # str.replace so braces in context text are safe
-        out = out.replace("{" + k + "}", v)
+    # one pass over the template, so a placeholder that appears inside a substituted value
+    # (a description mentioning "{ab}", say) is left as written rather than expanded again
+    out = re.sub(r"\{(" + "|".join(values) + r")\}", lambda m: values[m.group(1)], template)
     return out, warnings

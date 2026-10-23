@@ -817,3 +817,173 @@ class SubtaskViewTests(unittest.TestCase):
             cli.cmd_rm(argparse.Namespace(id="big", demo=False))
         self.assertIn("removed 3 task(s)", out.getvalue())
         self.assertEqual(self.s.load(), [])
+
+
+class BugHuntStoreTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.s = Store(Path(self.tmp.name) / ".agentboard")
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_blank_titles_are_rejected(self):
+        for blank in ("", "   "):
+            with self.assertRaises(BoardError):
+                self.s.add(blank)
+            with self.assertRaises(BoardError):
+                self.s.start(blank, "atlas")
+        self.assertEqual(self.s.load(), [])
+
+    def test_generated_ids_never_end_in_a_dash(self):
+        t = self.s.add("x" * 39 + " y z")
+        self.assertFalse(t["id"].endswith("-"), t["id"])
+
+    def test_review_and_ask_need_a_task_that_is_in_doing(self):
+        self.s.add("T", status="todo", task_id="t")
+        self.s.start("D", "atlas", task_id="d")
+        self.s.update("d", status="done")
+        for tid in ("t", "d"):
+            with self.assertRaises(BoardError):
+                self.s.review(tid, "r")
+            with self.assertRaises(BoardError):
+                self.s.ask(tid, "q")
+            self.assertNotIn("review", Store.get(self.s.load(), tid))
+            self.assertNotIn("needs_input", Store.get(self.s.load(), tid))
+
+    def test_progress_updates_do_not_unfinish_a_done_task(self):
+        self.s.start("D", "atlas", task_id="d")
+        self.s.update("d", status="done")
+        t = self.s.update("d", 50, "late note")
+        self.assertEqual((t["status"], t["progress"]), ("done", 100))
+
+    def test_force_claim_of_an_archived_task_brings_it_back_on_the_board(self):
+        self.s.start("D", "atlas", task_id="d")
+        self.s.update("d", status="done")
+        self.s.clear_done()
+        t = self.s.claim("d", "bob", force=True)
+        self.assertEqual(t["status"], "doing")
+        self.assertNotIn("archived", t)
+
+    def test_progress_only_update_after_an_ask_closes_the_waiting_run(self):
+        from datetime import datetime
+        from agentboard import hud
+        self.s.start("D", "atlas", task_id="d")
+        self.s.ask("d", "which?")
+        t = self.s.update("d", 40)   # no text, as `agentboard update d 40` allows
+        self.assertNotIn("needs_input", t)
+        kinds = [k for k, _, _ in hud.segments(Store.get(self.s.load(), "d"), datetime(2100, 1, 1))]
+        self.assertEqual(kinds[-1], "busy")   # not still "waiting" for the user
+
+
+class BugHuntCliTests(unittest.TestCase):
+    def test_wait_for_review_ends_when_the_task_went_straight_to_done(self):
+        from agentboard.cli import _wait_result
+        for target in ("review", "needs_input"):
+            self.assertIsNotNone(_wait_result({"status": "done"}, target))
+
+
+class BugHuntPromptTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.dir = Path(self.tmp.name) / ".agentboard"
+        self.dir.mkdir()
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_placeholders_inside_a_description_are_left_alone(self):
+        task = {"id": "x", "title": "T {task_id}", "description": "use {ab} and {context} literally"}
+        text, _ = prompt.build_prompt(task, self.dir)
+        self.assertIn("use {ab} and {context} literally", text)
+        self.assertIn("# Task: T {task_id}", text)
+
+    def test_redaction_happens_before_truncation(self):
+        conf = {"type": "command", "run": "echo 555-123-4567 and more", "max_chars": 8, "redact": ["\\d{3}-\\d{3}-\\d{4}"]}
+        out = providers.run_provider("p", "", conf, {"title": "t"}, self.dir)
+        self.assertNotIn("555", out)
+
+    def test_file_tail_with_zero_entries_returns_nothing(self):
+        (Path(self.tmp.name) / "log.txt").write_text("a\nb\nc\n")
+        conf = {"type": "file-tail", "path": "log.txt", "entries": 0}
+        self.assertEqual(providers.run_provider("p", "", conf, {"title": "t"}, self.dir), "")
+
+    def test_bad_config_and_missing_template_raise_board_errors_not_tracebacks(self):
+        (self.dir / "config.toml").write_text("bad toml [[[")
+        with self.assertRaises(BoardError):
+            prompt.load_config(self.dir)
+        (self.dir / "config.toml").write_text('[prompt]\ntemplate_file = "nope.md"\n')
+        with self.assertRaises(BoardError):
+            prompt.build_prompt({"id": "x", "title": "T"}, self.dir)
+
+
+class BugHuntMarkdownTests(unittest.TestCase):
+    def test_snake_case_identifiers_are_not_italicised(self):
+        from agentboard import markdown
+        self.assertEqual(markdown.to_html("see store_py_helper now"), "<p>see store_py_helper now</p>")
+        self.assertEqual(markdown.to_html("an _emphasised_ word"), "<p>an <em>emphasised</em> word</p>")
+
+    def test_math_with_asterisks_is_left_alone(self):
+        from agentboard import markdown
+        self.assertEqual(markdown.to_html("2 * 3 * 4"), "<p>2 * 3 * 4</p>")
+        self.assertEqual(markdown.to_html("a *b* c"), "<p>a <em>b</em> c</p>")
+
+    def test_code_spans_are_verbatim(self):
+        from agentboard import markdown
+        self.assertEqual(markdown.to_html("run `a*b*c` and `x_y_z`"), "<p>run <code>a*b*c</code> and <code>x_y_z</code></p>")
+        self.assertEqual(markdown.to_html("`**not bold**`"), "<p><code>**not bold**</code></p>")
+
+
+class BugHuntServerTests(unittest.TestCase):
+    """Drives the real HTTP handler on an ephemeral port."""
+
+    def setUp(self):
+        import http.client
+        from http.server import ThreadingHTTPServer
+        from agentboard import server
+        self.tmp = tempfile.TemporaryDirectory()
+        self.store = Store(Path(self.tmp.name) / ".agentboard")
+        probe = ThreadingHTTPServer(("127.0.0.1", 0), server.make_handler(self.store, 0))
+        self.port = probe.server_address[1]
+        probe.server_close()
+        self.srv = ThreadingHTTPServer(("127.0.0.1", self.port), server.make_handler(self.store, self.port))
+        threading.Thread(target=self.srv.serve_forever, daemon=True).start()
+        self.http = http.client
+
+    def tearDown(self):
+        self.srv.shutdown()
+        self.srv.server_close()
+        self.tmp.cleanup()
+
+    def call(self, method, path, body=None, headers=None):
+        c = self.http.HTTPConnection("127.0.0.1", self.port, timeout=3)
+        h = {"Host": f"localhost:{self.port}", "Content-Type": "application/json", **(headers or {})}
+        c.request(method, path, body=body, headers=h)
+        r = c.getresponse()
+        return r.status, r.read()
+
+    def test_malformed_json_shapes_get_a_400_not_a_dropped_connection(self):
+        for path, body in (("/api/tasks", "[1]"), ("/api/tasks", '"x"'), ("/api/bulk-move", '{"ids":"seed","status":"todo"}'),
+                           ("/api/bulk-archive", '{"ids":5}'), ("/api/unarchive", '{"ids":null}'), ("/api/tasks", '{"title":"t","ctx":"abc"}'),
+                           ("/api/chat", '{"text":"hi","sender":123}'), ("/api/tasks", '{"title":"   "}')):
+            status, _ = self.call("POST", path, body)
+            self.assertEqual(status, 400, (path, body))
+        self.assertEqual(self.store.load(), [])
+        self.assertEqual(self.store.chat_list(), [])
+
+    def test_negative_content_length_does_not_hang_the_handler(self):
+        status, _ = self.call("POST", "/api/tasks", "{}", {"Content-Length": "-5"})
+        self.assertEqual(status, 400)
+
+    def test_broken_config_toml_does_not_take_down_hud_and_config_endpoints(self):
+        self.store.dir.mkdir(parents=True, exist_ok=True)
+        (self.store.dir / "config.toml").write_text("bad toml [[[")
+        for path in ("/api/hud", "/api/config"):
+            status, _ = self.call("GET", path)
+            self.assertEqual(status, 200, path)
+
+    def test_non_numeric_stale_minutes_falls_back_to_the_default(self):
+        self.store.start("D", "atlas", task_id="d")
+        (self.store.dir / "config.toml").write_text('[board]\nstale_minutes = "x"\n')
+        self.assertEqual(self.call("GET", "/api/hud")[0], 200)
+        self.assertEqual(self.call("GET", "/api/config")[0], 200)

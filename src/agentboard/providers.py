@@ -30,11 +30,11 @@ def run_provider(name, arg, conf, task, base_dir):
     if not fn:
         raise ProviderError(f"provider '{name}': unknown type {ptype!r} (known: {', '.join(TYPES)})")
     text = fn(arg, conf, task, base_dir).strip()
+    for pattern in conf.get("redact", []):   # redact first: truncating can cut a secret in half so it no longer matches
+        text = re.sub(pattern, "[REDACTED]", text)
     limit = conf.get("max_chars")
     if limit and len(text) > limit:
         text = text[:limit].rstrip() + "\n[...truncated]"
-    for pattern in conf.get("redact", []):
-        text = re.sub(pattern, "[REDACTED]", text)
     return text
 
 
@@ -75,6 +75,8 @@ def file_tail(arg, conf, task, base_dir):
     if not path.exists():
         raise ProviderError(f"file not found: {path}")
     n = int(arg) if arg.isdigit() else int(conf.get("entries", 3))
+    if n <= 0:
+        return ""   # lines[-0:] would be the whole file
     lines = path.read_text().splitlines()
     pattern = conf.get("entry_pattern")
     if not pattern:

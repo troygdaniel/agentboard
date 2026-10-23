@@ -104,6 +104,9 @@ class Store:
         inherits its project (one level only)."""
         if status is not None and status not in STATUSES:
             raise BoardError(f"status must be one of {STATUSES}")
+        title = _clean_title(title)
+        if not (isinstance(ctx or [], list) and all(isinstance(c, str) for c in ctx or [])):
+            raise BoardError("ctx must be a list of strings")
         with self.transaction() as tasks:
             parent = _check_parent(tasks, parent_id)
             if parent:
@@ -152,6 +155,7 @@ class Store:
         """Agent announces new work: create the task already in doing, owned by name.
 
         With parent_id it is a subtask of that card (inherits its project)."""
+        title = _clean_title(title)
         with self.transaction() as tasks:
             parent = _check_parent(tasks, parent_id)
             if parent:
@@ -212,6 +216,7 @@ class Store:
             t.pop("ask_child", None)
             t.pop("review", None)
             t.pop("body_md", None)
+            t.pop("archived", None)   # claiming a cleared task (--force) puts it back on the board
             t["status_text"] = f"Claimed by {name}"
             _log(t, f"Claimed by {name}")
             t["updated"] = _now()
@@ -237,6 +242,7 @@ class Store:
         """
         with self.transaction() as tasks:
             t = self.get(tasks, task_id)
+            _require_doing(t, "ask")
             t["needs_input"] = True
             t["question"] = question
             t["status_text"] = question
@@ -266,6 +272,7 @@ class Store:
             if t.get("parent_id"):
                 # subtasks have no review step: reporting one finished is just 100%, which completes it
                 return self._update(tasks, t, 100, summary, None)
+            _require_doing(t, "review")
             t.pop("needs_input", None)
             t.pop("question", None)
             t.pop("ask_child", None)
@@ -289,6 +296,7 @@ class Store:
             return self._update(tasks, self.get(tasks, task_id), progress, text, status)
 
     def _update(self, tasks, t, progress, text, status):
+        resumed = bool(t.get("needs_input") or t.get("review"))
         for f in ("needs_input", "question", "review", "body_md"):
             t.pop(f, None)
         parent = _parent_of(tasks, t)
@@ -297,6 +305,8 @@ class Store:
                 parent.pop(f, None)
         kids = _kids(tasks, t["id"])
         t.pop("ask_child", None)
+        if t["status"] == "done" and not status:   # finished work stays at 100%, whatever a late update says
+            progress = None
         if progress is not None and not kids:   # a parent's % is computed from its subtasks, never set
             t["progress"] = max(0, min(100, int(progress)))
         if text is not None:
@@ -313,8 +323,8 @@ class Store:
             _log(t, text)
             _apply_status(t, "done")
             _log(t, "Marked done")
-        else:
-            _log(t, text)
+        else:   # a progress-only update still closes an open "needs input"/"review" run in the history
+            _log(t, text or ("Resumed" if resumed else None))
         t["updated"] = _now()
         if parent:
             _touch_parent(tasks, parent, text)
@@ -573,6 +583,17 @@ def _log(t, text):
     del t["log"][:-LOG_MAX]
 
 
+def _clean_title(title):
+    if not isinstance(title, str) or not title.strip():
+        raise BoardError("a task needs a title")
+    return title.strip()
+
+
+def _require_doing(t, verb):
+    if t["status"] != "doing":
+        raise BoardError(f"cannot {verb} {t['id']}: it is in {t['status']}, not doing (claim it first)")
+
+
 def _kids(tasks, parent_id):
     """A task's subtasks, in board order."""
     return [x for x in tasks if x.get("parent_id") == parent_id]
@@ -670,6 +691,7 @@ def _apply_status(t, status):
     t["status"] = status
     if status != "done":
         t.pop("result", None)
+        t.pop("archived", None)   # reopened work must not stay hidden
     if status == "done":
         t.pop("needs_input", None)
         t.pop("question", None)
@@ -697,7 +719,7 @@ def _unresolved_blockers(tasks, blocked_by):
 
 
 def _unique_id(title, taken):
-    base = re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")[:40] or "task"
+    base = re.sub(r"[^a-z0-9]+", "-", title.lower())[:40].strip("-") or "task"
     tid, n = base, 2
     while tid in taken:
         tid, n = f"{base}-{n}", n + 1

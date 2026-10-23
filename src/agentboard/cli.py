@@ -82,7 +82,7 @@ def cmd_add(a):
 
 def cmd_list(a):
     s = _store()
-    threshold = promptlib.load_config(s.dir).get("board", {}).get("stale_minutes", hudlib.ABANDONED_MIN)
+    threshold = hudlib.stale_minutes(promptlib.load_config(s.dir))
     tasks = s.load()
     counts = subtask_counts(tasks)
     ids = {t["id"] for t in tasks}
@@ -285,6 +285,8 @@ def _wait_result(t, target):
         return f"needs input — {t.get('question', '')}"
     if target not in WAIT_FLAGS and t["status"] == target:
         return f"reached {target}"
+    if target in WAIT_FLAGS and t["status"] == "done":   # signed off without a pause on the way: nothing left to wait for
+        return f"done (target was {target})"
     if target not in WAIT_FLAGS and t.get("review"):
         return f"ready for review (target was {target}) — {t.get('result', '')}"
     if target != "needs_input" and t.get("needs_input"):
