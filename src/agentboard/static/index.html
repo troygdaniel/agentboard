@@ -419,7 +419,7 @@
   @keyframes htk { from { opacity: 0; transform: translateY(3px); } }
   .h-ticker { flex: 1 1 160px; min-width: 0; text-align: center; color: var(--hdim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .h-ticker b { color: var(--htext); font-weight: 500; }
-  .h-btn[aria-pressed="false"] { opacity: .55; }
+  .h-btn[aria-pressed="false"] { opacity: .86; }
   .h-alerts { display: flex; flex-wrap: wrap; gap: 6px 8px; }
   .h-chip { border: 1px solid; border-radius: 999px; padding: 1px 10px; font-size: var(--fs-sm); letter-spacing: var(--tr-tight); white-space: nowrap; }
   .h-chip.warn { color: var(--hwarn); border-color: rgba(255,200,87,.45); background: rgba(255,200,87,.08); animation: hqblink 2.6s ease-in-out infinite; }
@@ -438,7 +438,7 @@
     box-shadow: inset 0 1px 0 rgba(255,255,255,.045), 0 18px 40px -26px rgba(0,0,0,.9); }
   .hp h4 { margin: 0 0 10px; font-weight: 500; font-size: var(--fs-xs); letter-spacing: var(--tr-label); color: var(--hdim); text-transform: uppercase; flex: none; }
   .hp h4::before { content: '// '; color: var(--hcy); }
-  .ln-sub { margin-left: 10px; font-weight: 400; letter-spacing: var(--tr-tight); text-transform: none; color: var(--hdim); opacity: .6; font-size: var(--fs-xs); }
+  .ln-sub { margin-left: 10px; font-weight: 400; letter-spacing: var(--tr-tight); text-transform: none; color: var(--hdim); opacity: .85; font-size: var(--fs-xs); }
   .h-scroll { overflow-y: auto; min-height: 0; flex: 1; }
   .h-scroll::-webkit-scrollbar { width: 6px; } .h-scroll::-webkit-scrollbar-thumb { background: var(--hline); border-radius: 3px; }
   /* each telemetry row is a lit strip: a state-colored accent bar on the left edge that glows
@@ -463,7 +463,7 @@
      needs you (waiting/review/quiet/abandoned), but for a normal working agent it just
      restates the task title in more words. Hidden by default so a 2-second scan only has to
      read one line per row; the exceptional states that actually need a look get the detail. */
-  .h-status { display: none; color: var(--hdim); opacity: .72; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
+  .h-status { display: none; color: var(--hdim); opacity: .88; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
   .h-row.quiet .h-status, .h-row.waiting .h-status, .h-row.review .h-status, .h-row.abandoned .h-status { display: block; }
   .h-prog { height: 7px; border-radius: 3.5px; background: rgba(110,190,255,.12); overflow: hidden; position: relative; }
   .h-prog::after { content: ''; position: absolute; inset: 0; transform: translateX(-100%);
@@ -531,7 +531,7 @@
     display: flex; flex-direction: column; gap: clamp(4px, 1vh, 12px); }
   .ln-idle::-webkit-scrollbar { width: 6px; } .ln-idle::-webkit-scrollbar-thumb { background: var(--hline); border-radius: 3px; }
   .ln-idle-label { flex: none; color: var(--hdim); font-size: var(--fs-xs); letter-spacing: var(--tr-label); text-transform: uppercase; margin-bottom: 2px; }
-  .ln.idle { flex: 0 0 auto; height: clamp(44px, 7vh, 78px); max-height: none; opacity: .62; filter: saturate(.35); transition: opacity .2s ease, filter .2s ease, background .2s ease; }
+  .ln.idle { flex: 0 0 auto; height: clamp(44px, 7vh, 78px); max-height: none; opacity: .86; filter: saturate(.35); transition: opacity .2s ease, filter .2s ease, background .2s ease; }
   .ln.idle:hover { opacity: 1; filter: none; background: rgba(110,190,255,.04); }
   .ln-rest { align-self: stretch; display: flex; flex-direction: column; justify-content: center; gap: 2px; min-width: 0; padding: 0 14px;
     border-radius: 6px; border: 1px dashed rgba(110,190,255,.14); background: rgba(110,190,255,.025); }
