@@ -916,6 +916,14 @@ function dayBucket(iso) {
   return days <= 0 ? 'Today' : days === 1 ? 'Yesterday' : 'Earlier';
 }
 
+// render() only restores focus to a focused card itself; the badge and Copy button live inside one, so
+// a keyboard user would drop to <body> when their button is rebuilt. Put them back on the card.
+function renderKeepingCardFocus() {
+  const id = document.activeElement?.closest?.('.card')?.dataset.id;
+  render();
+  if (id) $('board').querySelector(`.card[data-id="${CSS.escape(id)}"]`)?.focus({ preventScroll: true });
+}
+
 function card(t) {
   const a = ago(t.updated);
   const doing = t.status === 'doing', done = t.status === 'done';
@@ -2035,7 +2043,7 @@ $('board').addEventListener('click', async e => {
   const bl = e.target.closest('[data-open-blocker]');
   if (bl) { openPanel(bl.dataset.openBlocker); return; }
   const cc = e.target.closest('[data-clear-copied]');
-  if (cc) { copied.delete(cc.dataset.clearCopied); return render(); }
+  if (cc) { copied.delete(cc.dataset.clearCopied); return renderKeepingCardFocus(); }
   const w = e.target.closest('.who');
   if (w) {
     const f = $('filter'); f.value = f.value === w.dataset.agent ? '' : w.dataset.agent;
@@ -2055,7 +2063,7 @@ $('board').addEventListener('click', async e => {
     await navigator.clipboard.writeText(d.prompt);
     btn.textContent = d.warnings.length ? 'Copied, with warnings' : 'Copied';
     if (d.warnings.length) showError(d.warnings.join(' · '));
-    if (byId.get(id)?.status === 'todo') { copied.add(id); render(); }   // only after the clipboard write actually succeeded
+    if (byId.get(id)?.status === 'todo') { copied.add(id); renderKeepingCardFocus(); }   // only after the clipboard write actually succeeded
   } catch (err) { btn.textContent = 'Failed'; showError('Copy failed: ' + err.message); }
   setTimeout(() => { btn.textContent = 'Copy prompt'; }, 1800);
 });
