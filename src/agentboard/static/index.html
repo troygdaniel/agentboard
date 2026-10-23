@@ -245,6 +245,11 @@
   @keyframes revpulse { 50% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--ok) 13%, transparent); } }
   .ask-flag.rev { color: var(--ok); }
   .card.abandoned { border-color: var(--err); animation: abandonedpulse 2.6s ease-in-out infinite; }
+  /* in Doing the agent-colored border (.col.doing .card:not(.done)) is more specific than the rules above,
+     so ask/review/abandoned lost their state border and read as ordinary cards: win it back */
+  .col.doing .card.ask:not(.done) { border-color: var(--warn); }
+  .col.doing .card.review:not(.done) { border-color: var(--ok); }
+  .col.doing .card.abandoned:not(.done) { border-color: var(--err); }
   @keyframes abandonedpulse { 50% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--err) 18%, transparent); } }
   .top .when.abandoned, .meta .when.abandoned { color: var(--err); font-weight: 600; }
   .markdone { margin-top: 10px; font-size: var(--fs-sm); padding: 3px 10px; min-height: 26px; border-color: var(--ok); color: var(--ok); }
@@ -962,7 +967,7 @@ function card(t) {
   const queued = todo ? `<span class="when"><svg width="11" height="11" viewBox="0 0 16 16" fill="none" aria-hidden="true" style="vertical-align:-1px;margin-right:4px"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5"/><path d="M8 5v3l2 1.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>queued ${a.text}</span>` : when;
   const meta = !who && (queued || laterBtn || toTodoBtn) ? `<div class="meta">${laterBtn}${toTodoBtn}${queued}</div>` : '';
   const nSubs = t.subs_total || 0;   // a parent's % is the computed mean of its subtasks (Σ), and its one bar is the segmented toggle
-  const line = doing && nSubs ? parentLine(t) : t.status_text;
+  const line = doing && nSubs && !t.needs_input && !t.review ? parentLine(t) : t.status_text;   // a question or review request is never replaced by a subtask's note
   const note = doing ? `<div class="note"><span title="${esc(line)}">${esc(line)}</span><span class="pct ${nSubs ? 'computed' : ''}">${t.progress || 0}%</span></div>`
     : (done && t.result ? `<div class="note"><span title="${esc(t.result)}">${esc(t.result)}</span></div>` : '');
   const bar = nSubs ? subsBlock(t, live) : doing
