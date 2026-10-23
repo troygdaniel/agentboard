@@ -19,6 +19,9 @@ _UL = re.compile(r'^[-*]\s+(.*)$')
 _OL = re.compile(r'^\d+\.\s+(.*)$')
 _LANG = re.compile(r'^[\w-]+$')
 
+_ALIGN_CELL = re.compile(r':?-+:?')
+_ALIGN_CLASS = {(True, True): ' class="al-c"', (True, False): ' class="al-l"', (False, True): ' class="al-r"'}
+
 _INLINE_CODE = re.compile(r'`([^`]+)`')
 _LINK = re.compile(r'\[([^\]]+)\]\((https?://[^\s)]+)\)')
 _BOLD = re.compile(r'\*\*(.+?)\*\*|__(.+?)__')
@@ -41,6 +44,42 @@ def _inline(text):
     text = _BOLD.sub(lambda m: f'<strong>{m.group(1) or m.group(2)}</strong>', text)
     text = _ITALIC.sub(lambda m: f'<em>{m.group(1) or m.group(2)}</em>', text)
     return re.sub(r'\x00(\d+)\x00', lambda m: spans[int(m.group(1))], text)
+
+
+def _cells(line):
+    """Cells of a table row: leading/trailing pipes optional, \\| stays inside its cell."""
+    row = line.strip()
+    if row.startswith('|'):
+        row = row[1:]
+    parts = re.split(r'(?<!\\)\|', row)
+    if len(parts) > 1 and parts[-1].strip() == '':
+        parts.pop()   # the trailing pipe
+    return [p.strip().replace('\\|', '|') for p in parts]
+
+
+def _table_start(lines, i):
+    """Alignment spec if lines[i] is a header row and lines[i + 1] its |---|:-:| separator, else None."""
+    if i + 1 >= len(lines) or '|' not in lines[i] or '|' not in lines[i + 1]:
+        return None
+    head, sep = _cells(lines[i]), _cells(lines[i + 1])
+    if len(head) != len(sep) or not all(_ALIGN_CELL.fullmatch(c) for c in sep):
+        return None
+    return [_ALIGN_CLASS.get((c.startswith(':'), c.endswith(':')), '') for c in sep]
+
+
+def _table(lines, i, align):
+    """(html, next index) for the table whose header is lines[i]."""
+    def row(tag, cells):
+        cells = (cells + [''] * len(align))[:len(align)]   # ragged rows are padded / trimmed to the header
+        return '<tr>' + ''.join(f'<{tag}{a}>{_inline(c)}</{tag}>' for c, a in zip(cells, align)) + '</tr>'
+
+    head = row('th', _cells(lines[i]))
+    i += 2
+    body = []
+    while i < len(lines) and lines[i].strip() and not _FENCE.match(lines[i].strip()):   # like GFM: until a blank line
+        body.append(row('td', _cells(lines[i])))
+        i += 1
+    return (f'<div class="md-table"><table><thead>{head}</thead><tbody>{"".join(body)}</tbody></table></div>', i)
 
 
 def to_html(md):
@@ -80,6 +119,13 @@ def to_html(md):
         if not stripped:
             flush_para(); close_list()
             i += 1
+            continue
+
+        align = _table_start(lines, i)
+        if align:
+            flush_para(); close_list()
+            html_table, i = _table(lines, i, align)
+            out.append(html_table)
             continue
 
         m = _HEADING.match(stripped)

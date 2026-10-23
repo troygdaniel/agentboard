@@ -288,6 +288,13 @@
   .card:hover .copy, .card:focus-within .copy { opacity: 1; }
   .card[data-status="todo"]:has(.copy) .title { padding-right: 96px; }
   .copy:hover { color: var(--text); }
+  /* "Copied" marker on a Todo card: a real button, so keyboard works; the check swaps to an x on hover/focus to say it's removable */
+  .copied { display: inline-flex; align-items: center; gap: 5px; margin-left: auto; background: color-mix(in srgb, var(--ok) 10%, transparent);
+    border: 1px solid color-mix(in srgb, var(--ok) 35%, var(--line)); color: var(--ok); border-radius: 999px; padding: 1px 9px 1px 7px;
+    font: inherit; font-size: var(--fs-sm); cursor: pointer; min-height: 22px; transition: background .12s, border-color .12s, color .12s; }
+  .copied .cp-x, .copied:hover .cp-ok, .copied:focus-visible .cp-ok { display: none; }
+  .copied:hover .cp-x, .copied:focus-visible .cp-x { display: inline; }
+  .copied:hover, .copied:focus-visible { color: var(--text); border-color: var(--neutral); background: var(--chip); }
   .drop { height: 2px; background: var(--accent); border-radius: 1px; margin: -5px 0; pointer-events: none; }
   .more { font-size: var(--fs-sm); color: var(--muted); background: none; border: 0; padding: 6px 10px 2px; cursor: pointer; text-align: left; flex: none; }
   .more:hover { color: var(--text); }
@@ -643,6 +650,16 @@
   .rich-body code { font: var(--fs-md) ui-monospace, Menlo, monospace; }
   .rich-body pre code { background: none; padding: 0; }
   .rich-body a { color: var(--text); text-decoration: underline; text-underline-offset: 2px; }
+  /* tables scroll inside the panel instead of pushing it wider */
+  .rich-body .md-table { margin: 12px 0; overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; }
+  .rich-body table { border-collapse: collapse; width: 100%; font-size: var(--fs-md); line-height: 1.45; font-variant-numeric: tabular-nums; }
+  .rich-body th, .rich-body td { padding: 7px 12px; text-align: left; vertical-align: top; border-top: 1px solid var(--line); }
+  .rich-body th, .rich-body td { overflow-wrap: normal; }   /* undo the panel's anywhere-wrapping inherited from the callout */
+  .rich-body td { min-width: 7ch; }   /* plain words never break mid-word; only code (long identifiers) may wrap anywhere */
+  .rich-body td code { overflow-wrap: anywhere; }
+  .rich-body thead th { border-top: 0; color: var(--muted); font-weight: 600; font-size: var(--fs-sm); background: var(--chip); white-space: nowrap; }
+  .rich-body tbody tr:hover td { background: color-mix(in srgb, var(--text) 4%, transparent); }
+  .rich-body .al-c { text-align: center; } .rich-body .al-r { text-align: right; }
   .btn.danger:hover { color: var(--warn); border-color: var(--warn); }
   @media (prefers-reduced-motion: reduce) { #panel, #later, #chat { transition: none; } }
   #later {
@@ -860,6 +877,7 @@ let byId = new Map(), kidsMap = new Map();
 const subsOpen = new Map();   // parent id -> expanded? (unset: Doing parents start open, the rest collapsed)
 const isKid = t => !!t.parent_id && byId.has(t.parent_id);
 let firstRender = true, justDropped = null;
+const copied = new Set();   // Todo card ids whose prompt was copied this page-load (in-memory on purpose: a refresh clears it)
 let selected = new Set(), selectAnchor = null;   // multi-select: shift-click/shift-arrows range, ⌘/ctrl-click toggle
 
 const $ = id => document.getElementById(id);
@@ -919,7 +937,11 @@ function card(t) {
   const laterBtn = todo ? `<button class="card-act" data-later="${esc(t.id)}" title="Move to Later (backlog)"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 3v7m0 0L5 7m3 3l3-3M3 13h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Later</button>` : '';
   const toTodoBtn = backlog ? `<button class="card-act" data-to-todo="${esc(t.id)}" title="Move to Todo"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 13V6m0 0L5 9m3-3l3 3M3 3h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Move to Todo</button>` : '';
   const queued = todo ? `<span class="when"><svg width="11" height="11" viewBox="0 0 16 16" fill="none" aria-hidden="true" style="vertical-align:-1px;margin-right:4px"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5"/><path d="M8 5v3l2 1.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>queued ${a.text}</span>` : when;
-  const meta = !who && (queued || laterBtn || toTodoBtn) ? `<div class="meta">${laterBtn}${toTodoBtn}${queued}</div>` : '';
+  const copiedBadge = todo && copied.has(t.id)
+    ? `<button class="copied" type="button" data-clear-copied="${esc(t.id)}" title="Prompt copied. Click to clear" aria-label="Prompt copied, click to clear">` +
+      `<svg class="cp-ok" width="11" height="11" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>` +
+      `<svg class="cp-x" width="11" height="11" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg>Copied</button>` : '';
+  const meta = !who && (queued || laterBtn || toTodoBtn || copiedBadge) ? `<div class="meta">${laterBtn}${toTodoBtn}${queued}${copiedBadge}</div>` : '';
   const nSubs = t.subs_total || 0;   // a parent's % is the computed mean of its subtasks (Σ), and its one bar is the segmented toggle
   const note = doing ? `<div class="note"><span title="${esc(t.status_text)}">${esc(t.status_text)}</span><span class="pct ${nSubs ? 'computed' : ''}">${t.progress || 0}%</span></div>`
     : (done && t.result ? `<div class="note"><span title="${esc(t.result)}">${esc(t.result)}</span></div>` : '');
@@ -975,6 +997,7 @@ function render() {
   $('filter').classList.toggle('on', tasks.length > 8 || !!q);
   const pf = $('project-filter').value;
   byId = new Map(tasks.map(t => [t.id, t])); kidsMap = new Map();
+  copied.forEach(id => { if (byId.get(id)?.status !== 'todo') copied.delete(id); });   // claimed/moved/deleted: a later return to Todo starts clean
   tasks.forEach(t => { if (isKid(t)) { if (!kidsMap.has(t.parent_id)) kidsMap.set(t.parent_id, []); kidsMap.get(t.parent_id).push(t); } });
   // cards on the board: top-level tasks only; every subtask (finished ones too) lives inside its parent
   const top = tasks.filter(t => !isKid(t));
@@ -1409,6 +1432,7 @@ $('p-body').addEventListener('click', async e => {
       await navigator.clipboard.writeText(d.prompt);
       b.textContent = d.warnings.length ? 'Copied, with warnings' : 'Copied';
       if (d.warnings.length) showError(d.warnings.join(' · '));
+      if (byId.get(openId)?.status === 'todo') { copied.add(openId); render(); }
     } catch (err) { b.textContent = 'Failed'; showError('Copy failed: ' + err.message); }
     setTimeout(() => { if (b.isConnected) b.textContent = 'Copy prompt'; }, 1800);
   } else if (b.id === 'p-del') {
@@ -2010,6 +2034,8 @@ $('board').addEventListener('click', async e => {
   if (md) { confirmDoneClick(md); move(md.dataset.done, 'done'); return; }
   const bl = e.target.closest('[data-open-blocker]');
   if (bl) { openPanel(bl.dataset.openBlocker); return; }
+  const cc = e.target.closest('[data-clear-copied]');
+  if (cc) { copied.delete(cc.dataset.clearCopied); return render(); }
   const w = e.target.closest('.who');
   if (w) {
     const f = $('filter'); f.value = f.value === w.dataset.agent ? '' : w.dataset.agent;
@@ -2029,6 +2055,7 @@ $('board').addEventListener('click', async e => {
     await navigator.clipboard.writeText(d.prompt);
     btn.textContent = d.warnings.length ? 'Copied, with warnings' : 'Copied';
     if (d.warnings.length) showError(d.warnings.join(' · '));
+    if (byId.get(id)?.status === 'todo') { copied.add(id); render(); }   // only after the clipboard write actually succeeded
   } catch (err) { btn.textContent = 'Failed'; showError('Copy failed: ' + err.message); }
   setTimeout(() => { btn.textContent = 'Copy prompt'; }, 1800);
 });

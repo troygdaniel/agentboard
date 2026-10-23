@@ -1048,3 +1048,44 @@ class SubtaskStateRuleTests(unittest.TestCase):
         self.s.update("one", 100)
         self.s.move("big", "todo")
         self.assertEqual(self.s.update("one", 20, "late")["progress"], 100)
+
+
+class MarkdownTableTests(unittest.TestCase):
+    def md(self, text):
+        from agentboard import markdown
+        return markdown.to_html(text)
+
+    def test_basic_table(self):
+        out = self.md("| a | b |\n|---|---|\n| 1 | 2 |\n| 3 | 4 |")
+        self.assertEqual(out, '<div class="md-table"><table><thead><tr><th>a</th><th>b</th></tr></thead>'
+                              '<tbody><tr><td>1</td><td>2</td></tr><tr><td>3</td><td>4</td></tr></tbody></table></div>')
+
+    def test_alignment_comes_from_the_separator_row(self):
+        out = self.md("| l | c | r | n |\n|:--|:-:|--:|---|\n| 1 | 2 | 3 | 4 |")
+        self.assertIn('<th class="al-l">l</th><th class="al-c">c</th><th class="al-r">r</th><th>n</th>', out)
+        self.assertIn('<td class="al-l">1</td><td class="al-c">2</td><td class="al-r">3</td><td>4</td>', out)
+
+    def test_inline_markup_works_inside_cells_and_stays_escaped(self):
+        out = self.md("| x | y |\n|---|---|\n| `code` and **bold** | [l](https://e.com) <b>raw</b> |")
+        self.assertIn("<td><code>code</code> and <strong>bold</strong></td>", out)
+        self.assertIn('<a href="https://e.com"', out)
+        self.assertIn("&lt;b&gt;raw&lt;/b&gt;", out)
+        self.assertNotIn("<b>", out)
+
+    def test_pipes_without_a_separator_row_stay_a_paragraph(self):
+        self.assertEqual(self.md("| a | b |\n| 1 | 2 |"), "<p>| a | b |<br>| 1 | 2 |</p>")
+        self.assertEqual(self.md("use a | b here"), "<p>use a | b here</p>")
+
+    def test_escaped_pipes_stay_inside_their_cell(self):
+        out = self.md("| a | b |\n|---|---|\n| x \\| y | z |")
+        self.assertIn("<td>x | y</td><td>z</td>", out)
+
+    def test_leading_and_trailing_pipes_are_optional_and_ragged_rows_are_padded(self):
+        out = self.md("a | b\n--|--\n1 | 2\n3")
+        self.assertIn("<th>a</th><th>b</th>", out)
+        self.assertIn("<tr><td>1</td><td>2</td></tr><tr><td>3</td><td></td></tr>", out)
+
+    def test_table_ends_at_a_blank_line_and_text_around_it_survives(self):
+        out = self.md("before\n\n| a |\n|---|\n| 1 |\n\nafter")
+        self.assertTrue(out.startswith("<p>before</p><div class=\"md-table\">"))
+        self.assertTrue(out.endswith("</table></div><p>after</p>"))
