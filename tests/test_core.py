@@ -1261,3 +1261,45 @@ class SubtaskSlotTests(unittest.TestCase):
                  {"id": "late", "parent_id": "p", "status": "todo", "progress": 0, "created": "2026-01-01T10:00:09"},
                  {"id": "early", "parent_id": "p", "status": "todo", "progress": 0, "created": "2026-01-01T10:00:01"}]
         self.assertEqual([x["id"] for x in subtask_list(tasks)["p"]], ["early", "late"])
+
+
+class UndoHistoryTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.s = Store(Path(self.tmp.name) / ".agentboard")
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def get(self, tid):
+        return Store.get(self.s.load(), tid)
+
+    def test_undo_keeps_the_hud_lane_busy_and_writes_a_restored_entry(self):
+        from datetime import datetime
+        from agentboard import hud
+        self.s.start("A", "atlas", task_id="a")
+        self.s.update("a", 40, "half")
+        prev, before = self.get("a"), self.s.next_sibling("a")
+        self.s.move("a", "done")
+        self.s.restore(prev, before)
+        t = self.get("a")
+        self.assertEqual(t["status"], "doing")
+        self.assertEqual(t["log"][-1]["text"], "Restored to doing")
+        self.assertEqual([k for k, _, _ in hud.segments(t, datetime(2100, 1, 1))][-1], "busy")
+
+    def test_undo_refreshes_updated_so_the_card_is_not_instantly_stale(self):
+        self.s.start("A", "atlas", task_id="a")
+        prev = dict(self.get("a"), updated="2020-01-01T00:00:00")   # the snapshot was taken long ago
+        self.s.move("a", "todo")
+        self.s.restore(prev, None)
+        self.assertGreater(self.get("a")["updated"], "2020-01-01T00:00:00")
+
+    def test_undoing_a_parent_move_logs_on_the_children_it_put_back(self):
+        self.s.add("P", status="todo", task_id="p")
+        self.s.add("K", parent_id="p", task_id="k")
+        self.s.claim("p", "atlas")
+        snap, kids = self.get("p"), [dict(self.get("k"))]
+        self.s.move("p", "done")
+        self.s.restore(snap, None, kids)
+        self.assertEqual(self.get("k")["status"], "doing")
+        self.assertEqual(self.get("k")["log"][-1]["text"], "Restored to doing")

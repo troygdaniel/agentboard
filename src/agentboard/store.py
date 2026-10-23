@@ -374,11 +374,14 @@ class Store:
         with self.transaction() as tasks:
             tasks.remove(self.get(tasks, snapshot["id"]))
             snap = dict(snapshot)
+            snap["log"] = list(snap.get("log", []))
+            _restored(snap)
             _insert(tasks, snap, before_id)
             for ks in kids or []:
                 for i, x in enumerate(tasks):
                     if x["id"] == ks["id"]:
-                        tasks[i] = dict(ks)
+                        tasks[i] = dict(ks, log=list(ks.get("log", [])))
+                        _restored(tasks[i])
             return snap
 
     def clear_done(self):
@@ -714,6 +717,13 @@ def subtask_list(tasks):
         out.setdefault(x["parent_id"], []).append(
             {"id": x["id"], "status": x["status"], "progress": x.get("progress", 0), "archived": bool(x.get("archived"))})
     return out
+
+
+def _restored(t):
+    """An undone move is an event too: it shows in the history, and the card's clock restarts (the
+    snapshot carries the timestamp from before the move, which could be hours old and read as stale)."""
+    _log(t, f"Restored to {t['status']}")
+    t["updated"] = _now()
 
 
 def _insert(tasks, t, before_id):
