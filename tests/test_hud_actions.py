@@ -77,5 +77,28 @@ class ActionRowTests(unittest.TestCase):
         self.assertEqual(h["actions"][0]["age_min"], 0)
 
 
+class RetiredAgentTests(unittest.TestCase):
+    def test_retired_names_leave_agents_lanes_and_actions_but_not_history(self):
+        with tempfile.TemporaryDirectory() as d:
+            s = Store(Path(d) / ".agentboard")
+            s.start("Old", "AGENT-5")
+            s.ask("old", "still here?")
+            s.start("New", "AGENT-1")
+            tasks = s.load()
+            h = hud.build(tasks, retired={"AGENT-5"})
+            self.assertEqual([a["name"] for a in h["agents"]], ["AGENT-1"])
+            self.assertNotIn("AGENT-5", h["lanes"])
+            self.assertEqual(h["actions"], [])
+            self.assertTrue(any(e["agent"] == "AGENT-5" for e in h["events"]))   # the feed still shows what it did
+            self.assertEqual(h["totals"]["working"], 2)                          # its card is still a Doing card
+            self.assertEqual(sorted(a["name"] for a in hud.build(tasks)["agents"]), ["AGENT-1", "AGENT-5"])
+
+    def test_retired_reads_the_hud_table_and_ignores_junk(self):
+        self.assertEqual(hud.retired({"hud": {"retired": ["AGENT-5", " x ", 3]}}), {"AGENT-5", "x"})
+        self.assertEqual(hud.retired({"hud": {"retired": "AGENT-5"}}), set())
+        self.assertEqual(hud.retired({}), set())
+        self.assertEqual(hud.retired(None), set())
+
+
 if __name__ == "__main__":
     unittest.main()

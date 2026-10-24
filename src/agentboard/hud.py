@@ -18,6 +18,13 @@ def stale_minutes(conf):
     return v if isinstance(v, (int, float)) and not isinstance(v, bool) and v > 0 else ABANDONED_MIN
 
 
+def retired(conf):
+    """[hud] retired = ["AGENT-5"]: agent names the HUD leaves out (their cards and history stay).
+    Anything that is not a list of strings is ignored."""
+    v = (conf or {}).get("hud", {}).get("retired", [])
+    return {x.strip() for x in v if isinstance(x, str) and x.strip()} if isinstance(v, list) else set()
+
+
 def _t(s):
     try:
         return datetime.strptime(s, FMT)
@@ -224,9 +231,12 @@ def dur(minutes):
     return f"{m}m" if m < 60 else f"{m // 60}h{m % 60:02d}"
 
 
-def build(tasks, now=None, feed_limit=60, abandoned_min=None):
+def build(tasks, now=None, feed_limit=60, abandoned_min=None, retired=()):
+    """retired: agent names to leave out of agents/lanes/actions (see retired()); their cards still
+    count in the totals, feed and timeline, so history is untouched."""
     now = now or datetime.now()
     abandoned_min = ABANDONED_MIN if abandoned_min is None else abandoned_min
+    retired = set(retired or ())
     events, by_agent, done_minutes = [], {}, []
     done_today = events_today = 0
     today = now.date()
@@ -267,7 +277,7 @@ def build(tasks, now=None, feed_limit=60, abandoned_min=None):
             created = _t(t.get("created"))
             if created and marked >= created:
                 done_minutes.append((marked - created).total_seconds() / 60)
-        if t.get("agent") and not is_sub:
+        if t.get("agent") and not is_sub and t["agent"] not in retired:
             by_agent.setdefault(t["agent"], []).append(t)
         for kind, a, b in segments(t, now):
             if b < win_start:
@@ -278,7 +288,7 @@ def build(tasks, now=None, feed_limit=60, abandoned_min=None):
                     queue_runs.append((a, b))
             elif kind == "busy" and t["id"] in parents:
                 continue   # its subtasks' own runs say what the agent was doing; don't paint over them
-            elif t.get("agent"):
+            elif t.get("agent") and t["agent"] not in retired:
                 lanes.setdefault(t["agent"], []).append(
                     {"k": kind, "a": a.strftime(FMT), "b": b.strftime(FMT), "t": label(t)})
 
@@ -332,7 +342,7 @@ def build(tasks, now=None, feed_limit=60, abandoned_min=None):
         "waiting_s": round(waiting_s),  # agent-seconds spent waiting on / for the user
 
         "agents": agents,
-        "actions": actions(top, now, abandoned_min),   # what needs a person, most urgent first
+        "actions": actions([t for t in top if t.get("agent") not in retired], now, abandoned_min),
         "events": events[:feed_limit],
         "totals": {
             "working": sum(1 for t in top if t["status"] == "doing"),

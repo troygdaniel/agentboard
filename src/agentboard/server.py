@@ -107,7 +107,9 @@ def make_handler(store, port):
             elif url.path == "/api/projects":
                 self._send(200, {"projects": store.load_projects()})
             elif url.path == "/api/hud":
-                self._send(200, hud.build(store.load(), abandoned_min=hud.stale_minutes(_config())))
+                conf = _config()
+                self._send(200, hud.build(store.load(), abandoned_min=hud.stale_minutes(conf),
+                                          retired=hud.retired(conf)))
             elif url.path == "/api/config":
                 conf = _config()
                 self._send(200, {"dispatch": bool(conf.get("ui", {}).get("dispatch", True)),
