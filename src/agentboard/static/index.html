@@ -504,6 +504,9 @@
   .ha.troy .ha-who { animation: hqblink 2.6s ease-in-out infinite; }
   .ha-what { min-width: 0; }
   .ha-t { font-size: var(--fs-md); line-height: 1.35; color: var(--htext); overflow-wrap: anywhere; }   /* Troy (twice): smaller, so the whole ask reads */
+  ol.steps { margin: 2px 0 0; padding-left: 1.6em; }
+  ol.steps li { margin: 1px 0; padding-left: .2em; }
+  ol.steps li::marker { color: var(--hdim, var(--muted)); font-weight: 600; }
   .ha-what small { display: block; color: var(--hdim); font-size: var(--fs-xs); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: 0; }
   .ha-from { text-align: right; color: var(--hdim); font-size: var(--fs-xs); white-space: nowrap; line-height: 1.4; }
   .ha-from b { display: block; color: var(--htext); font-weight: 500; letter-spacing: var(--tr-tight); }
@@ -1485,11 +1488,30 @@ function inlineFmt(src) {
   h = h.replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>');
   return h.replace(/\u0000(\d+)\u0000/g, (_, i) => keep[i]);
 }
+// Numbered steps written in one breath — "(1) do x; (2) do y" or "1. x 2. y" — become a list,
+// one step per line (Troy, 2026-10-24: "(1) .. then (2) should be on new lines"). Only a run that
+// counts 1, 2, 3… in order counts as steps, so "Oct 24. Next" or "avg 3.5" never split.
+function splitSteps(text) {
+  const t = String(text || '').replace(/\r/g, '');
+  const re = /(^|[\s;:,])\(?(\d{1,2})[.)]\s+/g, marks = []; let m;
+  while ((m = re.exec(t))) marks.push({ n: +m[2], at: m.index + m[1].length, end: m.index + m[0].length });
+  const run = []; for (const k of marks) { if (k.n === run.length + 1) run.push(k); else if (run.length >= 2) break; else run.length = 0, k.n === 1 && run.push(k); }
+  if (run.length < 2) return null;
+  const lead = t.slice(0, run[0].at).replace(/[\s;:,]+$/, '').trim();
+  const items = run.map((k, i) => t.slice(k.end, i + 1 < run.length ? run[i + 1].at : t.length).replace(/[\s;,]+$/, '').trim());
+  return { lead, items };
+}
+// steps as an <ol> (or the text as-is); `inline` escapes/decorates one line of text
+function stepsHtml(text, inline) {
+  const st = splitSteps(text);
+  if (!st) return inline(text);
+  return (st.lead ? inline(st.lead) + ' ' : '') + '<ol class="steps">' + st.items.map(x => '<li>' + inline(x) + '</li>').join('') + '</ol>';
+}
 function fmt(text) {
   return String(text || '').replace(/\r/g, '').trim().split(/\n{2,}/).filter(Boolean).map(b => {
     const lines = b.split('\n');
     if (lines.every(l => /^\s*[-*•]\s+/.test(l))) return '<ul>' + lines.map(l => '<li>' + inlineFmt(l.replace(/^\s*[-*•]\s+/, '')) + '</li>').join('') + '</ul>';
-    return '<p>' + lines.map(inlineFmt).join('<br>') + '</p>';
+    return '<p>' + lines.map(l => stepsHtml(l, inlineFmt)).join('<br>') + '</p>';
   }).join('');
 }
 // "ACTION Troy: do x / STATUS card done-ready / WHY because" -> {action, status[], why, rest}
@@ -1511,7 +1533,7 @@ function arwHtml(p, small) {
   const chips = p.status.length ? `<div class="arw-row">${p.status.map(x => {
     const cls = /done-ready|done\b/i.test(x) ? 'done' : /blocked/i.test(x) ? 'blocked' : /\d+%/.test(x) ? 'pct' : '';
     return `<span class="chip ${cls}">${esc(x)}</span>`; }).join('')}</div>` : '';
-  return `<div class="arw ${tone} ${small ? 'sm' : ''}"><span class="who">${esc(who)}</span><span class="fmt">${what ? inlineFmt(what) : ''}</span></div>${chips}`
+  return `<div class="arw ${tone} ${small ? 'sm' : ''}"><span class="who">${esc(who)}</span><span class="fmt">${what ? stepsHtml(what, inlineFmt) : ''}</span></div>${chips}`
     + (p.why ? `<div class="arw-why fmt">${inlineFmt(p.why)}</div>` : '') + (p.rest ? `<div class="fmt">${fmt(p.rest)}</div>` : '');
 }
 const entryHtml = text => { const p = parseArw(text); return p.has ? arwHtml(p, true) : `<div class="fmt">${fmt(text)}</div>`; };
@@ -1964,7 +1986,7 @@ function renderActions(rows) {
     const age = r.age_min == null ? '' : r.age_min < 1 ? 'just now' : dur(r.age_min);
     return `<a class="ha ${r.who === 'Troy' ? 'troy' : ''}" data-id="${hh(r.id)}" href="/#${encodeURIComponent(r.id)}" style="--c:${WHO_COLOR(r.who)}" title="${hh(r.title)}">
       <span class="ha-who">${hh(r.who === 'none' ? '—' : r.who.toUpperCase())}</span>
-      <span class="ha-what"><span class="ha-t">${hh(r.what)}</span><small>${hh(r.title)}${r.status ? ' · ' + hh(r.status) : ''}</small></span>
+      <span class="ha-what"><span class="ha-t">${stepsHtml(r.what, hh)}</span><small>${hh(r.title)}${r.status ? ' · ' + hh(r.status) : ''}</small></span>
       <span class="ha-from"><b>${hh(r.agent)}</b><i>${hh(KIND_WORD[r.kind] || r.kind)}</i>${age ? ' · ' + age : ''}</span></a>`;
   }).join('') : `<div class="ha-none">nothing needs you<span>asks, reviews and quiet agents show up here</span></div>`;
   if (box.dataset.k !== html) { box.dataset.k = html; box.innerHTML = html; }
