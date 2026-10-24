@@ -473,7 +473,15 @@
   .h-one .h-scroll { display: flex; flex-direction: column; }
   .h-one .h-row { flex: 1 0 auto; min-height: 84px; }
   .h-one .h-row:first-child { border-top: 0; }
-  .h-load .ln-track { height: 36px; min-height: 0; flex: 1 1 auto; width: 100%; }
+  .h-load .ln-track { height: clamp(36px, 28%, 60px); min-height: 0; flex: 1 1 auto; width: 100%; }   /* grows a little with a tall row */
+  /* Troy (2026-10-24): tall rows left empty space around the text. Each row now carries its last
+     few notes (time + text), the detail you would otherwise open the card for. Hidden on short
+     screens, where the rows have no spare height to give. */
+  .h-recent { list-style: none; margin: 6px 0 0; padding: 0; color: var(--hdim); font-size: var(--fs-xs); line-height: 1.5; opacity: .85; }
+  .h-recent li { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .h-recent time { color: var(--hcy); opacity: .8; margin-right: 8px; letter-spacing: var(--tr-tight); }
+  .h-row.idle .h-recent { opacity: .6; }
+  @media (max-height: 820px) { .h-recent { display: none; } }
   .h-row.idle .h-load .ln-track { opacity: .45; }
   /* the queue is the last row of the same grid: label where the names are, bars where the bars are */
   .h-row.h-q { flex: none; min-height: 56px; max-height: 64px; border-top: 1px solid rgba(110,190,255,.14); }
@@ -2043,6 +2051,7 @@ function renderGrid(d) {
     box.innerHTML = agents.map(a => `<div class="h-row" data-agent="${hh(a.name)}">
       <span class="h-av">${hh(nodeGlyph(a.name))}</span>
       <div class="h-who"><div class="h-name">${hh(a.name)}<em></em></div><span class="h-task"></span><span class="h-status"></span><div class="h-ask"></div>
+        <ul class="h-recent"></ul>
         <div class="h-prgw"><div class="h-prog"><b></b></div><span class="h-pct"></span></div></div>
       <span class="h-since"></span>
       <div class="h-load"><div class="ln-track"></div></div></div>`).join('')
@@ -2056,6 +2065,12 @@ function renderGrid(d) {
     r.className = `h-row ${a.state}` + (ask ? ` attn ${ask.kind === 'stale' ? 'stale' : (ask.who === 'Troy' || ask.who === 'none') ? '' : 'other'}` : '');
     r.style.setProperty('--c', c);
     r.dataset.id = ask ? ask.id : a.task_id || '';
+    // the row's last few notes (time + text), newest first; the current status line is not repeated
+    const boiler = /^(Added to todo|Claimed by |Started by |Marked done|Moved to done|Needs input: |Ready for review: )/;   // the row already says these
+    const rec = (a.recent || []).filter(e => e.text && e.text !== a.status_text && !boiler.test(e.text)).slice(0, 3);
+    const recHtml = rec.map(e => `<li><time>${hh(new Date(e.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }))}</time>${hh(clip(e.text, 160))}</li>`).join('');
+    const recEl = r.querySelector('.h-recent');
+    if (recEl.dataset.k !== recHtml) { recEl.dataset.k = recHtml; recEl.innerHTML = recHtml; }
     const askEl = r.querySelector('.h-ask');
     const askHtml = ask ? stepsHtml(ask.what, hh) + `<i>${hh(KIND_WORD[ask.kind] || ask.kind)}${ask.who && ask.who !== 'Troy' && ask.who !== 'none' ? ' · for ' + hh(ask.who) : ''}${ask.age_min == null ? '' : ' · ' + (ask.age_min < 1 ? 'just now' : dur(ask.age_min))}</i>` : '';
     if (askEl.dataset.k !== askHtml) { askEl.dataset.k = askHtml; askEl.innerHTML = askHtml; }
