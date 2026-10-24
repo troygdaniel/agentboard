@@ -433,12 +433,50 @@
   .h-chip.dim { color: var(--hwarn); border-color: rgba(255,200,87,.25); opacity: .8; }
   .h-chip.err { color: var(--hbad); border-color: rgba(255,107,107,.45); background: rgba(255,107,107,.1); animation: hqblink 2.6s ease-in-out infinite; }
   .h-chip.today { color: var(--hcy); border-color: rgba(94,231,255,.35); background: rgba(94,231,255,.06); }
-  /* Telemetry holds every agent with the detail (what, how far, how long ago, how many cards); Agent
-     load is the hour's history and only needs enough width to read the shapes. Side by side on a
-     27in; stacked with the lanes capped on a 13in, so neither panel ever ends in dead space. */
-  .h-grid { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(360px, 1fr); grid-template-rows: minmax(0, 1fr); gap: 12px; min-height: 0; }
-  @media (max-width: 1180px) { .h-grid { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; }
-    .h-grid > .hp:last-child .h-scroll { max-height: 30vh; } }
+  /* ONE grid (Troy, 2026-10-24: "the division between left and right is too jarring; more like a grid").
+     Every agent is one full-width row: badge, name + state, task, open/done, progress, age, and the
+     60-minute load bar as the last, widest column. Header, rows, the queue row and the time-axis
+     footer all use the same column template, so every bar lines up with every other and the row
+     divider runs under the bar too. Rows stretch to share the height (no dead space) up to a cap;
+     past the cap the panel ends and the HUD background shows through, which reads as room, not as
+     an empty box. Narrow screens stack the bar under the text of its own row. */
+  .h-grid { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); min-height: 0; }
+  .h-one { --cols: 40px minmax(0, 1.25fr) 92px minmax(96px, .5fr) 88px minmax(240px, 1.55fr); --gap: 16px; align-self: start; max-height: 100%; }
+  .h-one .h-head, .h-one .h-row, .h-one .h-foot { display: grid; grid-template-columns: var(--cols); gap: 0 var(--gap);
+    grid-template-areas: "av who cards prog since load"; }
+  .h-av { grid-area: av; } .h-who { grid-area: who; min-width: 0; } .h-cards { grid-area: cards; } .h-prgw { grid-area: prog; }
+  .h-since { grid-area: since; } .h-load { grid-area: load; min-width: 0; align-self: center; }
+  /* head and foot sit outside the scroll box; the rows inside it lose 6px to the scrollbar. The
+     gutter is reserved always and the head/foot pad the same 6px, so the bar column (fr-sized)
+     resolves to the same pixels in all three and the -60m/now ticks land exactly under the bars. */
+  .h-one .h-scroll { scrollbar-gutter: stable; }
+  .h-head { align-items: baseline; padding: 0 18px 10px 16px; border-bottom: 1px solid var(--hline); flex: none; }
+  .h-head .h-who, .h-foot .ln-leg { grid-column: av-start / who-end; }   /* flush left, like the strip's title */
+  .h-head h4 { margin: 0; }
+  .h-head .h-h2 { grid-area: load; display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+  .h-head .h-h2 h4 { margin: 0; }
+  .h-head .ln-wait { float: none; }
+  .h-one .h-scroll { display: flex; flex-direction: column; }
+  .h-one .h-row { flex: 1 1 auto; min-height: 84px; max-height: 150px; }
+  .h-one .h-row:first-child { border-top: 0; }
+  .h-load .ln-track { height: 36px; min-height: 0; }
+  .h-row.idle .h-load .ln-track { opacity: .45; }
+  /* the queue is the last row of the same grid: label where the names are, bars where the bars are */
+  .h-row.h-q { flex: none; min-height: 56px; max-height: 64px; border-top: 1px solid rgba(110,190,255,.14); }
+  .h-row.h-q .h-who { color: var(--hcy); font-size: var(--fs-sm); letter-spacing: var(--tr-label); align-self: center; }
+  .h-row.h-q .h-load .ln-track { display: flex; align-items: flex-end; gap: 2px; padding: 0 1px; height: 30px; }
+  .h-row.h-q .h-load .ln-track i { flex: 1; min-height: 0; background: linear-gradient(180deg, var(--hcy), rgba(94,231,255,.25)); border-radius: 2px 2px 0 0; opacity: .8; }
+  .h-row.h-q::before { display: none; }
+  .h-foot { flex: none; padding: 8px 18px 0 16px; border-top: 1px solid var(--hline); align-items: center; }
+  .h-foot .ln-leg { grid-area: who; justify-self: start; }
+  .h-foot .ln-ticks { grid-area: load; }
+  @media (max-width: 1100px) {
+    .h-one { --cols: 40px minmax(0, 1fr) 92px minmax(90px, .6fr) 80px; }
+    .h-one .h-head, .h-one .h-row, .h-one .h-foot { grid-template-areas: "av who cards prog since" "av load load load load"; }
+    .h-one .h-row { max-height: none; }
+    .h-head .h-h2 { justify-content: flex-start; }
+    .h-load { margin-top: 8px; }
+  }
   /* ----- ACTION strip: who needs to do what, right now. The one thing Troy opens the HUD for. ----- */
   .h-act { padding: 10px 16px 10px; gap: 0; }
   .h-act h4 { margin-bottom: 6px; }
@@ -475,7 +513,7 @@
   .h-scroll::-webkit-scrollbar { width: 6px; } .h-scroll::-webkit-scrollbar-thumb { background: var(--hline); border-radius: 3px; }
   /* each telemetry row is a lit strip: a state-colored accent bar on the left edge that glows
      (and breathes while working), so a column of rows reads as a stack of live instruments */
-  .h-row { position: relative; display: grid; grid-template-columns: 40px minmax(0, 2fr) auto minmax(110px, .9fr) 92px; gap: 16px; align-items: center;
+  .h-row { position: relative; align-items: center;
     padding: 10px 12px 10px 16px; border-top: 1px solid rgba(110,190,255,.08); border-radius: 10px; transition: background .2s ease; }
   /* cards column: open now / signed off today — the "load" numbers that used to live in the lanes */
   .h-cards { display: flex; flex-direction: column; gap: 2px; color: var(--hdim); font-size: var(--fs-sm); white-space: nowrap; }
@@ -540,28 +578,9 @@
   #hud-inner[data-hk="review"] .sg.review, #hud-inner[data-hk="review"] .ln-leg u[data-k="review"]
     { opacity: 1; filter: brightness(1.4); }
   .ln-wait { float: right; color: var(--hwarn); letter-spacing: var(--tr-tight); text-transform: none; font-size: var(--fs-sm); }
-  /* Aligned mode (panels side by side): the lanes sit on the SAME row grid as Telemetry — one agent,
-     one row, same order, same height on both sides (JS copies each telemetry row's height onto its
-     lane and keeps the two scroll positions in step), so the right side needs no agent names at all:
-     the row to the left already says who. Only the queue keeps a label, inside its own track. */
-  #h-lanes.aligned { justify-content: flex-start; gap: 0; }
-  #h-lanes.aligned .ln[data-agent], #h-lanes.aligned .ln-q, #h-lanes.aligned .ln-ax { grid-template-columns: minmax(0, 1fr); gap: 0; }
-  #h-lanes.aligned .ln[data-agent] { max-height: none; min-height: 0; flex: none; border-radius: 0; padding: 12px 0 12px 12px; border-top: 1px solid rgba(110,190,255,.08); }
-  #h-lanes.aligned .ln[data-agent]:first-child { border-top: 0; }
-  #h-lanes.aligned .ln-who, #h-lanes.aligned .ln-sum { display: none; }
-  #h-lanes.aligned .ln[data-agent] { align-items: center; }
-  #h-lanes.aligned .ln[data-agent] .ln-track { min-height: 0; height: clamp(30px, 48%, 46px); }
-  #h-lanes.aligned .ln.idle .ln-track { opacity: .45; }
-  #h-lanes.aligned .ln.idle::before, #h-lanes.aligned .ln.idle::after { display: none; }
-  #h-lanes.aligned .ln-q { margin-top: 12px; padding-left: 12px; }
-  #h-lanes.aligned .ln-ax { padding-left: 12px; }
-  .ln-qlab { display: none; }
-  #h-lanes.aligned .ln-q .ln-track { position: relative; }
-  #h-lanes.aligned .ln-qlab { display: block; position: absolute; left: 8px; top: 50%; transform: translateY(-50%); z-index: 1; color: var(--hcy); font-size: var(--fs-xs); letter-spacing: var(--tr-label); text-shadow: 0 0 6px var(--hbg), 0 0 6px var(--hbg); pointer-events: none; }
   /* safe center: when the group is shorter than the panel (1-2 agents) it sits composed in the
      middle instead of huddling at the top over a void; when it's taller it top-aligns and scrolls
      as normal (the "safe" keyword is what prevents centered overflow clipping the top rows) */
-  #h-lanes { display: flex; flex-direction: column; justify-content: safe center; gap: clamp(6px, 1.4vh, 18px); }
   /* lane caps scale with the viewport: a lone agent gets a generous hero lane on a tall screen
      without ever turning into a 500px slab; active lanes and the idle block share the leftover */
   .ln { position: relative; display: grid; grid-template-columns: 112px minmax(0, 1fr) 104px; gap: 12px; align-items: stretch; flex: 1 1 0;
@@ -906,10 +925,13 @@
     </div>
     <section class="hp h-act" aria-live="polite"><h4>Needs a person <span class="ln-sub" id="h-act-sub"></span></h4><div class="h-scroll" id="h-act"></div></section>
     <div class="h-grid">
-      <section class="hp"><h4>Telemetry <span class="ln-sub">every agent, right now</span></h4><div class="h-scroll" id="h-tele"></div></section>
-      <section class="hp"><h4>Agent load <span class="ln-sub">last 60 min</span><span class="ln-wait" id="ln-wait"></span></h4>
-        <div class="h-scroll" id="h-lanes"></div>
-        <div class="ln-foot"><span class="ln-leg"><u data-k="busy" style="--k:var(--c0)">working</u><u data-k="waiting" style="--k:var(--hwarn)">waiting on you</u><u data-k="review" style="--k:var(--hok)">in review</u></span></div></section>
+      <section class="hp h-one" aria-label="Telemetry and agent load">
+        <div class="h-head"><h4 class="h-who">Telemetry <span class="ln-sub">every agent, right now</span></h4>
+          <div class="h-h2"><h4>Agent load <span class="ln-sub">last 60 min</span></h4><span class="ln-wait" id="ln-wait"></span></div></div>
+        <div class="h-scroll" id="h-tele"></div>
+        <div class="h-foot"><span class="ln-leg"><u data-k="busy" style="--k:var(--c0)">working</u><u data-k="waiting" style="--k:var(--hwarn)">waiting on you</u><u data-k="review" style="--k:var(--hok)">in review</u></span>
+          <div class="ln-ticks"><span style="left:0%">-60m</span><span style="left:25%">-45m</span><span style="left:50%">-30m</span><span style="left:75%">-15m</span><span style="left:100%">now</span></div></div>
+      </section>
     </div>
   </div>
 </div>
@@ -1919,9 +1941,7 @@ function hudRender(d) {
     const t0 = d.totals, mine = (d.actions || []).filter(a => a.who === 'Troy').length;
     document.title = (mine ? `● ${mine} for you · ` : '') + (t0.abandoned ? `⚠ ${t0.abandoned} abandoned · ` : '') + (t0.waiting ? `⚠ ${t0.waiting} input · ` : '') + (t0.review ? `✓ ${t0.review} review · ` : '') + `HUD · ${t0.working} working`;
   }
-  renderLanes(d);
-  renderTele(d.agents);
-  alignLanes();
+  renderGrid(d);
 }
 
 // ---- ACTION strip: one row per card that needs a person. Colour = who must act (Troy red, ORCH
@@ -1974,74 +1994,25 @@ const dur = m => m < 60 ? m + 'm' : Math.floor(m / 60) + 'h' + String(m % 60).pa
 const STATE_COLOR = { working: 'var(--c0)', waiting: 'var(--hwarn)', review: 'var(--hok)', quiet: 'var(--hwarn)', abandoned: 'var(--hbad)' };
 
 // ---- agent load: a lane per agent over the last hour (busy / waiting on you / in review; gaps are idle) ----
-// Both panels list agents in this one order (active first, idle below), so row N on the left
-// is the same agent as row N on the right — the alignment the right side relies on.
+// Both the text cells and the load bar of an agent live on ONE row, in this one order (active
+// first, idle below), so there is nothing to keep aligned any more: it is one grid.
 const teleOrder = all => [...all.filter(a => a.state !== 'idle'), ...all.filter(a => a.state === 'idle')];
 
-function renderLanes(d) {
-  const box = $('h-lanes'); if (!box) return;
-  const win = (d.window_min || 60) * 60000, end = Date.now(), start = end - win;
+function loadTrack(d, a, win, start, end) {   // the agent's last hour as segments inside one track
   const pc = ms => Math.max(0, Math.min(100, (ms - start) / win * 100));
-  const ordered = teleOrder(d.agents);
-  const lanes = ordered.map(a => {
-    const c = STATE_COLOR[a.state] || 'var(--hdim)', tot = { busy: 0, waiting: 0, review: 0 };
-    const sg = ((d.lanes || {})[a.name] || []).map(r => {
-      const open = r.b === d.now, ta = Math.max(start, new Date(r.a).getTime()), tb = open ? end : Math.min(end, new Date(r.b).getTime());
-      if (tb < start) return '';
-      tot[r.k] += Math.max(0, tb - ta);
-      const l = pc(ta), w = Math.max(.3, pc(tb) - l);
-      return `<i class="sg ${r.k}${open ? ' open' : ''}" style="left:${l.toFixed(2)}%;width:${w.toFixed(2)}%" title="${hh(r.t)} · ${dur(Math.round(Math.max(0, tb - ta) / 60000))}"></i>`;
-    }).join('');
-    const idlePct = Math.max(0, 100 - tot.busy / win * 100 - tot.waiting / win * 100 - tot.review / win * 100);
-    // status word leads — the hour-split percentages that used to be a bar are now a hover detail on it
-    const mixTitle = `last 60 min: ${Math.round(tot.busy / win * 100)}% working · ${Math.round(tot.waiting / win * 100)}% waiting on you · `
-      + `${Math.round(tot.review / win * 100)}% in review · ${Math.round(idlePct)}% idle`;
-    return `<div class="ln ${a.state}" data-agent="${hh(a.name)}" style="--c:${c}">
-      <div class="ln-who"><i class="ln-av">${hh(nodeGlyph(a.name))}</i><b title="${hh(a.name)}">${hh(a.name)}</b></div>
-      <div class="ln-track" title="${hh(a.name)} · ${hh(mixTitle)}">${sg}</div>
-      <div class="ln-sum"><em title="${hh(mixTitle)}">${hh(a.state.toUpperCase())}</em><span title="tasks signed off today">✓ ${a.done_today || 0} done</span></div></div>`;
+  const tot = { busy: 0, waiting: 0, review: 0 };
+  const sg = ((d.lanes || {})[a.name] || []).map(r => {
+    const open = r.b === d.now, ta = Math.max(start, new Date(r.a).getTime()), tb = open ? end : Math.min(end, new Date(r.b).getTime());
+    if (tb < start) return '';
+    tot[r.k] += Math.max(0, tb - ta);
+    const l = pc(ta), w = Math.max(.3, pc(tb) - l);
+    return `<i class="sg ${r.k}${open ? ' open' : ''}" style="left:${l.toFixed(2)}%;width:${w.toFixed(2)}%" title="${hh(r.t)} · ${dur(Math.round(Math.max(0, tb - ta) / 60000))}"></i>`;
   }).join('');
-  const q = d.queue || [], qmax = Math.max(1, ...q);
-  const queue = `<div class="ln ln-q"><div class="ln-who">QUEUE</div>
-    <div class="ln-track" title="unclaimed cards in Todo over the hour"><span class="ln-qlab">QUEUE · ${q.length ? q[q.length - 1] : 0}</span>${q.map(v => `<i style="height:${(v / qmax * 100).toFixed(0)}%" title="${v} waiting in Todo"></i>`).join('')}</div>
-    <div class="ln-sum" title="waiting in Todo, unclaimed">${q.length ? q[q.length - 1] : 0}</div></div>`;
-  const axis = `<div class="ln ln-ax"><span></span><div class="ln-ticks">${['-60m', '-45m', '-30m', '-15m', 'now'].map((t, i) => `<span style="left:${i * 25}%">${t}</span>`).join('')}</div><span></span></div>`;
-  const html = d.agents.length ? lanes + queue + axis : `<div class="h-empty">No agents yet. They appear when they run <b>agentboard start</b>.</div>`;
-  if (box.dataset.k !== html) { box.dataset.k = html; box.innerHTML = html; }
-  const w = Math.round((d.waiting_s || 0) / 60);
-  $('ln-wait').textContent = w ? `⚠ ${dur(w)} waiting on you` : '';
+  const idlePct = Math.max(0, 100 - (tot.busy + tot.waiting + tot.review) / win * 100);
+  const title = `${a.name} · last 60 min: ${Math.round(tot.busy / win * 100)}% working · ${Math.round(tot.waiting / win * 100)}% waiting on you · `
+    + `${Math.round(tot.review / win * 100)}% in review · ${Math.round(idlePct)}% idle`;
+  return { sg, title };
 }
-
-// ---- keep the right panel on the left panel's row grid ----
-// Side by side, each lane takes exactly its telemetry row's height, the first lane starts where
-// the first row starts (the two panel headers are not the same height), and the two scroll
-// boxes move together. Stacked (narrow screens) the lanes go back to their own labelled layout.
-const ALIGNED = matchMedia('(min-width: 1181px)');
-let syncing = false;
-function alignLanes() {
-  const tele = $('h-tele'), lanes = $('h-lanes'); if (!tele || !lanes) return;
-  const on = ALIGNED.matches && !!tele.querySelector('.h-row[data-agent]');
-  lanes.classList.toggle('aligned', on);
-  tele.style.paddingTop = lanes.style.paddingTop = '';
-  lanes.querySelectorAll('.ln[data-agent]').forEach(l => { l.style.height = ''; });
-  if (!on) return;
-  const dy = tele.getBoundingClientRect().top - lanes.getBoundingClientRect().top;
-  if (dy > 0) lanes.style.paddingTop = dy + 'px'; else if (dy < 0) tele.style.paddingTop = -dy + 'px';
-  tele.querySelectorAll('.h-row[data-agent]').forEach(r => {
-    const l = lanes.querySelector(`.ln[data-agent="${CSS.escape(r.dataset.agent)}"]`);
-    if (l) l.style.height = r.getBoundingClientRect().height + 'px';
-  });
-  if (lanes.scrollTop !== tele.scrollTop) lanes.scrollTop = tele.scrollTop;
-}
-function syncScroll(from, to) {
-  if (syncing || !ALIGNED.matches) return;
-  syncing = true; to.scrollTop = from.scrollTop; requestAnimationFrame(() => { syncing = false; });
-}
-$('h-tele')?.addEventListener('scroll', () => syncScroll($('h-tele'), $('h-lanes')));
-$('h-lanes')?.addEventListener('scroll', () => syncScroll($('h-lanes'), $('h-tele')));
-if (window.ResizeObserver && $('h-tele')) new ResizeObserver(() => alignLanes()).observe($('h-tele'));
-ALIGNED.addEventListener?.('change', alignLanes);
-window.addEventListener('resize', alignLanes);
 
 // Hover-kind tracking for the Agent Load legend highlight (see the #hud-inner[data-hk]
 // rules): delegated on #hud-inner, which #h-lanes' per-second rebuild never replaces, so
@@ -2059,21 +2030,23 @@ $('hud-inner')?.addEventListener('pointermove', e => {
 });
 $('hud-inner')?.addEventListener('pointerleave', () => delete $('hud-inner').dataset.hk);
 
-function renderTele(all) {
-  const box = $('h-tele');
-  // every agent, active ones first (they are what is happening), idle ones dimmed below — the
-  // separate idle block the lanes used to carry lives here now, where there is room for detail
-  const agents = teleOrder(all);
+function renderGrid(d) {
+  const box = $('h-tele'); if (!box) return;
+  const all = d.agents, agents = teleOrder(all);
+  const win = (d.window_min || 60) * 60000, end = Date.now(), start = end - win;
   if (!agents.length) { box.innerHTML = `<div class="h-empty">No agents yet. They appear when they run <b>agentboard start</b>.</div>`; teleKey = ''; return; }
   const key = agents.map(a => a.name).join('|');
   if (key !== teleKey) {
     teleKey = key;
     box.innerHTML = agents.map(a => `<div class="h-row" data-agent="${hh(a.name)}">
       <span class="h-av">${hh(nodeGlyph(a.name))}</span>
-      <div style="min-width:0"><div class="h-name">${hh(a.name)}<em></em></div><span class="h-task"></span><span class="h-status"></span></div>
+      <div class="h-who"><div class="h-name">${hh(a.name)}<em></em></div><span class="h-task"></span><span class="h-status"></span></div>
       <div class="h-cards"><span><b class="h-open"></b> open</span><span title="signed off today">✓ <b class="h-dt"></b> today</span></div>
       <div class="h-prgw"><div class="h-prog"><b></b></div><span class="h-pct"></span></div>
-      <span class="h-since"></span></div>`).join('');
+      <span class="h-since"></span>
+      <div class="h-load"><div class="ln-track"></div></div></div>`).join('')
+      + `<div class="h-row h-q"><span class="h-av"></span><div class="h-who" id="h-qlab">QUEUE</div><div class="h-cards"></div><div class="h-prgw"></div><span class="h-since"></span>
+         <div class="h-load"><div class="ln-track" id="h-qtrack" title="unclaimed cards in Todo over the hour"></div></div></div>`;
   }
   agents.forEach(a => {
     const r = box.querySelector(`[data-agent="${CSS.escape(a.name)}"]`); if (!r) return;
@@ -2088,7 +2061,16 @@ function renderTele(all) {
     r.querySelector('.h-prog b').style.width = (a.progress || 0) + '%';
     r.querySelector('.h-pct').textContent = (a.progress || 0) + '%';
     r.querySelector('.h-since').textContent = (a.state === 'abandoned' ? 'abandoned ' : a.state === 'quiet' ? 'quiet ' : a.state === 'idle' ? 'wrapped ' : '') + (a.updated ? ago(a.updated).text.replace(' ago', '') : '');
+    const { sg, title } = loadTrack(d, a, win, start, end), tr = r.querySelector('.h-load .ln-track');
+    if (tr.dataset.k !== sg) { tr.dataset.k = sg; tr.innerHTML = sg; }   // only when the bar actually moved, so glows don't restart
+    tr.title = title;
   });
+  const q = d.queue || [], qmax = Math.max(1, ...q);
+  const qh = q.map(v => `<i style="height:${(v / qmax * 100).toFixed(0)}%" title="${v} waiting in Todo"></i>`).join('');
+  const qt = $('h-qtrack'); if (qt && qt.dataset.k !== qh) { qt.dataset.k = qh; qt.innerHTML = qh; }
+  const ql = $('h-qlab'); if (ql) ql.textContent = `QUEUE · ${q.length ? q[q.length - 1] : 0} waiting`;
+  const w = Math.round((d.waiting_s || 0) / 60);
+  $('ln-wait').textContent = w ? `⚠ ${dur(w)} waiting on you` : '';
 }
 
 // --- Later drawer ---
