@@ -71,7 +71,22 @@ def cmd_init(a):
     (d / "tasks.json").touch()
     if not (d / "tasks.json").read_text().strip():
         (d / "tasks.json").write_text('{"tasks": []}')
-    print(f"initialized {d}\nnext: agentboard add \"My first task\" --status todo && agentboard serve")
+    ignored = _gitignore_board(Path.cwd())
+    print(f"initialized {d}" + (f"\nadded {DIR_NAME}/ to .gitignore (task data can hold private context)" if ignored else "")
+          + "\nnext: agentboard add \"My first task\" --status todo && agentboard serve")
+
+
+def _gitignore_board(root):
+    """Add `.agentboard/` to the project's .gitignore unless it is already ignored. Creates the file
+    when the project has none. Returns True when a line was added."""
+    gi = root / ".gitignore"
+    lines = gi.read_text().splitlines() if gi.exists() else []
+    if any(l.strip().rstrip("/") in (DIR_NAME, "/" + DIR_NAME) for l in lines):
+        return False
+    body = "\n".join(lines).rstrip("\n")
+    body = (body + "\n" if body else "") + f"# agentboard task data and local config (may contain private context)\n{DIR_NAME}/\n"
+    gi.write_text(body)
+    return True
 
 
 def cmd_add(a):

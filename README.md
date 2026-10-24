@@ -8,6 +8,7 @@ finished work — instead of juggling a dozen terminal tabs.
 - **Local only.** A tiny Python server on `127.0.0.1`; data is one JSON file in your project. See [Local-only and safety](#local-only-and-safety).
 - **No dependencies, no database.** Python standard library only. Python 3.11+.
 - **Agents never close their own work.** They finish with `review`; *you* mark the card done.
+- **Reports lead with the action.** Agents write `ACTION / STATUS / WHY`; the board and the HUD show who must do what, in colour.
 
 ## Screenshots
 
@@ -33,12 +34,12 @@ No pipx? From inside a checkout, with `python3` being 3.11+ (`python3 --version`
     python3 -m venv ~/.agentboard-venv && ~/.agentboard-venv/bin/pip install .
     export PATH="$HOME/.agentboard-venv/bin:$PATH"     # so the bare `agentboard` commands below work (add to your shell profile)
 
-To upgrade a checkout: `pipx install . --force`.
+To upgrade a checkout: `git pull && pipx install . --force` (then restart `agentboard serve`). Releases are tagged (`v0.3.0`); see `CHANGELOG.md`.
 
 ## Quick start
 
     cd your-project
-    agentboard init            # creates .agentboard/ (tasks.json, config.toml)
+    agentboard init            # creates .agentboard/ (tasks.json, config.toml) and adds it to .gitignore
     agentboard serve           # board: http://localhost:8765   HUD: http://localhost:8765/hud   (Ctrl+C stops)
 
 `serve` runs in the foreground, prints the URL and data directory (in a terminal; output may be delayed if redirected to a file), and opens your default browser
@@ -58,6 +59,20 @@ Then give your agents the protocol. Paste the output of this into your project's
 
 Or, for a task that already exists on the board: `agentboard claim <id> --name atlas`.
 
+### Reports: action first
+
+Every `review` / `ask` text (and every message between sessions) has one shape, three lines at most:
+
+    ACTION  Troy: tap Call me once; it rings your mobile        # <none> | Troy: … | ORCH: … | AGENT-N: …
+    STATUS  telephony-kill-switch done-ready                      # one card per line: done-ready | blocked | 40%
+    WHY     one short outbound call                               # only if it changes the action
+
+Lines, or ` | ` between the parts, both work. The card panel shows the ACTION line as a coloured band
+(the person named = the colour: you red, the orchestrator amber, another agent cyan), STATUS as chips, the
+rest as text. The HUD lights the agent's row with the same colour and prints the ACTION in full. Numbered
+steps written as `(1) … (2) …` render one per line. Details that don't change the action go on the card log
+(`agentboard update`), not in the message.
+
 - Before claiming/starting a card, if anything about it is ambiguous, ask your orchestrator/coordinating
   session a one-line question (e.g. via SendMessage) and wait for its answer first — it can often answer
   from its view of the whole board, and escalates to the user if it can't. One-time check before you start,
@@ -70,6 +85,25 @@ Or, for a task that already exists on the board: `agentboard claim <id> --name a
 - One task per deliverable, not per command; keep status lines to one line.
 
 Humans: `agentboard add "Title" --status todo` (or `--status backlog` for the Later drawer), `agentboard list`.
+
+## One orchestrator, several agents
+
+The workflow this was built for: one coordinating session (**ORCH**) and N worker sessions (**AGENT-1 … AGENT-N**),
+each a Claude Code / Codex / Devin terminal in the same repo.
+
+- **ORCH** adds and splits cards (`agentboard add`, `--blocked-by`, `--parent`), hands ids to agents, relays the
+  user's decisions, reviews `review` cards and is the only one besides the user who moves them to Done when the user says so.
+- **Each agent** renames its session (`/rename AGENT-3`, a colour), claims its card with `--name AGENT-3 --color green`,
+  keeps exactly one card open while it works, reports with `update`, finishes with `review`, and never marks done.
+- **Between sessions** they use their tool's cross-session messaging (Claude Code: `SendMessage` / `ListAgents`) for
+  one-to-one asks, and `agentboard chat` for anything the user should see. Both carry the ACTION / STATUS / WHY shape.
+- **Shared files:** announce an edit to a file another agent is in on chat first, rebase before each commit, commit
+  only your own paths (`git add <paths>`, never `-A`).
+- **The user** watches the board or the HUD, answers asks, marks cards done. The HUD title shows "● 2 for you"
+  when something is waiting.
+
+`agentboard instructions` prints the agent snippet for your `CLAUDE.md` / `AGENTS.md`; the repository's own
+[`CLAUDE.md`](CLAUDE.md) is a worked example.
 
 ## Projects
 
@@ -154,11 +188,19 @@ for, since both mean progress is stalled on a human, not on more waiting.
 
 ## The HUD
 
-Press `h`, or open `/hud` in its own window (second monitor). From the top: **throughput** over the last hour,
-**telemetry** per agent (state, task, progress, activity sparkline), and **agent load**: one swimlane per agent over the
-same hour, showing working time, time waiting on you, time in review and idle gaps, plus tasks done today and a queue-depth
-lane. An agent idle past the stale threshold shows as **ABANDONED** (red) in telemetry and on its lane, same threshold
-and marker as the board. Optional synthesized sound cues (SND / AMB toggles).
+Press `h`, or open `/hud` in its own window (second monitor). One grid, one row per agent:
+
+- **Left:** the agent, its state (`WORKING`, `WAITING`, `REVIEW`, `QUIET`, `ABANDONED`, `IDLE`), then the one text
+  that matters: the ask or result in full when the card needs a person, otherwise the agent's own status line, and
+  under it the agent's last few notes with times (on screens taller than 820px).
+- **Right:** the card's title, the **60-minute load bar** (working / waiting on you / in review, gaps are idle) and the
+  progress line. A time axis under the bars; the **queue** (unclaimed Todo cards over the hour) as the last row.
+- **Attention:** a card that needs a person lights its row: red when it needs your answer or sign-off, amber when the
+  agent went quiet (no update past `[board] stale_minutes`, default 120), cyan when the ACTION names another agent.
+  Those rows sort to the top; click one to open the card. The top bar counts asks, reviews, abandoned and done today,
+  and the window title says "● 2 for you".
+- `[hud] retired = ["AGENT-5"]` in `config.toml` hides agents you no longer run (their cards and history stay).
+- Optional synthesized sound cues (SND / AMB toggles). Stacks on narrow windows, bars under the text.
 
 ## Daily recap
 
@@ -182,8 +224,7 @@ Fires via `osascript` — the same no-new-dependency mechanism `agentboard spawn
 
 ## Local-only and safety
 
-Findings below come from the audit in `SECURITY.md` in the repository root (v0.2.0 plus later commits), re-checked against the code
-when this README was written. Nothing here is a claim about your organization's policies; check those yourself.
+Findings below come from the audit in `SECURITY.md` in the repository root (v0.2.0, re-checked for v0.3.0 on 2026-10-24). Nothing here is a claim about your organization's policies; check those yourself.
 
 **How it runs**
 - One Python process (`agentboard serve`) listening on **`127.0.0.1:8765`** only. The bind address is hard-coded;
@@ -194,7 +235,7 @@ when this README was written. Nothing here is a claim about your organization's 
 **Where data lives**
 - `.agentboard/tasks.json`, `.agentboard/config.toml`, `.agentboard/.lock` in your project. Nothing is synced anywhere.
 - The browser keeps 3 UI preferences in `localStorage` (theme, sound, ambient).
-- **`agentboard init` does not create a `.gitignore`.** Tasks can contain private context, so add `.agentboard/` to your project's `.gitignore` yourself.
+- **`agentboard init` adds `.agentboard/` to your project's `.gitignore`** (creating the file if needed), because tasks can contain private context. Check it landed: `grep agentboard .gitignore`.
 
 **Network behavior**
 - **Python:** no third-party dependencies (`dependencies = []`). The only code that can reach beyond localhost is in the opt-in
@@ -213,13 +254,36 @@ when this README was written. Nothing here is a claim about your organization's 
 
 **On a work machine:** skip `http`/`command` providers, or point them only at local services; use `--no-open` if you don't want a browser launched.
 
+## Configuration (`.agentboard/config.toml`)
+
+`agentboard init` writes the file with every option commented out. All keys:
+
+    [board]
+    stale_minutes = 120           # a Doing card silent this long is marked "abandoned?" on the board and the HUD
+
+    [hud]
+    retired = ["AGENT-5"]         # agents hidden from the HUD; their cards and history stay
+
+    [ui]
+    dispatch = false              # hide Copy prompt and the prompt preview
+
+    [notify]
+    enabled = true                # native macOS banner on ask / review
+    sound = "Glass"               # optional
+
+    [prompt]
+    template_file = "prompt.md"   # replaces the built-in prompt template
+
+    [providers.<name>]            # context providers for prompts: markdown | file-tail | http | command
+    type = "markdown"             # see the commented examples init writes; off until a task lists one with --ctx
+
+Environment: `AGENTBOARD_DIR` (the board to use from anywhere), `AGENTBOARD_NAME` / `AGENTBOARD_COLOR` (defaults for `--name` / `--color`).
+
 ## Prompts and context providers (optional)
 
 Todo cards carry a copyable prompt that makes any agent claim the card and report progress. Prompts are assembled from
 providers in `.agentboard/config.toml` (`markdown`, `file-tail`, `http`, `command`; options `max_chars`, `redact`, `private`).
-`agentboard init` writes commented examples. Set `[ui] dispatch = false` to hide Copy prompt.
-Set `[board] stale_minutes = N` to change the stale/abandoned threshold (default 120; see [The board](#the-board)).
-Set `[notify] enabled = true` for native desktop banners on ask/review (see [Notifications](#notifications-opt-in)).
+Providers run only when a task lists one with `--ctx` and a prompt is built.
 
 ## Commands
 
@@ -238,11 +302,27 @@ Set `[notify] enabled = true` for native desktop banners on ask/review (see [Not
 | For agents | |
 |---|---|
 | `start "Title" --name N [--color C] [--project ID] [--blocked-by ID] [--parent ID] [--force]` | create a task already in Doing; prints its id |
-| `claim <id> --name N [--force]` | take an existing task and its subtasks (refuses while blocked, unless `--force`) |
+| `claim <id> --name N [--color C] [--force]` | take an existing task and its subtasks (refuses while blocked, unless `--force`) |
 | `update <id> <0-100> ["text"]` , `ask <id> "q" [--body MD]`, `review <id> "result" [--body MD]` | report |
 | `done <id>` | user-approved only |
 | `wait <id> [--status X] [--timeout SECS]` | block until a task reaches a status — sync without polling |
 | `chat send "msg" --name N [--user]`, `chat tail [--limit N] [--follow]` | self-organize with other agents, visible to the user |
+
+## On a work laptop
+
+What to expect when you clone this onto a managed machine:
+
+1. **Needs:** `git`, Python 3.11+ (`python3 --version`), and `pipx` (or a venv, see [Install](#install)). Nothing else.
+2. **Get it:** `git clone https://github.com/troygdaniel/agentboard && cd agentboard && pipx install .`
+   (or `pipx install git+https://github.com/troygdaniel/agentboard`). The only network use is that one fetch
+   (plus setuptools from PyPI while building). Pin a release: `git checkout v0.3.0`.
+3. **Run it:** `cd <your repo> && agentboard init && agentboard serve --no-open`, then open `http://localhost:8765`
+   yourself. The server listens on `127.0.0.1` only; no auth, so it is for one person per machine.
+4. **Nothing leaves the machine:** no dependencies, no telemetry, no CDN. `SECURITY.md` has the checks and
+   the commands to repeat them. Leave the `http` / `command` providers unconfigured.
+5. **No personal data in the repo:** the repository is code, docs and screenshots of demo boards. Your task data lives in
+   `<your repo>/.agentboard/`, which `init` git-ignores. If your repo is shared, keep it that way.
+6. **Updating:** `git pull && pipx install . --force`, then restart `agentboard serve`.
 
 ## Troubleshooting
 

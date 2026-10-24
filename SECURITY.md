@@ -1,7 +1,7 @@
 # Security and network behaviour
 
-agentboard runs entirely on your machine. This audit (Oct 20, 2026, v0.2.0 plus later commits through
-`4730b73`) checked it literally rather than by assumption.
+agentboard runs entirely on your machine. This audit (Oct 20, 2026, v0.2.0) was re-checked on
+Oct 24, 2026 for v0.3.0 against the code and at runtime; it checks literally rather than by assumption.
 
 ## Verdict
 
@@ -38,8 +38,24 @@ services, or don't configure any.
 Installing fetches files once: from GitHub if you install with `pipx install git+https://...`, and
 setuptools from PyPI (the build backend) when building from source. After install, nothing is fetched again.
 
+## What changed in v0.3.0 (re-check, Oct 24, 2026)
+
+- Still no dependencies (`dependencies = []`), still `127.0.0.1` only, still no outbound code
+  outside the two opt-in providers. New code since v0.2.0 (HUD grid and actions, detail panel
+  formatting, subtasks, projects, chat, wait, tail, report, notifications) adds no network path:
+  `grep -n "urllib.request\|subprocess\|socket\|webbrowser" src/agentboard/*.py` still lists only
+  `providers.py` (opt-in `http` / `command`), `server.py` (the local listener and the browser open)
+  and `cli.py` (`osascript` for the opt-in `[notify]` banners, `agentboard spawn`).
+- The browser page still makes only same-origin requests. `index.html` contains no absolute URL
+  but the SVG namespace; the HUD and the detail panel render agent text through the server-side
+  markdown renderer or escaped, never as raw HTML.
+- `agentboard init` now adds `.agentboard/` to the project's `.gitignore` (creating the file if
+  needed), so task data, which can hold private context, stays out of version control by default.
+- `[hud] retired = [...]` only filters which agent names the HUD shows; no data is deleted.
+
 ## Public repository
 
-The public GitHub repo contains only the code, README and license. Task data (`.agentboard/`) is
-git-ignored, has never been committed, and no personal data appears anywhere in the commit history.
+The public GitHub repo contains the code, README, CHANGELOG, SECURITY.md, the license and a few
+screenshots under `docs/` taken from demo / throwaway boards. Task data (`.agentboard/`) is
+git-ignored and has never been committed; no personal data appears anywhere in the commit history.
 Commit metadata does show the author's name and email.
