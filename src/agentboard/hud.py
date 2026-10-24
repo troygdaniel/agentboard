@@ -1,4 +1,5 @@
-"""Aggregate board data for the HUD view: agents, activity feed, totals, timeline."""
+"""Aggregate board data for the HUD view: agents, activity feed, totals, timeline, actions."""
+import re
 from datetime import datetime, timedelta
 
 FMT = "%Y-%m-%dT%H:%M:%S"
@@ -127,6 +128,102 @@ def segments(t, now):
     return out
 
 
+# ---- what needs a human: the ACTION strip -----------------------------------------------------
+_ACTION_RE = re.compile(r"^\s*ACTION\b\s*:?\s*(?P<rest>.*)$", re.I)
+_WHO_RE = re.compile(r"^(?P<who>Troy|ORCH|[A-Z][A-Z0-9-]*|none)\s*:\s*(?P<what>.+)$", re.I)
+
+
+def parse_action(text):
+    """Pull 'who: what' out of the three-line report shape agents write (ACTION / STATUS / WHY,
+    on separate lines or joined with '|'). Returns {"who", "what", "status", "why"}; who is
+    'Troy', 'ORCH', an agent name, 'none', or '' when the text is not in that shape."""
+    out = {"who": "", "what": "", "status": "", "why": ""}
+    if not text:
+        return out
+    parts = [x.strip() for x in re.split(r"\n|\s\|\s", str(text)) if x.strip()]
+    for part in parts:
+        m = _ACTION_RE.match(part)
+        if m:
+            rest = m.group("rest").strip()
+            w = _WHO_RE.match(rest)
+            if w:
+                out["who"], out["what"] = w.group("who"), w.group("what").strip()
+            elif rest.lower().startswith("none"):
+                out["who"], out["what"] = "none", rest[4:].strip(" .:-")
+            else:
+                out["what"] = rest
+            continue
+        for key in ("status", "why"):
+            m2 = re.match(rf"^\s*{key}\b\s*:?\s*(.*)$", part, re.I)
+            if m2 and not out[key]:
+                out[key] = m2.group(1).strip()
+    if out["who"].lower() == "troy":
+        out["who"] = "Troy"
+    elif out["who"].lower() == "orch":
+        out["who"] = "ORCH"
+    elif out["who"].lower() == "none":
+        out["who"] = "none"
+    return out
+
+
+def _since(t, prefix):
+    """When the task last entered the state whose log line starts with `prefix`, else its update time."""
+    at = None
+    for e in t.get("log", []):
+        if (e.get("text") or "").startswith(prefix):
+            ts = _t(e.get("at"))
+            if ts:
+                at = ts
+    return at or _t(t.get("updated"))
+
+
+def actions(tasks, now=None, abandoned_min=None):
+    """Every card that needs a person, one row each, most urgent first: asks (someone is blocked
+    on an answer), then reviews (work waiting for sign-off), then abandoned cards (an agent went
+    quiet). who/what come from the ACTION line when the agent wrote one, else a sensible default
+    (asks and reviews are for Troy unless the text names someone else)."""
+    now = now or datetime.now()
+    abandoned_min = ABANDONED_MIN if abandoned_min is None else abandoned_min
+    by_id = {t["id"]: t for t in tasks}
+    out = []
+    for t in tasks:
+        if t.get("status") != "doing" or t.get("parent_id") in by_id or t.get("archived"):
+            continue
+        agent = t.get("agent") or "board"
+        if t.get("needs_input"):
+            kind, text, since = "ask", t.get("question") or t.get("status_text") or "", _since(t, "Needs input")
+        elif t.get("review"):
+            kind, text, since = "review", t.get("result") or t.get("status_text") or "", _since(t, "Ready for review")
+        else:
+            idle = minutes_idle(t, now)
+            if idle is None or idle < abandoned_min:
+                continue
+            kind, text, since = "stale", t.get("status_text") or "", _t(t.get("updated"))
+        parsed = parse_action(text)
+        who = parsed["who"] or ("ORCH" if kind == "stale" else "Troy")
+        if who == "none" and kind != "stale":
+            who = "Troy"   # an ask or a review always needs a person, whatever the text says
+        if kind == "stale":
+            what = parsed["what"] or f"check on {agent}: no update for {dur(idle)}"
+        else:
+            what = parsed["what"] or text or ("answer the question" if kind == "ask" else "sign off")
+        age = max(0, int((now - since).total_seconds() // 60)) if since else None
+        out.append({
+            "id": t["id"], "title": t["title"], "agent": agent, "color": t.get("color"),
+            "project_id": t.get("project_id"), "kind": kind, "who": who, "what": what,
+            "status": parsed["status"], "why": parsed["why"], "text": text,
+            "since": since.strftime(FMT) if since else None, "age_min": age,
+        })
+    rank = {"ask": 0, "review": 1, "stale": 2}
+    out.sort(key=lambda a: (0 if a["who"] == "Troy" else 1, rank[a["kind"]], -(a["age_min"] or 0)))
+    return out
+
+
+def dur(minutes):
+    m = int(minutes or 0)
+    return f"{m}m" if m < 60 else f"{m // 60}h{m % 60:02d}"
+
+
 def build(tasks, now=None, feed_limit=60, abandoned_min=None):
     now = now or datetime.now()
     abandoned_min = ABANDONED_MIN if abandoned_min is None else abandoned_min
@@ -214,6 +311,8 @@ def build(tasks, now=None, feed_limit=60, abandoned_min=None):
             "status_text": cur.get("status_text", ""), "updated": cur.get("updated"), "started": began, "recent": recent,
             "done": sum(1 for t in ts if t["status"] == "done"),
             "done_today": agent_done_today.get(name, 0),
+            "open": len(doing),                                    # cards this agent holds in Doing
+            "open_titles": [t["title"] for t in doing[:4]],
             "spark": _bucket([x for x in times if x], now, SPARK_BUCKETS, SPARK_MIN),
         })
     order = {"abandoned": 0, "waiting": 1, "review": 2, "working": 3, "quiet": 4, "idle": 5}
@@ -233,6 +332,7 @@ def build(tasks, now=None, feed_limit=60, abandoned_min=None):
         "waiting_s": round(waiting_s),  # agent-seconds spent waiting on / for the user
 
         "agents": agents,
+        "actions": actions(top, now, abandoned_min),   # what needs a person, most urgent first
         "events": events[:feed_limit],
         "totals": {
             "working": sum(1 for t in top if t["status"] == "doing"),

@@ -388,11 +388,11 @@
     /* Type scale + tracking. Pick from these rather than inventing a 12.5px — the HUD had grown
        14 distinct font sizes across separate passes, which is what made it read as a collection
        of separately-styled pieces rather than one instrument panel. */
-    --fs-xs: 10.5px; --fs-sm: 12px; --fs-md: 15px; --fs-lg: 18.5px;
+    --fs-xs: 12px; --fs-sm: 13.5px; --fs-md: 16.5px; --fs-lg: 20px; --fs-xl: 22px;   /* one step up (Troy, 2026-10-24): read from a chair */
     --tr-wide: .24em; --tr-label: .16em; --tr-tight: .06em;
     position: relative; height: 100%; max-width: 1440px; margin: 0 auto; overflow: hidden;
     border: 1px solid var(--hline); border-radius: 16px; color: var(--htext);
-    font: 13.5px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; font-variant-numeric: tabular-nums;
+    font: 16px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; font-variant-numeric: tabular-nums;
     background:
       radial-gradient(900px 520px at 50% -25%, rgba(94,231,255,.13), transparent 70%),
       radial-gradient(700px 420px at 92% 108%, rgba(93,255,176,.07), transparent 70%),
@@ -401,7 +401,7 @@
       linear-gradient(90deg, rgba(94,231,255,.035) 1px, transparent 1px) 0 0 / 40px 40px,
       var(--hbg);
     box-shadow: 0 0 0 1px rgba(94,231,255,.06), 0 30px 120px rgba(0,0,0,.6), inset 0 0 120px rgba(94,231,255,.04);
-    display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); gap: 12px; padding: 14px 18px 18px;
+    display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto minmax(0, 1fr); gap: 12px; padding: 14px 18px 18px;
   }
   .hud::after { content: ''; position: absolute; inset: 0; pointer-events: none; opacity: .1;
     background: repeating-linear-gradient(transparent 0 2px, rgba(0,0,0,.22) 2px 3px); }
@@ -433,8 +433,34 @@
   .h-chip.dim { color: var(--hwarn); border-color: rgba(255,200,87,.25); opacity: .8; }
   .h-chip.err { color: var(--hbad); border-color: rgba(255,107,107,.45); background: rgba(255,107,107,.1); animation: hqblink 2.6s ease-in-out infinite; }
   .h-chip.today { color: var(--hcy); border-color: rgba(94,231,255,.35); background: rgba(94,231,255,.06); }
-  .h-grid { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); gap: 12px; min-height: 0; }
-  .h-grid > .hp:first-child .h-scroll { max-height: 34vh; }
+  /* Telemetry holds every agent with the detail (what, how far, how long ago, how many cards); Agent
+     load is the hour's history and only needs enough width to read the shapes. Side by side on a
+     27in; stacked with the lanes capped on a 13in, so neither panel ever ends in dead space. */
+  .h-grid { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(360px, 1fr); grid-template-rows: minmax(0, 1fr); gap: 12px; min-height: 0; }
+  @media (max-width: 1180px) { .h-grid { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; }
+    .h-grid > .hp:last-child .h-scroll { max-height: 30vh; } }
+  /* ----- ACTION strip: who needs to do what, right now. The one thing Troy opens the HUD for. ----- */
+  .h-act { padding: 10px 16px 10px; gap: 0; }
+  .h-act h4 { margin-bottom: 6px; }
+  .h-act h4 .ln-sub b { color: var(--hbad); font-weight: 600; }
+  .h-act .h-scroll { max-height: 32vh; display: flex; flex-direction: column; gap: 4px; }
+  .ha { position: relative; display: grid; grid-template-columns: 92px minmax(0, 1fr) auto; gap: 14px; align-items: center; min-height: 46px;
+    padding: 6px 14px 6px 16px; border-radius: 10px; color: inherit; text-decoration: none; cursor: pointer;
+    background: color-mix(in srgb, var(--c) 7%, transparent); border: 1px solid color-mix(in srgb, var(--c) 28%, transparent); transition: background .15s ease; }
+  .ha:hover, .ha:focus-visible { background: color-mix(in srgb, var(--c) 14%, transparent); outline: none; }
+  .ha::before { content: ''; position: absolute; left: 0; top: 8px; bottom: 8px; width: 4px; border-radius: 2px; background: var(--c); box-shadow: 0 0 12px var(--c); }
+  .ha-who { font-weight: 700; font-size: var(--fs-md); letter-spacing: var(--tr-label); color: var(--c); white-space: nowrap; }
+  .ha.troy .ha-who { animation: hqblink 2.6s ease-in-out infinite; }
+  .ha-what { min-width: 0; }
+  .ha-t { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: var(--fs-xl); line-height: 1.22; color: var(--htext); }
+  .ha-what small { display: block; color: var(--hdim); font-size: var(--fs-sm); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: 0; }
+  .ha-from { text-align: right; color: var(--hdim); font-size: var(--fs-sm); white-space: nowrap; line-height: 1.4; }
+  .ha-from b { display: block; color: var(--htext); font-weight: 500; letter-spacing: var(--tr-tight); }
+  .ha-from i { font-style: normal; color: var(--c); font-weight: 600; letter-spacing: var(--tr-label); font-size: var(--fs-xs); }
+  .ha-none { display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 8px 16px; color: var(--hok); font-size: var(--fs-lg); border-radius: 10px;
+    border: 1px dashed rgba(93,255,176,.3); background: rgba(93,255,176,.04); }
+  .ha-none::before { content: '✓'; font-size: var(--fs-xl); }
+  .ha-none span { color: var(--hdim); font-size: var(--fs-sm); margin-left: auto; }
   /* Agent load fills its grid row again (an earlier shrink-wrap left the bottom two-thirds of
      the screen as empty grid). What keeps a 1-agent board from looking ridiculous now is the
      per-lane caps below, scaled to the viewport, plus the idle rows absorbing whatever height
@@ -445,12 +471,16 @@
   .hp h4 { margin: 0 0 10px; font-weight: 500; font-size: var(--fs-xs); letter-spacing: var(--tr-label); color: var(--hdim); text-transform: uppercase; flex: none; }
   .hp h4::before { content: '// '; color: var(--hcy); }
   .ln-sub { margin-left: 10px; font-weight: 400; letter-spacing: var(--tr-tight); text-transform: none; color: var(--hdim); opacity: .85; font-size: var(--fs-xs); }
-  .h-scroll { overflow-y: auto; min-height: 0; flex: 1; }
+  .h-scroll { overflow-y: auto; overflow-x: hidden; min-height: 0; flex: 1; }
   .h-scroll::-webkit-scrollbar { width: 6px; } .h-scroll::-webkit-scrollbar-thumb { background: var(--hline); border-radius: 3px; }
   /* each telemetry row is a lit strip: a state-colored accent bar on the left edge that glows
      (and breathes while working), so a column of rows reads as a stack of live instruments */
-  .h-row { position: relative; display: grid; grid-template-columns: 38px minmax(0, 1.5fr) minmax(140px, 1.3fr) 128px; gap: 16px; align-items: center;
-    padding: 14px 12px 14px 16px; border-top: 1px solid rgba(110,190,255,.08); border-radius: 10px; transition: background .2s ease; }
+  .h-row { position: relative; display: grid; grid-template-columns: 40px minmax(0, 2fr) auto minmax(110px, .9fr) 92px; gap: 16px; align-items: center;
+    padding: 10px 12px 10px 16px; border-top: 1px solid rgba(110,190,255,.08); border-radius: 10px; transition: background .2s ease; }
+  /* cards column: open now / signed off today — the "load" numbers that used to live in the lanes */
+  .h-cards { display: flex; flex-direction: column; gap: 2px; color: var(--hdim); font-size: var(--fs-sm); white-space: nowrap; }
+  .h-cards b { color: var(--htext); font-weight: 600; font-size: var(--fs-md); }
+  .h-row.idle .h-cards b { color: var(--hdim); }
   .h-row:hover { background: rgba(110,190,255,.04); }
   .h-row:first-child { border-top: 0; }
   .h-row::before { content: ''; position: absolute; left: 0; top: 14px; bottom: 14px; width: 3px; border-radius: 2px;
@@ -460,7 +490,8 @@
   .h-av { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; font-size: var(--fs-md); color: var(--htext);
     background: color-mix(in srgb, var(--c) 14%, transparent);
     box-shadow: inset 0 0 0 1.5px var(--c), 0 0 12px -2px var(--c); }
-  .h-row.idle { opacity: .5; }
+  .h-row.idle { opacity: .55; filter: saturate(.4); }
+  .h-row.idle:hover { opacity: .9; filter: none; }
   .h-name { color: var(--htext); display: flex; gap: 8px; align-items: baseline; font-size: var(--fs-lg); font-weight: 500; } .h-name em { font-style: normal; font-weight: 600; font-size: var(--fs-sm); letter-spacing: var(--tr-label); color: var(--hcy); }
   .h-row.quiet .h-name em { color: var(--hwarn); } .h-row.idle .h-name em { color: var(--hdim); }
   .h-row.abandoned .h-name em { color: var(--hbad); }
@@ -469,8 +500,12 @@
      needs you (waiting/review/quiet/abandoned), but for a normal working agent it just
      restates the task title in more words. Hidden by default so a 2-second scan only has to
      read one line per row; the exceptional states that actually need a look get the detail. */
-  .h-status { display: none; color: var(--hdim); opacity: .88; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; }
-  .h-row.quiet .h-status, .h-row.waiting .h-status, .h-row.review .h-status, .h-row.abandoned .h-status { display: block; }
+  /* ...now that Telemetry is the wide panel there is room for it on every row; it is the one line
+     that says what the agent is doing right now, so it is dim for a working agent, lit when the row needs a look */
+  .h-status { display: block; color: var(--hdim); opacity: .75; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; font-size: var(--fs-sm); }
+  .h-row.quiet .h-status, .h-row.waiting .h-status, .h-row.review .h-status, .h-row.abandoned .h-status { opacity: 1; color: var(--htext); }
+  .h-row.idle .h-status { display: none; }
+  .h-row.idle .h-task { opacity: .8; }
   .h-prog { height: 7px; border-radius: 3.5px; background: rgba(110,190,255,.12); overflow: hidden; position: relative; }
   .h-prog::after { content: ''; position: absolute; inset: 0; transform: translateX(-100%);
     background: linear-gradient(90deg, transparent, rgba(255,255,255,.4), transparent); animation: hsheen 3.2s ease-in-out infinite; }
@@ -510,8 +545,8 @@
   #h-lanes { display: flex; flex-direction: column; justify-content: safe center; gap: clamp(6px, 1.4vh, 18px); }
   /* lane caps scale with the viewport: a lone agent gets a generous hero lane on a tall screen
      without ever turning into a 500px slab; active lanes and the idle block share the leftover */
-  .ln { position: relative; display: grid; grid-template-columns: 124px minmax(0, 1fr) 118px; gap: 14px; align-items: stretch; flex: 1 1 0;
-    min-height: 44px; max-height: clamp(56px, 9vh, 104px); border-radius: 10px; isolation: isolate; }
+  .ln { position: relative; display: grid; grid-template-columns: 112px minmax(0, 1fr) 104px; gap: 12px; align-items: stretch; flex: 1 1 0;
+    min-height: 40px; max-height: clamp(48px, 9vh, 112px); border-radius: 10px; isolation: isolate; }
   /* an active lane is "lit": a soft state-colored glow bleeds in from its left edge and breathes
      slowly — the lane itself tells you it's alive before you read anything. isolation: isolate on
      .ln gives the z-index:-1 glow a stacking context to sit behind, instead of vanishing behind
@@ -850,8 +885,9 @@
       <button class="h-btn" id="h-full" aria-label="Toggle fullscreen (f)">Fullscreen</button>
       <button class="h-btn" id="h-close" aria-label="Close HUD (Esc)">Close</button>
     </div>
+    <section class="hp h-act" aria-live="polite"><h4>Needs a person <span class="ln-sub" id="h-act-sub"></span></h4><div class="h-scroll" id="h-act"></div></section>
     <div class="h-grid">
-      <section class="hp"><h4>Telemetry <span class="ln-sub">right now</span></h4><div class="h-scroll" id="h-tele"></div></section>
+      <section class="hp"><h4>Telemetry <span class="ln-sub">every agent, right now</span></h4><div class="h-scroll" id="h-tele"></div></section>
       <section class="hp"><h4>Agent load <span class="ln-sub">last 60 min</span><span class="ln-leg"><u data-k="busy" style="--k:var(--c0)">working</u><u data-k="waiting" style="--k:var(--hwarn)">waiting on you</u><u data-k="review" style="--k:var(--hok)">in review</u></span><span class="ln-wait" id="ln-wait"></span></h4>
         <div class="h-scroll" id="h-lanes"></div></section>
     </div>
@@ -1857,14 +1893,43 @@ function hudRender(d) {
     tk.dataset.k = tkHtml; tk.innerHTML = tkHtml;
     tk.classList.remove('tk'); void tk.offsetWidth; tk.classList.add('tk');
   }
+  renderActions(d.actions || []);
   renderTiles(d.totals);
   if (SOLO) {
-    const t0 = d.totals;
-    document.title = (t0.abandoned ? `⚠ ${t0.abandoned} abandoned · ` : '') + (t0.waiting ? `⚠ ${t0.waiting} input · ` : '') + (t0.review ? `✓ ${t0.review} review · ` : '') + `HUD · ${t0.working} working`;
+    const t0 = d.totals, mine = (d.actions || []).filter(a => a.who === 'Troy').length;
+    document.title = (mine ? `● ${mine} for you · ` : '') + (t0.abandoned ? `⚠ ${t0.abandoned} abandoned · ` : '') + (t0.waiting ? `⚠ ${t0.waiting} input · ` : '') + (t0.review ? `✓ ${t0.review} review · ` : '') + `HUD · ${t0.working} working`;
   }
   renderLanes(d);
   renderTele(d.agents);
 }
+
+// ---- ACTION strip: one row per card that needs a person. Colour = who must act (Troy red, ORCH
+// amber, an agent cyan), never what kind of card it is; the kind is a small word on the right.
+const WHO_COLOR = w => w === 'Troy' ? 'var(--hbad)' : w === 'ORCH' ? 'var(--hwarn)' : w === 'none' ? 'var(--hdim)' : 'var(--hcy)';
+const KIND_WORD = { ask: 'needs an answer', review: 'ready for sign-off', stale: 'gone quiet' };
+function renderActions(rows) {
+  const box = $('h-act'), sub = $('h-act-sub'); if (!box) return;
+  const mine = rows.filter(r => r.who === 'Troy').length;
+  const html = rows.length ? rows.map(r => {
+    const age = r.age_min == null ? '' : r.age_min < 1 ? 'just now' : dur(r.age_min);
+    return `<a class="ha ${r.who === 'Troy' ? 'troy' : ''}" data-id="${hh(r.id)}" href="/#${encodeURIComponent(r.id)}" style="--c:${WHO_COLOR(r.who)}" title="${hh(r.title)}">
+      <span class="ha-who">${hh(r.who === 'none' ? '—' : r.who.toUpperCase())}</span>
+      <span class="ha-what"><span class="ha-t">${hh(r.what)}</span><small>${hh(r.title)}${r.status ? ' · ' + hh(r.status) : ''}</small></span>
+      <span class="ha-from"><b>${hh(r.agent)}</b><i>${hh(KIND_WORD[r.kind] || r.kind)}</i>${age ? ' · ' + age : ''}</span></a>`;
+  }).join('') : `<div class="ha-none">nothing needs you<span>asks, reviews and quiet agents show up here</span></div>`;
+  if (box.dataset.k !== html) { box.dataset.k = html; box.innerHTML = html; }
+  const subTxt = rows.length ? `${rows.length} open${mine ? ` · <b>${mine} for you</b>` : ''}` : '';
+  if (sub.innerHTML !== subTxt) sub.innerHTML = subTxt;
+}
+// Clicking a row opens that card: on the board itself when the HUD is an overlay, in the board
+// window (or a new one) when the HUD runs solo in its own window.
+$('h-act')?.addEventListener('click', e => {
+  const a = e.target.closest('[data-id]'); if (!a) return;
+  e.preventDefault();
+  const id = a.dataset.id;
+  if (SOLO) { window.open('/#' + encodeURIComponent(id), 'agentboard-board'); return; }
+  closeHud(); openPanel(id);
+});
 
 function renderTiles(t) {   // alert chips in the top bar
   const chips = [
@@ -1921,12 +1986,9 @@ function renderLanes(d) {
   const axis = `<div class="ln ln-ax"><span></span><div class="ln-ticks">${['-60m', '-45m', '-30m', '-15m', 'now'].map((t, i) => `<span style="left:${i * 25}%">${t}</span>`).join('')}</div><span></span></div>`;
   // idle rows share the lane grid so their columns line up with the active lanes above; the middle
   // column is a dashed "resting" channel carrying what they last did and when it wrapped
-  const idleRows = idle.length ? `<div class="ln-idle"><div class="ln-idle-label">Idle · ${idle.length}</div>`
-    + idle.map(a => `<div class="ln idle" style="--c:var(--hdim)">
-      <div class="ln-who"><i class="ln-av">${hh(nodeGlyph(a.name))}</i><b title="${hh(a.name)}">${hh(a.name)}</b></div>
-      <div class="ln-rest" title="${hh(a.task || '')}"><span class="ln-rest-t">${hh(a.task || '—')}</span><span class="ln-rest-when">${a.updated ? 'wrapped ' + hh(ago(a.updated).text) : 'no activity yet'}</span></div>
-      <div class="ln-sum"><em>IDLE</em><span title="tasks signed off today">✓ ${a.done_today || 0} done</span></div></div>`).join('') + `</div>` : '';
-  const html = d.agents.length ? lanes + queue + axis + idleRows : `<div class="h-empty">No agents yet. They appear when they run <b>agentboard start</b>.</div>`;
+  // idle agents are listed in Telemetry (with what they last did); here one quiet line says how many sat out the hour
+  const idleRows = idle.length ? `<div class="ln-idle-label" style="margin-top:8px">Idle this hour · ${idle.length}: ${idle.map(a => hh(a.name)).join(', ')}</div>` : '';
+  const html = d.agents.length ? (active.length ? lanes : `<div class="h-empty">Nobody active in the last hour.</div>`) + queue + axis + idleRows : `<div class="h-empty">No agents yet. They appear when they run <b>agentboard start</b>.</div>`;
   if (box.dataset.k !== html) { box.dataset.k = html; box.innerHTML = html; }
   const w = Math.round((d.waiting_s || 0) / 60);
   $('ln-wait').textContent = w ? `⚠ ${dur(w)} waiting on you` : '';
@@ -1950,14 +2012,17 @@ $('hud-inner')?.addEventListener('pointerleave', () => delete $('hud-inner').dat
 
 function renderTele(all) {
   const box = $('h-tele');
-  const agents = all.filter(a => a.state !== 'idle');
-  if (!agents.length) { box.innerHTML = `<div class="h-empty">No active agents right now.</div>`; teleKey = ''; return; }
+  // every agent, active ones first (they are what is happening), idle ones dimmed below — the
+  // separate idle block the lanes used to carry lives here now, where there is room for detail
+  const agents = [...all.filter(a => a.state !== 'idle'), ...all.filter(a => a.state === 'idle')];
+  if (!agents.length) { box.innerHTML = `<div class="h-empty">No agents yet. They appear when they run <b>agentboard start</b>.</div>`; teleKey = ''; return; }
   const key = agents.map(a => a.name).join('|');
   if (key !== teleKey) {
     teleKey = key;
     box.innerHTML = agents.map(a => `<div class="h-row" data-agent="${hh(a.name)}">
       <span class="h-av">${hh(nodeGlyph(a.name))}</span>
       <div style="min-width:0"><div class="h-name">${hh(a.name)}<em></em></div><span class="h-task"></span><span class="h-status"></span></div>
+      <div class="h-cards"><span><b class="h-open"></b> open</span><span title="signed off today">✓ <b class="h-dt"></b> today</span></div>
       <div class="h-prgw"><div class="h-prog"><b></b></div><span class="h-pct"></span></div>
       <span class="h-since"></span></div>`).join('');
   }
@@ -1966,14 +2031,14 @@ function renderTele(all) {
     const c = hudColor(a.color);
     r.className = `h-row ${a.state}`; r.style.setProperty('--c', c);
     r.querySelector('em').textContent = a.state.toUpperCase();
-    r.querySelector('.h-task').textContent = a.task;
-    // status_text is hidden by default for a normal working agent (see .h-status CSS) to keep
-    // the row to one line; kept reachable on hover so nothing is actually lost, just deferred
-    r.querySelector('.h-task').title = a.status_text || '';
+    r.querySelector('.h-task').textContent = a.state === 'idle' ? (a.task ? 'last: ' + a.task : 'no activity yet') : a.task;
+    r.querySelector('.h-task').title = (a.open_titles || []).join('\n') || a.task || '';
     r.querySelector('.h-status').textContent = a.status_text || '';
+    r.querySelector('.h-open').textContent = a.open || 0;
+    r.querySelector('.h-dt').textContent = a.done_today || 0;
     r.querySelector('.h-prog b').style.width = (a.progress || 0) + '%';
     r.querySelector('.h-pct').textContent = (a.progress || 0) + '%';
-    r.querySelector('.h-since').textContent = (a.state === 'abandoned' ? 'abandoned ' : a.state === 'quiet' ? 'quiet ' : '') + (a.updated ? ago(a.updated).text.replace(' ago', '') : '');
+    r.querySelector('.h-since').textContent = (a.state === 'abandoned' ? 'abandoned ' : a.state === 'quiet' ? 'quiet ' : a.state === 'idle' ? 'wrapped ' : '') + (a.updated ? ago(a.updated).text.replace(' ago', '') : '');
   });
 }
 
