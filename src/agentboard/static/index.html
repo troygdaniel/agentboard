@@ -441,7 +441,10 @@
      past the cap the panel ends and the HUD background shows through, which reads as room, not as
      an empty box. Narrow screens stack the bar under the text of its own row. */
   .h-grid { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); min-height: 0; }
-  .h-one { --cols: 40px minmax(0, 2.3fr) 100px minmax(200px, 1fr); --gap: 16px; align-self: start; max-height: 100%; width: 100%; max-width: 100%; }   /* text gets the room; the hour bar reads at 1fr */
+  .h-one { --cols: 40px minmax(0, 2.3fr) 100px minmax(200px, 1fr); --gap: 16px; align-self: stretch; width: 100%; max-width: 100%; }   /* text gets the room; the hour bar reads at 1fr */
+  /* Troy (2026-10-24): "the board has more vertical space; use it to show more text". The panel
+     fills the HUD, rows share the spare height, and the task / status lines may run to three
+     lines before truncating. Idle rows show their last status line too. */
   .h-one .h-head, .h-one .h-row, .h-one .h-foot { display: grid; grid-template-columns: var(--cols); gap: 0 var(--gap);
     grid-template-areas: "av who since load"; }
   .h-av { grid-area: av; } .h-who { grid-area: who; min-width: 0; }
@@ -533,16 +536,16 @@
   .h-name { color: var(--htext); display: flex; gap: 8px; align-items: baseline; font-size: var(--fs-lg); font-weight: 500; } .h-name em { font-style: normal; font-weight: 600; font-size: var(--fs-sm); letter-spacing: var(--tr-label); color: var(--hcy); }
   .h-row.quiet .h-name em { color: var(--hwarn); } .h-row.idle .h-name em { color: var(--hdim); }
   .h-row.abandoned .h-name em { color: var(--hbad); }
-  .h-task { color: var(--hdim); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: var(--fs-md); line-height: 1.3; margin-top: 3px; }
+  .h-task { color: var(--hdim); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; font-size: var(--fs-md); line-height: 1.3; margin-top: 3px; }
   /* The status line is the agent's live narration — genuinely worth reading when something
      needs you (waiting/review/quiet/abandoned), but for a normal working agent it just
      restates the task title in more words. Hidden by default so a 2-second scan only has to
      read one line per row; the exceptional states that actually need a look get the detail. */
   /* ...now that Telemetry is the wide panel there is room for it on every row; it is the one line
      that says what the agent is doing right now, so it is dim for a working agent, lit when the row needs a look */
-  .h-status { display: block; color: var(--hdim); opacity: .75; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px; font-size: var(--fs-sm); }
+  .h-status { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; color: var(--hdim); opacity: .75; margin-top: 2px; font-size: var(--fs-sm); line-height: 1.4; overflow-wrap: anywhere; }
   .h-row.quiet .h-status, .h-row.waiting .h-status, .h-row.review .h-status, .h-row.abandoned .h-status { opacity: 1; color: var(--htext); }
-  .h-row.idle .h-status { display: none; }
+  .h-row.idle .h-status { opacity: .6; }
   .h-row.idle .h-task { opacity: .8; }
   .h-prog { height: 7px; border-radius: 3.5px; background: rgba(110,190,255,.12); overflow: hidden; position: relative; }
   .h-prog::after { content: ''; position: absolute; inset: 0; transform: translateX(-100%);
