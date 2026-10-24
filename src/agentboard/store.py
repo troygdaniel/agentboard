@@ -295,6 +295,20 @@ class Store:
                     _finish(k, t["updated"])
             return t
 
+    def reply(self, task_id, text, by="Troy"):
+        """The user answers a card from the board: one log entry, no state change (the agent clears
+        its own ask/review). Read by agents through `agentboard prompt`/the card log."""
+        text = (text or "").strip()
+        if not text:
+            raise BoardError("reply is empty")
+        if len(text) > 2000:
+            raise BoardError("reply is too long (2000 characters max)")
+        with self.transaction() as tasks:
+            t = self.get(tasks, task_id)
+            _log(t, text, by=by)
+            t["updated"] = _now()
+            return t
+
     def update(self, task_id, progress=None, text=None, status=None):
         with self.transaction() as tasks:
             return self._update(tasks, self.get(tasks, task_id), progress, text, status)
@@ -588,12 +602,14 @@ LOG_MAX = 200
 CHAT_MAX = 500
 
 
-def _log(t, text):
-    """Append to the task's activity history (the card's detail view)."""
+def _log(t, text, by=None):
+    """Append to the task's activity history (the card's detail view). `by` marks a human entry."""
     if not text:
         return
-    t.setdefault("log", []).append(
-        {"at": _now(), "status": t["status"], "progress": t.get("progress", 0), "text": text})
+    entry = {"at": _now(), "status": t["status"], "progress": t.get("progress", 0), "text": text}
+    if by:
+        entry["by"] = by
+    t.setdefault("log", []).append(entry)
     del t["log"][:-LOG_MAX]
 
 

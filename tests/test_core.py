@@ -18,6 +18,17 @@ class StoreTests(unittest.TestCase):
     def tearDown(self):
         self.tmp.cleanup()
 
+    def test_reply_logs_a_human_entry_without_changing_state(self):
+        self.s.add("A", status="todo")
+        self.s.claim("a", "alice")
+        self.s.ask("a", "Which port?")
+        t = self.s.reply("a", "  use 8766  ")
+        self.assertEqual(t["log"][-1]["text"], "use 8766")
+        self.assertEqual(t["log"][-1]["by"], "Troy")
+        self.assertTrue(t["needs_input"])
+        with self.assertRaises(BoardError):
+            self.s.reply("a", "   ")
+
     def test_claim_conflict_and_force(self):
         self.s.add("A", status="todo")
         self.s.claim("a", "alice", "blue")

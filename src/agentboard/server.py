@@ -190,6 +190,10 @@ def make_handler(store, port):
                 elif path == "/api/delete":
                     store.delete(body["id"])
                     self._send(200, {"ok": True})
+                elif path == "/api/reply":
+                    if not isinstance(body["text"], str):
+                        raise BoardError("text must be a string")
+                    self._send(200, store.reply(body["id"], body["text"]))
                 elif path == "/api/chat":
                     # the only HTTP poster is the board UI (agents use the CLI), so it's always "you"
                     sender = body.get("sender") or "Troy"
