@@ -458,7 +458,9 @@
   /* the age may take two lines ("wrapped / 2h") rather than run under the bar */
   .h-one .h-since { white-space: normal; line-height: 1.2; font-size: var(--fs-sm); }
   /* the load column reads as its own column: a divider at its left edge, down every row */
-  .h-one .h-load { position: relative; padding-left: var(--gap); margin-left: calc(-1 * var(--gap)); border-left: 1px solid rgba(110,190,255,.14); align-self: stretch; display: flex; align-items: center; }
+  .h-one .h-load { position: relative; padding-left: var(--gap); margin-left: calc(-1 * var(--gap)); border-left: 1px solid rgba(110,190,255,.14); align-self: stretch; display: flex; flex-direction: column; justify-content: center; align-items: stretch; gap: 6px; }
+  .h-one .h-load .h-prgw { margin-top: 0; }
+  .h-row.idle .h-load .h-prgw, .h-row.h-q .h-load .h-prgw { display: none; }
   .h-one .h-head .h-h2 { padding-left: var(--gap); margin-left: calc(-1 * var(--gap)); }   /* the ticks stay on the bare column: left:0% must be the bar's left edge */
   /* head and foot sit outside the scroll box; the rows inside it lose 6px to the scrollbar. The
      gutter is reserved always and the head/foot pad the same 6px, so the bar column (fr-sized)
@@ -471,9 +473,9 @@
   .h-head .h-h2 h4 { margin: 0; }
   .h-head .ln-wait { float: none; margin-left: 18px; }
   .h-one .h-scroll { display: flex; flex-direction: column; }
-  .h-one .h-row { flex: 1 0 auto; min-height: 84px; }
+  .h-one .h-row { flex: 1 0 auto; min-height: 100px; }   /* room for title + bar + progress on the right */
   .h-one .h-row:first-child { border-top: 0; }
-  .h-load .ln-track { height: clamp(36px, 28%, 60px); min-height: 0; flex: 1 1 auto; width: 100%; }   /* grows a little with a tall row */
+  .h-load .ln-track { height: clamp(30px, 26%, 56px); min-height: 0; flex: none; width: 100%; }   /* grows a little with a tall row */
   /* Troy (2026-10-24): tall rows left empty space around the text. Each row now carries its last
      few notes (time + text), the detail you would otherwise open the card for. Hidden on short
      screens, where the rows have no spare height to give. */
@@ -544,16 +546,19 @@
   .h-name { color: var(--htext); display: flex; gap: 8px; align-items: baseline; font-size: var(--fs-lg); font-weight: 500; } .h-name em { font-style: normal; font-weight: 600; font-size: var(--fs-sm); letter-spacing: var(--tr-label); color: var(--hcy); }
   .h-row.quiet .h-name em { color: var(--hwarn); } .h-row.idle .h-name em { color: var(--hdim); }
   .h-row.abandoned .h-name em { color: var(--hbad); }
-  .h-task { color: var(--hdim); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; font-size: var(--fs-md); line-height: 1.3; margin-top: 3px; }
   /* The status line is the agent's live narration — genuinely worth reading when something
      needs you (waiting/review/quiet/abandoned), but for a normal working agent it just
      restates the task title in more words. Hidden by default so a 2-second scan only has to
      read one line per row; the exceptional states that actually need a look get the detail. */
   /* ...now that Telemetry is the wide panel there is room for it on every row; it is the one line
      that says what the agent is doing right now, so it is dim for a working agent, lit when the row needs a look */
-  .h-status { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; color: var(--hdim); opacity: .75; margin-top: 2px; font-size: var(--fs-sm); line-height: 1.4; overflow-wrap: anywhere; }
-  .h-row.quiet .h-status, .h-row.waiting .h-status, .h-row.review .h-status, .h-row.abandoned .h-status { opacity: 1; color: var(--htext); }
-  .h-row.idle .h-status { opacity: .6; }
+  /* Troy (2026-10-24): "remove noise like the card name so the attention text is clearer". The
+     card title and the progress line live on the right with the bar; the left column is the agent,
+     its state, and the one text that matters: the ask, or the agent's own status line. */
+  .h-status { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; color: var(--htext); opacity: .85; margin-top: 4px; font-size: var(--fs-md); line-height: 1.35; overflow-wrap: anywhere; }
+  .h-row.idle .h-status { opacity: .55; color: var(--hdim); }
+  .h-card { display: block; color: var(--hdim); font-size: var(--fs-xs); letter-spacing: var(--tr-tight); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .h-row.idle .h-card { opacity: .7; }
   .h-row.idle .h-task { opacity: .8; }
   .h-prog { height: 7px; border-radius: 3.5px; background: rgba(110,190,255,.12); overflow: hidden; position: relative; }
   .h-prog::after { content: ''; position: absolute; inset: 0; transform: translateX(-100%);
@@ -2050,11 +2055,11 @@ function renderGrid(d) {
     teleKey = key;
     box.innerHTML = agents.map(a => `<div class="h-row" data-agent="${hh(a.name)}">
       <span class="h-av">${hh(nodeGlyph(a.name))}</span>
-      <div class="h-who"><div class="h-name">${hh(a.name)}<em></em></div><span class="h-task"></span><span class="h-status"></span><div class="h-ask"></div>
-        <ul class="h-recent"></ul>
-        <div class="h-prgw"><div class="h-prog"><b></b></div><span class="h-pct"></span></div></div>
+      <div class="h-who"><div class="h-name">${hh(a.name)}<em></em></div><span class="h-status"></span><div class="h-ask"></div>
+        <ul class="h-recent"></ul></div>
       <span class="h-since"></span>
-      <div class="h-load"><div class="ln-track"></div></div></div>`).join('')
+      <div class="h-load"><span class="h-card"></span><div class="ln-track"></div>
+        <div class="h-prgw"><div class="h-prog"><b></b></div><span class="h-pct"></span></div></div></div>`).join('')
       + `<div class="h-row h-q"><span class="h-av"></span><div class="h-who" id="h-qlab">QUEUE</div><span class="h-since"></span>
          <div class="h-load"><div class="ln-track" id="h-qtrack" title="unclaimed cards in Todo over the hour"></div></div></div>`;
   }
@@ -2075,9 +2080,9 @@ function renderGrid(d) {
     const askHtml = ask ? stepsHtml(ask.what, hh) + `<i>${hh(KIND_WORD[ask.kind] || ask.kind)}${ask.who && ask.who !== 'Troy' && ask.who !== 'none' ? ' · for ' + hh(ask.who) : ''}${ask.age_min == null ? '' : ' · ' + (ask.age_min < 1 ? 'just now' : dur(ask.age_min))}</i>` : '';
     if (askEl.dataset.k !== askHtml) { askEl.dataset.k = askHtml; askEl.innerHTML = askHtml; }
     r.querySelector('em').textContent = a.state.toUpperCase();
-    r.querySelector('.h-task').textContent = a.state === 'idle' ? (a.task ? 'last: ' + a.task : 'no activity yet') : a.task;
-    r.querySelector('.h-task').title = (a.open_titles || []).join('\n') || a.task || '';
-    r.querySelector('.h-status').textContent = a.status_text || '';
+    r.querySelector('.h-card').textContent = a.state === 'idle' ? (a.task ? 'last: ' + a.task : 'no activity yet') : a.task;
+    r.querySelector('.h-card').title = (a.open_titles || []).join('\n') || a.task || '';
+    r.querySelector('.h-status').textContent = a.status_text || (a.state === 'idle' ? '' : 'no status yet');
     r.querySelector('.h-name').title = `${a.open || 0} open · ${a.done_today || 0} signed off today`;   // on hover only; Troy does not read it
     r.querySelector('.h-prog b').style.width = (a.progress || 0) + '%';
     r.querySelector('.h-pct').textContent = (a.progress || 0) + '%';
