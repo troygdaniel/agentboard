@@ -523,7 +523,8 @@
   .h-since { text-align: right; color: var(--hdim); font-size: var(--fs-md); white-space: nowrap; }   /* "abandoned 12h05" wrapped to two lines in the old 92px column */ .h-row.quiet .h-since { color: var(--hwarn); }
   .h-row.abandoned .h-since { color: var(--hbad); }
   /* ----- agent load: one lane per agent over the last hour ----- */
-  .ln-leg { margin-left: 18px; letter-spacing: var(--tr-tight); text-transform: none; font-size: var(--fs-sm); display: inline-flex; align-items: center; gap: 2px; }
+  .ln-foot { flex: none; padding-top: 8px; margin-top: 6px; border-top: 1px solid var(--hline); display: flex; justify-content: center; }
+  .ln-leg { letter-spacing: var(--tr-tight); text-transform: none; font-size: var(--fs-sm); display: inline-flex; align-items: center; gap: 2px; }
   .ln-leg u { text-decoration: none; color: color-mix(in srgb, var(--k) 65%, var(--hdim)); cursor: default;
     padding: 2px 7px; border-radius: 6px; transition: background .15s ease, color .15s ease; }
   .ln-leg u::before { content: ''; display: inline-block; width: 9px; height: 9px; border-radius: 3px; margin-right: 6px; background: var(--k); box-shadow: 0 0 8px var(--k); vertical-align: -1px; }
@@ -539,6 +540,24 @@
   #hud-inner[data-hk="review"] .sg.review, #hud-inner[data-hk="review"] .ln-leg u[data-k="review"]
     { opacity: 1; filter: brightness(1.4); }
   .ln-wait { float: right; color: var(--hwarn); letter-spacing: var(--tr-tight); text-transform: none; font-size: var(--fs-sm); }
+  /* Aligned mode (panels side by side): the lanes sit on the SAME row grid as Telemetry — one agent,
+     one row, same order, same height on both sides (JS copies each telemetry row's height onto its
+     lane and keeps the two scroll positions in step), so the right side needs no agent names at all:
+     the row to the left already says who. Only the queue keeps a label, inside its own track. */
+  #h-lanes.aligned { justify-content: flex-start; gap: 0; }
+  #h-lanes.aligned .ln[data-agent], #h-lanes.aligned .ln-q, #h-lanes.aligned .ln-ax { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  #h-lanes.aligned .ln[data-agent] { max-height: none; min-height: 0; flex: none; border-radius: 0; padding: 12px 0 12px 12px; border-top: 1px solid rgba(110,190,255,.08); }
+  #h-lanes.aligned .ln[data-agent]:first-child { border-top: 0; }
+  #h-lanes.aligned .ln-who, #h-lanes.aligned .ln-sum { display: none; }
+  #h-lanes.aligned .ln[data-agent] { align-items: center; }
+  #h-lanes.aligned .ln[data-agent] .ln-track { min-height: 0; height: clamp(30px, 48%, 46px); }
+  #h-lanes.aligned .ln.idle .ln-track { opacity: .45; }
+  #h-lanes.aligned .ln.idle::before, #h-lanes.aligned .ln.idle::after { display: none; }
+  #h-lanes.aligned .ln-q { margin-top: 12px; padding-left: 12px; }
+  #h-lanes.aligned .ln-ax { padding-left: 12px; }
+  .ln-qlab { display: none; }
+  #h-lanes.aligned .ln-q .ln-track { position: relative; }
+  #h-lanes.aligned .ln-qlab { display: block; position: absolute; left: 8px; top: 50%; transform: translateY(-50%); z-index: 1; color: var(--hcy); font-size: var(--fs-xs); letter-spacing: var(--tr-label); text-shadow: 0 0 6px var(--hbg), 0 0 6px var(--hbg); pointer-events: none; }
   /* safe center: when the group is shorter than the panel (1-2 agents) it sits composed in the
      middle instead of huddling at the top over a void; when it's taller it top-aligns and scrolls
      as normal (the "safe" keyword is what prevents centered overflow clipping the top rows) */
@@ -888,8 +907,9 @@
     <section class="hp h-act" aria-live="polite"><h4>Needs a person <span class="ln-sub" id="h-act-sub"></span></h4><div class="h-scroll" id="h-act"></div></section>
     <div class="h-grid">
       <section class="hp"><h4>Telemetry <span class="ln-sub">every agent, right now</span></h4><div class="h-scroll" id="h-tele"></div></section>
-      <section class="hp"><h4>Agent load <span class="ln-sub">last 60 min</span><span class="ln-leg"><u data-k="busy" style="--k:var(--c0)">working</u><u data-k="waiting" style="--k:var(--hwarn)">waiting on you</u><u data-k="review" style="--k:var(--hok)">in review</u></span><span class="ln-wait" id="ln-wait"></span></h4>
-        <div class="h-scroll" id="h-lanes"></div></section>
+      <section class="hp"><h4>Agent load <span class="ln-sub">last 60 min</span><span class="ln-wait" id="ln-wait"></span></h4>
+        <div class="h-scroll" id="h-lanes"></div>
+        <div class="ln-foot"><span class="ln-leg"><u data-k="busy" style="--k:var(--c0)">working</u><u data-k="waiting" style="--k:var(--hwarn)">waiting on you</u><u data-k="review" style="--k:var(--hok)">in review</u></span></div></section>
     </div>
   </div>
 </div>
@@ -1901,6 +1921,7 @@ function hudRender(d) {
   }
   renderLanes(d);
   renderTele(d.agents);
+  alignLanes();
 }
 
 // ---- ACTION strip: one row per card that needs a person. Colour = who must act (Troy red, ORCH
@@ -1953,15 +1974,16 @@ const dur = m => m < 60 ? m + 'm' : Math.floor(m / 60) + 'h' + String(m % 60).pa
 const STATE_COLOR = { working: 'var(--c0)', waiting: 'var(--hwarn)', review: 'var(--hok)', quiet: 'var(--hwarn)', abandoned: 'var(--hbad)' };
 
 // ---- agent load: a lane per agent over the last hour (busy / waiting on you / in review; gaps are idle) ----
+// Both panels list agents in this one order (active first, idle below), so row N on the left
+// is the same agent as row N on the right — the alignment the right side relies on.
+const teleOrder = all => [...all.filter(a => a.state !== 'idle'), ...all.filter(a => a.state === 'idle')];
+
 function renderLanes(d) {
   const box = $('h-lanes'); if (!box) return;
   const win = (d.window_min || 60) * 60000, end = Date.now(), start = end - win;
   const pc = ms => Math.max(0, Math.min(100, (ms - start) / win * 100));
-  // Idle agents get a compact strip below the active lanes (see .ln-idle) rather than a full
-  // lane each or none at all — the active ones (what's actually happening) get the prime space.
-  const active = d.agents.filter(a => a.state !== 'idle');
-  const idle = d.agents.filter(a => a.state === 'idle');
-  const lanes = active.map(a => {
+  const ordered = teleOrder(d.agents);
+  const lanes = ordered.map(a => {
     const c = STATE_COLOR[a.state] || 'var(--hdim)', tot = { busy: 0, waiting: 0, review: 0 };
     const sg = ((d.lanes || {})[a.name] || []).map(r => {
       const open = r.b === d.now, ta = Math.max(start, new Date(r.a).getTime()), tb = open ? end : Math.min(end, new Date(r.b).getTime());
@@ -1974,25 +1996,52 @@ function renderLanes(d) {
     // status word leads — the hour-split percentages that used to be a bar are now a hover detail on it
     const mixTitle = `last 60 min: ${Math.round(tot.busy / win * 100)}% working · ${Math.round(tot.waiting / win * 100)}% waiting on you · `
       + `${Math.round(tot.review / win * 100)}% in review · ${Math.round(idlePct)}% idle`;
-    return `<div class="ln ${a.state}" style="--c:${c}">
+    return `<div class="ln ${a.state}" data-agent="${hh(a.name)}" style="--c:${c}">
       <div class="ln-who"><i class="ln-av">${hh(nodeGlyph(a.name))}</i><b title="${hh(a.name)}">${hh(a.name)}</b></div>
-      <div class="ln-track">${sg}</div>
+      <div class="ln-track" title="${hh(a.name)} · ${hh(mixTitle)}">${sg}</div>
       <div class="ln-sum"><em title="${hh(mixTitle)}">${hh(a.state.toUpperCase())}</em><span title="tasks signed off today">✓ ${a.done_today || 0} done</span></div></div>`;
   }).join('');
   const q = d.queue || [], qmax = Math.max(1, ...q);
   const queue = `<div class="ln ln-q"><div class="ln-who">QUEUE</div>
-    <div class="ln-track">${q.map(v => `<i style="height:${(v / qmax * 100).toFixed(0)}%" title="${v} waiting in Todo"></i>`).join('')}</div>
+    <div class="ln-track" title="unclaimed cards in Todo over the hour"><span class="ln-qlab">QUEUE · ${q.length ? q[q.length - 1] : 0}</span>${q.map(v => `<i style="height:${(v / qmax * 100).toFixed(0)}%" title="${v} waiting in Todo"></i>`).join('')}</div>
     <div class="ln-sum" title="waiting in Todo, unclaimed">${q.length ? q[q.length - 1] : 0}</div></div>`;
   const axis = `<div class="ln ln-ax"><span></span><div class="ln-ticks">${['-60m', '-45m', '-30m', '-15m', 'now'].map((t, i) => `<span style="left:${i * 25}%">${t}</span>`).join('')}</div><span></span></div>`;
-  // idle rows share the lane grid so their columns line up with the active lanes above; the middle
-  // column is a dashed "resting" channel carrying what they last did and when it wrapped
-  // idle agents are listed in Telemetry (with what they last did); here one quiet line says how many sat out the hour
-  const idleRows = idle.length ? `<div class="ln-idle-label" style="margin-top:8px">Idle this hour · ${idle.length}: ${idle.map(a => hh(a.name)).join(', ')}</div>` : '';
-  const html = d.agents.length ? (active.length ? lanes : `<div class="h-empty">Nobody active in the last hour.</div>`) + queue + axis + idleRows : `<div class="h-empty">No agents yet. They appear when they run <b>agentboard start</b>.</div>`;
+  const html = d.agents.length ? lanes + queue + axis : `<div class="h-empty">No agents yet. They appear when they run <b>agentboard start</b>.</div>`;
   if (box.dataset.k !== html) { box.dataset.k = html; box.innerHTML = html; }
   const w = Math.round((d.waiting_s || 0) / 60);
   $('ln-wait').textContent = w ? `⚠ ${dur(w)} waiting on you` : '';
 }
+
+// ---- keep the right panel on the left panel's row grid ----
+// Side by side, each lane takes exactly its telemetry row's height, the first lane starts where
+// the first row starts (the two panel headers are not the same height), and the two scroll
+// boxes move together. Stacked (narrow screens) the lanes go back to their own labelled layout.
+const ALIGNED = matchMedia('(min-width: 1181px)');
+let syncing = false;
+function alignLanes() {
+  const tele = $('h-tele'), lanes = $('h-lanes'); if (!tele || !lanes) return;
+  const on = ALIGNED.matches && !!tele.querySelector('.h-row[data-agent]');
+  lanes.classList.toggle('aligned', on);
+  tele.style.paddingTop = lanes.style.paddingTop = '';
+  lanes.querySelectorAll('.ln[data-agent]').forEach(l => { l.style.height = ''; });
+  if (!on) return;
+  const dy = tele.getBoundingClientRect().top - lanes.getBoundingClientRect().top;
+  if (dy > 0) lanes.style.paddingTop = dy + 'px'; else if (dy < 0) tele.style.paddingTop = -dy + 'px';
+  tele.querySelectorAll('.h-row[data-agent]').forEach(r => {
+    const l = lanes.querySelector(`.ln[data-agent="${CSS.escape(r.dataset.agent)}"]`);
+    if (l) l.style.height = r.getBoundingClientRect().height + 'px';
+  });
+  if (lanes.scrollTop !== tele.scrollTop) lanes.scrollTop = tele.scrollTop;
+}
+function syncScroll(from, to) {
+  if (syncing || !ALIGNED.matches) return;
+  syncing = true; to.scrollTop = from.scrollTop; requestAnimationFrame(() => { syncing = false; });
+}
+$('h-tele')?.addEventListener('scroll', () => syncScroll($('h-tele'), $('h-lanes')));
+$('h-lanes')?.addEventListener('scroll', () => syncScroll($('h-lanes'), $('h-tele')));
+if (window.ResizeObserver && $('h-tele')) new ResizeObserver(() => alignLanes()).observe($('h-tele'));
+ALIGNED.addEventListener?.('change', alignLanes);
+window.addEventListener('resize', alignLanes);
 
 // Hover-kind tracking for the Agent Load legend highlight (see the #hud-inner[data-hk]
 // rules): delegated on #hud-inner, which #h-lanes' per-second rebuild never replaces, so
@@ -2014,7 +2063,7 @@ function renderTele(all) {
   const box = $('h-tele');
   // every agent, active ones first (they are what is happening), idle ones dimmed below — the
   // separate idle block the lanes used to carry lives here now, where there is room for detail
-  const agents = [...all.filter(a => a.state !== 'idle'), ...all.filter(a => a.state === 'idle')];
+  const agents = teleOrder(all);
   if (!agents.length) { box.innerHTML = `<div class="h-empty">No agents yet. They appear when they run <b>agentboard start</b>.</div>`; teleKey = ''; return; }
   const key = agents.map(a => a.name).join('|');
   if (key !== teleKey) {
