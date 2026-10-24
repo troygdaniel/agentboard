@@ -495,20 +495,20 @@
   .h-act h4 { margin-bottom: 6px; }
   .h-act h4 .ln-sub b { color: var(--hbad); font-weight: 600; }
   .h-act .h-scroll { max-height: 32vh; display: flex; flex-direction: column; gap: 4px; }
-  .ha { position: relative; display: grid; grid-template-columns: 80px minmax(0, 1fr) auto; gap: 14px; align-items: center; min-height: 44px;
-    padding: 6px 14px 6px 16px; border-radius: 10px; color: inherit; text-decoration: none; cursor: pointer;
+  .ha { position: relative; display: grid; grid-template-columns: 72px minmax(0, 1fr) auto; gap: 14px; align-items: center; min-height: 40px;
+    padding: 5px 14px 5px 16px; border-radius: 10px; color: inherit; text-decoration: none; cursor: pointer;
     background: color-mix(in srgb, var(--c) 7%, transparent); border: 1px solid color-mix(in srgb, var(--c) 28%, transparent); transition: background .15s ease; }
   .ha:hover, .ha:focus-visible { background: color-mix(in srgb, var(--c) 14%, transparent); outline: none; }
   .ha::before { content: ''; position: absolute; left: 0; top: 8px; bottom: 8px; width: 4px; border-radius: 2px; background: var(--c); box-shadow: 0 0 12px var(--c); }
-  .ha-who { font-weight: 700; font-size: var(--fs-sm); letter-spacing: var(--tr-label); color: var(--c); white-space: nowrap; }
+  .ha-who { font-weight: 700; font-size: var(--fs-xs); letter-spacing: var(--tr-label); color: var(--c); white-space: nowrap; }
   .ha.troy .ha-who { animation: hqblink 2.6s ease-in-out infinite; }
   .ha-what { min-width: 0; }
-  .ha-t { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; font-size: var(--fs-lg); line-height: 1.28; color: var(--htext); }   /* Troy: smaller, so more of it reads */
-  .ha-what small { display: block; color: var(--hdim); font-size: var(--fs-sm); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: 0; }
-  .ha-from { text-align: right; color: var(--hdim); font-size: var(--fs-sm); white-space: nowrap; line-height: 1.4; }
+  .ha-t { font-size: var(--fs-md); line-height: 1.35; color: var(--htext); overflow-wrap: anywhere; }   /* Troy (twice): smaller, so the whole ask reads */
+  .ha-what small { display: block; color: var(--hdim); font-size: var(--fs-xs); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: 0; }
+  .ha-from { text-align: right; color: var(--hdim); font-size: var(--fs-xs); white-space: nowrap; line-height: 1.4; }
   .ha-from b { display: block; color: var(--htext); font-weight: 500; letter-spacing: var(--tr-tight); }
   .ha-from i { font-style: normal; color: var(--c); font-weight: 600; letter-spacing: var(--tr-label); font-size: var(--fs-xs); }
-  .ha-none { display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 8px 16px; color: var(--hok); font-size: var(--fs-lg); border-radius: 10px;
+  .ha-none { display: flex; align-items: center; gap: 12px; min-height: 40px; padding: 6px 16px; color: var(--hok); font-size: var(--fs-md); border-radius: 10px;
     border: 1px dashed rgba(93,255,176,.3); background: rgba(93,255,176,.04); }
   .ha-none::before { content: '✓'; font-size: var(--fs-xl); }
   .ha-none span { color: var(--hdim); font-size: var(--fs-sm); margin-left: auto; }
