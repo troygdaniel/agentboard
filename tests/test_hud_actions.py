@@ -21,6 +21,12 @@ class ParseActionTests(unittest.TestCase):
         self.assertEqual(hud.parse_action("ACTION  AGENT-2: regenerate types")["who"], "AGENT-2")
         self.assertEqual(hud.parse_action("ACTION none")["who"], "none")
 
+    def test_status_and_why_run_on_in_one_line(self):
+        a = hud.parse_action("ACTION Troy: register quietdesk.co; point URLs at it. STATUS rename done-ready WHY DNS")
+        self.assertEqual(a["who"], "Troy")
+        self.assertEqual(a["what"], "register quietdesk.co; point URLs at it.")
+        self.assertEqual((a["status"], a["why"]), ("rename done-ready", "DNS"))
+
     def test_plain_text_is_not_an_action_line(self):
         a = hud.parse_action("Which port should the server use?")
         self.assertEqual(a, {"who": "", "what": "", "status": "", "why": ""})

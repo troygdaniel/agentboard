@@ -147,7 +147,8 @@ def parse_action(text):
     out = {"who": "", "what": "", "status": "", "why": ""}
     if not text:
         return out
-    parts = [x.strip() for x in re.split(r"\n|\s\|\s", str(text)) if x.strip()]
+    # lines, ' | ', or the words STATUS / WHY run on inside one line ("ACTION Troy: x. STATUS y")
+    parts = [x.strip() for x in re.split(r"\n|\s\|\s|\s(?=(?:STATUS|WHY)\b\s*:?\s)", str(text)) if x.strip()]
     for part in parts:
         m = _ACTION_RE.match(part)
         if m:
