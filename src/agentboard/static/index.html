@@ -504,9 +504,6 @@
   .ha.troy .ha-who { animation: hqblink 2.6s ease-in-out infinite; }
   .ha-what { min-width: 0; }
   .ha-t { font-size: var(--fs-md); line-height: 1.35; color: var(--htext); overflow-wrap: anywhere; }   /* Troy (twice): smaller, so the whole ask reads */
-  ol.steps { margin: 2px 0 0; padding-left: 1.6em; }
-  ol.steps li { margin: 1px 0; padding-left: .2em; }
-  ol.steps li::marker { color: var(--hdim, var(--muted)); font-weight: 600; }
   .ha-what small { display: block; color: var(--hdim); font-size: var(--fs-xs); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: 0; }
   .ha-from { text-align: right; color: var(--hdim); font-size: var(--fs-xs); white-space: nowrap; line-height: 1.4; }
   .ha-from b { display: block; color: var(--htext); font-weight: 500; letter-spacing: var(--tr-tight); }
@@ -1493,19 +1490,19 @@ function inlineFmt(src) {
 // counts 1, 2, 3… in order counts as steps, so "Oct 24. Next" or "avg 3.5" never split.
 function splitSteps(text) {
   const t = String(text || '').replace(/\r/g, '');
-  const re = /(^|[\s;:,])\(?(\d{1,2})[.)]\s+/g, marks = []; let m;
-  while ((m = re.exec(t))) marks.push({ n: +m[2], at: m.index + m[1].length, end: m.index + m[0].length });
+  const re = /(^|[\s;:,])(\(?(\d{1,2})[.)])\s+/g, marks = []; let m;
+  while ((m = re.exec(t))) marks.push({ n: +m[3], mark: m[2], at: m.index + m[1].length, end: m.index + m[0].length });
   const run = []; for (const k of marks) { if (k.n === run.length + 1) run.push(k); else if (run.length >= 2) break; else run.length = 0, k.n === 1 && run.push(k); }
   if (run.length < 2) return null;
   const lead = t.slice(0, run[0].at).replace(/[\s;:,]+$/, '').trim();
-  const items = run.map((k, i) => t.slice(k.end, i + 1 < run.length ? run[i + 1].at : t.length).replace(/[\s;,]+$/, '').trim());
+  const items = run.map((k, i) => k.mark + ' ' + t.slice(k.end, i + 1 < run.length ? run[i + 1].at : t.length).replace(/[\s;,]+$/, '').trim());
   return { lead, items };
 }
-// steps as an <ol> (or the text as-is); `inline` escapes/decorates one line of text
+// one step per line, the agent's own markers kept ("(1) …" stays "(1) …"; Troy: no list numbering)
 function stepsHtml(text, inline) {
   const st = splitSteps(text);
   if (!st) return inline(text);
-  return (st.lead ? inline(st.lead) + ' ' : '') + '<ol class="steps">' + st.items.map(x => '<li>' + inline(x) + '</li>').join('') + '</ol>';
+  return [...(st.lead ? [st.lead] : []), ...st.items].map(inline).join('<br>');
 }
 function fmt(text) {
   return String(text || '').replace(/\r/g, '').trim().split(/\n{2,}/).filter(Boolean).map(b => {
