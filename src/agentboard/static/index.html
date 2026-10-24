@@ -401,7 +401,7 @@
       linear-gradient(90deg, rgba(94,231,255,.035) 1px, transparent 1px) 0 0 / 40px 40px,
       var(--hbg);
     box-shadow: 0 0 0 1px rgba(94,231,255,.06), 0 30px 120px rgba(0,0,0,.6), inset 0 0 120px rgba(94,231,255,.04);
-    display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto minmax(0, 1fr); gap: 12px; padding: 14px 18px 18px;
+    display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); gap: 12px; padding: 14px 18px 18px;
   }
   .hud::after { content: ''; position: absolute; inset: 0; pointer-events: none; opacity: .1;
     background: repeating-linear-gradient(transparent 0 2px, rgba(0,0,0,.22) 2px 3px); }
@@ -441,7 +441,7 @@
      past the cap the panel ends and the HUD background shows through, which reads as room, not as
      an empty box. Narrow screens stack the bar under the text of its own row. */
   .h-grid { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); min-height: 0; }
-  .h-one { --cols: 40px minmax(0, 1.6fr) 110px minmax(240px, 1.4fr); --gap: 16px; align-self: start; max-height: 100%; width: 100%; max-width: 100%; }
+  .h-one { --cols: 40px minmax(0, 2.3fr) 100px minmax(200px, 1fr); --gap: 16px; align-self: start; max-height: 100%; width: 100%; max-width: 100%; }   /* text gets the room; the hour bar reads at 1fr */
   .h-one .h-head, .h-one .h-row, .h-one .h-foot { display: grid; grid-template-columns: var(--cols); gap: 0 var(--gap);
     grid-template-areas: "av who since load"; }
   .h-av { grid-area: av; } .h-who { grid-area: who; min-width: 0; }
@@ -466,9 +466,9 @@
   .h-head h4 { margin: 0; }
   .h-head .h-h2 { grid-area: load; display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
   .h-head .h-h2 h4 { margin: 0; }
-  .h-head .ln-wait { float: none; }
+  .h-head .ln-wait { float: none; margin-left: 18px; }
   .h-one .h-scroll { display: flex; flex-direction: column; }
-  .h-one .h-row { flex: 1 0 auto; min-height: 84px; max-height: 160px; }
+  .h-one .h-row { flex: 1 0 auto; min-height: 84px; }
   .h-one .h-row:first-child { border-top: 0; }
   .h-load .ln-track { height: 36px; min-height: 0; flex: 1 1 auto; width: 100%; }
   .h-row.idle .h-load .ln-track { opacity: .45; }
@@ -486,32 +486,23 @@
     .h-one .h-head, .h-one .h-row, .h-one .h-foot { grid-template-areas: "av who since" "av load load"; }
     .h-one .h-load { border-left: 0; padding-left: 0; margin-left: 0; }
     .h-one .h-head .h-h2 { padding-left: 0; margin-left: 0; }
-    .h-one .h-row { max-height: none; }
     .h-head .h-h2 { justify-content: flex-start; }
     .h-load { margin-top: 8px; }
   }
-  /* ----- ACTION strip: who needs to do what, right now. The one thing Troy opens the HUD for. ----- */
-  .h-act { padding: 10px 16px 10px; gap: 0; }
-  .h-act h4 { margin-bottom: 6px; }
-  .h-act h4 .ln-sub b { color: var(--hbad); font-weight: 600; }
-  .h-act .h-scroll { max-height: 32vh; display: flex; flex-direction: column; gap: 4px; }
-  .ha { position: relative; display: grid; grid-template-columns: 72px minmax(0, 1fr) auto; gap: 14px; align-items: center; min-height: 40px;
-    padding: 5px 14px 5px 16px; border-radius: 10px; color: inherit; text-decoration: none; cursor: pointer;
-    background: color-mix(in srgb, var(--c) 7%, transparent); border: 1px solid color-mix(in srgb, var(--c) 28%, transparent); transition: background .15s ease; }
-  .ha:hover, .ha:focus-visible { background: color-mix(in srgb, var(--c) 14%, transparent); outline: none; }
-  .ha::before { content: ''; position: absolute; left: 0; top: 8px; bottom: 8px; width: 4px; border-radius: 2px; background: var(--c); box-shadow: 0 0 12px var(--c); }
-  .ha-who { font-weight: 700; font-size: var(--fs-xs); letter-spacing: var(--tr-label); color: var(--c); white-space: nowrap; }
-  .ha.troy .ha-who { animation: hqblink 2.6s ease-in-out infinite; }
-  .ha-what { min-width: 0; }
-  .ha-t { font-size: var(--fs-md); line-height: 1.35; color: var(--htext); overflow-wrap: anywhere; }   /* Troy (twice): smaller, so the whole ask reads */
-  .ha-what small { display: block; color: var(--hdim); font-size: var(--fs-xs); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: 0; }
-  .ha-from { text-align: right; color: var(--hdim); font-size: var(--fs-xs); white-space: nowrap; line-height: 1.4; }
-  .ha-from b { display: block; color: var(--htext); font-weight: 500; letter-spacing: var(--tr-tight); }
-  .ha-from i { font-style: normal; color: var(--c); font-weight: 600; letter-spacing: var(--tr-label); font-size: var(--fs-xs); }
-  .ha-none { display: flex; align-items: center; gap: 12px; min-height: 40px; padding: 6px 16px; color: var(--hok); font-size: var(--fs-md); border-radius: 10px;
-    border: 1px dashed rgba(93,255,176,.3); background: rgba(93,255,176,.04); }
-  .ha-none::before { content: '✓'; font-size: var(--fs-xl); }
-  .ha-none span { color: var(--hdim); font-size: var(--fs-sm); margin-left: auto; }
+  /* ----- attention rows (Troy, 2026-10-24: "highlight the agent that is asking, make it look like the
+     top panel did; my name doesn't need to be mentioned"). A row whose card needs a person is tinted
+     and outlined in the urgency colour, its state word blinks, and the ask itself is printed in full
+     under the task where the status line normally is. Red = needs an answer or a sign-off (yours),
+     amber = the agent went quiet, cyan = the ask names another agent. ----- */
+  .h-row.attn { --a: var(--hbad); background: color-mix(in srgb, var(--a) 8%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--a) 32%, transparent); cursor: pointer; }
+  .h-row.attn:hover { background: color-mix(in srgb, var(--a) 13%, transparent); }
+  .h-row.attn.stale { --a: var(--hwarn); } .h-row.attn.other { --a: var(--hcy); }
+  .h-row.attn::before { background: var(--a); box-shadow: 0 0 14px var(--a); opacity: 1; }
+  .h-row.attn .h-name em { color: var(--a); animation: hqblink 2.6s ease-in-out infinite; }
+  .h-row.attn .h-status { display: none; }
+  .h-ask { display: none; margin-top: 6px; color: var(--htext); font-size: var(--fs-md); line-height: 1.35; overflow-wrap: anywhere; }
+  .h-row.attn .h-ask { display: block; }
+  .h-ask i { display: block; font-style: normal; color: var(--a); font-size: var(--fs-xs); letter-spacing: var(--tr-label); font-weight: 600; margin-top: 4px; }
   /* Agent load fills its grid row again (an earlier shrink-wrap left the bottom two-thirds of
      the screen as empty grid). What keeps a 1-agent board from looking ridiculous now is the
      per-lane caps below, scaled to the viewport, plus the idle rows absorbing whatever height
@@ -932,11 +923,10 @@
       <button class="h-btn" id="h-full" aria-label="Toggle fullscreen (f)">Fullscreen</button>
       <button class="h-btn" id="h-close" aria-label="Close HUD (Esc)">Close</button>
     </div>
-    <section class="hp h-act" aria-live="polite"><h4>Needs a person <span class="ln-sub" id="h-act-sub"></span></h4><div class="h-scroll" id="h-act"></div></section>
     <div class="h-grid">
       <section class="hp h-one" aria-label="Telemetry and agent load">
-        <div class="h-head"><h4 class="h-who">Telemetry <span class="ln-sub">every agent, right now</span></h4>
-          <div class="h-h2"><h4>Agent load <span class="ln-sub">last 60 min</span></h4><span class="ln-wait" id="ln-wait"></span></div></div>
+        <div class="h-head"><h4 class="h-who">Telemetry <span class="ln-sub">every agent, right now</span><span class="ln-wait" id="ln-wait"></span></h4>
+          <div class="h-h2"><h4>Agent load <span class="ln-sub">last 60 min</span></h4></div></div>
         <div class="h-scroll" id="h-tele"></div>
         <div class="h-foot"><span class="ln-leg"><u data-k="busy" style="--k:var(--c0)">working</u><u data-k="waiting" style="--k:var(--hwarn)">waiting on you</u><u data-k="review" style="--k:var(--hok)">in review</u></span>
           <div class="ln-ticks"><span style="left:0%">-60m</span><span style="left:25%">-45m</span><span style="left:50%">-30m</span><span style="left:75%">-15m</span><span style="left:100%">now</span></div></div>
@@ -1963,7 +1953,6 @@ function hudRender(d) {
     tk.dataset.k = tkHtml; tk.innerHTML = tkHtml;
     tk.classList.remove('tk'); void tk.offsetWidth; tk.classList.add('tk');
   }
-  renderActions(d.actions || []);
   renderTiles(d.totals);
   if (SOLO) {
     const t0 = d.totals, mine = (d.actions || []).filter(a => a.who === 'Troy').length;
@@ -1972,34 +1961,7 @@ function hudRender(d) {
   renderGrid(d);
 }
 
-// ---- ACTION strip: one row per card that needs a person. Colour = who must act (Troy red, ORCH
-// amber, an agent cyan), never what kind of card it is; the kind is a small word on the right.
-const WHO_COLOR = w => w === 'Troy' ? 'var(--hbad)' : w === 'ORCH' ? 'var(--hwarn)' : w === 'none' ? 'var(--hdim)' : 'var(--hcy)';
 const KIND_WORD = { ask: 'needs an answer', review: 'ready for sign-off', stale: 'gone quiet' };
-function renderActions(rows) {
-  const box = $('h-act'), sub = $('h-act-sub'); if (!box) return;
-  const mine = rows.filter(r => r.who === 'Troy').length;
-  const html = rows.length ? rows.map(r => {
-    const age = r.age_min == null ? '' : r.age_min < 1 ? 'just now' : dur(r.age_min);
-    return `<a class="ha ${r.who === 'Troy' ? 'troy' : ''}" data-id="${hh(r.id)}" href="/#${encodeURIComponent(r.id)}" style="--c:${WHO_COLOR(r.who)}" title="${hh(r.title)}">
-      <span class="ha-who">${hh(r.who === 'none' ? '—' : r.who.toUpperCase())}</span>
-      <span class="ha-what"><span class="ha-t">${stepsHtml(r.what, hh)}</span><small>${hh(r.title)}${r.status ? ' · ' + hh(r.status) : ''}</small></span>
-      <span class="ha-from"><b>${hh(r.agent)}</b><i>${hh(KIND_WORD[r.kind] || r.kind)}</i>${age ? ' · ' + age : ''}</span></a>`;
-  }).join('') : `<div class="ha-none">nothing needs you<span>asks, reviews and quiet agents show up here</span></div>`;
-  if (box.dataset.k !== html) { box.dataset.k = html; box.innerHTML = html; }
-  const subTxt = rows.length ? `${rows.length} open${mine ? ` · <b>${mine} for you</b>` : ''}` : '';
-  if (sub.innerHTML !== subTxt) sub.innerHTML = subTxt;
-}
-// Clicking a row opens that card: on the board itself when the HUD is an overlay, in the board
-// window (or a new one) when the HUD runs solo in its own window.
-$('h-act')?.addEventListener('click', e => {
-  const a = e.target.closest('[data-id]'); if (!a) return;
-  e.preventDefault();
-  const id = a.dataset.id;
-  if (SOLO) { window.open('/#' + encodeURIComponent(id), 'agentboard-board'); return; }
-  closeHud(); openPanel(id);
-});
-
 function renderTiles(t) {   // alert chips in the top bar
   const chips = [
     t.abandoned ? ['err', `⚠ ${t.abandoned} abandoned`] : null,
@@ -2024,7 +1986,9 @@ const STATE_COLOR = { working: 'var(--c0)', waiting: 'var(--hwarn)', review: 'va
 // ---- agent load: a lane per agent over the last hour (busy / waiting on you / in review; gaps are idle) ----
 // Both the text cells and the load bar of an agent live on ONE row, in this one order (active
 // first, idle below), so there is nothing to keep aligned any more: it is one grid.
-const teleOrder = all => [...all.filter(a => a.state !== 'idle'), ...all.filter(a => a.state === 'idle')];
+// rows that need a person first, then the rest of the active agents, idle last
+const TELE_RANK = { waiting: 0, abandoned: 1, review: 2, working: 3, quiet: 3, idle: 9 };
+const teleOrder = all => [...all].sort((a, b) => (TELE_RANK[a.state] ?? 5) - (TELE_RANK[b.state] ?? 5) || byName(a, b));
 
 function loadTrack(d, a, win, start, end) {   // the agent's last hour as segments inside one track
   const pc = ms => Math.max(0, Math.min(100, (ms - start) / win * 100));
@@ -2041,6 +2005,13 @@ function loadTrack(d, a, win, start, end) {   // the agent's last hour as segmen
     + `${Math.round(tot.review / win * 100)}% in review · ${Math.round(idlePct)}% idle`;
   return { sg, title };
 }
+
+$('h-tele')?.addEventListener('click', e => {
+  const r = e.target.closest('.h-row.attn[data-id]'); if (!r) return;
+  const id = r.dataset.id;
+  if (SOLO) { window.open('/#' + encodeURIComponent(id), 'agentboard-board'); return; }
+  closeHud(); openPanel(id);
+});
 
 // Hover-kind tracking for the Agent Load legend highlight (see the #hud-inner[data-hk]
 // rules): delegated on #hud-inner, which #h-lanes' per-second rebuild never replaces, so
@@ -2068,17 +2039,23 @@ function renderGrid(d) {
     teleKey = key;
     box.innerHTML = agents.map(a => `<div class="h-row" data-agent="${hh(a.name)}">
       <span class="h-av">${hh(nodeGlyph(a.name))}</span>
-      <div class="h-who"><div class="h-name">${hh(a.name)}<em></em></div><span class="h-task"></span><span class="h-status"></span>
+      <div class="h-who"><div class="h-name">${hh(a.name)}<em></em></div><span class="h-task"></span><span class="h-status"></span><div class="h-ask"></div>
         <div class="h-prgw"><div class="h-prog"><b></b></div><span class="h-pct"></span></div></div>
       <span class="h-since"></span>
       <div class="h-load"><div class="ln-track"></div></div></div>`).join('')
       + `<div class="h-row h-q"><span class="h-av"></span><div class="h-who" id="h-qlab">QUEUE</div><span class="h-since"></span>
          <div class="h-load"><div class="ln-track" id="h-qtrack" title="unclaimed cards in Todo over the hour"></div></div></div>`;
   }
+  const asks = new Map(); for (const x of d.actions || []) if (!asks.has(x.agent)) asks.set(x.agent, x);   // most urgent per agent
   agents.forEach(a => {
     const r = box.querySelector(`[data-agent="${CSS.escape(a.name)}"]`); if (!r) return;
-    const c = hudColor(a.color);
-    r.className = `h-row ${a.state}`; r.style.setProperty('--c', c);
+    const c = hudColor(a.color), ask = asks.get(a.name);
+    r.className = `h-row ${a.state}` + (ask ? ` attn ${ask.kind === 'stale' ? 'stale' : (ask.who === 'Troy' || ask.who === 'none') ? '' : 'other'}` : '');
+    r.style.setProperty('--c', c);
+    r.dataset.id = ask ? ask.id : a.task_id || '';
+    const askEl = r.querySelector('.h-ask');
+    const askHtml = ask ? stepsHtml(ask.what, hh) + `<i>${hh(KIND_WORD[ask.kind] || ask.kind)}${ask.who && ask.who !== 'Troy' && ask.who !== 'none' ? ' · for ' + hh(ask.who) : ''}${ask.age_min == null ? '' : ' · ' + (ask.age_min < 1 ? 'just now' : dur(ask.age_min))}</i>` : '';
+    if (askEl.dataset.k !== askHtml) { askEl.dataset.k = askHtml; askEl.innerHTML = askHtml; }
     r.querySelector('em').textContent = a.state.toUpperCase();
     r.querySelector('.h-task').textContent = a.state === 'idle' ? (a.task ? 'last: ' + a.task : 'no activity yet') : a.task;
     r.querySelector('.h-task').title = (a.open_titles || []).join('\n') || a.task || '';
@@ -2086,7 +2063,7 @@ function renderGrid(d) {
     r.querySelector('.h-name').title = `${a.open || 0} open · ${a.done_today || 0} signed off today`;   // on hover only; Troy does not read it
     r.querySelector('.h-prog b').style.width = (a.progress || 0) + '%';
     r.querySelector('.h-pct').textContent = (a.progress || 0) + '%';
-    r.querySelector('.h-since').textContent = (a.state === 'abandoned' ? 'abandoned ' : a.state === 'quiet' ? 'quiet ' : '') + (a.updated ? ago(a.updated).text.replace(' ago', '') : '');
+    r.querySelector('.h-since').textContent = a.updated ? ago(a.updated).text.replace(' ago', '') : '';
     const { sg, title } = loadTrack(d, a, win, start, end), tr = r.querySelector('.h-load .ln-track');
     if (tr.dataset.k !== sg) { tr.dataset.k = sg; tr.innerHTML = sg; }   // only when the bar actually moved, so glows don't restart
     tr.title = title;
