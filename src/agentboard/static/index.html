@@ -9,7 +9,7 @@
   :root {
     --bg: #fafaf9; --surface: #ffffff; --line: #e7e5e4;
     --text: #1c1917; --muted: #6b6560; --accent: #1c1917;
-    --warn: #b45309; --ok: #15803d; --err: #b42318; --neutral: #a8a29e; --info: #1d4ed8;
+    --run: #c2570c; --warn: #b45309; --ok: #15803d; --err: #b42318; --neutral: #a8a29e; --info: #1d4ed8;
     --shadow: 0 1px 2px rgba(28,25,23,.05), 0 1px 1px rgba(28,25,23,.03);
     --shadow-hover: 0 4px 14px rgba(28,25,23,.08);
     --chip: #f2f0ee;
@@ -31,7 +31,7 @@
     :root:not([data-theme="light"]) {
       --bg: #070b12; --surface: #0f1722; --line: #1c2a3a;
       --text: #d6e9ff; --muted: #7f95ad; --accent: #d6e9ff;
-      --warn: var(--hwarn); --ok: var(--hok); --err: var(--hbad); --neutral: #4b5f75; --info: var(--hcy);
+      --run: #ff9a3c; --warn: var(--hwarn); --ok: var(--hok); --err: var(--hbad); --neutral: #4b5f75; --info: var(--hcy);
       --shadow: inset 0 1px 0 rgba(255,255,255,.03);
       --shadow-hover: 0 10px 28px -8px rgba(0,0,0,.6);
       --chip: #15202e;
@@ -46,7 +46,7 @@
   :root[data-theme="dark"] {
       --bg: #070b12; --surface: #0f1722; --line: #1c2a3a;
       --text: #d6e9ff; --muted: #7f95ad; --accent: #d6e9ff;
-      --warn: var(--hwarn); --ok: var(--hok); --err: var(--hbad); --neutral: #4b5f75; --info: var(--hcy);
+      --run: #ff9a3c; --warn: var(--hwarn); --ok: var(--hok); --err: var(--hbad); --neutral: #4b5f75; --info: var(--hcy);
       --shadow: inset 0 1px 0 rgba(255,255,255,.03);
       --shadow-hover: 0 10px 28px -8px rgba(0,0,0,.6);
       --chip: #15202e;
@@ -167,25 +167,30 @@
     padding: 14px 16px; position: relative; box-shadow: inset 0 1px 0 var(--card-hi), var(--shadow); cursor: grab;
     transition: border-color .12s, box-shadow .15s, transform .15s, background-color .15s ease, color .15s ease;
   }
+  /* Status owns the card's color (orange while running, green at review, red edge on ask, muted when
+     done); the agent's color is only the thin stripe on the left edge (::after below). */
+  .card { --st: var(--neutral); }
+  .card[data-status="doing"] { --st: var(--run); }
+  .card.review { --st: var(--ok); }
+  .card.ask, .card.abandoned { --st: var(--err); }
   .col.doing .card:not(.done) {
-    background: linear-gradient(180deg, color-mix(in srgb, var(--c, var(--neutral)) 9%, var(--surface)), var(--surface) 75%);
-    border-color: color-mix(in srgb, var(--c, var(--neutral)) 30%, var(--line));
-    box-shadow: inset 0 1px 0 var(--card-hi), var(--shadow), 0 12px 32px -16px color-mix(in srgb, var(--c, var(--neutral)) 60%, transparent);
+    background: linear-gradient(180deg, color-mix(in srgb, var(--st) 9%, var(--surface)), var(--surface) 75%);
+    border-color: color-mix(in srgb, var(--st) 38%, var(--line));
+    box-shadow: inset 0 1px 0 var(--card-hi), var(--shadow), 0 12px 32px -16px color-mix(in srgb, var(--st) 60%, transparent);
   }
+  .col.done .card, .card.done { background: var(--surface); border-color: var(--line); }
   /* Accent bar: the HUD's lit-strip language on cards. A Doing card carries its agent's color on
      the left edge, glowing, and breathes while the agent is actively working; ask/review/abandoned
      take the state color instead, so the bar always says the same thing the border does, louder. */
   .card::after { content: ''; position: absolute; left: 1px; top: 12px; bottom: 12px; width: 3px; border-radius: 0 2px 2px 0; pointer-events: none;
     background: var(--c, var(--neutral)); box-shadow: 0 0 10px var(--c, var(--neutral)); opacity: 0; transition: opacity .2s ease; }
-  .card[data-status="doing"]:not(.done)::after { opacity: .9; }
+  .card:not([data-status="todo"]):not([data-status="backlog"])::after { opacity: .9; }
+  .card.done::after { opacity: .45; box-shadow: none; }
   .card.livebar::after { animation: cbar 3s ease-in-out infinite; }
   @keyframes cbar { 50% { box-shadow: 0 0 18px 2px var(--c, var(--neutral)); } }
-  .card.ask::after { background: var(--warn); box-shadow: 0 0 10px var(--warn); opacity: 1; }
-  .card.review::after { background: var(--ok); box-shadow: 0 0 10px var(--ok); opacity: 1; }
-  .card.abandoned::after { background: var(--err); box-shadow: 0 0 10px var(--err); opacity: 1; }
   .card.enter { animation: enter .2s ease-out; }
   .card.flash { animation: flash 1.4s ease-out; }
-  @keyframes flash { from { background: color-mix(in srgb, var(--c, var(--neutral)) 16%, var(--surface)); } }
+  @keyframes flash { from { background: color-mix(in srgb, var(--st, var(--neutral)) 16%, var(--surface)); } }
   .top { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: var(--fs-sm); color: var(--muted); min-height: 20px; }
   .top .when { margin-left: auto; white-space: nowrap; }
   .top .when.stale { color: var(--warn); }
@@ -195,7 +200,7 @@
   @keyframes enter { from { opacity: 0; transform: translateY(4px); } }
   .card.dragging { opacity: .4; }
   .card:hover { border-color: var(--neutral); box-shadow: inset 0 1px 0 var(--card-hi), var(--shadow-hover); transform: translateY(-2px); }
-  .col.doing .card:not(.done):hover { box-shadow: inset 0 1px 0 var(--card-hi), var(--shadow-hover), 0 16px 36px -14px color-mix(in srgb, var(--c, var(--neutral)) 70%, transparent); }
+  .col.doing .card:not(.done):hover { box-shadow: inset 0 1px 0 var(--card-hi), var(--shadow-hover), 0 16px 36px -14px color-mix(in srgb, var(--st) 70%, transparent); }
   .title { font-weight: 550; font-size: var(--fs-lg); line-height: 1.4; letter-spacing: -.01em; padding-right: 8px; overflow-wrap: anywhere; }
   .desc {
     color: var(--muted); font-size: var(--fs-md); margin-top: 2px;
@@ -238,17 +243,17 @@
     background: linear-gradient(90deg, transparent, var(--sheen), transparent); animation: hsheen 3.2s ease-in-out infinite; }
   .bar b { display: block; height: 100%; border-radius: 3px; transition: width .4s ease; box-shadow: 0 0 8px -1px var(--c, var(--neutral)); }
   .done .title { color: var(--muted); font-weight: 400; }
-  .card.ask { border-color: var(--warn); animation: askpulse 2.6s ease-in-out infinite; }
-  @keyframes askpulse { 50% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--warn) 16%, transparent); } }
-  .ask-flag { display: flex; align-items: center; gap: 6px; color: var(--warn); font-size: var(--fs-xs); font-weight: 600; letter-spacing: var(--tr-tight); text-transform: uppercase; margin-bottom: 6px; }
-  .card.ask .note span:first-child { color: var(--warn); }
+  .card.ask { border-color: var(--err); animation: askpulse 2.6s ease-in-out infinite; }
+  @keyframes askpulse { 50% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--err) 16%, transparent); } }
+  .ask-flag { display: flex; align-items: center; gap: 6px; color: var(--err); font-size: var(--fs-xs); font-weight: 600; letter-spacing: var(--tr-tight); text-transform: uppercase; margin-bottom: 6px; }
+  .card.ask .note span:first-child { color: var(--err); }
   .card.review { border-color: var(--ok); animation: revpulse 3s ease-in-out infinite; }
   @keyframes revpulse { 50% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--ok) 13%, transparent); } }
   .ask-flag.rev { color: var(--ok); }
   .card.abandoned { border-color: var(--err); animation: abandonedpulse 2.6s ease-in-out infinite; }
   /* in Doing the agent-colored border (.col.doing .card:not(.done)) is more specific than the rules above,
      so ask/review/abandoned lost their state border and read as ordinary cards: win it back */
-  .col.doing .card.ask:not(.done) { border-color: var(--warn); }
+  .col.doing .card.ask:not(.done) { border-color: var(--err); }
   .col.doing .card.review:not(.done) { border-color: var(--ok); }
   .col.doing .card.abandoned:not(.done) { border-color: var(--err); }
   @keyframes abandonedpulse { 50% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--err) 18%, transparent); } }
@@ -384,7 +389,7 @@
   .hud {
     --hbg: #04070c; --hline: rgba(110,190,255,.17); --htext: #d6e9ff; --hdim: #7f95ad;
     --hcy: #5ee7ff; --hok: #5dffb0; --hwarn: #ffc857; --hbad: #ff6b6b;
-    --c0: var(--hcy);   /* the "working" color: one token, used by the legend dot, track segments and lane state alike */
+    --c0: #ff9a3c;   /* the "working" color: one token, used by the legend dot, track segments and lane state alike */
     /* Type scale + tracking. Pick from these rather than inventing a 12.5px — the HUD had grown
        14 distinct font sizes across separate passes, which is what made it read as a collection
        of separately-styled pieces rather than one instrument panel. */
@@ -539,7 +544,7 @@
     box-shadow: inset 0 0 0 1.5px var(--c), 0 0 12px -2px var(--c); }
   .h-row.idle { opacity: .55; filter: saturate(.4); }
   .h-row.idle:hover { opacity: .9; filter: none; }
-  .h-name { color: var(--htext); display: flex; gap: 8px; align-items: baseline; font-size: var(--fs-lg); font-weight: 500; } .h-name em { font-style: normal; font-weight: 600; font-size: var(--fs-sm); letter-spacing: var(--tr-label); color: var(--hcy); }
+  .h-name { color: var(--htext); display: flex; gap: 8px; align-items: baseline; font-size: var(--fs-lg); font-weight: 500; } .h-name em { font-style: normal; font-weight: 600; font-size: var(--fs-sm); letter-spacing: var(--tr-label); color: var(--c0); }
   .h-row.quiet .h-name em { color: var(--hwarn); } .h-row.idle .h-name em { color: var(--hdim); }
   .h-row.abandoned .h-name em { color: var(--hbad); }
   /* The status line is the agent's live narration — genuinely worth reading when something
@@ -564,7 +569,7 @@
   .h-row.working .h-av { animation: havbr 3s ease-in-out infinite; }
   @keyframes havbr { 50% { box-shadow: inset 0 0 0 1.5px var(--c), 0 0 18px 0 var(--c); } }
   .h-row.quiet em, .h-row.waiting em, .h-row.abandoned em { animation: hqblink 2.6s ease-in-out infinite; }
-  .h-row.waiting .h-name em, .h-row.waiting .h-since { color: var(--hwarn); }
+  .h-row.waiting .h-name em, .h-row.waiting .h-since { color: var(--hbad); }
   .h-row.review .h-name em { color: var(--hok); }
   @keyframes hqblink { 50% { opacity: .45; } }
   .h-prog b { display: block; height: 100%; background: var(--c); box-shadow: 0 0 10px var(--c); transition: width .7s ease; }
@@ -646,8 +651,8 @@
   /* segments as neon tubes: a 1px highlight along the top edge gives them a bevel, the glow underneath lifts them off the channel */
   .sg { position: absolute; top: 4px; bottom: 4px; min-width: 3px; border-radius: 4px; background: var(--c0); filter: brightness(1.25); overflow: hidden;
     box-shadow: inset 0 1px 0 rgba(255,255,255,.4), inset 0 -1px 0 rgba(0,0,0,.25), 0 0 12px -1px var(--c0); }
-  .sg.waiting { background: repeating-linear-gradient(135deg, var(--hwarn) 0 5px, rgba(255,200,87,.55) 5px 10px);
-    box-shadow: inset 0 1px 0 rgba(255,255,255,.35), 0 0 12px -1px var(--hwarn); }
+  .sg.waiting { background: repeating-linear-gradient(135deg, var(--hbad) 0 5px, rgba(255,107,107,.55) 5px 10px);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.35), 0 0 12px -1px var(--hbad); }
   .sg.review { background: rgba(93,255,176,.2); box-shadow: inset 0 0 0 1.5px var(--hok), 0 0 10px -2px var(--hok); }   /* outlined, so it never reads as "working" when the agent colour is green */
   .sg.open::after { content: ''; position: absolute; inset: 0; transform: translateX(-100%); background: linear-gradient(90deg, transparent, rgba(255,255,255,.4), transparent); animation: hsheen 3.2s ease-in-out infinite; }
   /* status word first — reading down this column answers "who's stuck/waiting/working" without
@@ -860,7 +865,7 @@
     .cards { overflow: visible; flex: none; }
     .empty { min-height: 100px; }
   }
-  @media (prefers-reduced-motion: reduce) { .bar b, .card { transition: none; } .card.enter, .card.flash, .card.ask, .card.review, .card.abandoned, .card.livebar::after, .sub.live .g::after, .av.live, .pres i, .col h2 .cnt.tick { animation: none; } .card.ask { box-shadow: 0 0 0 2px var(--warn); } .card.review { box-shadow: 0 0 0 2px var(--ok); } .card.abandoned { box-shadow: 0 0 0 2px var(--err); } .card.livebar .bar::after { animation: none; opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) { .bar b, .card { transition: none; } .card.enter, .card.flash, .card.ask, .card.review, .card.abandoned, .card.livebar::after, .sub.live .g::after, .av.live, .pres i, .col h2 .cnt.tick { animation: none; } .card.ask { box-shadow: 0 0 0 2px var(--err); } .card.review { box-shadow: 0 0 0 2px var(--ok); } .card.abandoned { box-shadow: 0 0 0 2px var(--err); } .card.livebar .bar::after { animation: none; opacity: 0; } }
 </style>
 </head>
 <body>
@@ -939,7 +944,7 @@
         <div class="h-head"><h4 class="h-who">Telemetry <span class="ln-sub">every agent, right now</span><span class="ln-wait" id="ln-wait"></span></h4>
           <div class="h-h2"><h4>Agent load <span class="ln-sub">last 60 min</span></h4></div></div>
         <div class="h-scroll" id="h-tele"></div>
-        <div class="h-foot"><span class="ln-leg"><u data-k="busy" style="--k:var(--c0)">working</u><u data-k="waiting" style="--k:var(--hwarn)">waiting on you</u><u data-k="review" style="--k:var(--hok)">in review</u></span>
+        <div class="h-foot"><span class="ln-leg"><u data-k="busy" style="--k:var(--c0)">working</u><u data-k="waiting" style="--k:var(--hbad)">waiting on you</u><u data-k="review" style="--k:var(--hok)">in review</u></span>
           <div class="ln-ticks"><span style="left:0%">-60m</span><span style="left:25%">-45m</span><span style="left:50%">-30m</span><span style="left:75%">-15m</span><span style="left:100%">now</span></div></div>
       </section>
     </div>
@@ -1986,7 +1991,7 @@ const dur = m => m < 60 ? m + 'm' : Math.floor(m / 60) + 'h' + String(m % 60).pa
 // A color means exactly one thing on this screen: the agent's CURRENT state, not who they are
 // (identity is the name text + avatar glyph instead — more reliable to scan than matching
 // shades of blue). Same palette the legend's dots use, so the two always agree.
-const STATE_COLOR = { working: 'var(--c0)', waiting: 'var(--hwarn)', review: 'var(--hok)', quiet: 'var(--hwarn)', abandoned: 'var(--hbad)' };
+const STATE_COLOR = { working: 'var(--c0)', waiting: 'var(--hbad)', review: 'var(--hok)', quiet: 'var(--hwarn)', abandoned: 'var(--hbad)' };
 
 // ---- agent load: a lane per agent over the last hour (busy / waiting on you / in review; gaps are idle) ----
 // Both the text cells and the load bar of an agent live on ONE row, in this one order (active

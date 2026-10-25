@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+### Status colours
+- Card colour follows status: orange while doing, green at review, muted when done, red edge on ask. The agent's colour is now a thin left stripe on the board. The HUD's working colour is orange and waiting-on-you is red.
+
 ## v0.3.1 (2026-10-25)
 
 ### Backups
