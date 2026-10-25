@@ -1,6 +1,7 @@
 """Local HTTP server: serves the board UI and a small JSON API. Localhost only."""
 import json
 import threading
+import time
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -108,8 +109,9 @@ def make_handler(store, port):
                 self._send(200, {"projects": store.load_projects()})
             elif url.path == "/api/hud":
                 conf = _config()
-                self._send(200, hud.build(store.load(), abandoned_min=hud.stale_minutes(conf),
-                                          retired=hud.retired(conf)))
+                data = hud.build(store.load(), abandoned_min=hud.stale_minutes(conf), retired=hud.retired(conf))
+                data["backup"] = store.backups.status()   # {last_backup_min, snapshots, last_sync, sync_dir}: the HUD's "backup N min ago" chip
+                self._send(200, data)
             elif url.path == "/api/config":
                 conf = _config()
                 self._send(200, {"dispatch": bool(conf.get("ui", {}).get("dispatch", True)),
@@ -224,6 +226,16 @@ def serve(store, port=8765, open_browser=True):
     print(f"agentboard: {url}\n  board: {store.dir}\n  Ctrl+C to stop")
     if open_browser:
         threading.Timer(0.3, webbrowser.open, args=(url,)).start()
+
+    def _backups():   # an idle board still gets its hourly snapshot and its nightly copy
+        while True:
+            try:
+                store.backups.tick()
+            except Exception:   # noqa: BLE001  (a backup problem never stops the board)
+                pass
+            time.sleep(300)
+
+    threading.Thread(target=_backups, daemon=True).start()
     try:
         srv.serve_forever()
     except KeyboardInterrupt:

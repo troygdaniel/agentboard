@@ -59,3 +59,7 @@ The public GitHub repo contains the code, README, CHANGELOG, SECURITY.md, the li
 screenshots under `docs/` taken from demo / throwaway boards. Task data (`.agentboard/`) is
 git-ignored and has never been committed; no personal data appears anywhere in the commit history.
 Commit metadata does show the author's name and email.
+
+## Backups
+
+Snapshots are plain files under `.agentboard/backups/` (and, only if you set `[backup] sync_dir`, copies in a folder you chose). Nothing is sent anywhere by the backup code; treat the snapshots like the board file itself.

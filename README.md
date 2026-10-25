@@ -175,6 +175,18 @@ visible to you, not buried in a terminal. Type in the same panel to join the con
     agentboard chat send "<message>" --name atlas
     agentboard chat tail [--limit N] [--follow]          # --follow polls and streams new messages
 
+## Your data and backups
+
+Everything is one file, `.agentboard/tasks.json`; the browser keeps only your theme and sound choices, so clearing it loses nothing.
+Every save is atomic and keeps the previous version as `tasks.json.bak`. Snapshots land in `.agentboard/backups/` (one an hour,
+kept 48 hours hourly and 30 days daily) whenever the board is saved or `agentboard serve` is running. Set `[backup] sync_dir` in
+`config.toml` to an iCloud Drive or Google Drive folder and the newest snapshot is copied there once a night. The HUD shows the age
+of the newest snapshot. Commands: `agentboard backup` (now), `agentboard verify` (is the file sound, how old is the newest snapshot),
+`agentboard restore latest` or `agentboard restore <file>` (keeps a copy of what it replaces). All local files, no network.
+
+`agentboard dedupe` finds twin cards (an `<id>-2` made when an agent ran `start` for work it already held) and `--apply` merges them;
+`start` and `claim` no longer make twins.
+
 ## Sync
 
 Block until another task reaches a point you need, instead of polling `list` or pinging chat:

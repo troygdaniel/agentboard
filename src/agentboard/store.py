@@ -3,9 +3,10 @@ import contextlib
 import json
 import os
 import re
-import tempfile
 import time
 from pathlib import Path
+
+from . import backup
 
 try:
     import fcntl
@@ -56,7 +57,7 @@ class Store:
         except FileNotFoundError:
             return {"tasks": [], "projects": [], "chat": [], "chat_seq": 0}
         except ValueError as e:
-            raise BoardError(f"{self.path} is not valid JSON ({e}); fix or delete it") from e
+            raise BoardError(f"{self.path} is not valid JSON ({e}); restore the last good copy with `agentboard restore latest` (or `agentboard restore previous` for the version before the last save)") from e
         data.setdefault("tasks", [])
         data.setdefault("projects", [])
         data.setdefault("chat", [])
@@ -64,10 +65,13 @@ class Store:
         return data
 
     def _write(self, data):
-        fd, tmp = tempfile.mkstemp(dir=self.dir, prefix=".tasks-", suffix=".tmp")
-        with os.fdopen(fd, "w") as f:
-            json.dump(data, f, indent=2)
-        os.replace(tmp, self.path)
+        """Atomic and flushed to disk, the previous version kept as tasks.json.bak (backup.py); then an hourly snapshot if one is due."""
+        backup.write_atomic(self.path, json.dumps(data, indent=2))
+        backup.Backups(self.dir).tick()
+
+    @property
+    def backups(self):
+        return backup.Backups(self.dir)
 
     def load(self):
         with self._lock():
@@ -154,9 +158,21 @@ class Store:
               blocked_by=None, force=False, parent_id=None):
         """Agent announces new work: create the task already in doing, owned by name.
 
-        With parent_id it is a subtask of that card (inherits its project)."""
+        With parent_id it is a subtask of that card (inherits its project). If the same agent already holds a card for this work
+        (same title, or the title is that card's id) it is logged on that card instead of making a "-2" twin (see start_card)."""
+        return self.start_card(title, name, color, description, task_id, project_id, blocked_by, force, parent_id)[0]
+
+    def start_card(self, title, name, color=None, description="", task_id=None, project_id=None,
+                   blocked_by=None, force=False, parent_id=None):
+        """Like start, but returns (task, created): created is False when the agent already held a card for this work and it was reused."""
         title = _clean_title(title)
         with self.transaction() as tasks:
+            if not task_id:
+                held = _held_card(tasks, name, title, parent_id)
+                if held:
+                    _log(held, f"{name} announced this work again (same card kept, no twin made)")
+                    held["updated"] = _now()
+                    return held, False
             parent = _check_parent(tasks, parent_id)
             if parent:
                 if not force:
@@ -166,7 +182,7 @@ class Store:
             existing = next((t for t in tasks if t["id"] == tid), None)
             if existing:  # same agent re-announcing the same work is a no-op
                 if existing.get("agent") == name and existing["status"] == "doing":
-                    return existing
+                    return existing, False
                 raise BoardError(f"task id already exists: {tid}")
             if blocked_by:
                 missing = [bid for bid in blocked_by if not any(x["id"] == bid for x in tasks)]
@@ -194,11 +210,26 @@ class Store:
             tasks.append(task)
             if parent:
                 _touch_parent(tasks, parent)
-            return task
+            return task, True
+
+    def dedupe(self, apply=False):
+        """Find (and with apply=True merge) accidental twins. Returns [(keeper id, twin id)]. A named snapshot of the board is taken first."""
+        plan = [(k["id"], t["id"]) for k, t in twins(self.load())]
+        if apply and plan:
+            self.backups.take("before-dedupe")
+            with self.transaction() as tasks:
+                by_id = {t["id"]: t for t in tasks}
+                for kid, tid in plan:
+                    if kid in by_id and tid in by_id:
+                        merge_twin(tasks, by_id[kid], by_id[tid])
+                        by_id.pop(tid)
+        return plan
 
     def claim(self, task_id, name, color=None, force=False):
         with self.transaction() as tasks:
             t = self.get(tasks, task_id)
+            if not force and t.get("agent") == name and t["status"] == "doing":
+                return t   # this agent already holds it: claiming again changes nothing (no new log line, no cleared question or review)
             if not force:
                 _parent_must_be_doing(_parent_of(tasks, t), t, "claim")
             if t.get("agent") and t["agent"] != name and not force and t["status"] == "doing":
@@ -783,8 +814,76 @@ def _unresolved_blockers(tasks, blocked_by):
     return [bid for bid in (blocked_by or []) if bid in by_id and by_id[bid]["status"] != "done"]
 
 
+def _held_card(tasks, name, title, parent_id=None):
+    """An open card this agent already holds for the work `title` names: same title, or `title` is the card's id (agents pass the id they were given)."""
+    slug = _slug(title)
+    for t in tasks:
+        if t.get("agent") != name or t["status"] != "doing" or t.get("archived"):
+            continue
+        if parent_id and t.get("parent_id") != parent_id:
+            continue
+        if t["id"] == slug or _slug(t["title"]) == slug:
+            return t
+    return None
+
+
+STATE_FIELDS = ("status", "progress", "status_text", "needs_input", "question", "ask_child", "review", "body_md", "result", "archived", "agent", "color")
+
+
+def twins(tasks):
+    """[(keeper, twin)] for cards that are an accidental duplicate of an earlier one: the id is `<keeper id>-N`, same agent, and the twin's title
+    is the keeper's title or id (what `start` made before it learned to reuse a held card)."""
+    by_id = {t["id"]: t for t in tasks}
+    out = []
+    for t in tasks:
+        m = re.match(r"^(.*)-(\d+)$", t["id"])
+        k = by_id.get(m.group(1)) if m else None
+        if not k or k is t or k.get("parent_id") != t.get("parent_id") or (k.get("agent") or None) != (t.get("agent") or None):
+            continue
+        if _slug(t["title"]) in (k["id"], _slug(k["title"])):
+            out.append((k, t))
+    return out
+
+
+def merge_twin(tasks, keeper, twin):
+    """Fold the twin into the keeper: both histories (the twin's entries marked), the newer card's state, the twin's subtasks and blockers moved over. Removes the twin."""
+    log = list(keeper.get("log", [])) + [{**e, "text": f"(from {twin['id']}) {e.get('text', '')}"} for e in twin.get("log", [])]
+    log.sort(key=lambda e: e.get("at") or "")
+    keeper["log"] = log[-LOG_MAX:]
+    if (twin.get("updated") or "") > (keeper.get("updated") or ""):
+        for f in STATE_FIELDS:
+            if f in twin:
+                keeper[f] = twin[f]
+            else:
+                keeper.pop(f, None)
+        keeper["updated"] = twin["updated"]
+    for f in ("description", "project_id"):
+        if not keeper.get(f) and twin.get(f):
+            keeper[f] = twin[f]
+    keeper["created"] = min(keeper.get("created") or "9", twin.get("created") or "9")
+    if twin.get("blocked_by"):
+        keeper["blocked_by"] = sorted(({*keeper.get("blocked_by", []), *twin["blocked_by"]}) - {keeper["id"], twin["id"]}) or None
+        if not keeper["blocked_by"]:
+            del keeper["blocked_by"]
+    for t in tasks:
+        if t.get("parent_id") == twin["id"]:
+            t["parent_id"] = keeper["id"]
+        if twin["id"] in (t.get("blocked_by") or []):
+            t["blocked_by"] = sorted({keeper["id"] if b == twin["id"] else b for b in t["blocked_by"]} - {t["id"]})
+            if not t["blocked_by"]:
+                del t["blocked_by"]
+    if keeper.get("ask_child") == twin["id"]:
+        keeper["ask_child"] = keeper["id"]
+    _log(keeper, f"Merged duplicate card {twin['id']} into this one")
+    tasks.remove(twin)
+
+
+def _slug(title):
+    return re.sub(r"[^a-z0-9]+", "-", str(title).lower())[:40].strip("-") or "task"
+
+
 def _unique_id(title, taken):
-    base = re.sub(r"[^a-z0-9]+", "-", title.lower())[:40].strip("-") or "task"
+    base = _slug(title)
     tid, n = base, 2
     while tid in taken:
         tid, n = f"{base}-{n}", n + 1

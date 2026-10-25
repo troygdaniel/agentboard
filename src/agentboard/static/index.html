@@ -1956,7 +1956,7 @@ const byName = (a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 
 function hudRender(d) {
   d.agents = [...d.agents].sort(byName);
   hudSounds(d);
-  renderTiles(d.totals);
+  renderTiles(d.totals, d.backup);
   if (SOLO) {
     const t0 = d.totals, mine = (d.actions || []).filter(a => a.who === 'Troy').length;
     document.title = (mine ? `● ${mine} for you · ` : '') + (t0.abandoned ? `⚠ ${t0.abandoned} abandoned · ` : '') + (t0.waiting ? `⚠ ${t0.waiting} input · ` : '') + (t0.review ? `✓ ${t0.review} review · ` : '') + `HUD · ${t0.working} working`;
@@ -1965,8 +1965,10 @@ function hudRender(d) {
 }
 
 const KIND_WORD = { ask: 'needs an answer', review: 'ready for sign-off', stale: 'gone quiet' };
-function renderTiles(t) {   // alert chips in the top bar
+function renderTiles(t, bk) {   // alert chips in the top bar
+  const bkAge = !bk ? null : bk.last_backup_min == null ? 'no backup yet' : (bk.last_backup_min < 1 ? 'just now' : bk.last_backup_min < 90 ? bk.last_backup_min + ' min ago' : Math.floor(bk.last_backup_min / 60) + ' h ago');
   const chips = [
+    bk ? [(bk.last_backup_min == null || bk.last_backup_min > 120) ? 'err' : 'dim', `backup ${bkAge}`] : null,
     t.abandoned ? ['err', `⚠ ${t.abandoned} abandoned`] : null,
     t.waiting ? ['warn', `⚠ ${t.waiting} needs input`] : null,
     t.review ? ['ok', `✓ ${t.review} to review`] : null,

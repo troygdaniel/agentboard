@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.3.1 (2026-10-25)
+
+### Backups
+- Atomic saves with a `.bak` of the previous file; hourly snapshots in `.agentboard/backups/` (48 hourly, 30 daily); optional nightly
+  copy to a synced folder (`[backup] sync_dir`); `agentboard backup | verify | restore`; the HUD shows the age of the newest snapshot.
+
+### Twins
+- `start` reuses a card the same agent already holds instead of creating `<id>-2`; `claim` on a held card is a no-op;
+  `agentboard dedupe [--apply]` merges existing twins.
+
 ## v0.3.0 (2026-10-24)
 
 Since v0.2.0 (63 commits). Still Python 3.11+, standard library only, local only.

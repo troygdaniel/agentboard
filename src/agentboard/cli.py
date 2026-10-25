@@ -9,6 +9,7 @@ from datetime import date
 from pathlib import Path
 
 from . import __version__
+from . import backup as backuplib
 from . import hud as hudlib
 from . import prompt as promptlib
 from .server import serve
@@ -52,6 +53,9 @@ SAMPLE_CONFIG = '''\
 # [notify]                    # native macOS notification when a card needs input or is ready for review
 # enabled = true               # off by default; osascript only, no new dependency
 # sound = "Glass"               # optional: a macOS notification sound name (omit for silent)
+
+# [backup]                    # snapshots are always kept in .agentboard/backups (hourly, 48 hours + 30 days); this adds a nightly copy elsewhere
+# sync_dir = "~/Library/Mobile Documents/com~apple~CloudDocs/agentboard-backups"   # an iCloud Drive or Google Drive folder on this Mac
 
 # [prompt]
 # template_file = "prompt.md"  # replaces the built-in template
@@ -412,9 +416,11 @@ def cmd_spawn(a):
 
 
 def cmd_start(a):
-    t = _store().start(a.title, _agent_name(a), a.color or os.environ.get("AGENTBOARD_COLOR"),
-                       a.description or "", a.id, a.project, blocked_by=a.blocked_by, force=a.force,
-                       parent_id=a.parent)
+    t, created = _store().start_card(a.title, _agent_name(a), a.color or os.environ.get("AGENTBOARD_COLOR"),
+                                     a.description or "", a.id, a.project, blocked_by=a.blocked_by, force=a.force,
+                                     parent_id=a.parent)
+    if not created:
+        print(f"agentboard: you already hold {t['id']}; logged on it, no twin made", file=sys.stderr)
     print(t["id"])  # agents use this id for update/done; the sibling list goes to stderr so $(...) still captures only the id
     if a.parent:
         _print_subtasks(_store().load(), a.parent, file=sys.stderr)
@@ -718,6 +724,92 @@ def cmd_rebuild(a):
     print(f"rebuilt {len(ids)} prompt(s)")
 
 
+def cmd_backup(a):
+    s = _store()
+    b = s.backups
+    if a.list:
+        st = b.status()
+        for p in b.snapshots():
+            ok, msg, n = backuplib.verify_file(p)
+            print(f"{p.name:<44} {p.stat().st_size // 1024:>6} KB  {backuplib.human_age((time.time() - p.stat().st_mtime) / 60):<12} {n.get('tasks', '?')} tasks" + ("" if ok else f"  BAD: {msg}"))
+        print(f"{st['snapshots']} snapshots; newest {backuplib.human_age(st['last_backup_min'])}; nightly copy " + (f"to {st['sync_dir']} (last {st['last_sync'] or 'never'})" if st["sync_dir"] else "not set ([backup] sync_dir in config.toml)"))
+        return
+    if a.sync:
+        dest = b.sync(force=True)
+        print(f"copied to {dest}" if dest else "no sync_dir set in config.toml (or nothing to copy)")
+        return
+    ok, msg, _ = backuplib.verify_file(s.path)
+    if not ok:
+        raise BoardError(f"not backing up: the board file is {msg}. Restore a good one with `agentboard restore latest`.")
+    dest = b.take(a.label or "")
+    b.prune()
+    b.sync()
+    print(dest)
+
+
+def cmd_restore(a):
+    s = _store()
+    b = s.backups
+    try:
+        src = b.resolve(a.which)
+    except FileNotFoundError as e:
+        raise BoardError(str(e)) from e
+    ok, msg, n = backuplib.verify_file(src)
+    if not ok:
+        raise BoardError(f"{src.name} is not a good board file: {msg}")
+    now_ok, _, now_n = backuplib.verify_file(s.path)
+    print(f"restore {src.name}: {n['tasks']} tasks, {n['projects']} projects, {n['chat']} chat messages (the board has " + (f"{now_n['tasks']} tasks now)" if now_ok else "an unreadable file now)"))
+    if not a.yes:
+        if not sys.stdin.isatty():
+            raise BoardError("restore replaces the board; add --yes to do it (the board as it is now is kept first as a before-restore snapshot)")
+        if input("replace the board with it? [y/N] ").strip().lower() != "y":
+            raise BoardError("not restored")
+    with s._lock():
+        _, saved = b.restore(a.which)
+    print(f"restored. The board as it was is saved as {saved.name}" if saved else "restored.")
+
+
+def cmd_verify(a):
+    s = _store()
+    b = s.backups
+    bad = 0
+    ok, msg, n = backuplib.verify_file(s.path)
+    print(f"{'ok ' if ok else 'BAD'} tasks.json  {n.get('tasks', '')} tasks" if ok else f"BAD tasks.json: {msg}")
+    bad += not ok
+    prev = Path(f"{s.path}.bak")
+    if prev.exists():
+        ok2, msg2, n2 = backuplib.verify_file(prev)
+        print(f"{'ok ' if ok2 else 'BAD'} tasks.json.bak (the version before the last save)" + (f"  {n2['tasks']} tasks" if ok2 else f": {msg2}"))
+    files = b.snapshots() if a.all else b.snapshots()[:1]
+    for p in files:
+        ok3, msg3, n3 = backuplib.verify_file(p)
+        print(f"{'ok ' if ok3 else 'BAD'} {p.name}" + (f"  {n3['tasks']} tasks" if ok3 else f": {msg3}"))
+        bad += not ok3
+    age = b.age_minutes()
+    if age is None:
+        print("BAD no snapshots yet (run `agentboard backup`)")
+        bad += 1
+    elif age > backuplib.STALE_MIN:
+        print(f"BAD the newest snapshot is {backuplib.human_age(age)}; snapshots are taken when the board is saved or `agentboard serve` runs")
+        bad += 1
+    else:
+        print(f"ok  newest snapshot {backuplib.human_age(age)}")
+    sd = b.sync_dir()
+    print(f"nightly copy: {sd} (last {b.last_sync() or 'never'})" if sd else "nightly copy: not set ([backup] sync_dir in config.toml)")
+    if bad:
+        sys.exit(1)
+
+
+def cmd_dedupe(a):
+    plan = _store().dedupe(apply=a.apply)
+    if not plan:
+        print("no duplicate cards")
+        return
+    for keep, twin in plan:
+        print(f"{'merged' if a.apply else 'would merge'} {twin} into {keep}")
+    print(f"{len(plan)} duplicate card(s) merged; a snapshot named before-dedupe was taken first" if a.apply else "dry run: add --apply to merge them")
+
+
 def cmd_serve(a):
     serve(_store(), a.port, not a.no_open)
 
@@ -753,6 +845,17 @@ def main(argv=None):
     sp = add("tail", cmd_tail, "watch board activity live in the terminal (same feed as the HUD); Ctrl+C stops")
     sp.add_argument("-n", "--lines", type=int, default=10, help="recent events to print before following (default 10; 0 for none)")
     sp.add_argument("--interval", type=float, default=1.0, help="poll interval in seconds (default 1)")
+    sp = add("backup", cmd_backup, "snapshot the board now (hourly ones are automatic); --list shows them")
+    sp.add_argument("--label", help="name this snapshot (it is then never pruned), e.g. before-cleanup")
+    sp.add_argument("--list", action="store_true", help="list snapshots and the nightly-copy status")
+    sp.add_argument("--sync", action="store_true", help="copy the newest snapshot to [backup] sync_dir now")
+    sp = add("restore", cmd_restore, "put a snapshot back as the board: a file, a name in .agentboard/backups, `latest`, or `previous` (the version before the last save)")
+    sp.add_argument("which")
+    sp.add_argument("--yes", action="store_true", help="do not ask (the board as it is now is kept first as a before-restore snapshot)")
+    sp = add("verify", cmd_verify, "check the board file, its .bak and the newest snapshot (exit 1 if any is bad or the newest is over 2 hours old)")
+    sp.add_argument("--all", action="store_true", help="check every snapshot")
+    sp = add("dedupe", cmd_dedupe, "find accidental twin cards (`<id>-2` made by a second `start`) and, with --apply, merge them into the original")
+    sp.add_argument("--apply", action="store_true", help="merge them (a snapshot is taken first); without it only lists them")
     sp = add("report", cmd_report, "markdown recap of what was completed today (or --date), by agent — for a standup or daily log")
     sp.add_argument("--date", help="YYYY-MM-DD (default: today)")
     add("clear", cmd_clear, "archive all Done tasks (kept for history and the HUD)")
