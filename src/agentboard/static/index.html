@@ -410,10 +410,9 @@
   /* wraps instead of overflowing: with several alert chips the bar outgrew 1440px and the title/buttons
      broke onto two lines, the ticker collapsed to 0 and (half-screen) the clock/buttons clipped off-screen */
   .h-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
-  .h-title, .h-live, .h-clock, .h-btn { white-space: nowrap; }
+  .h-title, .h-live, .h-btn { white-space: nowrap; }
   .h-title { letter-spacing: var(--tr-wide); color: var(--hcy); text-shadow: 0 0 6px rgba(94,231,255,.55), 0 0 22px rgba(94,231,255,.4); }
   .h-title i { color: var(--hdim); font-style: normal; }
-  .h-clock { color: var(--htext); font-size: var(--fs-md); letter-spacing: .12em; }
   .h-btn { background: none; border: 1px solid var(--hline); color: var(--hdim); border-radius: 6px; padding: 3px 10px; font: inherit; cursor: pointer; }
   .h-btn:hover { color: var(--hcy); border-color: rgba(94,231,255,.5); }
   .h-live { display: inline-flex; align-items: center; gap: 6px; color: var(--hok); letter-spacing: var(--tr-label); font-size: var(--fs-xs); }
@@ -421,18 +420,15 @@
   .h-live.off { color: var(--hbad); }
   .h-live.off::before { background: var(--hbad); box-shadow: 0 0 10px var(--hbad); animation: none; }
   @keyframes hblink { 50% { opacity: .35; } }
-  .h-ticker.tk { animation: htk .45s ease-out; }
-  @keyframes htk { from { opacity: 0; transform: translateY(3px); } }
-  .h-ticker { flex: 1 1 160px; min-width: 0; text-align: center; color: var(--hdim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .h-ticker b { color: var(--htext); font-weight: 500; }
   .h-btn[aria-pressed="false"] { opacity: .86; }
-  .h-alerts { display: flex; flex-wrap: wrap; gap: 6px 8px; }
+  .h-alerts { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; flex: 1 1 160px; justify-content: flex-end; }
   .h-chip { border: 1px solid; border-radius: 999px; padding: 1px 10px; font-size: var(--fs-sm); letter-spacing: var(--tr-tight); white-space: nowrap; }
   .h-chip.warn { color: var(--hwarn); border-color: rgba(255,200,87,.45); background: rgba(255,200,87,.08); animation: hqblink 2.6s ease-in-out infinite; }
   .h-chip.ok { color: var(--hok); border-color: rgba(93,255,176,.4); background: rgba(93,255,176,.07); }
   .h-chip.dim { color: var(--hwarn); border-color: rgba(255,200,87,.25); opacity: .8; }
   .h-chip.err { color: var(--hbad); border-color: rgba(255,107,107,.45); background: rgba(255,107,107,.1); animation: hqblink 2.6s ease-in-out infinite; }
-  .h-chip.today { color: var(--hcy); border-color: rgba(94,231,255,.35); background: rgba(94,231,255,.06); }
+  .h-chip.today small { color: var(--hdim); font-size: var(--fs-xs); margin-left: 6px; }
+  .h-chip.today { font-size: var(--fs-md); padding: 2px 14px; color: var(--hcy); border-color: rgba(94,231,255,.35); background: rgba(94,231,255,.06); }
   /* ONE grid (Troy, 2026-10-24: "the division between left and right is too jarring; more like a grid").
      Every agent is one full-width row: badge, name + state, task, open/done, progress, age, and the
      60-minute load bar as the last, widest column. Header, rows, the queue row and the time-axis
@@ -932,8 +928,6 @@
       <span class="h-title">AGENTBOARD <i>//</i> HUD</span>
       <span class="h-live">LIVE</span>
       <span class="h-alerts" id="h-alerts"></span>
-      <span class="h-ticker" id="h-ticker"></span>
-      <span class="h-clock" id="h-clock"></span>
       <button class="h-btn" id="h-snd" aria-pressed="true" aria-label="Toggle sound cues (s)">SND ON</button>
       <button class="h-btn" id="h-amb" aria-pressed="true" aria-label="Toggle ambient bed">AMB ON</button>
       <button class="h-btn" id="h-pop" aria-label="Open HUD in its own window">Pop out</button>
@@ -1888,7 +1882,7 @@ function hudSounds(d) {
 }
 
 // --- HUD ---
-let hudTimer = null, hudKey = '', hudClock = null;
+let hudTimer = null, hudKey = '';
 const hudIsOpen = () => $('hud').classList.contains('open');
 function hudColor(c) { return /^[#\w(),.% -]{1,32}$/.test(c || '') ? c : '#5ee7ff'; }
 const hh = s => esc(String(s ?? ''));
@@ -1900,14 +1894,13 @@ function openHud() {
   hudKey = ''; sndSeenAt = null; hudPrevTiles = null; setSnd(sndOn, true); setAmb(ambOn, true);
   if (!SOLO) cue.open();
   hudLoad(); clearInterval(hudTimer); hudTimer = setInterval(hudLoad, 1000);
-  tickClock(); clearInterval(hudClock); hudClock = setInterval(tickClock, 1000);
   $('h-close').focus();
 }
 function closeHud() {
   if (SOLO) { window.close(); return; }
   cue.close(); stopAmb();
   $('hud').classList.remove('open', 'full'); document.body.style.overflow = '';
-  clearInterval(hudTimer); clearInterval(hudClock);
+  clearInterval(hudTimer);
   if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
   $('hud-btn').focus();
 }
@@ -1926,7 +1919,6 @@ $('h-amb').onclick = () => setAmb(!ambOn);
 $('snd2').onclick = () => { setSnd(!sndOn, true); if (sndOn) cue.added(); };
 $('h-pop').onclick = () => { const w = window.open('/hud', 'agentboard-hud', 'width=1320,height=860'); if (w) closeHud(); };
 $('hud').addEventListener('click', e => { if (e.target.id === 'hud' && !$('hud').classList.contains('full')) closeHud(); });
-function tickClock() { $('h-clock').textContent = new Date().toLocaleTimeString([], { hour12: false }); }
 
 async function hudLoad() {
   try {
@@ -1964,12 +1956,6 @@ const byName = (a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 
 function hudRender(d) {
   d.agents = [...d.agents].sort(byName);
   hudSounds(d);
-  const ev = d.events[0], tk = $('h-ticker');
-  const tkHtml = ev ? `<b>${hh(ev.agent || 'board')}</b> · ${hh(clip(ev.text, 46))} · ${new Date(ev.at).toLocaleTimeString([], { hour12: false })}` : '';
-  if (tk.dataset.k !== tkHtml) {
-    tk.dataset.k = tkHtml; tk.innerHTML = tkHtml;
-    tk.classList.remove('tk'); void tk.offsetWidth; tk.classList.add('tk');
-  }
   renderTiles(d.totals);
   if (SOLO) {
     const t0 = d.totals, mine = (d.actions || []).filter(a => a.who === 'Troy').length;
@@ -1985,7 +1971,7 @@ function renderTiles(t) {   // alert chips in the top bar
     t.waiting ? ['warn', `⚠ ${t.waiting} needs input`] : null,
     t.review ? ['ok', `✓ ${t.review} to review`] : null,
     t.quiet ? ['dim', `${t.quiet} quiet`] : null,
-    t.done_today ? ['today', `✓ ${t.done_today} done today${t.avg_minutes != null ? ` · avg ${dur(Math.round(t.avg_minutes))} to ship` : ''}`] : null,
+    t.avg_minutes != null ? ['today', `avg ${dur(Math.round(t.avg_minutes))} to ship${t.done_today ? ` <small>${t.done_today} done</small>` : ''}`] : (t.done_today ? ['today', `${t.done_today} done`] : null),
   ].filter(Boolean);
   const html = chips.map(([c, txt]) => `<span class="h-chip ${c}">${txt}</span>`).join('');
   if ($('h-alerts').innerHTML !== html) $('h-alerts').innerHTML = html;
