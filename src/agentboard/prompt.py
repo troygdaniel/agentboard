@@ -209,3 +209,89 @@ def build_prompt(task, board_dir, public=False, tasks=None):
     # (a description mentioning "{ab}", say) is left as written rather than expanded again
     out = re.sub(r"\{(" + "|".join(values) + r")\}", lambda m: values[m.group(1)], template)
     return out, warnings
+
+
+DEFAULT_PEERS = (("AGENT-1", "green"), ("AGENT-2", "green"), ("AGENT-3", "green"),
+                 ("AGENT-4", "green"), ("GENERAL", "red"))
+
+ORCH_TEMPLATE = """\
+# You are ORCH, the orchestrator for this board
+
+Rename this session to ORCH (`/rename ORCH`). You are a fresh or /clear'ed Claude Code session.
+
+## Role
+
+- Add and split cards, assign them to idle agents, and mark cards done once Troy has signed off.
+- Never do an agent's work yourself: no coding or file edits for a card. If work has no owner, make a card.
+- Agents finish with `review`; Troy signs off. Run `done` only on his explicit say-so.
+
+## Board
+
+- URL: {url}
+- Data: {board_dir}
+
+## CLI cheat-sheet
+
+    {ab} add "<title>" -d "<description>" --status todo     # new card (--parent <id> splits a card)
+    {ab} claim <id> --name "<session>" --color <color>
+    {ab} update <id> <percent> "<status line>"
+    {ab} done <id>                                          # only when Troy says so
+    {ab} list                                               # all open cards (--status doing, --stale)
+
+## Peers
+
+{peers}
+
+## Reporting rule
+
+Report to Troy in 3 lines, no more:
+
+    ACTION: who must do what next
+    STATUS: where the board stands
+    WHY:    the one reason that matters
+
+## Board snapshot ({now})
+
+{snapshot}
+"""
+
+
+def _peer_roster(conf):
+    spec = conf.get("orch", {}).get("agents")
+    if isinstance(spec, list) and spec:
+        return [(str(p.get("name")), str(p.get("color", ""))) for p in spec
+                if isinstance(p, dict) and p.get("name")]
+    return list(DEFAULT_PEERS)
+
+
+def build_orch_prompt(tasks, board_dir, port=8765):
+    """Ready-to-paste prompt that boots a fresh session as ORCH, from the live task list."""
+    from datetime import datetime
+    conf = load_config(board_dir)
+    open_cards = [t for t in tasks if t.get("status") in ("backlog", "todo", "doing") and not t.get("archived")]
+    held = {}
+    for t in open_cards:
+        if t["status"] == "doing" and t.get("agent"):
+            held.setdefault(t["agent"], []).append(t)
+
+    def line(t):
+        flag = " [NEEDS INPUT]" if t.get("needs_input") else " [IN REVIEW]" if t.get("review") else ""
+        who = f" — {t['agent']}" if t.get("agent") and t["status"] == "doing" else ""
+        pct = f" {t.get('progress', 0)}%" if t["status"] == "doing" else ""
+        return f"- {t['id']}: {t['title']}{pct}{who}{flag}"
+
+    sections = []
+    for status, label in (("doing", "Doing"), ("todo", "Todo (unclaimed)"), ("backlog", "Later")):
+        cards = [t for t in open_cards if t["status"] == status]
+        sections.append(f"{label} ({len(cards)}):\n" + ("\n".join(line(t) for t in cards) or "- none"))
+    roster = _peer_roster(conf)
+    names = {n for n, _ in roster}
+    idle = [n for n, _ in roster if n not in held]
+    extra = [a for a in held if a not in names]
+    sections.append("Holders: " + ("; ".join(f"{a}: {', '.join(t['id'] for t in ts)}" for a, ts in held.items()) or "none"))
+    sections.append("Idle: " + (", ".join(idle) or "none") + (f"  (also working, not in roster: {', '.join(extra)})" if extra else ""))
+
+    peers = "\n".join(f"- {n}" + (f" ({c})" if c else "") for n, c in roster)
+    return ORCH_TEMPLATE.format(
+        url=f"http://localhost:{port}", board_dir=board_dir, ab=agentboard_cmd(board_dir), peers=peers,
+        now=datetime.now().strftime("%Y-%m-%d %H:%M"), snapshot="\n\n".join(sections))

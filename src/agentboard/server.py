@@ -128,6 +128,9 @@ def make_handler(store, port):
                 after = q.get("after", [None])[0]
                 after = int(after) if after and after.lstrip("-").isdigit() else None
                 self._send(200, {"messages": store.chat_list(after=after, limit=200)})
+            elif url.path == "/api/orch-prompt":
+                text = promptlib.build_orch_prompt(store.load(), store.dir, port=port)
+                self._send(200, {"prompt": text})
             elif url.path == "/api/prompt":
                 try:
                     task = Store.get(store.load(), (q.get("id") or [""])[0])
