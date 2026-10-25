@@ -384,7 +384,7 @@
      shrinking .wrap, so Todo (leftmost) never gets squashed while it's open */
 
   /* ===== HUD (always dark; a deliberate departure from the calm board) ===== */
-  #hud { position: fixed; inset: 0; z-index: 30; display: none; background: rgba(2,4,8,.6); backdrop-filter: blur(8px); padding: 4vh 4vw; }
+  #hud { position: fixed; inset: 0; z-index: 30; display: none; background: rgba(2,4,8,.6); backdrop-filter: blur(8px); padding: 0; }
   #hud.open { display: block; }
   .hud {
     --hbg: #04070c; --hline: rgba(110,190,255,.17); --htext: #d6e9ff; --hdim: #7f95ad;
@@ -395,8 +395,8 @@
        of separately-styled pieces rather than one instrument panel. */
     --fs-xs: 12px; --fs-sm: 13.5px; --fs-md: 16.5px; --fs-lg: 20px; --fs-xl: 22px;   /* one step up (Troy, 2026-10-24): read from a chair */
     --tr-wide: .24em; --tr-label: .16em; --tr-tight: .06em;
-    position: relative; height: 100%; max-width: 1440px; margin: 0 auto; overflow: hidden;
-    border: 1px solid var(--hline); border-radius: 16px; color: var(--htext);
+    position: relative; height: 100%; max-width: none; margin: 0; overflow: hidden;   /* fills the viewport on first open */
+    border: 0; border-radius: 0; color: var(--htext);
     font: 16px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; font-variant-numeric: tabular-nums;
     background:
       radial-gradient(900px 520px at 50% -25%, rgba(94,231,255,.13), transparent 70%),
@@ -427,6 +427,8 @@
   @keyframes hblink { 50% { opacity: .35; } }
   .h-btn[aria-pressed="false"] { opacity: .86; }
   .h-alerts { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; flex: 1 1 160px; justify-content: flex-end; }
+  #h-full { display: none; }   /* the overlay already fills the viewport; 'f' still toggles browser fullscreen */
+  @media (min-width: 981px) { .h-alerts { flex-wrap: nowrap; min-width: 0; overflow: hidden; } }   /* header stays one line */
   .h-chip { border: 1px solid; border-radius: 999px; padding: 1px 10px; font-size: var(--fs-sm); letter-spacing: var(--tr-tight); white-space: nowrap; }
   .h-chip.warn { color: var(--hwarn); border-color: rgba(255,200,87,.45); background: rgba(255,200,87,.08); animation: hqblink 2.6s ease-in-out infinite; }
   .h-chip.ok { color: var(--hok); border-color: rgba(93,255,176,.4); background: rgba(93,255,176,.07); }
