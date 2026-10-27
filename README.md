@@ -331,6 +331,28 @@ never passes `--dangerously-skip-permissions`, `--permission-mode` or `--allowed
 needs (at least `Bash(agentboard:*)`) in the project's `.claude/settings.json` yourself. Only one run per card at a time; subtasks run through their parent.
 Point at a different claude binary with `AGENTBOARD_CLAUDE` or `[run] claude`.
 
+## Text the board
+
+Add and move cards by text from your phone: `add: buy toothpaste for dad`, `done renew-passports`, `start bj-123`, `review x`, `later idea`, `todo idea`, `status`, `list`, `help`
+(an id can be its first letters; `later: <title>` parks a new idea). Each text gets a one-line reply.
+
+It is a Twilio inbound-SMS webhook on its own port, **off until you switch it on**:
+
+    # .agentboard/config.toml
+    [sms]
+    enabled = true
+    allowed = ["+14165550123"]            # only these numbers are heard; anyone else gets nothing back
+    public_url = "https://<your tunnel>/sms"   # exactly the URL set in Twilio: it is part of the signature
+
+    export AGENTBOARD_TWILIO_AUTH_TOKEN=...      # in your shell or launchd plist, not in the board
+    agentboard sms serve                          # listens on 127.0.0.1:8766 (/sms, /health)
+    cloudflared tunnel --url http://localhost:8766    # or your named tunnel; then set the number's "A message comes in" webhook (HTTP POST) to public_url
+
+Try the commands locally first, without Twilio: `agentboard sms try add: buy milk`. Every request is checked for Twilio's signature, the sender, and a MessageSid not seen
+before (a replayed request is ignored), with an hourly cap; the replies travel in the HTTP response, so no Twilio API call is made. Cost: just the texts (Twilio bills each inbound
+text and each reply, about a cent each in the US and Canada; check your plan). Nothing is texted to you unprompted: outbound "a card is ready for review" notices are not built.
+Details and what it can and cannot do: [SECURITY.md](SECURITY.md).
+
 ## Prompts and context providers (optional)
 
 Todo cards carry a copyable prompt that makes any agent claim the card and report progress. Prompts are assembled from
@@ -345,6 +367,7 @@ Providers run only when a task lists one with `--ctx` and a prompt is built.
 | `add "Title" [--status todo\|backlog] [-d TEXT] [--ctx NAME] [--project ID] [--blocked-by ID] [--parent ID]` , `list [--all] [--stale]`, `rm <id>` | manage tasks (`--parent` makes a subtask) |
 | `tail [-n LINES] [--interval SECS]` | watch activity live in the terminal — same feed as the HUD, for CLI-only sessions |
 | `run CARD [--name N] [--color C] [--cwd DIR] [--budget USD] [--max-minutes M] [--detach]`, `runs [--kill CARD]` | run a card with a one-shot `claude -p`; list and stop runs |
+| `sms serve [--port N]`, `sms try TEXT` | the text-message endpoint (opt-in); run a command text locally |
 | `report [--date YYYY-MM-DD]` | markdown recap of what got done that day, by agent — for a standup or daily log |
 | `project add "Name" [--color C] [-d TEXT]`, `project list`, `project edit <id> [...]`, `project rm <id>` | manage projects |
 | `project assign <task_id> <project_id>`, `project unassign <task_id>` | tie/untie a task |

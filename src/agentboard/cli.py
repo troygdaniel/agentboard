@@ -13,6 +13,7 @@ from . import backup as backuplib
 from . import hud as hudlib
 from . import prompt as promptlib
 from . import runs as runslib
+from . import sms as smslib
 from .server import serve
 from . import boards as boardlib
 from .store import DIR_NAME, BoardError, Store, find_dir, subtask_counts
@@ -51,6 +52,13 @@ SAMPLE_CONFIG = '''\
 # claude = "claude"           # the claude binary (default: the one on PATH)
 # budget_usd = 5              # hard spend cap per run, passed to claude as --max-budget-usd
 # max_minutes = 45            # hard wall-clock limit per run
+
+# [sms]                       # text the board (docs: README "Text the board"); off until enabled
+# enabled = true
+# allowed = ["+14165550123"]  # only these numbers are heard; everyone else is ignored silently
+# public_url = "https://<your tunnel>/sms"   # exactly the URL set in Twilio: it is part of the signature
+# token_env = "AGENTBOARD_TWILIO_AUTH_TOKEN" # the auth token is read from this environment variable, never from a file here
+# rate_per_hour = 30
 
 # [board]
 # stale_minutes = 120         # flag a Doing task as stale/abandoned after this many idle minutes
@@ -881,6 +889,14 @@ def cmd_runs(a):
     print("\n".join(rows) if rows else "no runs yet")
 
 
+def cmd_sms_serve(a):
+    smslib.serve(_store(), a.port)
+
+
+def cmd_sms_try(a):
+    print(smslib.apply(_store(), " ".join(a.text)))
+
+
 def cmd_serve(a):
     serve(_store(), a.port, not a.no_open)
 
@@ -1009,6 +1025,15 @@ def main(argv=None):
     sp.add_argument("--detach", action="store_true", help="return at once and supervise in the background (what ORCH uses)")
     sp = add("runs", cmd_runs, "list one-shot runs (live and finished); --kill CARD stops one")
     sp.add_argument("--kill", metavar="CARD", help="stop the live run on this card")
+
+    sp = sub.add_parser("sms", help="text the board from your phone (Twilio webhook; off until you switch it on in config.toml)")
+    ssub = sp.add_subparsers(dest="sms_cmd", required=True)
+    sp2 = ssub.add_parser("serve", help="run the inbound-SMS endpoint on its own port (point the tunnel at it)")
+    sp2.add_argument("--port", type=int, default=8766)
+    sp2.set_defaults(fn=cmd_sms_serve)
+    sp2 = ssub.add_parser("try", help="run a command text locally (no Twilio, no network): agentboard sms try add: buy milk")
+    sp2.add_argument("text", nargs="+")
+    sp2.set_defaults(fn=cmd_sms_try)
 
     sp = sub.add_parser("board", help="named boards: new, add, list, use, rm (registry in ~/.agentboard/boards.toml)")
     bsub = sp.add_subparsers(dest="board_cmd", required=True)

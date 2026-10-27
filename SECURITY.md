@@ -6,7 +6,7 @@ Oct 24, 2026 for v0.3.0 against the code and at runtime; it checks literally rat
 ## Verdict
 
 **Local-only.** With its default configuration, agentboard makes no network connections beyond
-`127.0.0.1`. Two opt-in exceptions exist, both off by default. A third happens only at install time.
+`127.0.0.1`. Four opt-in exceptions exist, all off by default (the `http` and `command` providers, one-shot runs, and the text-message endpoint). Another happens only at install time.
 
 ## What was checked, and how
 
@@ -28,6 +28,18 @@ Oct 24, 2026 for v0.3.0 against the code and at runtime; it checks literally rat
    uses it sends an HTTP GET to the URL you configured. The default config has every provider commented out.
 2. **`command` context provider.** Runs a shell command you configure; that command can do anything,
    including network calls.
+
+3. **One-shot agents (`agentboard run`).** Starts the `claude` binary you already have, which talks to Anthropic the way it always does.
+   agentboard adds no connection of its own, never passes a flag that widens the run's permissions (no `--dangerously-skip-permissions`,
+   `--permission-mode` or `--allowedTools`), and enforces a wall-clock limit and a spend cap. Only runs when you start one.
+4. **Text the board (`agentboard sms serve`).** An inbound Twilio webhook on its **own** listener, `127.0.0.1:8766`, separate from the board
+   server (so a tunnel pointed at it exposes `/sms` and `/health` and nothing else). It will not start unless `[sms] enabled = true`, an allowlist,
+   an `https` `public_url` and the Twilio auth token (read from an environment variable, never from a file in the board) are all set. Each request
+   needs a valid `X-Twilio-Signature` (HMAC-SHA1 over the URL and the form, constant-time compare), a sender on the allowlist, and a `MessageSid`
+   not seen in the last 7 days (replay protection, kept in `.agentboard/sms-state.json`); there is also an hourly cap. Anything refused gets a bare
+   403 and no text back. It never calls the Twilio API: replies travel in the HTTP response, so the only cost is the texts themselves. The grammar can
+   add and move cards and read a one-line status; it cannot delete, run commands or read card text. Commands are applied through the normal store (atomic
+   write, `.bak`, hourly snapshots). Turning it on means a public tunnel to your Mac: that switch is yours.
 
 Providers run only when a task explicitly lists them (`--ctx`) and a prompt is built (Copy prompt,
 `agentboard prompt`, `agentboard rebuild`). On a work machine, point `http` providers only at local
