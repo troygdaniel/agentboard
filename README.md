@@ -309,6 +309,28 @@ Findings below come from the audit in `SECURITY.md` in the repository root (v0.2
 
 Environment: `AGENTBOARD_DIR` (the board to use from anywhere), `AGENTBOARD_BOARD` (a registered board name), `AGENTBOARD_HOME` (where the registry lives), `AGENTBOARD_NAME` / `AGENTBOARD_COLOR` (defaults for `--name` / `--color`).
 
+## One-shot agents
+
+`agentboard run <card>` hands a card to a non-interactive `claude -p` that works on its own and is closed when it is done:
+
+    agentboard run fix-the-widget --name AGENT-7 --budget 3 --max-minutes 30        # in the foreground
+    agentboard run fix-the-widget --detach                                          # returns at once (what ORCH uses)
+    agentboard runs                                                                 # live and finished runs, with time and cost
+    agentboard runs --kill fix-the-widget                                           # the kill switch (the card's "Stop run" button does the same)
+
+What happens: the card's prompt (the same text as Copy prompt) plus a short rules block (report in three lines, finish with `review`, `ask` when
+blocked, never dial, text, buy or deploy) goes to `claude -p`, started in a **fresh git worktree** next to the repo (`<repo>-wt/run-<card>-<id>`; pass
+`--cwd DIR` to work in an existing folder as it is). The card is claimed under `--name` and shows a `▶ run` badge. When claude exits the card moves
+to **review** (or to **ask**, with the tail of the output, if the run failed, hit the time limit or the budget, or was stopped), its cost and duration
+are written on the card, and the worktree is removed only if this run created it and it is clean (otherwise the card says where it is).
+Per-run files are in `.agentboard/runs/<card>/<run id>/` (`prompt.md`, `stdout.json`, `stderr.log`, `run.json`).
+
+Limits and safety: a hard wall-clock limit (`--max-minutes`, default 45) and a spend cap passed to claude (`--budget`, default $5); set your own defaults
+with `[run] budget_usd` and `max_minutes` in `config.toml`. The run uses **the same permission settings an interactive agent in that folder would**: agentboard
+never passes `--dangerously-skip-permissions`, `--permission-mode` or `--allowedTools`. A headless run cannot answer a permission prompt, so allow what a card
+needs (at least `Bash(agentboard:*)`) in the project's `.claude/settings.json` yourself. Only one run per card at a time; subtasks run through their parent.
+Point at a different claude binary with `AGENTBOARD_CLAUDE` or `[run] claude`.
+
 ## Prompts and context providers (optional)
 
 Todo cards carry a copyable prompt that makes any agent claim the card and report progress. Prompts are assembled from
@@ -322,6 +344,7 @@ Providers run only when a task lists one with `--ctx` and a prompt is built.
 | `init` / `serve [--port N] [--no-open]` | create the board / run it |
 | `add "Title" [--status todo\|backlog] [-d TEXT] [--ctx NAME] [--project ID] [--blocked-by ID] [--parent ID]` , `list [--all] [--stale]`, `rm <id>` | manage tasks (`--parent` makes a subtask) |
 | `tail [-n LINES] [--interval SECS]` | watch activity live in the terminal — same feed as the HUD, for CLI-only sessions |
+| `run CARD [--name N] [--color C] [--cwd DIR] [--budget USD] [--max-minutes M] [--detach]`, `runs [--kill CARD]` | run a card with a one-shot `claude -p`; list and stop runs |
 | `report [--date YYYY-MM-DD]` | markdown recap of what got done that day, by agent — for a standup or daily log |
 | `project add "Name" [--color C] [-d TEXT]`, `project list`, `project edit <id> [...]`, `project rm <id>` | manage projects |
 | `project assign <task_id> <project_id>`, `project unassign <task_id>` | tie/untie a task |

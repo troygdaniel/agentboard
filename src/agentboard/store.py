@@ -339,6 +339,16 @@ class Store:
                     _finish(k, t["updated"])
             return t
 
+    def set_run(self, task_id, run, log_text=None):
+        """Record a one-shot run on the card (`agentboard run`): status, pid, times, cost. A shallow merge into card["run"]."""
+        with self.transaction() as tasks:
+            t = self.get(tasks, task_id)
+            t["run"] = {**t.get("run", {}), **run}
+            if log_text:
+                _log(t, log_text)
+            t["updated"] = _now()
+            return t
+
     def reply(self, task_id, text, by="Troy"):
         """The user answers a card from the board: one log entry, no state change (the agent clears
         its own ask/review). Read by agents through `agentboard prompt`/the card log."""

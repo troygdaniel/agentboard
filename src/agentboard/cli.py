@@ -12,6 +12,7 @@ from . import __version__
 from . import backup as backuplib
 from . import hud as hudlib
 from . import prompt as promptlib
+from . import runs as runslib
 from .server import serve
 from . import boards as boardlib
 from .store import DIR_NAME, BoardError, Store, find_dir, subtask_counts
@@ -45,6 +46,11 @@ SAMPLE_CONFIG = '''\
 
 # [ui]
 # dispatch = false            # hide Copy prompt and the prompt preview (shown by default)
+
+# [run]                       # one-shot agents: `agentboard run <card>`
+# claude = "claude"           # the claude binary (default: the one on PATH)
+# budget_usd = 5              # hard spend cap per run, passed to claude as --max-budget-usd
+# max_minutes = 45            # hard wall-clock limit per run
 
 # [board]
 # stale_minutes = 120         # flag a Doing task as stale/abandoned after this many idle minutes
@@ -850,6 +856,31 @@ def cmd_board_rm(a):
     print(f"forgot {a.name} (its folder and cards are untouched)")
 
 
+def cmd_run(a):
+    s = _store()
+    name = a.name or os.environ.get("AGENTBOARD_NAME") or "oneshot"
+    if a.detach:
+        runslib.check_startable(s, a.id, name, a.force)
+        runslib.claude_binary(s.dir)
+        tail = [x for flag, v in (("--name", a.name), ("--color", a.color), ("--cwd", a.cwd), ("--budget", a.budget), ("--max-minutes", a.max_minutes))
+                if v is not None for x in (flag, str(v))] + (["--force"] if a.force else [])
+        pid, log = runslib.detach(tail, s.dir, a.id)
+        print(f"{a.id}: run started in the background (supervisor pid {pid}); watch it with `agentboard runs`, stop it with `agentboard runs --kill {a.id}`; log {log}")
+        return
+    rec = runslib.run_card(s, a.id, name=a.name, color=a.color, cwd=a.cwd, budget=a.budget, minutes=a.max_minutes, force=a.force)
+    if rec["status"] != "finished":
+        sys.exit(1)
+
+
+def cmd_runs(a):
+    s = _store()
+    if a.kill:
+        print(f"{a.kill}: {runslib.kill_run(s.dir, a.kill)}")
+        return
+    rows = runslib.list_lines(s.dir)
+    print("\n".join(rows) if rows else "no runs yet")
+
+
 def cmd_serve(a):
     serve(_store(), a.port, not a.no_open)
 
@@ -966,6 +997,18 @@ def main(argv=None):
     sp = add("serve", cmd_serve, "run the board at http://localhost:8765")
     sp.add_argument("--port", type=int, default=8765)
     sp.add_argument("--no-open", action="store_true")
+
+    sp = add("run", cmd_run, "run a card with a one-shot, non-interactive `claude -p`, then move it to review (or ask)")
+    sp.add_argument("id")
+    sp.add_argument("--name", help="the agent name the card is claimed under (default $AGENTBOARD_NAME or 'oneshot')")
+    sp.add_argument("--color")
+    sp.add_argument("--cwd", help="work in this folder as it is (default: a fresh git worktree next to the current repo, removed afterwards if clean)")
+    sp.add_argument("--budget", type=float, help="hard spend cap in USD passed to claude (default [run] budget_usd, else 5)")
+    sp.add_argument("--max-minutes", type=float, help="hard wall-clock limit (default [run] max_minutes, else 45)")
+    sp.add_argument("--force", action="store_true", help="take the card even if another agent holds it")
+    sp.add_argument("--detach", action="store_true", help="return at once and supervise in the background (what ORCH uses)")
+    sp = add("runs", cmd_runs, "list one-shot runs (live and finished); --kill CARD stops one")
+    sp.add_argument("--kill", metavar="CARD", help="stop the live run on this card")
 
     sp = sub.add_parser("board", help="named boards: new, add, list, use, rm (registry in ~/.agentboard/boards.toml)")
     bsub = sp.add_subparsers(dest="board_cmd", required=True)

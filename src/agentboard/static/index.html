@@ -107,6 +107,7 @@
   .status i { width: 6px; height: 6px; border-radius: 50%; background: var(--ok); }
   .status.off i { background: var(--warn); }
   .spacer { flex: 1; }
+  .run-chip { font-size: var(--fs-sm); color: var(--warn); border: 1px solid currentColor; border-radius: 999px; padding: 0 7px; margin-left: 6px; white-space: nowrap; }
   header { border-top: 3px solid var(--board-accent, transparent); }   /* a registered board's colour */
   #board-switch { max-width: 150px; }
   #theme { width: 44px; height: 44px; padding: 0; display: grid; place-items: center; }   /* icon button: a 44px target (BJ: header tidy) */
@@ -1098,7 +1099,8 @@ function card(t) {
     ? `<button class="who" data-agent="${esc(t.agent)}" title="Show only ${esc(t.agent)}"><span class="av ${live ? 'live' : ''}" style="--c:${colorOf(t)}" aria-hidden="true">${esc(nodeGlyph(t.agent))}</span><span class="nm">${esc(t.agent)}</span></button>` : '';
   const checkIcon = done ? `<svg class="check" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-label="Done"><path d="M3.5 8.5l3 3 6-7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>` : '';
   const when = a.text ? `<span class="when ${abandoned ? 'abandoned' : stale ? 'stale' : ''}">${abandoned ? '⚠ abandoned? no update ' : stale ? 'no update ' : ''}${a.text}</span>` : '';
-  const top = who ? `<div class="top">${who}${when}</div>` : '';
+  const runChip = t.run && t.run.status === 'running' && t.run.alive !== false ? `<span class="run-chip" title="A one-shot run is working on this card">▶ run</span>` : '';
+  const top = who ? `<div class="top">${who}${runChip}${when}</div>` : '';
   const todo = t.status === 'todo', backlog = t.status === 'backlog';
   const laterBtn = todo ? `<button class="card-act" data-later="${esc(t.id)}" title="Move to Later (backlog)"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 3v7m0 0L5 7m3 3l3-3M3 13h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Later</button>` : '';
   const toTodoBtn = backlog ? `<button class="card-act" data-to-todo="${esc(t.id)}" title="Move to Todo"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 13V6m0 0L5 9m3-3l3 3M3 3h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Move to Todo</button>` : '';
@@ -1596,7 +1598,7 @@ function panelHtml(t) {
   const ctx = (t.ctx || []).length ? `<dt>Context</dt><dd>${t.ctx.map(c => `<code>${esc(c)}</code>`).join(' ')}</dd>` : '';
   const details = `<div class="p-sec"><h3>Details</h3><dl><dt>ID</dt><dd><code>${esc(t.id)}</code></dd><dt>Created</dt><dd>${stamp(t.created)}</dd><dt>Updated</dt><dd>${stamp(t.updated)}</dd>${ctx}</dl></div>`;
   const prompt = !cfg.dispatch ? '' : `<div class="p-sec"><details id="pd" ${promptOpen ? 'open' : ''}><summary>Prompt</summary><pre id="pre">${esc(promptText || 'Loading…')}</pre></details></div>`;
-  const copy = cfg.dispatch ? `<button class="btn" id="p-copy">Copy prompt</button>` : '';
+  const copy = (cfg.dispatch ? `<button class="btn" id="p-copy">Copy prompt</button>` : '') + (t.run && t.run.status === 'running' && t.run.alive !== false ? `<button class="btn danger" id="p-run-stop" title="Stop the one-shot run (the card moves to ask)">Stop run</button>` : '');
   const par = t.parent_id && byId.get(t.parent_id)
     ? `<div class="p-sec"><h3>Subtask of</h3><ul class="p-subs"><li data-sub-id="${esc(t.parent_id)}"><span class="sn">${esc(byId.get(t.parent_id).title)}</span></li></ul></div>` : '';
   const kids = kidsMap.get(t.id) || [];
@@ -1734,6 +1736,9 @@ $('p-body').addEventListener('click', async e => {
       if (byId.get(openId)?.status === 'todo') { copied.set(openId, d.warnings.length ? 'Copied, with warnings' : 'Copied'); render(); }
     } catch (err) { b.textContent = 'Failed'; showError('Copy failed: ' + err.message); }
     setTimeout(() => { if (b.isConnected) b.textContent = 'Copy prompt'; }, 1800);
+  } else if (b.id === 'p-run-stop') {
+    try { await api('/api/run-kill', { id: openId }); b.textContent = 'Stopping…'; b.disabled = true; showError(''); }
+    catch (err) { showError('Could not stop the run: ' + err.message); }
   } else if (b.id === 'p-del') {
     if (!b.dataset.armed) {
       b.dataset.armed = '1'; b.textContent = 'Click again to delete';

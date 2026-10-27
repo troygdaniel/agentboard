@@ -9,6 +9,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 from . import boards, hud
+from . import runs
 from . import markdown as mdlib
 from . import prompt as promptlib
 from .store import BoardError, Store, subtask_counts, subtask_list
@@ -149,6 +150,8 @@ def make_handler(default_store, port):
                     if t.get("archived"):
                         continue
                     d = {k: v for k, v in t.items() if k not in ("log", "prompt", "body_md")}
+                    if isinstance(d.get("run"), dict) and d["run"].get("status") == "running":
+                        d["run"] = {**d["run"], "alive": runs.pid_alive(d["run"].get("supervisor_pid"))}   # a crashed supervisor must not leave a badge up
                     if t["id"] in counts:
                         d["subs_total"], d["subs_done"] = counts[t["id"]]
                         d["subs"] = lists[t["id"]]
@@ -246,6 +249,8 @@ def make_handler(default_store, port):
                     self._send(200, {"ok": True})
                 elif path == "/api/color":
                     self._send(200, self.store.set_agent_color(body["id"], body["color"]))
+                elif path == "/api/run-kill":
+                    self._send(200, {"result": runs.kill_run(self.store.dir, body["id"])})
                 elif path == "/api/delete":
                     self.store.delete(body["id"])
                     self._send(200, {"ok": True})
