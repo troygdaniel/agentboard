@@ -175,6 +175,24 @@ visible to you, not buried in a terminal. Type in the same panel to join the con
     agentboard chat send "<message>" --name atlas
     agentboard chat tail [--limit N] [--follow]          # --follow polls and streams new messages
 
+## Several boards
+
+One board per project folder is still the default. To keep others (work, personal, a side project), register them by name:
+
+    agentboard board new work --color blue     # creates ~/.agentboard/boards/work/.agentboard and registers it
+    agentboard board add side ~/code/side/.agentboard   # name a board you already have
+    agentboard board list                       # names, folders, colours; * marks `use`
+    agentboard board use work                   # the board used when the folder has no .agentboard
+    agentboard board rm work                    # forget it (its cards and folder are never deleted)
+
+Pick a board from any folder with `--board work` (before the command) or `AGENTBOARD_BOARD=work`. Which board a command uses, first match wins:
+`--board` / `AGENTBOARD_BOARD`, then `AGENTBOARD_DIR`, then the nearest `.agentboard/` above the current folder, then `board use`.
+
+One `agentboard serve` shows them all: the board of the folder it starts in stays at `/` and `/hud` (existing links keep working), every registered
+board is at `/b/<name>/` and `/b/<name>/hud`, and a board switcher appears in the header once there is more than one. A board's `color` tints the top of its header.
+The registry is `~/.agentboard/boards.toml` (move it with `AGENTBOARD_HOME`). Each board keeps its own hourly snapshots and its own `[backup] sync_dir`
+in its own `config.toml`; nightly copies are named after the board's folder, so give boards different folder names if they share a sync folder.
+
 ## Your data and backups
 
 Everything is one file, `.agentboard/tasks.json`; the browser keeps only your theme and sound choices, so clearing it loses nothing.
@@ -289,7 +307,7 @@ Findings below come from the audit in `SECURITY.md` in the repository root (v0.2
     [providers.<name>]            # context providers for prompts: markdown | file-tail | http | command
     type = "markdown"             # see the commented examples init writes; off until a task lists one with --ctx
 
-Environment: `AGENTBOARD_DIR` (the board to use from anywhere), `AGENTBOARD_NAME` / `AGENTBOARD_COLOR` (defaults for `--name` / `--color`).
+Environment: `AGENTBOARD_DIR` (the board to use from anywhere), `AGENTBOARD_BOARD` (a registered board name), `AGENTBOARD_HOME` (where the registry lives), `AGENTBOARD_NAME` / `AGENTBOARD_COLOR` (defaults for `--name` / `--color`).
 
 ## Prompts and context providers (optional)
 

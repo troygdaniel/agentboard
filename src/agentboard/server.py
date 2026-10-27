@@ -1,5 +1,6 @@
 """Local HTTP server: serves the board UI and a small JSON API. Localhost only."""
 import json
+import re
 import threading
 import time
 import webbrowser
@@ -7,12 +8,13 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-from . import hud
+from . import boards, hud
 from . import markdown as mdlib
 from . import prompt as promptlib
 from .store import BoardError, Store, subtask_counts, subtask_list
 
 STATIC = Path(__file__).parent / "static"
+BOARD_PATH = re.compile(r"^/b/([a-z0-9][a-z0-9_-]{0,39})(/.*)?$")
 MAX_BODY = 1_000_000
 
 
@@ -23,8 +25,23 @@ def _ids(body):
     return ids
 
 
-def make_handler(store, port):
-    def _config():
+def board_list(store, base=""):
+    """What the header's board switcher shows: this folder's board first, then every other registered board."""
+    try:
+        reg = boards.load()["boards"]
+    except BoardError:
+        reg = {}
+    here = boards.name_for(store.dir)
+    out = [{"name": here or store.dir.parent.name or "board", "url": "/", "color": (reg.get(here) or {}).get("color") if here else None, "default": True}]
+    mine = store.dir.resolve()
+    for name, b in sorted(reg.items()):
+        if Path(b["path"]).expanduser().resolve() != mine:
+            out.append({"name": name, "url": f"/b/{name}/", "color": b.get("color"), "default": False})
+    return {"boards": out, "current": f"{base}/"}
+
+
+def make_handler(default_store, port):
+    def _config(store):
         """config.toml, or {} if it is unreadable: a typo there must not blank the HUD or the board."""
         try:
             return promptlib.load_config(store.dir)
@@ -76,12 +93,40 @@ def make_handler(store, port):
                     return False
             return True
 
+        def _bind(self, url):
+            """Pick the board for this request. `/b/<name>/...` is a registered board; everything else is the default board
+            (so every existing link keeps working). Returns the url with the prefix removed, or None after answering."""
+            self.store, self.base = default_store, ""
+            m = BOARD_PATH.match(url.path)
+            if not m:
+                return url
+            name, rest = m.group(1), m.group(2)
+            try:
+                board = boards.load()["boards"].get(name)
+            except BoardError:
+                board = None
+            if not board:
+                self._send(404, {"error": f"no board named {name}"})
+                return None
+            if rest is None:   # /b/name -> /b/name/
+                self.send_response(301)
+                self.send_header("Location", f"/b/{name}/")
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+                return None
+            self.store = Store(Path(board["path"]).expanduser())
+            self.base = f"/b/{name}"
+            return url._replace(path=rest)
+
         # -- routes --------------------------------------------------------
         def do_GET(self):
             if not self._guard():
                 return
             url = urlparse(self.path)
             q = parse_qs(url.query)
+            url = self._bind(url)
+            if url is None:
+                return
             try:
                 self._route_get(url, q)
             except BoardError as e:
@@ -89,10 +134,14 @@ def make_handler(store, port):
 
         def _route_get(self, url, q):
             if url.path in ("/", "/index.html", "/hud"):
-                self._send(200, (STATIC / "index.html").read_bytes(), "text/html; charset=utf-8")
+                html = (STATIC / "index.html").read_text()
+                inject = f"<script>window.AB_BASE = {json.dumps(self.base)};</script>"   # the page prefixes its /api calls with this
+                self._send(200, html.replace("</head>", inject + "</head>", 1).encode(), "text/html; charset=utf-8")
+            elif url.path == "/api/boards":
+                self._send(200, board_list(default_store, self.base))
             elif url.path == "/api/tasks":
                 # list view stays light; history, prompt and the rich body come from /api/task
-                everything = store.load()
+                everything = self.store.load()
                 counts = subtask_counts(everything)   # archived subtasks still count toward a parent's segments
                 lists = subtask_list(everything)      # ...and keep their slot, in creation order
                 slim = []
@@ -106,19 +155,19 @@ def make_handler(store, port):
                     slim.append(d)
                 self._send(200, {"tasks": slim})
             elif url.path == "/api/projects":
-                self._send(200, {"projects": store.load_projects()})
+                self._send(200, {"projects": self.store.load_projects()})
             elif url.path == "/api/hud":
-                conf = _config()
-                data = hud.build(store.load(), abandoned_min=hud.stale_minutes(conf), retired=hud.retired(conf))
-                data["backup"] = store.backups.status()   # {last_backup_min, snapshots, last_sync, sync_dir}: the HUD's "backup N min ago" chip
+                conf = _config(self.store)
+                data = hud.build(self.store.load(), abandoned_min=hud.stale_minutes(conf), retired=hud.retired(conf))
+                data["backup"] = self.store.backups.status()   # {last_backup_min, snapshots, last_sync, sync_dir}: the HUD's "backup N min ago" chip
                 self._send(200, data)
             elif url.path == "/api/config":
-                conf = _config()
+                conf = _config(self.store)
                 self._send(200, {"dispatch": bool(conf.get("ui", {}).get("dispatch", True)),
                                   "stale_minutes": hud.stale_minutes(conf)})
             elif url.path == "/api/task":
                 try:
-                    t = dict(Store.get(store.load(), (q.get("id") or [""])[0]))
+                    t = dict(Store.get(self.store.load(), (q.get("id") or [""])[0]))
                     if t.get("body_md"):
                         # rendered here, not stored: agent text is untrusted, and to_html()
                         # never passes raw HTML through, so the client can insert it as-is
@@ -129,14 +178,14 @@ def make_handler(store, port):
             elif url.path == "/api/chat":
                 after = q.get("after", [None])[0]
                 after = int(after) if after and after.lstrip("-").isdigit() else None
-                self._send(200, {"messages": store.chat_list(after=after, limit=200)})
+                self._send(200, {"messages": self.store.chat_list(after=after, limit=200)})
             elif url.path == "/api/orch-prompt":
-                text = promptlib.build_orch_prompt(store.load(), store.dir, port=port)
+                text = promptlib.build_orch_prompt(self.store.load(), self.store.dir, port=port)
                 self._send(200, {"prompt": text})
             elif url.path == "/api/prompt":
                 try:
-                    task = Store.get(store.load(), (q.get("id") or [""])[0])
-                    text, warnings = promptlib.build_prompt(task, store.dir, public=False, tasks=store.load())
+                    task = Store.get(self.store.load(), (q.get("id") or [""])[0])
+                    text, warnings = promptlib.build_prompt(task, self.store.dir, public=False, tasks=self.store.load())
                     self._send(200, {"prompt": text, "warnings": warnings})
                 except BoardError as e:
                     self._send(404, {"error": str(e)})
@@ -148,65 +197,68 @@ def make_handler(store, port):
                 return
             try:
                 body = self._json_body()
-                path = urlparse(self.path).path
+                bound = self._bind(urlparse(self.path))
+                if bound is None:
+                    return
+                path = bound.path
                 if path == "/api/tasks":
-                    t = store.add(body["title"], body.get("description", ""),
+                    t = self.store.add(body["title"], body.get("description", ""),
                                   body.get("status"), body.get("ctx", []),
                                   project_id=body.get("project_id"), parent_id=body.get("parent_id"))
                     self._send(200, t)
                 elif path == "/api/projects":
-                    p = store.add_project(body["name"], body.get("color"), body.get("description", ""))
+                    p = self.store.add_project(body["name"], body.get("color"), body.get("description", ""))
                     self._send(200, p)
                 elif path == "/api/project-update":
-                    p = store.update_project(body["id"], body.get("name"), body.get("color"), body.get("description"))
+                    p = self.store.update_project(body["id"], body.get("name"), body.get("color"), body.get("description"))
                     self._send(200, p)
                 elif path == "/api/project-delete":
-                    store.delete_project(body["id"])
+                    self.store.delete_project(body["id"])
                     self._send(200, {"ok": True})
                 elif path == "/api/task-project":
-                    t = store.set_project(body["id"], body.get("project_id"))
+                    t = self.store.set_project(body["id"], body.get("project_id"))
                     self._send(200, t)
                 elif path == "/api/move":
-                    loaded = store.load()
+                    loaded = self.store.load()
                     prev = Store.get(loaded, body["id"])
                     prev_kids = [k for k in loaded if k.get("parent_id") == body["id"]]   # a move cascades onto them
-                    prev_before = store.next_sibling(body["id"])
-                    moved = store.move(body["id"], body["status"], body.get("before"))
+                    prev_before = self.store.next_sibling(body["id"])
+                    moved = self.store.move(body["id"], body["status"], body.get("before"))
                     self._send(200, {"task": moved, "prev": prev, "prev_before": prev_before, "prev_kids": prev_kids})
                 elif path == "/api/restore":
-                    self._send(200, store.restore(body["task"], body.get("before"), body.get("kids")))
+                    self._send(200, self.store.restore(body["task"], body.get("before"), body.get("kids")))
                 elif path == "/api/bulk-move":
                     ids = _ids(body)
-                    loaded = store.load()
-                    prev = [{"task": Store.get(loaded, i), "before": store.next_sibling(i),
+                    loaded = self.store.load()
+                    prev = [{"task": Store.get(loaded, i), "before": self.store.next_sibling(i),
                              "kids": [k for k in loaded if k.get("parent_id") == i]} for i in ids]
-                    moved = store.bulk_move(ids, body["status"])
+                    moved = self.store.bulk_move(ids, body["status"])
                     self._send(200, {"tasks": moved, "prev": prev})
                 elif path == "/api/bulk-archive":
-                    self._send(200, {"ids": store.bulk_archive(_ids(body))})
+                    self._send(200, {"ids": self.store.bulk_archive(_ids(body))})
                 elif path == "/api/bulk-project":
-                    prev = store.bulk_set_project(_ids(body), body.get("project_id"))
+                    prev = self.store.bulk_set_project(_ids(body), body.get("project_id"))
                     self._send(200, {"prev": prev})
                 elif path == "/api/clear-done":
-                    self._send(200, {"ids": store.clear_done()})
+                    self._send(200, {"ids": self.store.clear_done()})
                 elif path == "/api/unarchive":
-                    store.unarchive(_ids(body))
+                    self.store.unarchive(_ids(body))
                     self._send(200, {"ok": True})
                 elif path == "/api/color":
-                    self._send(200, store.set_agent_color(body["id"], body["color"]))
+                    self._send(200, self.store.set_agent_color(body["id"], body["color"]))
                 elif path == "/api/delete":
-                    store.delete(body["id"])
+                    self.store.delete(body["id"])
                     self._send(200, {"ok": True})
                 elif path == "/api/reply":
                     if not isinstance(body["text"], str):
                         raise BoardError("text must be a string")
-                    self._send(200, store.reply(body["id"], body["text"]))
+                    self._send(200, self.store.reply(body["id"], body["text"]))
                 elif path == "/api/chat":
                     # the only HTTP poster is the board UI (agents use the CLI), so it's always "you"
                     sender = body.get("sender") or "Troy"
                     if not isinstance(sender, str) or not isinstance(body["text"], str):
                         raise BoardError("sender and text must be strings")
-                    m = store.chat_send(sender, body["text"], "user")
+                    m = self.store.chat_send(sender, body["text"], "user")
                     self._send(200, m)
                 else:
                     self._send(404, {"error": "not found"})
@@ -223,16 +275,26 @@ def serve(store, port=8765, open_browser=True):
         raise SystemExit(f"agentboard: cannot listen on port {port} ({e.strerror}); "
                          f"is another board running? Try --port {port + 1}")
     url = f"http://localhost:{port}/"
-    print(f"agentboard: {url}\n  board: {store.dir}\n  Ctrl+C to stop")
+    try:
+        others = [n for n in boards.load()["boards"] if boards.name_for(store.dir) != n]
+    except BoardError:
+        others = []
+    print(f"agentboard: {url}\n  board: {store.dir}" + "".join(f"\n  also: {url}b/{n}/" for n in others) + "\n  Ctrl+C to stop")
     if open_browser:
         threading.Timer(0.3, webbrowser.open, args=(url,)).start()
 
-    def _backups():   # an idle board still gets its hourly snapshot and its nightly copy
+    def _backups():   # an idle board still gets its hourly snapshot and its nightly copy: this one and every registered board, each with its own config
         while True:
             try:
-                store.backups.tick()
-            except Exception:   # noqa: BLE001  (a backup problem never stops the board)
-                pass
+                every = [store] + [Store(Path(b["path"]).expanduser()) for b in boards.load()["boards"].values()
+                                   if Path(b["path"]).expanduser().resolve() != store.dir.resolve()]
+            except BoardError:
+                every = [store]
+            for st in every:
+                try:
+                    st.backups.tick()
+                except Exception:   # noqa: BLE001  (a backup problem never stops a board)
+                    pass
             time.sleep(300)
 
     threading.Thread(target=_backups, daemon=True).start()

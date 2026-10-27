@@ -107,6 +107,8 @@
   .status i { width: 6px; height: 6px; border-radius: 50%; background: var(--ok); }
   .status.off i { background: var(--warn); }
   .spacer { flex: 1; }
+  header { border-top: 3px solid var(--board-accent, transparent); }   /* a registered board's colour */
+  #board-switch { max-width: 150px; }
   #theme { width: 44px; height: 44px; padding: 0; display: grid; place-items: center; }   /* icon button: a 44px target (BJ: header tidy) */
 
   button, input, select { font: inherit; color: inherit; }
@@ -880,6 +882,7 @@
     <button class="btn" id="orch-btn" hidden title="Copy a prompt that boots a fresh session as ORCH, from the live board">ORCH</button>
     <button class="btn" id="chat-btn" aria-controls="chat">Chat <span id="chat-n"></span></button>
     <span class="spacer"></span>
+    <select class="btn" id="board-switch" aria-label="Board" hidden></select>
     <select class="filter btn" id="project-filter" aria-label="Filter by project"><option value="">All projects</option></select>
     <input class="filter" id="filter" placeholder="Filter  /" aria-label="Filter tasks">
     <span class="summary" id="filter-summary" role="status"></span>
@@ -1004,7 +1007,10 @@
 </aside>
 
 <script>
-const SOLO = location.pathname === '/hud';
+let APP = 'agentboard';   // the tab title's name: 'agentboard · work' on a named board
+const BASE = window.AB_BASE || '';   // '' for the default board, '/b/<name>' for another one (the server fills it in)
+{ const nativeFetch = window.fetch.bind(window); window.fetch = (u, o) => nativeFetch(typeof u === 'string' && u.startsWith('/api/') ? BASE + u : u, o); }
+const SOLO = location.pathname.replace(/\/+$/, '').endsWith('/hud');
 const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;   // HUD running in its own window
 const COLUMNS = [['backlog', 'Later'], ['todo', 'Todo'], ['doing', 'Doing'], ['done', 'Done']];
 const EMPTY = { backlog: '', todo: 'Nothing queued — agents claim work from here', doing: 'Nothing in progress', done: 'Nothing finished yet' };
@@ -1268,7 +1274,7 @@ function render() {
     + (asks ? `<span class="warn sum-link ${flagFilter === 'needs_input' ? 'active' : ''}" data-flag="needs_input" role="button" tabindex="0" title="Show only ${asks} needs-input card${asks === 1 ? '' : 's'}">⚠ ${asks} needs input</span> · ` : '')
     + (revs ? `<span class="ok sum-link ${flagFilter === 'review' ? 'active' : ''}" data-flag="review" role="button" tabindex="0" title="Show only ${revs} card${revs === 1 ? '' : 's'} ready for review">✓ ${revs} to review</span> · ` : '')
     + (working.length ? `<b>${working.length}</b> working` + (quiet ? ` · <span class="warn">${quiet} quiet</span>` : '') : '');
-  document.title = (abandoned ? `⚠ ${abandoned} abandoned · ` : '') + (asks ? `⚠ ${asks} input · ` : '') + (revs ? `✓ ${revs} review · ` : '') + (working.length ? `agentboard · ${working.length} working${quiet ? ' · ' + quiet + ' quiet' : ''}` : 'agentboard');
+  document.title = (abandoned ? `⚠ ${abandoned} abandoned · ` : '') + (asks ? `⚠ ${asks} input · ` : '') + (revs ? `✓ ${revs} review · ` : '') + (working.length ? `${APP} · ${working.length} working${quiet ? ' · ' + quiet + ' quiet' : ''}` : APP);
   // restore focus after the innerHTML rebuild above — preventScroll because this runs on every
   // background poll tick, not a deliberate user navigation; a plain focus() would silently drag
   // the viewport to wherever this card now sits (the reported "page auto-scrolls" bug)
@@ -1934,7 +1940,7 @@ $('h-full').onclick = toggleHudFull;
 $('h-snd').onclick = () => setSnd(!sndOn);
 $('h-amb').onclick = () => setAmb(!ambOn);
 $('snd2').onclick = () => { setSnd(!sndOn, true); if (sndOn) cue.added(); };
-$('h-pop').onclick = () => { const w = window.open('/hud', 'agentboard-hud', 'width=1320,height=860'); if (w) closeHud(); };
+$('h-pop').onclick = () => { const w = window.open(BASE + '/hud', 'agentboard-hud', 'width=1320,height=860'); if (w) closeHud(); };
 $('hud').addEventListener('click', e => { if (e.target.id === 'hud' && !$('hud').classList.contains('full')) closeHud(); });
 
 async function hudLoad() {
@@ -2031,7 +2037,7 @@ function loadTrack(d, a, win, start, end) {   // the agent's last hour as segmen
 $('h-tele')?.addEventListener('click', e => {
   const r = e.target.closest('.h-row.attn[data-id]'); if (!r) return;
   const id = r.dataset.id;
-  if (SOLO) { window.open('/#' + encodeURIComponent(id), 'agentboard-board'); return; }
+  if (SOLO) { window.open(BASE + '/#' + encodeURIComponent(id), 'agentboard-board'); return; }
   closeHud(); openPanel(id);
 });
 
@@ -2427,11 +2433,21 @@ board.addEventListener('drop', e => {
   move(id, col.dataset.status, b?.dataset.id);
 });
 
+fetch('/api/boards').then(r => r.json()).then(d => {   // the board switcher: hidden while there is only one board
+  const list = d.boards || [], sw = $('board-switch');
+  const here = list.find(b => b.url === d.current) || list[0];
+  if (here && here.color) document.documentElement.style.setProperty('--board-accent', here.color);
+  if (here && !here.default) { APP = 'agentboard · ' + here.name; document.title = APP; }
+  if (list.length < 2) return;
+  sw.innerHTML = list.map(b => `<option value="${esc(b.url)}"${b.url === d.current ? ' selected' : ''}>${esc(b.name)}</option>`).join('');
+  sw.hidden = false;
+  sw.onchange = () => { location.href = sw.value; };
+}).catch(() => {});
 fetch('/api/config').then(r => r.json()).then(c => { cfg = c; $('orch-btn').hidden = !c.dispatch; raw = ''; detailRaw = ''; load(); }).catch(() => {});
 load(); setInterval(load, 1000);
 if (SOLO) {
   document.body.classList.add('solo');
-  document.title = 'agentboard · HUD';
+  document.title = APP + ' · HUD';
   openHud();
   // browsers block audio until a gesture in a fresh window: first click brings the sound online
   document.addEventListener('pointerdown', () => { if (sndOn) { ac(); startAmb(true); cue.open(); } }, { once: true });

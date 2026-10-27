@@ -22,7 +22,13 @@ class BoardError(Exception):
 
 
 def find_dir(start=None):
-    """AGENTBOARD_DIR, else the nearest .agentboard/ walking up from start."""
+    """The board to use: AGENTBOARD_BOARD (a registered name; what `--board` sets), else AGENTBOARD_DIR, else the nearest
+    .agentboard/ walking up from start, else the board chosen with `agentboard board use`."""
+    from . import boards   # (boards imports this module)
+
+    name = os.environ.get("AGENTBOARD_BOARD")
+    if name:
+        return boards.path_of(name).resolve()
     env = os.environ.get("AGENTBOARD_DIR")
     if env:
         return Path(env).expanduser().resolve()
@@ -30,7 +36,10 @@ def find_dir(start=None):
     for d in (here, *here.parents):
         if (d / DIR_NAME).is_dir():
             return d / DIR_NAME
-    raise BoardError("no board found; run `agentboard init` in your project (or set AGENTBOARD_DIR)")
+    chosen = boards.current_dir()
+    if chosen:
+        return chosen.resolve()
+    raise BoardError("no board found; run `agentboard init` in your project (or set AGENTBOARD_DIR, or pick one with `agentboard board use <name>`)")
 
 
 class Store:

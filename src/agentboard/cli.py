@@ -13,6 +13,7 @@ from . import backup as backuplib
 from . import hud as hudlib
 from . import prompt as promptlib
 from .server import serve
+from . import boards as boardlib
 from .store import DIR_NAME, BoardError, Store, find_dir, subtask_counts
 
 SAMPLE_CONFIG = '''\
@@ -810,6 +811,45 @@ def cmd_dedupe(a):
     print(f"{len(plan)} duplicate card(s) merged; a snapshot named before-dedupe was taken first" if a.apply else "dry run: add --apply to merge them")
 
 
+def cmd_board_new(a):
+    d = boardlib.new(a.name, a.path, a.color)
+    print(f"created board {a.name} at {d}\nuse it: agentboard --board {a.name} add \"First task\"   (or AGENTBOARD_BOARD={a.name}; `agentboard board use {a.name}` makes it the default outside a project folder)")
+
+
+def cmd_board_add(a):
+    d = Path(a.path).expanduser()
+    if not d.is_dir():
+        raise BoardError(f"{d} is not a folder")
+    boardlib.register(a.name, d, a.color)
+    print(f"registered {a.name} -> {d.resolve()}")
+
+
+def cmd_board_list(a):
+    reg = boardlib.load()
+    try:
+        here = find_dir()
+    except BoardError:
+        here = None
+    rows = [(n, b["path"], b["color"]) for n, b in sorted(reg["boards"].items())]
+    if not rows:
+        print("no registered boards; create one with `agentboard board new <name>`")
+    for n, path, color in rows:
+        marks = (" *" if reg["current"] == n else "") + (" (this folder)" if here and boardlib.name_for(here) == n else "")
+        print(f"{n:<16} {path}" + (f"  [{color}]" if color else "") + marks)
+    if here and boardlib.name_for(here) is None:
+        print(f"(this folder's board, not registered: {here})")
+
+
+def cmd_board_use(a):
+    boardlib.use(a.name)
+    print(f"current board: {a.name} (used when the folder has no .agentboard and no --board)")
+
+
+def cmd_board_rm(a):
+    boardlib.remove(a.name)
+    print(f"forgot {a.name} (its folder and cards are untouched)")
+
+
 def cmd_serve(a):
     serve(_store(), a.port, not a.no_open)
 
@@ -817,6 +857,7 @@ def cmd_serve(a):
 def main(argv=None):
     p = argparse.ArgumentParser(prog="agentboard", description="Kanban board for parallel CLI agents")
     p.add_argument("--version", action="version", version=__version__)
+    p.add_argument("--board", metavar="NAME", help="use this registered board from any folder (or $AGENTBOARD_BOARD); see `agentboard board list`")
     sub = p.add_subparsers(dest="cmd", required=True)
 
     def add(name, fn, help):
@@ -926,6 +967,26 @@ def main(argv=None):
     sp.add_argument("--port", type=int, default=8765)
     sp.add_argument("--no-open", action="store_true")
 
+    sp = sub.add_parser("board", help="named boards: new, add, list, use, rm (registry in ~/.agentboard/boards.toml)")
+    bsub = sp.add_subparsers(dest="board_cmd", required=True)
+    bp = bsub.add_parser("new", help="create a board folder and register it")
+    bp.add_argument("name")
+    bp.add_argument("--path", help="the board folder (default ~/.agentboard/boards/<name>/.agentboard)")
+    bp.add_argument("--color", help="tints the board's header")
+    bp.set_defaults(fn=cmd_board_new)
+    bp = bsub.add_parser("add", help="register an existing board folder under a name")
+    bp.add_argument("name")
+    bp.add_argument("path")
+    bp.add_argument("--color")
+    bp.set_defaults(fn=cmd_board_add)
+    bsub.add_parser("list", help="registered boards").set_defaults(fn=cmd_board_list)
+    bp = bsub.add_parser("use", help="the board used when the folder has none")
+    bp.add_argument("name")
+    bp.set_defaults(fn=cmd_board_use)
+    bp = bsub.add_parser("rm", help="forget a board (never deletes its cards)")
+    bp.add_argument("name")
+    bp.set_defaults(fn=cmd_board_rm)
+
     sp = sub.add_parser("project", help="manage projects (groups of tasks)")
     psub = sp.add_subparsers(dest="project_cmd", required=True)
 
@@ -971,6 +1032,8 @@ def main(argv=None):
     csp.add_argument("--interval", type=float, default=2.0, help="seconds between polls with --follow")
 
     a = p.parse_args(argv)
+    if a.board:
+        os.environ["AGENTBOARD_BOARD"] = a.board
     if a.cmd == "rebuild" and not (a.all or a.id):
         p.error("give a task id or --all")
     if a.cmd == "rm" and not (a.demo or a.id):
