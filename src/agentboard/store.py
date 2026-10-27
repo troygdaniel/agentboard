@@ -149,7 +149,11 @@ class Store:
                     if parent.get("color"):
                         task["color"] = parent["color"]
             _log(task, f"Added to {status}")
-            tasks.append(task)
+            if parent or status not in ("todo", "backlog"):
+                tasks.append(task)
+            else:   # a new idea goes to the top of Todo or Backlog; the column order is the list order, so move/drag keep working
+                top = next((i for i, x in enumerate(tasks) if x["status"] == status), len(tasks))
+                tasks.insert(top, task)
             if parent:
                 _touch_parent(tasks, parent)
             return task

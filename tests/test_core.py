@@ -18,6 +18,38 @@ class StoreTests(unittest.TestCase):
     def tearDown(self):
         self.tmp.cleanup()
 
+    def test_new_cards_go_to_the_top_of_todo_and_backlog(self):
+        for title, status in (("One", "todo"), ("Two", "todo"), ("Idea one", "backlog"), ("Idea two", "backlog"), ("Three", "todo")):
+            self.s.add(title, status=status)
+        ids = lambda st: [t["id"] for t in self.s.load() if t["status"] == st]
+        self.assertEqual(ids("todo"), ["three", "two", "one"])
+        self.assertEqual(ids("backlog"), ["idea-two", "idea-one"])
+
+    def test_top_insertion_leaves_other_columns_and_existing_order_alone(self):
+        self.s.add("Old A", status="todo")
+        self.s.add("Old B", status="todo")            # B is now above A
+        self.s.add("Working", status="doing")           # doing is not a queue: it still appends
+        self.s.add("Working 2", status="doing")
+        self.s.add("Fresh", status="todo")
+        self.assertEqual([t["id"] for t in self.s.load() if t["status"] == "doing"], ["working", "working-2"])
+        self.assertEqual([t["id"] for t in self.s.load() if t["status"] == "todo"], ["fresh", "old-b", "old-a"])
+
+    def test_move_to_bottom_and_back_keep_working_after_top_insertion(self):
+        for t in ("A", "B", "C"):
+            self.s.add(t, status="todo")                # c, b, a
+        self.s.move("c", "todo")                        # no before_id: to the bottom of its column
+        self.assertEqual([t["id"] for t in self.s.load() if t["status"] == "todo"], ["b", "a", "c"])
+        self.s.move("c", "todo", before_id="b")         # drag it back above b
+        self.assertEqual([t["id"] for t in self.s.load() if t["status"] == "todo"], ["c", "b", "a"])
+
+    def test_a_subtask_is_not_pulled_to_the_top_of_a_column(self):
+        self.s.add("Parent", status="todo")
+        self.s.claim("parent", "alice")
+        self.s.add("Idea", status="todo")
+        kid = self.s.add("Child", parent_id="parent")
+        self.assertEqual(kid["status"], "doing")
+        self.assertEqual([t["id"] for t in self.s.load() if t["status"] == "doing"], ["parent", "child"])
+
     def test_reply_logs_a_human_entry_without_changing_state(self):
         self.s.add("A", status="todo")
         self.s.claim("a", "alice")

@@ -84,7 +84,7 @@ steps written as `(1) … (2) …` render one per line. Details that don't chang
 - **Never run `agentboard done` yourself as an agent**; only the user does (Mark done button, drag, or telling the agent to).
 - One task per deliverable, not per command; keep status lines to one line.
 
-Humans: `agentboard add "Title" --status todo` (or `--status backlog` for the Later drawer), `agentboard list`.
+Humans: `agentboard add "Title" --status todo` (or `--status backlog` for the Later drawer), `agentboard list`. A new card lands at the top of its column.
 
 ## One orchestrator, several agents
 

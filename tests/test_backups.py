@@ -47,7 +47,7 @@ class AtomicWriteTests(Base):
         self.s.add("B", status="todo")
         prev = json.loads(Path(f"{self.s.path}.bak").read_text())
         self.assertEqual([t["id"] for t in prev["tasks"]], [t["id"] for t in first["tasks"]])
-        self.assertEqual([t["id"] for t in json.loads(self.s.path.read_text())["tasks"]], ["a", "b"])
+        self.assertEqual([t["id"] for t in json.loads(self.s.path.read_text())["tasks"]], ["b", "a"])  # a new card goes to the top
 
     def test_a_failed_write_leaves_the_file_and_no_temp_behind(self):
         before = self.s.path.read_text()
