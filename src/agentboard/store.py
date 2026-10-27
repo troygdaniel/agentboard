@@ -263,6 +263,7 @@ class Store:
             t.pop("question", None)
             t.pop("ask_child", None)
             t.pop("review", None)
+            t.pop("reply", None)
             t.pop("body_md", None)
             t.pop("archived", None)   # claiming a cleared task (--force) puts it back on the board
             t["status_text"] = f"Claimed by {name}"
@@ -291,6 +292,7 @@ class Store:
         with self.transaction() as tasks:
             t = self.get(tasks, task_id)
             _require_doing(t, "ask")
+            t.pop("reply", None)   # a new question: the old answer no longer applies
             t["needs_input"] = True
             t["question"] = question
             t["status_text"] = question
@@ -321,6 +323,7 @@ class Store:
                 # subtasks have no review step: reporting one finished is just 100%, which completes it
                 return self._update(tasks, t, 100, summary, None)
             _require_doing(t, "review")
+            t.pop("reply", None)
             t.pop("needs_input", None)
             t.pop("question", None)
             t.pop("ask_child", None)
@@ -360,8 +363,14 @@ class Store:
         with self.transaction() as tasks:
             t = self.get(tasks, task_id)
             _log(t, text, by=by)
+            t["reply"] = {"text": text, "at": _now(), "by": by}   # the agent reads it with `agentboard answer`; its next update/ask/review clears it
             t["updated"] = _now()
             return t
+
+    def answer(self, task_id):
+        """The latest reply the user left on the card, or None."""
+        r = self.get(self.load(), task_id).get("reply")
+        return dict(r) if isinstance(r, dict) and r.get("text") else None
 
     def update(self, task_id, progress=None, text=None, status=None):
         with self.transaction() as tasks:
@@ -376,6 +385,8 @@ class Store:
         resumed = bool(t.get("needs_input") or t.get("review"))
         for f in ("needs_input", "question", "review", "body_md"):
             t.pop(f, None)
+        if resumed:
+            t.pop("reply", None)   # the agent has moved on from the question or review the reply answered
         parent = _parent_of(tasks, t)
         if parent and parent.get("ask_child") == t["id"]:   # this was the question the parent was showing
             for f in ("needs_input", "question", "ask_child"):

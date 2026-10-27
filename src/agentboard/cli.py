@@ -462,6 +462,11 @@ which opens automatically when your card needs input or is ready for review.
 NEVER mark your own task done. Finish with `review` and stop. Run
 `agentboard done "$ID"` only if the user explicitly tells you to.
 
+Report to Troy in one sentence, one idea: the ACTION he must take first, then one fact. If nothing is
+needed from him, one line of status. If more is unavoidable, one sentence, then offer the detail. Put that
+sentence on the card (ask/review/update text) so Troy answers you there, and in your terminal. He replies
+on the card: read it with `agentboard answer "$ID" --wait`.
+
 If you are handed a task id instead, run `agentboard claim <id> --name "<your session name>"`.
 Use your own session name (and color, if you have one) so people can tell agents apart.
 Create one task per deliverable, not per command. Keep titles short and status lines to one line.
@@ -897,6 +902,19 @@ def cmd_sms_try(a):
     print(smslib.apply(_store(), " ".join(a.text)))
 
 
+def cmd_answer(a):
+    s = _store()
+    deadline = time.time() + a.timeout if a.wait else 0
+    while True:
+        r = s.answer(a.id)
+        if r:
+            print(r["text"])
+            return
+        if not a.wait or time.time() >= deadline:
+            sys.exit(f"agentboard: no reply on {a.id} yet" + (f" after {a.timeout:g}s" if a.wait else ""))
+        time.sleep(a.interval)
+
+
 def cmd_serve(a):
     serve(_store(), a.port, not a.no_open)
 
@@ -1023,6 +1041,11 @@ def main(argv=None):
     sp.add_argument("--max-minutes", type=float, help="hard wall-clock limit (default [run] max_minutes, else 45)")
     sp.add_argument("--force", action="store_true", help="take the card even if another agent holds it")
     sp.add_argument("--detach", action="store_true", help="return at once and supervise in the background (what ORCH uses)")
+    sp = add("answer", cmd_answer, "print Troy's reply on a card (he answers on the card); --wait polls until there is one")
+    sp.add_argument("id")
+    sp.add_argument("--wait", action="store_true")
+    sp.add_argument("--timeout", type=float, default=600.0, help="seconds to wait with --wait (default 600)")
+    sp.add_argument("--interval", type=float, default=2.0)
     sp = add("runs", cmd_runs, "list one-shot runs (live and finished); --kill CARD stops one")
     sp.add_argument("--kill", metavar="CARD", help="stop the live run on this card")
 

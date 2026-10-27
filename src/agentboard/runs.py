@@ -40,7 +40,8 @@ Your work is judged from the card, so keep it current: `{ab} update {task_id} <p
 - Never place calls or send texts, emails or messages to anyone, never buy or subscribe to anything, never deploy, and never
   touch production data or accounts. If the card needs one of those, ask instead.
 - Do not try to widen your own permissions or work around a refused tool: say so in your review or ask.
-- Reports are three lines, no more: ACTION (who must do what next), STATUS (where it stands), WHY (the one reason that matters).
+- Report to Troy in one sentence, one idea: the ACTION he must take first, then one fact. If nothing is needed from him, one line of status. If
+  more is unavoidable, one sentence, then offer the detail. Put that sentence on the card (ask/review/update text); he answers you there.
 - Hard limits: {minutes:g} minutes and ${budget:g}. The run is stopped when either is reached.
 """
 

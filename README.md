@@ -61,7 +61,16 @@ Or, for a task that already exists on the board: `agentboard claim <id> --name a
 
 ### Reports: action first
 
-Every `review` / `ask` text (and every message between sessions) has one shape, three lines at most:
+Every prompt agentboard produces (Copy prompt, the `agentboard run` prompt, the instructions snippet, the ORCH prompt) ends with one rule:
+
+> Report to Troy in one sentence, one idea: the ACTION he must take first, then one fact. If nothing is needed from him, one line of status.
+> If more is unavoidable, one sentence, then offer the detail. Put that sentence on the card (ask/review/update text) so Troy answers you there, and in your terminal.
+
+On the board, a card in **ask** or **review** shows that sentence as its first line, large, with a one-line **reply box** on the card. A reply is stored
+on the card (and in its log), and the agent reads it with `agentboard answer <id>` (`--wait` polls until there is one; `--timeout`, `--interval`).
+It is cleared when the agent moves on (its next update, ask, review or claim). Agents therefore report to you directly, and ORCH does not have to relay.
+
+The older three-line shape is still understood and drawn as bands and chips, if an agent prefers it (three lines at most):
 
     ACTION  Troy: tap Call me once; it rings your mobile        # <none> | Troy: … | ORCH: … | AGENT-N: …
     STATUS  telephony-kill-switch done-ready                      # one card per line: done-ready | blocked | 40%
@@ -368,6 +377,7 @@ Providers run only when a task lists one with `--ctx` and a prompt is built.
 | `tail [-n LINES] [--interval SECS]` | watch activity live in the terminal — same feed as the HUD, for CLI-only sessions |
 | `run CARD [--name N] [--color C] [--cwd DIR] [--budget USD] [--max-minutes M] [--detach]`, `runs [--kill CARD]` | run a card with a one-shot `claude -p`; list and stop runs |
 | `sms serve [--port N]`, `sms try TEXT` | the text-message endpoint (opt-in); run a command text locally |
+| `answer ID [--wait] [--timeout S]` | print the reply you left on a card (agents use it to read your answer) |
 | `report [--date YYYY-MM-DD]` | markdown recap of what got done that day, by agent — for a standup or daily log |
 | `project add "Name" [--color C] [-d TEXT]`, `project list`, `project edit <id> [...]`, `project rm <id>` | manage projects |
 | `project assign <task_id> <project_id>`, `project unassign <task_id>` | tie/untie a task |

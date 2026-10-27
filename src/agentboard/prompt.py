@@ -9,6 +9,15 @@ from pathlib import Path
 from . import providers
 from .store import BoardError
 
+# The one reporting rule every prompt agentboard produces ends with (Troy, 2026-10-27).
+REPORT_RULE = """\
+## Reporting to Troy
+
+Report to Troy in one sentence, one idea: the ACTION he must take first, then one fact. If nothing is needed from him, one line of
+status. If more is unavoidable, one sentence, then offer the detail. Put that sentence on the card (agentboard ask/review/update text)
+so Troy answers you there, and in your terminal.
+"""
+
 DEFAULT_TEMPLATE = """\
 # Task: {title}
 
@@ -47,6 +56,9 @@ If you are blocked on the user mid-task, flag it (and keep going once they answe
 
     {ab} ask {task_id} "<one-line question>"
 
+Troy answers on the card, not through anyone else. Read his answer with `{ab} answer {task_id} --wait`
+(it prints his reply as soon as there is one), then carry on.
+
 These are not optional.
 {context}
 ## Task details
@@ -54,7 +66,8 @@ These are not optional.
 {description}
 
 Ask for clarification if anything is unclear.
-"""
+
+{report_rule}"""
 
 # The claim/progress/review middle of the default prompt, by kind of card. Custom templates
 # ([prompt] template / template_file in config.toml) bypass these and see every placeholder.
@@ -202,6 +215,7 @@ def build_prompt(task, board_dir, public=False, tasks=None):
         "color_hint": ptconf.get("color_hint", " and color if you know it (add --color <color>)"),
         "parent_id": parent["id"] if parent else "",
         "parent_title": parent["title"] if parent else "",
+        "report_rule": REPORT_RULE.rstrip("\n"),
         "subtasks": "\n".join(f"- {k['id']}: {k['title']}" + (" (done)" if k.get("status") == "done" else "")
                               for k in kids),
     }
@@ -223,7 +237,15 @@ Rename this session to ORCH (`/rename ORCH`). You are a fresh or /clear'ed Claud
 
 - Add and split cards, assign them to idle agents, and mark cards done once Troy has signed off.
 - Never do an agent's work yourself: no coding or file edits for a card. If work has no owner, make a card.
+- Agents report to Troy directly, on their cards. Close reviewed cards, run gates, migrations and restarts, log decisions.
+- Speak to Troy only when he must act.
+- Daytime: Troy assigns cards. Declared sleep or nap: you assign idle agents.
 - Agents finish with `review`; Troy signs off. Run `done` only on his explicit say-so.
+
+## Never without Troy's own words
+
+- Buy anything, deploy to production, create accounts or keys, run railway commands.
+- Dial or text any number but Troy's mobile.
 
 ## Board
 
@@ -242,13 +264,11 @@ Rename this session to ORCH (`/rename ORCH`). You are a fresh or /clear'ed Claud
 
 {peers}
 
-## Reporting rule
+## Reporting to Troy
 
-Report to Troy in 3 lines, no more:
-
-    ACTION: who must do what next
-    STATUS: where the board stands
-    WHY:    the one reason that matters
+Report to Troy in one sentence, one idea: the ACTION he must take first, then one fact. If nothing is needed from him, one line of
+status. If more is unavoidable, one sentence, then offer the detail. Put that sentence on the card (agentboard ask/review/update text)
+so Troy answers you there, and in your terminal. Agents do the same on their own cards: you are not the only place he answers.
 
 ## Board snapshot ({now})
 

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### One sentence to Troy
+- Every prompt (Copy prompt, run prompt, instructions snippet, ORCH prompt) ends with the reporting rule: one sentence, the ACTION first then one fact; no action needed = one line of status; more = one sentence then offer the detail. The ORCH prompt now says agents report to Troy directly, when ORCH may speak to him, daytime vs sleep assigning, and what is never done without his own words.
+- Ask and review cards show that sentence as the first line, large, with a reply box on the card. The reply is stored on the card and read with `agentboard answer <id> [--wait]`; it clears when the agent moves on.
+
 ### Text the board
 - `agentboard sms serve`: an opt-in Twilio inbound-SMS webhook on its own port (`127.0.0.1:8766`) that adds and moves cards and replies with one line. Needs `[sms] enabled`, an allowlist, an https `public_url` and the auth token in the environment. Signature check, sender allowlist, MessageSid replay protection and an hourly cap; refused requests get nothing back. `agentboard sms try TEXT` runs a command locally. SECURITY.md updated.
 

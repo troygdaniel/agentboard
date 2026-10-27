@@ -254,6 +254,12 @@
   .card.review { border-color: var(--ok); animation: revpulse 3s ease-in-out infinite; }
   @keyframes revpulse { 50% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--ok) 13%, transparent); } }
   .ask-flag.rev { color: var(--ok); }
+  .said { font-size: 18px; font-weight: 600; line-height: 1.3; margin: 6px 0 10px; letter-spacing: var(--tr-tight); overflow-wrap: anywhere; }   /* the agent's one sentence, first and large */
+  .card.ask .said { color: var(--err); } .card.review .said { color: var(--ok); }
+  .card-reply { margin-top: 10px; display: grid; gap: 6px; }
+  .card-reply .rr { display: flex; gap: 6px; }
+  .card-reply input { flex: 1; min-width: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; font: inherit; font-size: var(--fs-md); }
+  .card-reply .replied { font-size: var(--fs-sm); color: var(--muted); }
   .card.abandoned { border-color: var(--err); animation: abandonedpulse 2.6s ease-in-out infinite; }
   /* in Doing the agent-colored border (.col.doing .card:not(.done)) is more specific than the rules above,
      so ask/review/abandoned lost their state border and read as ordinary cards: win it back */
@@ -1125,12 +1131,18 @@ function card(t) {
   const asking = !!t.needs_input && doing;
   const reviewing = !!t.review && doing && !asking;
   const askFlag = asking ? `<div class="ask-flag"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 2a4 4 0 0 0-4 4v3L2.8 11h10.4L12 9V6a4 4 0 0 0-4-4z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M6.5 13a1.5 1.5 0 0 0 3 0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Needs your input</div>` : reviewing ? `<div class="ask-flag rev"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>Ready for review</div>` : '';
+  // ask / review: the agent's one sentence is the card's first line, large, with a reply box Troy can answer in (stored on the card; the agent reads it with `agentboard answer`)
+  const said = (asking || reviewing) ? (t.question || t.result || t.status_text || '') : '';
+  const saidRow = said ? `<div class="said" title="${esc(said)}">${esc(said)}</div>` : '';
+  const replyRow = (asking || reviewing) ? `<form class="card-reply" data-reply="${esc(t.id)}">` +
+    (t.reply && t.reply.text ? `<div class="replied">You replied: ${esc(t.reply.text)}</div>` : '') +
+    `<div class="rr"><input name="text" autocomplete="off" maxlength="2000" placeholder="Reply${t.agent ? ' to ' + esc(t.agent) : ''}…" aria-label="Reply to ${esc(t.agent || 'the agent')}"><button class="btn primary" type="submit">Send</button></div></form>` : '';
   const fresh = !firstRender && !seen.has(t.id);
   const flash = !firstRender && seen.has(t.id) && lastUpdated.get(t.id) !== t.updated;
   seen.add(t.id); lastUpdated.set(t.id, t.updated);
   return `<div class="card ${done ? 'done' : ''} ${asking ? 'ask' : ''} ${reviewing ? 'review' : ''} ${abandoned && !asking && !reviewing ? 'abandoned' : ''} ${live && !asking && !reviewing ? 'livebar' : ''} ${fresh ? 'enter' : ''} ${flash ? 'flash' : ''} ${selected.has(t.id) ? 'selected' : ''} " style="--c:${colorOf(t)}" draggable="${backlog ? 'false' : 'true'}" tabindex="0" data-id="${esc(t.id)}" data-status="${t.status}"
       aria-label="${esc(t.title)}, ${t.status}${asking ? ', needs your input' : reviewing ? ', ready for review' : abandoned ? ', no update in a long time, possibly abandoned' : ''}${t.agent ? ', ' + esc(t.agent) : ''}${proj ? ', project ' + esc(proj.name) : ''}${blockers.length ? ', blocked by ' + blockers.map(b => esc(b.title)).join(', ') : ''}">
-    ${copy}${askFlag}${blockedRow}${top}${projPill}${todo && t._q ? `<span class="qnum" aria-label="Queue position ${t._q}">${t._q}</span>` : ''}<div class="title ${done ? 'has-check' : ''}">${checkIcon}${done ? `<span>${esc(t.title)}</span>` : esc(t.title)}</div>${desc}${note}${bar}${meta}${reviewing ? `<button class="btn markdone" data-done="${esc(t.id)}">Mark done</button>` : ''}</div>`;
+    ${copy}${askFlag}${saidRow}${blockedRow}${top}${projPill}${todo && t._q ? `<span class="qnum" aria-label="Queue position ${t._q}">${t._q}</span>` : ''}<div class="title ${done ? 'has-check' : ''}">${checkIcon}${done ? `<span>${esc(t.title)}</span>` : esc(t.title)}</div>${desc}${asking || reviewing ? '' : note}${bar}${meta}${replyRow}${reviewing ? `<button class="btn markdone" data-done="${esc(t.id)}">Mark done</button>` : ''}</div>`;
 }
 
 // the parent's segmented bar (one cell per subtask), which doubles as the expand toggle, plus its quiet rows
@@ -1296,7 +1308,7 @@ async function load() {
     ]);
     if (!r.ok) throw new Error('HTTP ' + r.status);
     const text = await r.text();
-    if (document.activeElement?.id === 'p-reply-text') return;   // never re-render under a reply being typed
+    if (document.activeElement?.id === 'p-reply-text' || document.activeElement?.closest?.('.card-reply')) return;   // never re-render under a reply being typed
     const minute = Math.floor(Date.now() / 60000);
     let changed = false;
     if (rp.ok) {
@@ -2317,7 +2329,17 @@ $('add').onsubmit = async e => {
 $('title').onkeydown = e => { if (e.key === 'Escape') { toggleAdd(false); $('title').blur(); } };
 
 // --- card actions ---
+$('board').addEventListener('submit', async e => {
+  const f = e.target.closest('.card-reply');
+  if (!f) return;
+  e.preventDefault();
+  const input = f.elements.text, text = input.value.trim();
+  if (!text) { input.focus(); return; }
+  try { await api('/api/reply', { id: f.dataset.reply, text }); input.value = ''; input.blur(); showError(''); raw = ''; load(); }
+  catch (err) { showError('Could not send reply: ' + err.message); }
+});
 $('board').addEventListener('click', async e => {
+  if (e.target.closest('.card-reply')) return;   // typing or sending a reply must not open the panel
   const selCard = e.target.closest('.card');
   if (selCard && (e.shiftKey || e.metaKey || e.ctrlKey)) {
     e.preventDefault();
