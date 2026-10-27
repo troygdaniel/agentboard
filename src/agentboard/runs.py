@@ -42,6 +42,7 @@ Your work is judged from the card, so keep it current: `{ab} update {task_id} <p
 - Do not try to widen your own permissions or work around a refused tool: say so in your review or ask.
 - Report to Troy in one sentence, one idea: the ACTION he must take first, then one fact. If nothing is needed from him, one line of status. If
   more is unavoidable, one sentence, then offer the detail. Put that sentence on the card (ask/review/update text); he answers you there.
+  Put detail in `--body` (it shows under Details on the card), never in the first line.
 - Hard limits: {minutes:g} minutes and ${budget:g}. The run is stopped when either is reached.
 """
 

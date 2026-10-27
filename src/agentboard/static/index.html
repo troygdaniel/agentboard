@@ -258,6 +258,9 @@
   .card.ask .said { color: var(--err); } .card.review .said { color: var(--ok); }
   .report-link { display: inline-block; margin-top: 8px; font-size: var(--fs-sm); color: var(--muted); text-decoration: underline; }
   .report-link:hover { color: var(--text); }
+  .fold { margin: 0 0 8px; font-size: var(--fs-sm); color: var(--muted); }
+  .fold summary { cursor: pointer; width: max-content; }
+  .fold .fold-body { white-space: pre-wrap; overflow-wrap: anywhere; margin-top: 6px; max-height: 220px; overflow: auto; color: var(--text); }
   .card-reply { margin-top: 10px; display: grid; gap: 6px; }
   .card-reply .rr { display: flex; gap: 6px; }
   .card-reply input { flex: 1; min-width: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; font: inherit; font-size: var(--fs-md); }
@@ -1137,6 +1140,8 @@ function card(t) {
   // ask / review: the agent's one sentence is the card's first line, large, with a reply box Troy can answer in (stored on the card; the agent reads it with `agentboard answer`)
   const said = (asking || reviewing) ? (t.question || t.result || t.status_text || '') : '';
   const saidRow = said ? `<div class="said" title="${esc(said)}">${esc(said)}</div>` : '';
+  // everything past the one sentence waits behind a collapsed Details fold
+  const foldRow = t.details ? `<details class="fold"><summary>Details</summary><div class="fold-body">${esc(t.details)}</div></details>` : '';
   const replyRow = (asking || reviewing) ? `<form class="card-reply" data-reply="${esc(t.id)}">` +
     (t.reply && t.reply.text ? `<div class="replied">You replied: ${esc(t.reply.text)}</div>` : '') +
     `<div class="rr"><input name="text" autocomplete="off" maxlength="2000" placeholder="Reply${t.agent ? ' to ' + esc(t.agent) : ''}…" aria-label="Reply to ${esc(t.agent || 'the agent')}"><button class="btn primary" type="submit">Send</button></div></form>` : '';
@@ -1146,7 +1151,7 @@ function card(t) {
   seen.add(t.id); lastUpdated.set(t.id, t.updated);
   return `<div class="card ${done ? 'done' : ''} ${asking ? 'ask' : ''} ${reviewing ? 'review' : ''} ${abandoned && !asking && !reviewing ? 'abandoned' : ''} ${live && !asking && !reviewing ? 'livebar' : ''} ${fresh ? 'enter' : ''} ${flash ? 'flash' : ''} ${selected.has(t.id) ? 'selected' : ''} " style="--c:${colorOf(t)}" draggable="${backlog ? 'false' : 'true'}" tabindex="0" data-id="${esc(t.id)}" data-status="${t.status}"
       aria-label="${esc(t.title)}, ${t.status}${asking ? ', needs your input' : reviewing ? ', ready for review' : abandoned ? ', no update in a long time, possibly abandoned' : ''}${t.agent ? ', ' + esc(t.agent) : ''}${proj ? ', project ' + esc(proj.name) : ''}${blockers.length ? ', blocked by ' + blockers.map(b => esc(b.title)).join(', ') : ''}">
-    ${copy}${askFlag}${saidRow}${blockedRow}${top}${projPill}${todo && t._q ? `<span class="qnum" aria-label="Queue position ${t._q}">${t._q}</span>` : ''}<div class="title ${done ? 'has-check' : ''}">${checkIcon}${done ? `<span>${esc(t.title)}</span>` : esc(t.title)}</div>${desc}${asking || reviewing ? '' : note}${bar}${meta}${reportLink}${replyRow}${reviewing ? `<button class="btn markdone" data-done="${esc(t.id)}">Mark done</button>` : ''}</div>`;
+    ${copy}${askFlag}${saidRow}${foldRow}${blockedRow}${top}${projPill}${todo && t._q ? `<span class="qnum" aria-label="Queue position ${t._q}">${t._q}</span>` : ''}<div class="title ${done ? 'has-check' : ''}">${checkIcon}${done ? `<span>${esc(t.title)}</span>` : esc(t.title)}</div>${desc}${asking || reviewing ? '' : note}${bar}${meta}${reportLink}${replyRow}${reviewing ? `<button class="btn markdone" data-done="${esc(t.id)}">Mark done</button>` : ''}</div>`;
 }
 
 // the parent's segmented bar (one cell per subtask), which doubles as the expand toggle, plus its quiet rows

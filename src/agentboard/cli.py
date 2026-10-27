@@ -460,9 +460,10 @@ The percentage is what the list and HUD show at a glance, without anyone opening
 it current. Call `update` again whenever your estimate changes, not just at fixed checkpoints, and
 walk it back if you discover more work than you thought; don't leave it sitting at a stale number.
 
-Add `--body "<markdown>"` (or `--body-file <path>` for multi-line content) to `review`/`ask`
-for a proper recap, diff, or report — it renders as formatted markdown in the detail panel,
-which opens automatically when your card needs input or is ready for review.
+Add `--body "<markdown>"` (or `--body-file <path>` for multi-line content) to `update`/`review`/`ask`
+for the details behind your sentence: a recap, diff, or report. The first line of the text is what Troy
+reads; the body sits under "Details" on the card and in the detail panel. A multi-line text splits the
+same way: its first line is the sentence, the rest becomes the body.
 
 NEVER mark your own task done. Finish with `review` and stop. Run
 `agentboard done "$ID"` only if the user explicitly tells you to.
@@ -685,7 +686,7 @@ def cmd_update(a):
     s = _store()
     kids = [k for k in s.load() if k.get("parent_id") == a.id]
     pct, text = _pct_and_text(a)
-    t = s.update(a.id, pct, text)
+    t = s.update(a.id, pct, text, body_md=_read_body(a))
     if kids:
         print(f"{t['id']}: Σ {t['progress']}% (a parent's % is computed from its subtasks; update those instead)")
     elif t["status"] == "done" and t.get("parent_id"):
@@ -1017,6 +1018,9 @@ def main(argv=None):
     sp.add_argument("id")
     sp.add_argument("progress", metavar="PCT", help="0-100; or, with no PCT, the status text alone")
     sp.add_argument("text", nargs="?")
+    g = sp.add_mutually_exclusive_group()
+    g.add_argument("--body", help="the details behind the one sentence, shown under Details on the card")
+    g.add_argument("--body-file", help="read --body from a file instead (handles multi-line content)")
     sp = add("ask", cmd_ask, "agent: flag that you are blocked on the user")
     sp.add_argument("id")
     sp.add_argument("question")

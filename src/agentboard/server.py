@@ -166,6 +166,8 @@ def make_handler(default_store, port):
                     if t.get("archived"):
                         continue
                     d = {k: v for k, v in t.items() if k not in ("log", "prompt", "body_md")}
+                    if t.get("body_md") and (t.get("needs_input") or t.get("review") or t.get("status") == "doing"):
+                        d["details"] = t["body_md"][:4000]   # plain text behind the card's Details fold; the panel renders the full markdown
                     if isinstance(d.get("run"), dict) and d["run"].get("status") == "running":
                         d["run"] = {**d["run"], "alive": runs.pid_alive(d["run"].get("supervisor_pid"))}   # a crashed supervisor must not leave a badge up
                     if t["id"] in counts:

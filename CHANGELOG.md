@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Keep it simple
+- The ORCH prompt (Copy ORCH, and the one-shot and instructions variants) gains a named `Keep it simple` block that ORCH must copy word for word into every card description and assignment it writes: one sentence, one idea, detail on demand. Instructed only; nothing checks it.
+- `agentboard update`, `ask` and `review` take a first line plus a body: `--body` / `--body-file`, or a multi-line text whose first line is the sentence and the rest the body. On the card the sentence is the large first line and the rest sits behind a collapsed `Details` fold.
+
 ### Card reports
 - A card entering review or done gets an HTML report in `.agentboard/reports/` (action first, what was built, commits with links, tests, files, how to try it, Mark done / Send back). A Report link on the card, a Reports list in the header, `agentboard reports [--purge]`, and an ageing sweep (`[reports] keep_hours`, default 24; the newest per card always stays). `POST /api/send-back` sends a card back with a note the agent reads with `agentboard answer`.
 

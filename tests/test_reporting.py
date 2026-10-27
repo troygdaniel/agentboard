@@ -130,3 +130,58 @@ class ReplyTests(Base):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class KeepItSimpleTests(Base):
+    def card(self):
+        self.s.add("Task", status="todo")
+        t = self.s.load()[0]
+        self.s.claim(t["id"], "A")
+        return t["id"]
+
+    def test_orch_prompt_has_the_named_block_and_copy_order(self):
+        text = prompt.build_orch_prompt(self.s.load(), self.s.dir)
+        self.assertIn("## Keep it simple", text)
+        self.assertIn("One sentence, one idea: what Troy should do or reply.", text)
+        self.assertIn("into every card description and every assignment you write", text)
+        self.assertIn("You speak to Troy the same way.", text)
+
+    def test_every_prompt_says_detail_goes_in_body(self):
+        tid = self.card()
+        text, _ = prompt.build_prompt(self.s.get(self.s.load(), tid), self.s.dir, tasks=self.s.load())
+        self.assertIn("never in the first line", text)
+        self.assertIn("never in the first line", runs.RUN_TEMPLATE if hasattr(runs, "RUN_TEMPLATE") else open(runs.__file__).read())
+
+    def test_multiline_review_splits_sentence_and_details(self):
+        tid = self.card()
+        self.s.review(tid, "Merge it.\nTests pass.\nTouched three files.")
+        t = self.s.get(self.s.load(), tid)
+        self.assertEqual(t["result"], "Merge it.")
+        self.assertEqual(t["body_md"], "Tests pass.\nTouched three files.")
+
+    def test_ask_and_update_take_a_first_line_plus_body(self):
+        tid = self.card()
+        self.s.ask(tid, "Pick A or B?\nA is faster.", "B is safer.")
+        t = self.s.get(self.s.load(), tid)
+        self.assertEqual(t["question"], "Pick A or B?")
+        self.assertEqual(t["body_md"], "A is faster.\n\nB is safer.")
+        self.s.update(tid, 40, "Going with B", body_md="Because safer.")
+        t = self.s.get(self.s.load(), tid)
+        self.assertEqual((t["status_text"], t["body_md"]), ("Going with B", "Because safer."))
+        self.s.update(tid, 50, "Next")
+        self.assertNotIn("body_md", self.s.get(self.s.load(), tid))
+
+    def test_cli_body_flag_on_update(self):
+        tid = self.card()
+        self.cli("update", tid, "30", "Reading", "--body", "Long notes")
+        self.assertEqual(self.s.get(self.s.load(), tid)["body_md"], "Long notes")
+
+    def test_card_list_carries_details_for_the_fold(self):
+        from agentboard import server
+        tid = self.card()
+        self.s.review(tid, "Done.\nMore here.")
+        src = open(server.__file__).read()
+        self.assertIn('d["details"]', src)
+        html = (Path(server.__file__).parent / "static" / "index.html").read_text()
+        self.assertIn('<details class="fold"><summary>Details</summary>', html)
+        self.assertIn("${saidRow}${foldRow}", html)

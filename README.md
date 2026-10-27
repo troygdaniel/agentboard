@@ -64,11 +64,13 @@ Or, for a task that already exists on the board: `agentboard claim <id> --name a
 Every prompt agentboard produces (Copy prompt, the `agentboard run` prompt, the instructions snippet, the ORCH prompt) ends with one rule:
 
 > Report to Troy in one sentence, one idea: the ACTION he must take first, then one fact. If nothing is needed from him, one line of status.
-> If more is unavoidable, one sentence, then offer the detail. Put that sentence on the card (ask/review/update text) so Troy answers you there, and in your terminal.
+> If more is unavoidable, one sentence, then offer the detail. Put that sentence on the card (ask/review/update text) so Troy answers you there, and in your terminal. Put detail in `--body` (it shows under Details on the card), never in the first line.
 
 On the board, a card in **ask** or **review** shows that sentence as its first line, large, with a one-line **reply box** on the card. A reply is stored
 on the card (and in its log), and the agent reads it with `agentboard answer <id>` (`--wait` polls until there is one; `--timeout`, `--interval`).
 It is cleared when the agent moves on (its next update, ask, review or claim). Agents therefore report to you directly, and ORCH does not have to relay.
+
+**Keep it simple.** The ORCH prompt carries a named `Keep it simple` block (one sentence, one idea, detail on demand) that ORCH copies into every card description and assignment it writes. It is instructed, not checked. `update`, `ask` and `review` take `--body` / `--body-file`, or a multi-line text whose first line is the sentence and the rest the body; the card shows the sentence large and the rest behind a collapsed **Details** fold.
 
 The older three-line shape is still understood and drawn as bands and chips, if an agent prefers it (three lines at most):
 

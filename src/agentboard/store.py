@@ -56,6 +56,17 @@ def _reports_after(arg_is_list=False):
     return deco
 
 
+def split_report(text, body=None):
+    """One sentence first, the rest as details: a multi-line `text` keeps its first line and the remainder
+    goes ahead of any explicit body (Keep it simple: the first line is what Troy reads)."""
+    text = text or ""
+    first, _, rest = text.strip().partition("\n")
+    rest = rest.strip()
+    if not rest:
+        return text.strip() if text.strip() else text, body
+    return first.strip(), (rest + "\n\n" + body.strip()) if body and body.strip() else rest
+
+
 class Store:
     def __init__(self, board_dir):
         self.dir = Path(board_dir)
@@ -303,6 +314,7 @@ class Store:
         in the detail panel alongside the one-line question; it is untrusted agent
         text, rendered safely by the server (see markdown.to_html) rather than here.
         """
+        question, body_md = split_report(question, body_md)
         with self.transaction() as tasks:
             t = self.get(tasks, task_id)
             _require_doing(t, "ask")
@@ -332,6 +344,7 @@ class Store:
         body_md is an optional richer markdown body (a recap, a diff, a report); see
         ask() for how it's handled.
         """
+        summary, body_md = split_report(summary, body_md)
         with self.transaction() as tasks:
             t = self.get(tasks, task_id)
             if t.get("parent_id"):
@@ -417,11 +430,13 @@ class Store:
         return dict(r) if isinstance(r, dict) and r.get("text") else None
 
     @_reports_after()
-    def update(self, task_id, progress=None, text=None, status=None):
+    def update(self, task_id, progress=None, text=None, status=None, body_md=None):
+        if text is not None:
+            text, body_md = split_report(text, body_md)
         with self.transaction() as tasks:
-            return self._update(tasks, self.get(tasks, task_id), progress, text, status)
+            return self._update(tasks, self.get(tasks, task_id), progress, text, status, body_md)
 
-    def _update(self, tasks, t, progress, text, status):
+    def _update(self, tasks, t, progress, text, status, body_md=None):
         _parent_must_be_doing(_parent_of(tasks, t), t, "update")
         kids = _kids(tasks, t["id"])
         open_kids = [k for k in kids if k["status"] != "done"]
@@ -441,6 +456,8 @@ class Store:
             progress = None
         if progress is not None and not kids:   # a parent's % is computed from its subtasks, never set
             t["progress"] = max(0, min(100, int(progress)))
+        if body_md:
+            t["body_md"] = body_md
         if text is not None:
             t["status_text"] = text
             if status == "done":

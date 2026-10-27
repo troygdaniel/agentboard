@@ -15,7 +15,17 @@ REPORT_RULE = """\
 
 Report to Troy in one sentence, one idea: the ACTION he must take first, then one fact. If nothing is needed from him, one line of
 status. If more is unavoidable, one sentence, then offer the detail. Put that sentence on the card (agentboard ask/review/update text)
-so Troy answers you there, and in your terminal.
+so Troy answers you there, and in your terminal. Put detail in `--body` (it shows under Details on the card), never in the first line.
+"""
+
+# The block ORCH copies into every card description and assignment it writes (Troy, 2026-10-27).
+KEEP_SIMPLE = """\
+## Keep it simple
+
+- One sentence, one idea: what Troy should do or reply.
+- That sentence is the first line of every ask, review and update.
+- Detail goes in `--body`, under Details on the card, never in the first line.
+- Extra context is there if Troy asks for it.
 """
 
 DEFAULT_TEMPLATE = """\
@@ -264,6 +274,9 @@ Rename this session to ORCH (`/rename ORCH`). You are a fresh or /clear'ed Claud
 
 {peers}
 
+{keep_simple}
+Copy the block above, word for word, into every card description and every assignment you write. You speak to Troy the same way.
+
 ## Reporting to Troy
 
 Report to Troy in one sentence, one idea: the ACTION he must take first, then one fact. If nothing is needed from him, one line of
@@ -314,4 +327,4 @@ def build_orch_prompt(tasks, board_dir, port=8765):
     peers = "\n".join(f"- {n}" + (f" ({c})" if c else "") for n, c in roster)
     return ORCH_TEMPLATE.format(
         url=f"http://localhost:{port}", board_dir=board_dir, ab=agentboard_cmd(board_dir), peers=peers,
-        now=datetime.now().strftime("%Y-%m-%d %H:%M"), snapshot="\n\n".join(sections))
+        keep_simple=KEEP_SIMPLE.rstrip("\n"), now=datetime.now().strftime("%Y-%m-%d %H:%M"), snapshot="\n\n".join(sections))
