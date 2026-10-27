@@ -20,6 +20,7 @@ Oct 24, 2026 for v0.3.0 against the code and at runtime; it checks literally rat
 | Telemetry, analytics, update checks, crash reporting | **None** | No such code or dependency exists |
 | Data storage | Local files only: `.agentboard/tasks.json`, `.agentboard/config.toml`, `.agentboard/.lock` in your project. The browser also keeps 3 UI preferences in `localStorage` (`agentboard-theme`, `agentboard-snd`, `agentboard-amb`). Nothing is synced anywhere | `store.py`, `prompt.py`, `index.html` |
 | Cross-site access to the local server | Requests with a foreign `Host` header are rejected (blocks DNS rebinding), as are POSTs with a foreign `Origin` header or a non-JSON content type | `server.py` |
+| Card reports | `.agentboard/reports/*.html` are served only under `/reports/`, only names of the form `<card>-<timestamp>.html`; agent text is escaped; pages carry a Content-Security-Policy (`default-src 'none'`, connect to this server only). The sweep deletes only files of that exact name shape | `reports.py`, `server.py` |
 | Opening the browser | `agentboard serve` opens `http://localhost:<port>/` in your default browser (skip with `--no-open`) | `server.py` |
 
 ## Opt-in exceptions (off by default)

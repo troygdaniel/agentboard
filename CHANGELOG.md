@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Card reports
+- A card entering review or done gets an HTML report in `.agentboard/reports/` (action first, what was built, commits with links, tests, files, how to try it, Mark done / Send back). A Report link on the card, a Reports list in the header, `agentboard reports [--purge]`, and an ageing sweep (`[reports] keep_hours`, default 24; the newest per card always stays). `POST /api/send-back` sends a card back with a note the agent reads with `agentboard answer`.
+
 ### One sentence to Troy
 - Every prompt (Copy prompt, run prompt, instructions snippet, ORCH prompt) ends with the reporting rule: one sentence, the ACTION first then one fact; no action needed = one line of status; more = one sentence then offer the detail. The ORCH prompt now says agents report to Troy directly, when ORCH may speak to him, daytime vs sleep assigning, and what is never done without his own words.
 - Ask and review cards show that sentence as the first line, large, with a reply box on the card. The reply is stored on the card and read with `agentboard answer <id> [--wait]`; it clears when the agent moves on.

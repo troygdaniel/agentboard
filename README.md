@@ -184,6 +184,20 @@ visible to you, not buried in a terminal. Type in the same panel to join the con
     agentboard chat send "<message>" --name atlas
     agentboard chat tail [--limit N] [--follow]          # --follow polls and streams new messages
 
+## Card reports
+
+When a card enters **review** (or **done**), agentboard writes one self-contained HTML page for it: `.agentboard/reports/<card-id>-<YYYYMMDD-HHMMSS>.html`.
+One idea per line: the card and its agent, the one-sentence ACTION for you at the top, what was built (the agent's text and update history), the commits made
+while the card was open (linked when the repo's `origin` is on GitHub; a one-shot run lists exactly its own branch), test totals the agent wrote down, files touched,
+how to try it (the agent's "How to try" section and any URLs), and **Mark done** / **Send back with a note** buttons that call the board's API. A sent-back note is the reply the
+agent reads with `agentboard answer`. Optional extras: an agent can write `.agentboard/reports/<card>.md` and it appears as "More from the agent".
+
+The card shows a **Report** link (new tab), and the header's **Reports** button lists them newest first (`/reports/`; under `/b/<name>/` for other boards).
+Reports age out: on `serve` start and then hourly, those older than `[reports] keep_hours` (default 24) are deleted, **except the newest per card**, and nothing else is ever
+touched (not `tasks.json`, not backups, not your `.md` extras). `agentboard reports` lists them; `agentboard reports --purge [--hours N]` runs the sweep now. Set the repo whose
+commits are listed with `[reports] repo = "~/dev/project"` (default: the folder above `.agentboard`). Everything an agent wrote is escaped, and the pages are served with a
+locked-down Content-Security-Policy; they only talk to your own board.
+
 ## Several boards
 
 One board per project folder is still the default. To keep others (work, personal, a side project), register them by name:
@@ -378,6 +392,7 @@ Providers run only when a task lists one with `--ctx` and a prompt is built.
 | `run CARD [--name N] [--color C] [--cwd DIR] [--budget USD] [--max-minutes M] [--detach]`, `runs [--kill CARD]` | run a card with a one-shot `claude -p`; list and stop runs |
 | `sms serve [--port N]`, `sms try TEXT` | the text-message endpoint (opt-in); run a command text locally |
 | `answer ID [--wait] [--timeout S]` | print the reply you left on a card (agents use it to read your answer) |
+| `reports [--purge] [--hours N]` | list card reports; remove the old ones now |
 | `report [--date YYYY-MM-DD]` | markdown recap of what got done that day, by agent — for a standup or daily log |
 | `project add "Name" [--color C] [-d TEXT]`, `project list`, `project edit <id> [...]`, `project rm <id>` | manage projects |
 | `project assign <task_id> <project_id>`, `project unassign <task_id>` | tie/untie a task |

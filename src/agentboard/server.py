@@ -9,7 +9,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 from . import boards, hud
-from . import runs
+from . import reports, runs
 from . import markdown as mdlib
 from . import prompt as promptlib
 from .store import BoardError, Store, subtask_counts, subtask_list
@@ -24,6 +24,11 @@ def _ids(body):
     if not isinstance(ids, list) or not all(isinstance(i, str) for i in ids):
         raise BoardError("ids must be a list of task ids")
     return ids
+
+
+# report pages carry their own inline script and style, talk only to this server, and load nothing else
+REPORT_HEADERS = {"Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; base-uri 'none'; form-action 'none'",
+                  "X-Content-Type-Options": "nosniff"}
 
 
 def board_list(store, base=""):
@@ -58,10 +63,12 @@ def make_handler(default_store, port):
             pass
 
         # -- plumbing ------------------------------------------------------
-        def _send(self, code, body, ctype="application/json"):
+        def _send(self, code, body, ctype="application/json", extra=None):
             raw = body if isinstance(body, bytes) else json.dumps(body).encode()
             self.send_response(code)
             self.send_header("Content-Type", ctype)
+            for k, v in (extra or {}).items():
+                self.send_header(k, v)
             self.send_header("Content-Length", str(len(raw)))
             self.send_header("Cache-Control", "no-store")
             self.end_headers()
@@ -138,6 +145,15 @@ def make_handler(default_store, port):
                 html = (STATIC / "index.html").read_text()
                 inject = f"<script>window.AB_BASE = {json.dumps(self.base)};</script>"   # the page prefixes its /api calls with this
                 self._send(200, html.replace("</head>", inject + "</head>", 1).encode(), "text/html; charset=utf-8")
+            elif url.path in ("/reports", "/reports/"):
+                self._send(200, reports.index_html(self.store.dir, self.base).encode(), "text/html; charset=utf-8", REPORT_HEADERS)
+            elif url.path.startswith("/reports/"):
+                name = url.path[len("/reports/"):]
+                path = reports.reports_dir(self.store.dir) / name
+                if reports.NAME_RE.match(name) and path.is_file():
+                    self._send(200, path.read_bytes(), "text/html; charset=utf-8", REPORT_HEADERS)
+                else:
+                    self._send(404, {"error": "no such report"})
             elif url.path == "/api/boards":
                 self._send(200, board_list(default_store, self.base))
             elif url.path == "/api/tasks":
@@ -249,6 +265,8 @@ def make_handler(default_store, port):
                     self._send(200, {"ok": True})
                 elif path == "/api/color":
                     self._send(200, self.store.set_agent_color(body["id"], body["color"]))
+                elif path == "/api/send-back":
+                    self._send(200, self.store.send_back(body["id"], body["text"]))
                 elif path == "/api/run-kill":
                     self._send(200, {"result": runs.kill_run(self.store.dir, body["id"])})
                 elif path == "/api/delete":
@@ -288,6 +306,8 @@ def serve(store, port=8765, open_browser=True):
     if open_browser:
         threading.Timer(0.3, webbrowser.open, args=(url,)).start()
 
+    last_sweep = [0.0]
+
     def _backups():   # an idle board still gets its hourly snapshot and its nightly copy: this one and every registered board, each with its own config
         while True:
             try:
@@ -300,6 +320,13 @@ def serve(store, port=8765, open_browser=True):
                     st.backups.tick()
                 except Exception:   # noqa: BLE001  (a backup problem never stops a board)
                     pass
+            if time.time() - last_sweep[0] >= 3600:   # the ageing sweep: on start, then hourly
+                last_sweep[0] = time.time()
+                for st in every:
+                    try:
+                        reports.sweep(st.dir)
+                    except Exception:   # noqa: BLE001
+                        pass
             time.sleep(300)
 
     threading.Thread(target=_backups, daemon=True).start()

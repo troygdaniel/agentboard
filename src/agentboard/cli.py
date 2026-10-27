@@ -12,6 +12,7 @@ from . import __version__
 from . import backup as backuplib
 from . import hud as hudlib
 from . import prompt as promptlib
+from . import reports as reportslib
 from . import runs as runslib
 from . import sms as smslib
 from .server import serve
@@ -59,6 +60,10 @@ SAMPLE_CONFIG = '''\
 # public_url = "https://<your tunnel>/sms"   # exactly the URL set in Twilio: it is part of the signature
 # token_env = "AGENTBOARD_TWILIO_AUTH_TOKEN" # the auth token is read from this environment variable, never from a file here
 # rate_per_hour = 30
+
+# [reports]                   # an HTML report per card in review or done (.agentboard/reports/)
+# keep_hours = 24             # older reports are deleted hourly; the newest per card always stays
+# repo = "~/dev/myproject"    # the git repo whose commits the reports list (default: the folder above .agentboard)
 
 # [board]
 # stale_minutes = 120         # flag a Doing task as stale/abandoned after this many idle minutes
@@ -915,6 +920,18 @@ def cmd_answer(a):
         time.sleep(a.interval)
 
 
+def cmd_reports(a):
+    s = _store()
+    if a.purge:
+        gone = reportslib.sweep(s.dir, a.hours)
+        print(f"removed {len(gone)} report(s) older than {a.hours if a.hours is not None else reportslib.keep_hours(s.dir):g}h (the newest per card is kept)")
+        for g in gone:
+            print(f"  {g}")
+        return
+    rows = reportslib.list_lines(s.dir)
+    print("\n".join(rows) if rows else "no reports yet (one is written when a card enters review or done)")
+
+
 def cmd_serve(a):
     serve(_store(), a.port, not a.no_open)
 
@@ -1041,6 +1058,9 @@ def main(argv=None):
     sp.add_argument("--max-minutes", type=float, help="hard wall-clock limit (default [run] max_minutes, else 45)")
     sp.add_argument("--force", action="store_true", help="take the card even if another agent holds it")
     sp.add_argument("--detach", action="store_true", help="return at once and supervise in the background (what ORCH uses)")
+    sp = add("reports", cmd_reports, "list card reports (written when a card enters review or done); --purge removes the old ones")
+    sp.add_argument("--purge", action="store_true", help="run the ageing sweep now: delete reports older than keep_hours, keeping the newest per card")
+    sp.add_argument("--hours", type=float, help="with --purge: the age limit (default [reports] keep_hours, else 24)")
     sp = add("answer", cmd_answer, "print Troy's reply on a card (he answers on the card); --wait polls until there is one")
     sp.add_argument("id")
     sp.add_argument("--wait", action="store_true")

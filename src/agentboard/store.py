@@ -1,5 +1,6 @@
 """Task storage: one JSON file, locked and written atomically."""
 import contextlib
+import functools
 import json
 import os
 import re
@@ -40,6 +41,19 @@ def find_dir(start=None):
     if chosen:
         return chosen.resolve()
     raise BoardError("no board found; run `agentboard init` in your project (or set AGENTBOARD_DIR, or pick one with `agentboard board use <name>`)")
+
+
+def _reports_after(arg_is_list=False):
+    """After the method commits, write the card's report if it entered review or done (reports.maybe_report never raises)."""
+    def deco(fn):
+        @functools.wraps(fn)
+        def wrapper(self, first, *a, **kw):
+            result = fn(self, first, *a, **kw)
+            from . import reports
+            reports.maybe_report(self, list(first) if arg_is_list else [first])
+            return result
+        return wrapper
+    return deco
 
 
 class Store:
@@ -311,6 +325,7 @@ class Store:
                 parent["updated"] = t["updated"]
             return t
 
+    @_reports_after()
     def review(self, task_id, summary, body_md=None):
         """Agent reports the work complete and hands it to the user for sign-off.
 
@@ -367,11 +382,41 @@ class Store:
             t["updated"] = _now()
             return t
 
+    def set_report(self, task_id, rec):
+        """Remember the newest report on the card (no `updated` bump: writing a report is not activity)."""
+        with self.transaction() as tasks:
+            self.get(tasks, task_id)["report"] = rec
+
+    def send_back(self, task_id, text):
+        """Troy sends a reviewed card back with a note: the review flag clears, the card stays in Doing with its agent, and the note is the reply
+        the agent reads with `agentboard answer`."""
+        text = (text or "").strip()
+        if not text:
+            raise BoardError("say what to change")
+        if len(text) > 2000:
+            raise BoardError("note is too long (2000 characters max)")
+        with self.transaction() as tasks:
+            t = self.get(tasks, task_id)
+            if t.get("parent_id"):
+                raise BoardError("send back the parent card")
+            if t["status"] == "done":
+                t["status"] = "doing"
+                t.pop("finished", None)
+            for f in ("review", "needs_input", "question", "ask_child", "body_md"):
+                t.pop(f, None)
+            t["progress"] = min(int(t.get("progress", 0)), 95)
+            t["status_text"] = f"Sent back: {text}"[:300]
+            t["reply"] = {"text": text, "at": _now(), "by": "Troy"}
+            _log(t, f"Sent back: {text}", by="Troy")
+            t["updated"] = _now()
+            return t
+
     def answer(self, task_id):
         """The latest reply the user left on the card, or None."""
         r = self.get(self.load(), task_id).get("reply")
         return dict(r) if isinstance(r, dict) and r.get("text") else None
 
+    @_reports_after()
     def update(self, task_id, progress=None, text=None, status=None):
         with self.transaction() as tasks:
             return self._update(tasks, self.get(tasks, task_id), progress, text, status)
@@ -417,6 +462,7 @@ class Store:
             _touch_parent(tasks, parent, text)
         return t
 
+    @_reports_after()
     def move(self, task_id, status, before_id=None, force=False):
         """Change column and/or position (used by drag-and-drop, the panel's move button,
         and Alt+arrow). Entering doing is blocked the same way claim()/start() are."""
@@ -505,6 +551,7 @@ class Store:
 
     # -- multi-select bulk actions (board toolbar) --------------------------
 
+    @_reports_after(arg_is_list=True)
     def bulk_move(self, ids, status, force=False):
         """Move several tasks to the end of a status column in one transaction.
 
