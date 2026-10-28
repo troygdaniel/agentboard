@@ -6,6 +6,9 @@
 - The ORCH prompt (Copy ORCH, and the one-shot and instructions variants) gains a named `Keep it simple` block that ORCH must copy word for word into every card description and assignment it writes: one sentence, one idea, detail on demand. Instructed only; nothing checks it.
 - `agentboard update`, `ask` and `review` take a first line plus a body: `--body` / `--body-file`, or a multi-line text whose first line is the sentence and the rest the body. On the card the sentence is the large first line and the rest sits behind a collapsed `Details` fold.
 
+### Voice
+- Mic buttons on the add-card box, the chat box and the reply boxes (on the card and in the panel): record in the browser, transcribe on this Mac with whisper.cpp through `POST /api/transcribe`, text inserted at the caret. `agentboard dictate [--paste] [--file f] [--mic i]` does the same for a terminal: Enter, speak, Enter, text on the clipboard. Local only: no browser speech API, no upload, no account; hidden when `whisper-cli` or a model is missing. `[voice] model` / `AGENTBOARD_WHISPER_MODEL` pick the model.
+
 ### Done summary
 - A Summary button on the Done column header opens `/summary` (`?since=1d|7d|30d|all`, `&project=<id>`): the finished cards grouped by project and day, a plain-words headline per project, one line per card (title plus the agent's one sentence), count tiles, cards closed per day stacked by agent and a lane per agent, with Copy text (markdown) and Save as HTML; both themes (it follows the board's theme switch), phone width. `agentboard summary [--since 7d] [--project id] [--html path]` prints the text or writes the page.
 

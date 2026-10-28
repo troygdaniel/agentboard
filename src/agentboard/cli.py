@@ -14,6 +14,7 @@ from . import hud as hudlib
 from . import prompt as promptlib
 from . import reports as reportslib
 from . import summary as summarylib
+from . import voice as voicelib
 from . import runs as runslib
 from . import sms as smslib
 from .server import serve
@@ -256,6 +257,42 @@ def cmd_summary(a):
         print(f"wrote {path}")
     else:
         print(summarylib.to_text(data), end="")
+
+
+def cmd_dictate(a):
+    """Speak instead of type, on this Mac only: Enter starts, Enter stops, the text goes to the clipboard (and is printed)."""
+    import tempfile
+    if a.file:
+        text = voicelib.transcribe_file(a.file, _store().dir)
+    else:
+        voicelib.tools()
+        voicelib.find_model(_store().dir)   # fail before recording if it cannot be transcribed
+        with tempfile.TemporaryDirectory(prefix="agentboard-dictate-") as d:
+            wav = Path(d) / "say.wav"
+            input("Press Enter, then speak. ")
+            proc = voicelib.record(wav, a.mic)
+            time.sleep(0.5)
+            if proc.poll() is not None:
+                raise BoardError("could not open the microphone: " + voicelib.stop(proc).strip()[:200]
+                                 + " (System Settings > Privacy & Security > Microphone: allow this terminal)")
+            input("Recording... press Enter to stop. ")
+            err = voicelib.stop(proc)
+            if not wav.is_file() or wav.stat().st_size < 2000:
+                raise BoardError("nothing was recorded" + (": " + err.strip()[:200] if err.strip() else ""))
+            text = voicelib.transcribe_file(wav, _store().dir)
+    if not text:
+        print("heard nothing")
+        return
+    print(text)
+    if voicelib.to_clipboard(text):
+        if a.paste:
+            print("pasting in 3 seconds: click the window you want it in", file=sys.stderr)
+            time.sleep(3)
+            ok, why = voicelib.paste_into_front_window()
+            if not ok:
+                print(f"could not paste ({why or 'Accessibility not allowed for this terminal'}); it is on the clipboard: press Cmd+V", file=sys.stderr)
+        else:
+            print("(copied: press Cmd+V where you want it)", file=sys.stderr)
 
 
 def cmd_project_add(a):
@@ -998,6 +1035,10 @@ def main(argv=None):
     sp.add_argument("--since", default=summarylib.DEFAULT_SINCE, help="1d (today), 7d (default), 30d or all")
     sp.add_argument("--project", help="only this project id")
     sp.add_argument("--html", metavar="PATH", help="write a self-contained HTML page to PATH instead of printing text")
+    sp = add("dictate", cmd_dictate, "speak instead of type: records the mic, transcribes on this Mac (whisper.cpp), puts the text on the clipboard")
+    sp.add_argument("--paste", action="store_true", help="after 3 seconds press Cmd+V in the window you click (needs Accessibility for the terminal)")
+    sp.add_argument("--file", help="transcribe this audio file instead of recording")
+    sp.add_argument("--mic", help="avfoundation input, e.g. ':2' (default: the system's default microphone)")
     add("clear", cmd_clear, "archive all Done tasks (kept for history and the HUD)")
     sp = add("spawn", cmd_spawn, "open a new Terminal window per name, cd here, launch an agent in each (macOS)")
     sp.add_argument("names", help="comma-separated session names, e.g. atlas,scribe,bolt")

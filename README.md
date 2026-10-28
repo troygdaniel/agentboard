@@ -70,6 +70,16 @@ On the board, a card in **ask** or **review** shows that sentence as its first l
 on the card (and in its log), and the agent reads it with `agentboard answer <id>` (`--wait` polls until there is one; `--timeout`, `--interval`).
 It is cleared when the agent moves on (its next update, ask, review or claim). Agents therefore report to you directly, and ORCH does not have to relay.
 
+### Voice: speak instead of type (on this Mac only)
+
+A small **mic** button sits beside the add-card box, the chat box and every reply box: click, speak, click again, and the words land in the box.
+The clip goes only to the board's own `/api/transcribe`, where [whisper.cpp](https://github.com/ggml-org/whisper.cpp) (`brew install whisper-cpp`, plus `ffmpeg`)
+turns it into text. No browser speech service, no account, nothing uploaded; the buttons are hidden when whisper or a model is missing. The first click asks the browser for the microphone.
+The model is any ggml file: `[voice] model = "~/path/ggml-small.en.bin"` in `config.toml` or `AGENTBOARD_WHISPER_MODEL`; otherwise the first copy it finds from other apps (read only).
+
+For a Claude Code terminal (ORCH or an agent): `agentboard dictate` (Enter, speak, Enter) prints the text and puts it on the clipboard; press Cmd+V in the session.
+`--paste` presses Cmd+V for you after 3 seconds in the window you click (needs Accessibility for the terminal); `--file clip.m4a` transcribes a recording; `--mic ":2"` picks an input.
+
 ### Done summary
 
 **Summary** on the Done column header (and `/summary?since=1d|7d|30d|all&project=<id>`) turns the finished cards into one page to read or share:

@@ -9,7 +9,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 from . import boards, hud
-from . import reports, runs, summary
+from . import reports, runs, summary, voice
 from . import markdown as mdlib
 from . import prompt as promptlib
 from .store import BoardError, Store, subtask_counts, subtask_list
@@ -143,8 +143,12 @@ def make_handler(default_store, port):
         def _route_get(self, url, q):
             if url.path in ("/", "/index.html", "/hud"):
                 html = (STATIC / "index.html").read_text()
-                inject = f"<script>window.AB_BASE = {json.dumps(self.base)};</script>"   # the page prefixes its /api calls with this
+                inject = f"<script>window.AB_BASE = {json.dumps(self.base)};</script><script src=\"{self.base}/voice.js\" defer></script>"   # the page prefixes its /api calls with this
                 self._send(200, html.replace("</head>", inject + "</head>", 1).encode(), "text/html; charset=utf-8")
+            elif url.path == "/voice.js":
+                self._send(200, (STATIC / "voice.js").read_bytes(), "text/javascript; charset=utf-8")
+            elif url.path == "/api/voice":
+                self._send(200, voice.status(self.store.dir))
             elif url.path in ("/summary", "/summary/"):
                 try:
                     data = summary.build(self.store, (q.get("since") or [summary.DEFAULT_SINCE])[0], (q.get("project") or [None])[0])
@@ -229,7 +233,9 @@ def make_handler(default_store, port):
                 if bound is None:
                     return
                 path = bound.path
-                if path == "/api/tasks":
+                if path == "/api/transcribe":
+                    self._send(200, {"text": voice.transcribe_b64(body.get("audio"), self.store.dir)})
+                elif path == "/api/tasks":
                     t = self.store.add(body["title"], body.get("description", ""),
                                   body.get("status"), body.get("ctx", []),
                                   project_id=body.get("project_id"), parent_id=body.get("parent_id"))
