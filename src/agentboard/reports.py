@@ -1,6 +1,6 @@
 """Card reports: when a card enters review or done, one self-contained HTML page for Troy, in .agentboard/reports/<card>-<YYYYMMDD-HHMMSS>.html.
 
-One idea per line: the card, the one-sentence ACTION for Troy, what was built, commits, tests, files, how to try it, and Mark done / Send back.
+Scannable, not prose: the one-sentence ACTION for Troy, number tiles (commits, tests, files), a few built points, a timeline, commits, bars of where it changed, numbered steps to try it, and Mark done / Send back.
 Everything the agent wrote is escaped (the markdown renderer never passes raw HTML). Reports age out: `sweep` deletes the ones older than
 [reports] keep_hours (default 24), always keeps the newest per card, and only ever touches files of this exact shape inside reports/.
 Optional: the agent can add sections by writing .agentboard/reports/<card>.md (it is never swept)."""
@@ -185,8 +185,16 @@ main{max-width:46rem;margin:0 auto;padding:24px 16px 64px}h1{font-size:24px;marg
 .action.ask{border-left-color:var(--err)}.action small{display:block;font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--mut);margin-bottom:4px}
 ul{padding-left:20px;margin:6px 0}li{margin:3px 0}code{font:13px ui-monospace,Menlo,monospace;background:var(--card);border:1px solid var(--line);border-radius:6px;padding:1px 5px}
 a{color:var(--ac)}pre{overflow:auto;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:10px}details summary{cursor:pointer;min-height:32px}
-.none{color:var(--mut)}.controls{position:sticky;bottom:0;background:var(--bg);border-top:1px solid var(--line);padding:12px 0;margin-top:32px;display:flex;gap:8px;flex-wrap:wrap}
+.none{color:var(--mut)}.controls{position:sticky;bottom:0;background:var(--bg);border-top:1px solid var(--line);padding:12px 0;margin-top:32px;display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start}
 button,input{font:inherit;border-radius:10px;border:1px solid var(--line);padding:10px 14px;min-height:44px;background:var(--card);color:var(--fg)}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0 0}.chip{font-size:12px;padding:2px 9px;border-radius:99px;border:1px solid var(--line);background:var(--card);color:var(--mut)}
+.chip.state{color:var(--ok);border-color:var(--ok)}.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(7.5rem,1fr));gap:10px;margin:16px 0 0}
+.tile{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px}.tile b{display:block;font-size:26px;line-height:1.1}.tile span{font-size:12px;color:var(--mut)}
+.tile.bad b{color:var(--err)}.tile.good b{color:var(--ok)}.lead{margin:0 0 6px;font-size:17px}.bul{list-style:none;padding:0;margin:6px 0}.bul li{padding-left:18px;position:relative;margin:4px 0}.bul li:before{content:"";position:absolute;left:3px;top:.6em;width:7px;height:7px;border-radius:50%;background:var(--ac)}
+.tl{list-style:none;padding:0 0 0 14px;margin:6px 0;border-left:2px solid var(--line)}.tl li{margin:0 0 8px;padding-left:10px;position:relative;font-size:14px}.tl li:before{content:"";position:absolute;left:-19px;top:.45em;width:8px;height:8px;border-radius:50%;background:var(--line)}.tl li:last-child:before{background:var(--ok)}
+.tl time{color:var(--mut);font-size:12px;margin-right:6px}.cm{list-style:none;padding:0;margin:6px 0}.cm li{display:flex;gap:8px;align-items:baseline;margin:4px 0}.cm a,.cm code{flex:none}
+.steps{padding-left:22px}.steps li{margin:5px 0}.pills a{display:inline-block;margin:4px 6px 0 0;padding:4px 12px;border:1px solid var(--line);border-radius:99px;text-decoration:none;font-size:14px;background:var(--card)}
+.bars{display:grid;gap:5px;margin:6px 0}.bars div{display:grid;grid-template-columns:8rem 1fr 2.2rem;gap:8px;align-items:center;font-size:13px}.bars i{display:block;height:8px;border-radius:4px;background:var(--ac);opacity:.75}
 button.go{background:var(--ok);color:#fff;border-color:var(--ok);font-weight:600}input{flex:1;min-width:12rem}#msg{width:100%;margin:0;color:var(--mut)}
 """
 
@@ -215,6 +223,47 @@ def _li(items):
     return "<ul>" + "".join(f"<li>{i}</li>" for i in items) + "</ul>" if items else '<p class="none">None recorded.</p>'
 
 
+def _clip(text, n):
+    t = re.sub(r"\s+", " ", str(text or "")).strip()
+    return t if len(t) <= n else t[:n - 1].rstrip() + "…"
+
+
+def bullets_of(body_md, limit=6):
+    """The agent's short list items (- or * or 1.) as plain one-line points, for the 'Built' section; [] when the notes are prose."""
+    out = []
+    for l in without_sections(body_md).splitlines():
+        m = re.match(r"^\s*(?:[-*+]|\d+[.)])\s+(.*\S)\s*$", l)
+        if m:
+            out.append(_clip(re.sub(r"[*_`]+", "", m.group(1)), 140))
+    return out[:limit]
+
+
+def steps_of(try_md):
+    """'How to try' as numbered one-line steps: list items if it is a list, else its sentences."""
+    items = []
+    for l in (try_md or "").splitlines():
+        m = re.match(r"^\s*(?:[-*+]|\d+[.)])\s+(.*\S)\s*$", l)
+        items.append(m.group(1)) if m else (items.append(l.strip()) if l.strip() else None)
+    if len(items) <= 1:
+        items = [x for x in re.split(r"(?<=[.!?])\s+", " ".join(items)) if x]
+    return [_clip(re.sub(r"[*_`]+", "", x), 160) for x in items][:6]
+
+
+def _tile(value, label, kind=""):
+    return f'<div class="tile {kind}"><b>{html.escape(str(value))}</b><span>{html.escape(label)}</span></div>'
+
+
+def _file_bars(files):
+    """Files grouped by their top folder as small bars: where the change landed at a glance."""
+    groups = {}
+    for f in files:
+        top = f.split("/", 1)[0] if "/" in f else "(root)"
+        groups[top] = groups.get(top, 0) + 1
+    big = max(groups.values()) if groups else 1
+    return '<div class="bars">' + "".join(
+        f'<div><span>{html.escape(k)}</span><i style="width:{max(6, round(100 * n / big))}%"></i><span>{n}</span></div>' for k, n in sorted(groups.items(), key=lambda kv: -kv[1])[:8]) + "</div>"
+
+
 def build_html(task, board_dir, run=None, git=None, extras="", now=None):
     e = html.escape
     tid, title = task["id"], task["title"]
@@ -222,38 +271,58 @@ def build_html(task, board_dir, run=None, git=None, extras="", now=None):
     asking = bool(task.get("needs_input"))
     sentence = (task.get("question") if asking else task.get("result")) or task.get("status_text") or "Nothing was written for Troy."
     text_blob = "\n".join([task.get("result") or "", task.get("body_md") or "", *[str(x.get("text", "")) for x in task.get("log", [])]])
-    built = [f"<p>{e(task.get('description') or title)}</p>"]
-    if without_sections(task.get("body_md")):
-        built.append(mdlib.to_html(without_sections(task["body_md"])))
-    updates = [x for x in task.get("log", []) if x.get("text") and not x.get("by")][-12:]
-    history = _li([f"{e(str(x.get('at', ''))[:16].replace('T', ' '))}: {e(str(x['text']))}" for x in updates])
     git = git or {}
     base = git.get("base", "")
-    commits = _li([(f'<a href="{e(base)}/commit/{e(sha)}" rel="noreferrer">{e(sha[:8])}</a>' if base else f"<code>{e(sha[:8])}</code>") + f" {e(subj)}"
-                   for sha, subj in git.get("commits", [])]) if git else '<p class="none">No git repository found for this board.</p>'
+    commits_l = git.get("commits", [])
     files = git.get("files", [])
     tests = test_totals(text_blob)
     try_md = how_to_try(task.get("body_md") or "")
     urls = urls_in(text_blob)
-    try_html = (mdlib.to_html(try_md) if try_md else "") + (_li([f'<a href="{e(u)}" rel="noreferrer">{e(u)}</a>' for u in urls]) if urls else "")
-    who = e(task.get("agent") or "no agent")
+    pts = bullets_of(task.get("body_md"))
+    prose = without_sections(task.get("body_md"))
     cost = ""
     if run and isinstance(run.get("cost_usd"), (int, float)):
-        cost = f" · run cost ${run['cost_usd']:.2f}, {int(run.get('duration_s') or 0)}s"
+        cost = f"run ${run['cost_usd']:.2f} · {int(run.get('duration_s') or 0)}s"
+    chips = [f"<code>{e(tid)}</code>", e(task.get("agent") or "no agent"), f'<span class="chip state">{state}</span>', e((now or datetime.now()).strftime("%d %b %H:%M"))] + ([e(cost)] if cost else [])
+    tiles = [_tile(len(commits_l), "commits")] if git else []
+    for t in tests[:2]:
+        failed = bool(re.search(r"fail", t, re.I))
+        tiles.append(_tile(re.sub(r"\D", "", t) or t, "failed" if failed else "tests pass", "bad" if failed else "good"))
+    if files:
+        tiles.append(_tile(len(files), "files changed"))
     parts = [
-        f'<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex">',
+        '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex">',
         f"<title>{e(title)}: report</title><style>{CSS}</style></head><body data-card=\"{e(tid)}\"><main>",
-        f'<h1>{e(title)}</h1><p class="meta"><code>{e(tid)}</code> · {who} · {state} · {e((now or datetime.now()).strftime("%d %b %Y %H:%M"))}{e(cost)}</p>',
+        f'<h1>{e(title)}</h1><div class="chips">' + "".join(f'<span class="chip">{c}</span>' if "chip" not in c else c for c in chips) + "</div>",
         f'<div class="action {"ask" if asking else ""}"><small>{"Needs your answer" if asking else "For you"}</small>{e(sentence)}</div>',
-        "<h2>What was built</h2>" + "".join(built),
-        "<h2>What happened</h2>" + history,
-        "<h2>Commits</h2>" + commits,
-        "<h2>Tests</h2>" + (_li([e(t) for t in tests]) if tests else '<p class="none">The agent did not state test totals.</p>'),
-        f"<h2>Files touched ({len(files)})</h2>" + (f"<details><summary>Show the list</summary>{_li([f'<code>{e(f)}</code>' for f in files])}</details>" if files else '<p class="none">None found.</p>'),
-        "<h2>How to try it</h2>" + (try_html or '<p class="none">The agent did not say.</p>'),
     ]
+    if tiles:
+        parts.append('<div class="tiles">' + "".join(tiles) + "</div>")
+    built = f'<p class="lead">{e(_clip(task.get("description") or title, 220))}</p>'
+    if pts:
+        built += '<ul class="bul">' + "".join(f"<li>{e(x)}</li>" for x in pts) + "</ul>"
+    parts.append("<h2>Built</h2>" + built)
+    if prose and (not pts or len(prose) > 600):
+        parts.append(f"<details><summary>Full notes</summary>{mdlib.to_html(prose)}</details>")
+    updates = [x for x in task.get("log", []) if x.get("text") and not x.get("by")][-6:]
+    if updates:
+        parts.append("<h2>Timeline</h2><ul class=\"tl\">" + "".join(
+            f'<li><time>{e(str(x.get("at", ""))[11:16])}</time>{e(_clip(x["text"], 110))}</li>' for x in updates) + "</ul>")
+    if commits_l:
+        parts.append("<h2>Commits</h2><ul class=\"cm\">" + "".join(
+            (f'<li><a href="{e(base)}/commit/{e(sha)}" rel="noreferrer"><code>{e(sha[:7])}</code></a>' if base else f"<li><code>{e(sha[:7])}</code>") + f"<span>{e(_clip(subj, 100))}</span></li>"
+            for sha, subj in commits_l[:8]) + "</ul>" + (f'<p class="none">and {len(commits_l) - 8} more</p>' if len(commits_l) > 8 else ""))
+    if not git:
+        parts.append('<p class="none">No git repository found for this board.</p>')
+    if files:
+        parts.append("<h2>Where it changed</h2>" + _file_bars(files)
+                     + f"<details><summary>All {len(files)} files</summary>{_li([f'<code>{e(f)}</code>' for f in files])}</details>")
+    steps = steps_of(try_md)
+    if steps or urls:
+        parts.append("<h2>Try it</h2>" + (('<ol class="steps">' + "".join(f"<li>{e(x)}</li>" for x in steps) + "</ol>") if steps else "")
+                     + ('<div class="pills">' + "".join(f'<a href="{e(u)}" rel="noreferrer">{e(_clip(re.sub(r"^https?://", "", u), 48))}</a>' for u in urls) + "</div>" if urls else ""))
     if extras:
-        parts.append("<h2>More from the agent</h2>" + mdlib.to_html(extras))
+        parts.append("<details><summary>More from the agent</summary>" + mdlib.to_html(extras) + "</details>")
     parts.append('<div class="controls"><button class="go" id="done" type="button">Mark done</button>'
                  '<form id="back-form" style="display:flex;gap:8px;flex:1;flex-wrap:wrap"><input id="note" maxlength="2000" placeholder="Send back with a note" aria-label="Note for the agent"><button type="submit">Send back</button></form>'
                  '<p id="msg" role="status"></p></div>')

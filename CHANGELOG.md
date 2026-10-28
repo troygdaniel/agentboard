@@ -7,7 +7,7 @@
 - `agentboard update`, `ask` and `review` take a first line plus a body: `--body` / `--body-file`, or a multi-line text whose first line is the sentence and the rest the body. On the card the sentence is the large first line and the rest sits behind a collapsed `Details` fold.
 
 ### Card reports
-- A card entering review or done gets an HTML report in `.agentboard/reports/` (action first, what was built, commits with links, tests, files, how to try it, Mark done / Send back). A Report link on the card, a Reports list in the header, `agentboard reports [--purge]`, and an ageing sweep (`[reports] keep_hours`, default 24; the newest per card always stays). `POST /api/send-back` sends a card back with a note the agent reads with `agentboard answer`.
+- A card entering review or done gets an HTML report in `.agentboard/reports/` (action first, then number tiles for commits, tests and files, a few built points, a short timeline, commits with links, bars of where it changed, numbered steps to try it, Mark done / Send back; no run-on paragraphs). A report button on the card, a list at `/reports/`, `agentboard reports [--purge]`, and an ageing sweep (`[reports] keep_hours`, default 24; the newest per card always stays). `POST /api/send-back` sends a card back with a note the agent reads with `agentboard answer`.
 
 ### One sentence to Troy
 - Every prompt (Copy prompt, run prompt, instructions snippet, ORCH prompt) ends with the reporting rule: one sentence, the ACTION first then one fact; no action needed = one line of status; more = one sentence then offer the detail. The ORCH prompt now says agents report to Troy directly, when ORCH may speak to him, daytime vs sleep assigning, and what is never done without his own words.

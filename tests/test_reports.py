@@ -61,11 +61,11 @@ class WritingTests(Base):
         page = self.page()
         self.assertIn("<h1>Trim bundle size</h1>", page)
         self.assertIn("nova", page)
-        self.assertLess(page.index("Merge the bundle change"), page.index("What was built"))   # the ACTION sentence leads
-        for h in ("What was built", "What happened", "Commits", "Tests", "Files touched", "How to try it"):
+        self.assertLess(page.index("Merge the bundle change"), page.index("Built"))   # the ACTION sentence leads
+        for h in ("Built", "Timeline", "Try it"):
             self.assertIn(h, page)
-        self.assertIn("237 tests pass", page)
-        self.assertIn("2 failed", page)
+        self.assertIn("<b>237</b><span>tests pass", page)   # the totals are tiles, not sentences
+        self.assertIn("<b>2</b><span>failed", page)
         self.assertIn("http://localhost:5273/", page)
         self.assertIn('id="done"', page)
         self.assertIn("/api/send-back", page)
