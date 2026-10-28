@@ -14,6 +14,7 @@ import os
 import re
 import threading
 import time
+from datetime import datetime
 from pathlib import Path
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs
@@ -27,10 +28,11 @@ MAX_BODY = 16_000
 SEEN_TTL_S = 7 * 24 * 3600
 SEEN_MAX = 2000
 DEFAULT_TOKEN_ENV = "AGENTBOARD_TWILIO_AUTH_TOKEN"
-REPLY_MAX = 300
+REPLY_MAX = 160   # one sentence, one idea
 
-HELP = ("add: <title> | later: <title> | done <id> | start <id> | review <id> | todo <id> | later <id> | status | list | help. "
-        "<id> can be the first letters.")
+HELP = "Text a task to add it. Ask: status, ready, blocked, today, asks, or status of <card or agent>. Answer: reply <text>."
+YES_NO = {"yes", "no", "y", "n", "ok", "okay", "go", "stop", "yep", "nope", "sure", "approve", "approved", "reject", "later", "now"}
+QUESTION_START = {"what", "whats", "what's", "which", "who", "how", "where", "when", "is", "are", "any", "anything", "show", "tell"}
 
 
 # -- config -------------------------------------------------------------------------------------------------------------------
@@ -144,7 +146,7 @@ def status_line(store):
     revs = [t for t in tasks if t["status"] == "doing" and t.get("review")]
     out = f"{n('doing')} doing, {len(asks)} need you, {len(revs)} to review, {n('todo')} todo, {n('backlog')} later."
     names = [t["id"] for t in asks + revs][:3]
-    return out + (" Up: " + ", ".join(names) + "." if names else "")
+    return _clip(out + (" Up: " + ", ".join(names) + "." if names else ""))
 
 
 def apply(store, text):
@@ -155,19 +157,158 @@ def apply(store, text):
         return f"No: {e}"[:REPLY_MAX]
 
 
+def _clip(text, n=REPLY_MAX):
+    t = re.sub(r"\s+", " ", str(text or "")).strip()
+    return t if len(t) <= n else t[:n - 1].rstrip() + "…"
+
+
+def _open(store):
+    return [t for t in store.load() if not t.get("archived") and not t.get("parent_id")]
+
+
+def _asks(store):
+    return [t for t in _open(store) if t["status"] == "doing" and t.get("needs_input")]
+
+
+def _ready(store):
+    return [t for t in _open(store) if t["status"] == "doing" and t.get("review")]
+
+
+def _find(store, ref):
+    """Cards a loose reference names: an id or its first letters, an agent's name, or words from the title. [] when nothing."""
+    ref = re.sub(r"[?.!]+$", "", ref.strip().lower())
+    ref = re.sub(r"^(the|my|card|agent|on|of)\s+", "", ref)
+    tasks = _open(store)
+    if not ref:
+        return []
+    for pick in (lambda t: t["id"] == ref, lambda t: t["id"].startswith(ref),
+                 lambda t: (t.get("agent") or "").lower() == ref and t["status"] == "doing",
+                 lambda t: all(w in t["id"] or w in t["title"].lower() for w in ref.split())):
+        hits = [t for t in tasks if pick(t)]
+        if hits:
+            return hits
+    return []
+
+
+def card_line(t):
+    where = {"todo": "in Todo", "backlog": "in Later", "done": "done"}.get(t["status"], "")
+    if t["status"] == "doing":
+        where = "needs you" if t.get("needs_input") else "ready for review" if t.get("review") else f"{t.get('progress', 0)}%"
+        if t.get("agent"):
+            where += f" ({t['agent']})"
+    note = t.get("question") if t.get("needs_input") else t.get("status_text")
+    return _clip(f"{t['id']}: {where}" + (f", {note}" if note else ""))
+
+
+def what_status(store, ref):
+    hits = _find(store, ref)
+    if not hits:
+        return f"I can't find '{_clip(ref, 30)}'. Try the card id or the agent's name."
+    if len(hits) == 1:
+        return card_line(hits[0])
+    return _clip(f"{len(hits)} cards: " + "; ".join(f"{t['id']} {t.get('progress', 0)}%" for t in hits[:3]))
+
+
+def what_ready(store):
+    r = _ready(store)
+    return _clip("Ready for review: " + ", ".join(t["id"] for t in r) + ".") if r else "Nothing is waiting for your review."
+
+
+def what_asks(store):
+    a = _asks(store)
+    if not a:
+        return "Nothing is waiting on your answer."
+    t = a[0]
+    more = f" (+{len(a) - 1} more)" if len(a) > 1 else ""
+    return _clip(f"{t['id']} asks: {t.get('question')}{more}")
+
+
+def what_blocked(store):
+    by_id = {t["id"]: t for t in store.load()}
+    out = []
+    for t in _open(store):
+        if t["status"] == "done":
+            continue
+        on = [b for b in t.get("blocked_by") or [] if b in by_id and by_id[b]["status"] != "done"]
+        if on:
+            out.append(f"{t['id']} waits on {', '.join(on)}")
+    return _clip("Blocked: " + "; ".join(out[:3]) + ".") if out else "Nothing is blocked."
+
+
+def what_today(store):
+    today = datetime.now().strftime("%Y-%m-%d")
+    started = reviewed = done = 0
+    for t in _open(store):
+        for e in t.get("log", []):
+            if not str(e.get("at", "")).startswith(today) or e.get("by"):
+                continue
+            txt = str(e.get("text", ""))
+            if txt.startswith("Claimed by") or txt.startswith("Started"):
+                started += 1
+            elif txt.startswith("Ready for review"):
+                reviewed += 1
+            elif e.get("status") == "done":
+                done += 1
+    if not (started or reviewed or done):
+        return "Nothing has moved today."
+    return f"Today: {started} started, {reviewed} sent to review, {done} done."
+
+
+def answer_ask(store, ref, text):
+    """Send Troy's words to an ask card: the agent reads them with `agentboard answer`."""
+    asks = _asks(store)
+    if ref:
+        hits = [t for t in asks if t["id"] == ref.lower() or t["id"].startswith(ref.lower())]
+    else:
+        hits = asks
+    if not hits:
+        raise BoardError("nothing is asking you" if not ref else f"no ask matches '{ref}'")
+    if len(hits) > 1:
+        raise BoardError("which one? " + ", ".join(t["id"] for t in hits[:3]) + ": text 'reply <id> <answer>'")
+    store.reply(hits[0]["id"], text, by="Troy (text)")
+    return f"Sent to {hits[0].get('agent') or 'the agent'} on {hits[0]['id']}."
+
+
 def _apply(store, text):
     raw = (text or "").strip()
     if not raw:
         return HELP
-    m = re.match(r"^([A-Za-z]+)\s*[:\-]?\s*(.*)$", raw, re.S)
+    low = raw.lower().rstrip("?!. ")
+    m = re.match(r"^([A-Za-z']+)\s*[:\-]?\s*(.*)$", raw, re.S)
     cmd, arg = (m.group(1).lower(), m.group(2).strip()) if m else ("", raw)
+    # answering an ask
+    if cmd in ("reply", "answer", "re"):
+        first, _, rest = arg.partition(" ")
+        if rest and any(t["id"] == first.lower() or t["id"].startswith(first.lower()) for t in _asks(store)):
+            return answer_ask(store, first, rest.strip())
+        if not arg:
+            raise BoardError("reply what? e.g. reply yes")
+        return answer_ask(store, "", arg)
+    if low in YES_NO or re.fullmatch(r"[1-9a-d]", low):
+        if _asks(store):
+            return answer_ask(store, "", raw)
+    # questions
     if cmd in ("help", "?", "commands"):
         return HELP
-    if cmd in ("status", "s"):
+    if cmd in ("status", "s") and not arg or low in ("status", "how are things", "how's it going", "hows it going"):
         return status_line(store)
+    if cmd in ("ready", "review") and not arg or re.search(r"\b(ready|waiting)\b.*\breview\b|\bwhat.*\bto review\b", low):
+        return what_ready(store)
+    if cmd in ("asks", "ask", "needs", "question", "questions") and not arg or re.search(r"\b(needs? me|asking me|waiting on me|my answer)\b", low):
+        return what_asks(store)
+    if cmd in ("blocked", "blocks", "blockers") or re.search(r"\bblock(s|ed|ing)\b", low):
+        return what_blocked(store)
+    if cmd in ("today", "changed", "recap") and not arg or re.search(r"\b(changed|happened|done|moved)\b.*\btoday\b|\btoday\b", low) and cmd in QUESTION_START:
+        return what_today(store)
+    qm = re.match(r"^(?:status|state|progress|how(?:'s| is)?|where(?:'s| is)?|what(?:'s| is)?)\s+(?:of\s+|on\s+|up with\s+|the status of\s+)?(.+?)(?:\s+(?:doing|going|status))?$", low)
+    if (cmd in ("status", "state", "progress", "how", "where", "what", "whats", "what's") or raw.endswith("?")) and qm:
+        return what_status(store, qm.group(1))
+    if raw.endswith("?") and re.match(r"^(\S+)\s+status$", low):
+        return what_status(store, low.split()[0])
     if cmd in ("list", "ls"):
         doing = [t for t in store.load() if t["status"] == "doing" and not t.get("archived") and not t.get("parent_id")][:5]
-        return ("Doing: " + "; ".join(f"{t['id']} {t.get('progress', 0)}%" for t in doing)) if doing else "Nothing in progress."
+        return _clip("Doing: " + "; ".join(f"{t['id']} {t.get('progress', 0)}%" for t in doing)) if doing else "Nothing in progress."
+    # commands that change a card
     if cmd == "add" or (cmd == "later" and arg and not _looks_like_id(store, arg)):
         if not arg:
             raise BoardError("add what? e.g. add: buy toothpaste")
@@ -194,7 +335,12 @@ def _apply(store, text):
         t = _resolve(store, arg, ("todo", "doing"))
         store.move(t["id"], "backlog")
         return f"{t['id']}: later"
-    return f"Don't know '{cmd}'. {HELP}"[:REPLY_MAX]
+    if raw.endswith("?") or (cmd in QUESTION_START and len(raw.split()) > 1):
+        return "I can't answer that one. " + HELP
+    if len(raw.split()) == 1:   # one unknown word is more likely a typo than a task
+        return _clip(f"Don't know '{cmd}'. To add it as a task, text 'add: {raw}'.")
+    t = store.add(raw[:200], status="todo")   # plain words are a new card, top of Todo
+    return f"Added to Todo: {t['id']}"
 
 
 def _looks_like_id(store, arg):

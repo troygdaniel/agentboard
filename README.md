@@ -373,7 +373,19 @@ It is a Twilio inbound-SMS webhook on its own port, **off until you switch it on
     agentboard sms serve                          # listens on 127.0.0.1:8766 (/sms, /health)
     cloudflared tunnel --url http://localhost:8766    # or your named tunnel; then set the number's "A message comes in" webhook (HTTP POST) to public_url
 
-Try the commands locally first, without Twilio: `agentboard sms try add: buy milk`. Every request is checked for Twilio's signature, the sender, and a MessageSid not seen
+What to text (every reply is one short sentence):
+
+| You text | You get |
+|---|---|
+| any plain words, e.g. `buy toothpaste for dad` | a new card at the top of Todo (`add:` and `later:` still work) |
+| `status`, `status of <card or agent>`, `how is alice doing?` | the board in one line, or that card's percent and note |
+| `ready`, `what's ready for review?` | the cards waiting for you |
+| `blocked`, `what blocks what?` | which card waits on which |
+| `today`, `what changed today?` | how many started, went to review, finished today |
+| `asks`, `what needs me?` | the question being asked |
+| `reply 5`, `reply <card> 5`, or a bare `yes`/`no` | your answer goes to the agent on that ask card (it reads it with `agentboard answer`); with two asks open, name the card |
+
+A lone unknown word is treated as a typo, not a task. Try the commands locally first, without Twilio: `agentboard sms try add: buy milk`. Every request is checked for Twilio's signature, the sender, and a MessageSid not seen
 before (a replayed request is ignored), with an hourly cap; the replies travel in the HTTP response, so no Twilio API call is made. Cost: just the texts (Twilio bills each inbound
 text and each reply, about a cent each in the US and Canada; check your plan). Nothing is texted to you unprompted: outbound "a card is ready for review" notices are not built.
 Details and what it can and cannot do: [SECURITY.md](SECURITY.md).

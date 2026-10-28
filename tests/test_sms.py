@@ -158,10 +158,83 @@ class CommandTests(Base):
         self.assertIn("b", reply)
         self.assertNotIn("\n", reply)
 
-    def test_help_and_unknown_words_get_the_list(self):
-        self.assertIn("add: &lt;title&gt;", self.say("help"))
-        self.assertIn("Don't know 'frobnicate'", self.say("frobnicate the thing"))
-        self.assertIn("add: &lt;title&gt;", self.say(""))
+    def test_help_is_one_sentence_and_a_lone_unknown_word_is_not_made_a_card(self):
+        self.assertIn("Text a task to add it", self.say("help"))
+        self.assertIn("Text a task to add it", self.say(""))
+        self.assertIn("Don't know 'frobnicate'", self.say("frobnicate"))
+        self.assertEqual(self.titles("todo"), [])
+
+    def test_plain_words_become_a_card_on_top_of_todo(self):
+        self.store.add("Old one", status="todo")
+        reply = self.say("buy toothpaste for dad")
+        self.assertIn("Added to Todo: buy-toothpaste-for-dad", reply)
+        self.assertEqual(self.titles("todo"), ["buy-toothpaste-for-dad", "old-one"])
+
+    def test_questions_are_not_turned_into_cards(self):
+        self.say("what is the meaning of life?")
+        self.assertEqual(self.titles("todo"), [])
+
+    def test_whats_ready_names_the_cards_waiting_for_review(self):
+        self.assertIn("Nothing is waiting", self.say("what's ready for review?"))
+        self.store.start("Fix login", "alice")
+        self.store.review("fix-login", "done")
+        self.assertIn("Ready for review: fix-login", self.say("what's ready for review?"))
+        self.assertIn("Ready for review: fix-login", self.say("ready"))
+
+    def test_status_of_a_card_or_an_agent_is_one_line(self):
+        self.store.start("Fix login", "alice")
+        self.store.update("fix-login", 40, "halfway through the form")
+        for q in ("status of fix-login", "how is fix login going?", "what's alice doing?", "alice status?"):
+            r = self.say(q)
+            self.assertIn("fix-login: 40% (alice), halfway through the form", r, q)
+            self.assertNotIn("\n", r)
+        self.assertIn("can't find", self.say("status of ghost"))
+
+    def test_what_blocks_what(self):
+        self.assertIn("Nothing is blocked", self.say("what's blocked?"))
+        a = self.store.add("Build API", status="todo")
+        self.store.add("Build UI", status="todo", blocked_by=[a["id"]])
+        self.assertIn("build-ui waits on build-api", self.say("what blocks what?"))
+
+    def test_what_changed_today_counts_starts_reviews_and_dones(self):
+        self.assertIn("Nothing has moved today", self.say("what changed today?"))
+        self.store.start("One", "alice")
+        self.store.start("Two", "bob")
+        self.store.review("two", "ok")
+        self.assertIn("Today: 2 started, 1 sent to review, 0 done.", self.say("what changed today?"))
+
+    def test_an_ask_can_be_answered_by_text_and_the_agent_reads_it(self):
+        self.store.start("Pick limit", "alice")
+        self.store.ask("pick-limit", "Retry limit: 3 or 5?")
+        self.assertIn("pick-limit asks: Retry limit: 3 or 5?", self.say("what needs me?"))
+        self.assertIn("Sent to alice on pick-limit.", self.say("reply 5"))
+        self.assertEqual(self.store.answer("pick-limit")["text"], "5")
+        self.assertEqual(self.store.answer("pick-limit")["by"], "Troy (text)")
+
+    def test_a_bare_yes_answers_the_only_open_ask_but_is_a_normal_word_otherwise(self):
+        self.say("yes")
+        self.assertEqual(self.titles("todo"), [])   # nothing is asking: a lone word is not a card
+        self.store.start("Pick limit", "alice")
+        self.store.ask("pick-limit", "Go ahead?")
+        self.assertIn("Sent to alice", self.say("yes"))
+        self.assertEqual(self.store.answer("pick-limit")["text"], "yes")
+
+    def test_with_two_asks_the_reply_must_name_one(self):
+        self.store.start("One", "alice")
+        self.store.ask("one", "a?")
+        self.store.start("Two", "bob")
+        self.store.ask("two", "b?")
+        self.assertIn("which one", self.say("reply 5"))
+        self.assertIn("Sent to bob on two", self.say("reply two 5"))
+        self.assertEqual(self.store.answer("two")["text"], "5")
+        self.assertIsNone(self.store.answer("one"))
+
+    def test_every_reply_is_one_short_sentence(self):
+        for i in range(8):
+            self.store.start(f"Card number {i} with a long title", f"agent{i}")
+            self.store.ask(f"card-number-{i}-with-a-long-title", "q" * 300)
+        for q in ("status", "what needs me?", "what's ready for review?", "list"):
+            self.assertLessEqual(len(self.say(q)), 160 + 100, q)   # 160 of text plus the XML wrapper
 
     def test_a_bad_command_is_a_reply_not_a_crash(self):
         self.assertIn("No: no card starting with 'ghost'", self.say("done ghost"))
