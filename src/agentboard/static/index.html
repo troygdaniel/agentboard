@@ -159,6 +159,8 @@
   .col.doing h2 { color: var(--text); }
   .clear-done { margin-left: auto; background: none; border: 0; color: var(--muted); font: inherit; font-size: var(--fs-sm); letter-spacing: 0; text-transform: none; font-weight: 400; cursor: pointer; padding: 2px 6px; border-radius: 6px; }
   .clear-done:hover { color: var(--text); background: var(--chip); }
+  .sum-link { margin-left: auto; text-decoration: none; }
+  .sum-link + .clear-done { margin-left: 0; }
   .col.over .cards { outline: 1px dashed var(--neutral); outline-offset: -2px; border-radius: 12px; }
   /* the card list scrolls inside its panel; the padding keeps hover lifts, selection outlines and
      the ask/review pulse rings from being clipped at the scroll edge */
@@ -1274,7 +1276,7 @@ function render() {
     } else {
       body = list.length ? list.map(card).join('') : `<div class="empty">${(q || pf || flagFilter) ? 'No matches' : EMPTY[k]}</div>`;
     }
-    const clr = k === 'done' && by.done.length ? `<button class="clear-done" id="clear-done" title="Archive all Done cards">Clear</button>` : '';
+    const clr = k === 'done' ? `<a class="clear-done sum-link" href="${(window.AB_BASE || '')}/summary" target="_blank" rel="noopener" title="Summary of finished work, to read or share">Summary</a>` + (by.done.length ? `<button class="clear-done" id="clear-done" title="Archive all Done cards">Clear</button>` : '') : '';
     const p = k === 'doing' && pres ? `<b class="pres" aria-hidden="true">${pres}</b>` : '';
     return `<section class="col ${k}" data-status="${k}"><h2>${label} <span class="cnt">${by[k].length}</span>${p}${clr}</h2><div class="cards">${body}</div>${more}</section>`;
   }).join('');

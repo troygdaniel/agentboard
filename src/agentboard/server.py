@@ -9,7 +9,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 from . import boards, hud
-from . import reports, runs
+from . import reports, runs, summary
 from . import markdown as mdlib
 from . import prompt as promptlib
 from .store import BoardError, Store, subtask_counts, subtask_list
@@ -145,6 +145,13 @@ def make_handler(default_store, port):
                 html = (STATIC / "index.html").read_text()
                 inject = f"<script>window.AB_BASE = {json.dumps(self.base)};</script>"   # the page prefixes its /api calls with this
                 self._send(200, html.replace("</head>", inject + "</head>", 1).encode(), "text/html; charset=utf-8")
+            elif url.path in ("/summary", "/summary/"):
+                try:
+                    data = summary.build(self.store, (q.get("since") or [summary.DEFAULT_SINCE])[0], (q.get("project") or [None])[0])
+                except BoardError as e:
+                    self._send(400, {"error": str(e)})
+                    return
+                self._send(200, summary.build_html(data, self.base).encode(), "text/html; charset=utf-8", REPORT_HEADERS)
             elif url.path in ("/reports", "/reports/"):
                 self._send(200, reports.index_html(self.store.dir, self.base).encode(), "text/html; charset=utf-8", REPORT_HEADERS)
             elif url.path.startswith("/reports/"):

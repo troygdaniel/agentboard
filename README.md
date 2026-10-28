@@ -70,6 +70,13 @@ On the board, a card in **ask** or **review** shows that sentence as its first l
 on the card (and in its log), and the agent reads it with `agentboard answer <id>` (`--wait` polls until there is one; `--timeout`, `--interval`).
 It is cleared when the agent moves on (its next update, ask, review or claim). Agents therefore report to you directly, and ORCH does not have to relay.
 
+### Done summary
+
+**Summary** on the Done column header (and `/summary?since=1d|7d|30d|all&project=<id>`) turns the finished cards into one page to read or share:
+grouped by project and day, a plain-words headline per project, one line per card (title plus the agent's one sentence), the counts, cards closed
+per day stacked by agent, and a lane per agent. **Copy text** puts the same summary on the clipboard as markdown; **Save as HTML** downloads the page.
+On the command line: `agentboard summary [--since 7d] [--project <id>] [--html <path>]`.
+
 **Keep it simple.** The ORCH prompt carries a named `Keep it simple` block (one sentence, one idea, detail on demand) that ORCH copies into every card description and assignment it writes. It is instructed, not checked. `update`, `ask` and `review` take `--body` / `--body-file`, or a multi-line text whose first line is the sentence and the rest the body; the card shows the sentence large and the rest behind a collapsed **Details** fold.
 
 The older three-line shape is still understood and drawn as bands and chips, if an agent prefers it (three lines at most):

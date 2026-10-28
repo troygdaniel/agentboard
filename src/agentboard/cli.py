@@ -13,6 +13,7 @@ from . import backup as backuplib
 from . import hud as hudlib
 from . import prompt as promptlib
 from . import reports as reportslib
+from . import summary as summarylib
 from . import runs as runslib
 from . import sms as smslib
 from .server import serve
@@ -244,6 +245,17 @@ def cmd_report(a):
                     print(f"  - {k['title']}" + (f" — {k['result']}" if k["result"] else ""))
             print()
     print(f"_{events} event{s(events)} logged on {day.isoformat()}._")
+
+
+def cmd_summary(a):
+    """The Done cards grouped by project and day: plain text on stdout, or a self-contained HTML page with --html."""
+    data = summarylib.build(_store(), a.since, a.project)
+    if a.html:
+        path = Path(a.html).expanduser()
+        path.write_text(summarylib.build_html(data))
+        print(f"wrote {path}")
+    else:
+        print(summarylib.to_text(data), end="")
 
 
 def cmd_project_add(a):
@@ -982,6 +994,10 @@ def main(argv=None):
     sp.add_argument("--apply", action="store_true", help="merge them (a snapshot is taken first); without it only lists them")
     sp = add("report", cmd_report, "markdown recap of what was completed today (or --date), by agent — for a standup or daily log")
     sp.add_argument("--date", help="YYYY-MM-DD (default: today)")
+    sp = add("summary", cmd_summary, "the finished (Done) cards grouped by project and day, as text or a shareable HTML page")
+    sp.add_argument("--since", default=summarylib.DEFAULT_SINCE, help="1d (today), 7d (default), 30d or all")
+    sp.add_argument("--project", help="only this project id")
+    sp.add_argument("--html", metavar="PATH", help="write a self-contained HTML page to PATH instead of printing text")
     add("clear", cmd_clear, "archive all Done tasks (kept for history and the HUD)")
     sp = add("spawn", cmd_spawn, "open a new Terminal window per name, cd here, launch an agent in each (macOS)")
     sp.add_argument("names", help="comma-separated session names, e.g. atlas,scribe,bolt")
