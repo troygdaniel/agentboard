@@ -194,7 +194,7 @@ while the card was open (linked when the repo's `origin` is on GitHub; a one-sho
 how to try it (the agent's "How to try" section and any URLs), and **Mark done** / **Send back with a note** buttons that call the board's API. A sent-back note is the reply the
 agent reads with `agentboard answer`. Optional extras: an agent can write `.agentboard/reports/<card>.md` and it appears as "More from the agent".
 
-The card shows a **Report** link (new tab), and the header's **Reports** button lists them newest first (`/reports/`; under `/b/<name>/` for other boards).
+The card carries a solid **Open report** button (new tab). The list of all reports is at `/reports/` (under `/b/<name>/` for other boards); `agentboard reports` prints it.
 Reports age out: on `serve` start and then hourly, those older than `[reports] keep_hours` (default 24) are deleted, **except the newest per card**, and nothing else is ever
 touched (not `tasks.json`, not backups, not your `.md` extras). `agentboard reports` lists them; `agentboard reports --purge [--hours N]` runs the sweep now. Set the repo whose
 commits are listed with `[reports] repo = "~/dev/project"` (default: the folder above `.agentboard`). Everything an agent wrote is escaped, and the pages are served with a
