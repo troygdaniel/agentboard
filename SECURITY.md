@@ -34,7 +34,7 @@ Oct 24, 2026 for v0.3.0 against the code and at runtime; it checks literally rat
    agentboard adds no connection of its own, never passes a flag that widens the run's permissions (no `--dangerously-skip-permissions`,
    `--permission-mode` or `--allowedTools`), and enforces a wall-clock limit and a spend cap. Only runs when you start one.
 4. **Text the board (`agentboard sms serve`).** An inbound Twilio webhook on its **own** listener, `127.0.0.1:8766`, separate from the board
-   server (so a tunnel pointed at it exposes `/sms` and `/health` and nothing else). It will not start unless `[sms] enabled = true`, an allowlist,
+   server (so a tunnel pointed at it exposes `/sms` and `/health` and nothing else). It will not start if `AGENTBOARD_NO_SMS=1` is set (a hard lock for work machines), and otherwise not unless `[sms] enabled = true`, an allowlist,
    an `https` `public_url` and the Twilio auth token (read from an environment variable, never from a file in the board) are all set. Each request
    needs a valid `X-Twilio-Signature` (HMAC-SHA1 over the URL and the form, constant-time compare), a sender on the allowlist, and a `MessageSid`
    not seen in the last 7 days (replay protection, kept in `.agentboard/sms-state.json`); there is also an hourly cap. Anything refused gets a bare

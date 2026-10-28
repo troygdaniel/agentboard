@@ -28,6 +28,7 @@ MAX_BODY = 16_000
 SEEN_TTL_S = 7 * 24 * 3600
 SEEN_MAX = 2000
 DEFAULT_TOKEN_ENV = "AGENTBOARD_TWILIO_AUTH_TOKEN"
+LOCK_ENV = "AGENTBOARD_NO_SMS"   # set on a machine (a work laptop) where texting must never start, whatever any config says
 REPLY_MAX = 160   # one sentence, one idea
 
 HELP = "Text a task to add it. Ask: status, ready, blocked, today, asks, or status of <card or agent>. Answer: reply <text>."
@@ -58,6 +59,8 @@ def settings(board_dir):
     """(conf dict, problems). Problems say why the endpoint will not start: it is off by default."""
     c = load_conf(board_dir)
     problems = []
+    if os.environ.get(LOCK_ENV, "").strip().lower() not in ("", "0", "false", "no"):
+        problems.append(f"texting is locked off on this machine (${LOCK_ENV} is set); unset it to allow it")
     if not c.get("enabled"):
         problems.append("texting is off: set [sms] enabled = true in config.toml")
     allowed = [e164(x) for x in c.get("allowed", []) if isinstance(x, str)]

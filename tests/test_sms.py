@@ -16,7 +16,7 @@ from pathlib import Path
 from unittest import mock
 
 from agentboard import sms
-from agentboard.store import Store
+from agentboard.store import BoardError, Store
 
 TOKEN = "test-auth-token"
 URL = "https://example.trycloudflare.com/sms"
@@ -265,6 +265,16 @@ class SettingsTests(Base):
             conf, problems = sms.settings(self.store.dir)
         self.assertEqual(problems, [])
         self.assertEqual((conf["allowed"], conf["token"]), ([MOBILE], "tok"))
+
+    def test_the_machine_lock_stops_it_even_when_everything_else_is_set(self):
+        self.write_conf('[sms]\nenabled = true\nallowed = ["416-555-0123"]\npublic_url = "https://t.example/sms"\n')
+        with mock.patch.dict(os.environ, {sms.DEFAULT_TOKEN_ENV: "tok", "AGENTBOARD_NO_SMS": "1"}):
+            _conf, problems = sms.settings(self.store.dir)
+            self.assertTrue(any("locked off on this machine" in p for p in problems))
+            with self.assertRaises(BoardError):
+                sms.serve(self.store, 0)
+        with mock.patch.dict(os.environ, {sms.DEFAULT_TOKEN_ENV: "tok", "AGENTBOARD_NO_SMS": "0"}):
+            self.assertEqual(sms.settings(self.store.dir)[1], [])
 
     def test_a_plain_http_url_is_refused_and_the_token_is_never_read_from_the_board(self):
         self.write_conf('[sms]\nenabled = true\nallowed = ["+14165550123"]\npublic_url = "http://insecure/sms"\ntoken = "from-a-file"\n')

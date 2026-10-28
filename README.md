@@ -385,7 +385,7 @@ What to text (every reply is one short sentence):
 | `asks`, `what needs me?` | the question being asked |
 | `reply 5`, `reply <card> 5`, or a bare `yes`/`no` | your answer goes to the agent on that ask card (it reads it with `agentboard answer`); with two asks open, name the card |
 
-A lone unknown word is treated as a typo, not a task. Try the commands locally first, without Twilio: `agentboard sms try add: buy milk`. Every request is checked for Twilio's signature, the sender, and a MessageSid not seen
+On a machine where texting must never run (a work laptop), put `export AGENTBOARD_NO_SMS=1` in the shell profile: `agentboard sms serve` then refuses to start whatever any config says. A lone unknown word is treated as a typo, not a task. Try the commands locally first, without Twilio: `agentboard sms try add: buy milk`. Every request is checked for Twilio's signature, the sender, and a MessageSid not seen
 before (a replayed request is ignored), with an hourly cap; the replies travel in the HTTP response, so no Twilio API call is made. Cost: just the texts (Twilio bills each inbound
 text and each reply, about a cent each in the US and Canada; check your plan). Nothing is texted to you unprompted: outbound "a card is ready for review" notices are not built.
 Details and what it can and cannot do: [SECURITY.md](SECURITY.md).
