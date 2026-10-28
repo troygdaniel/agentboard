@@ -201,6 +201,11 @@
   .who { display: inline-flex; align-items: center; gap: 8px; background: none; border: 0; padding: 0; cursor: pointer; color: var(--text); font-weight: 500; font-size: var(--fs-sm); border-radius: 6px; }
   .who:hover .nm { text-decoration: underline; text-underline-offset: 3px; }
   .card.done .who { color: var(--muted); }
+  .top .unas { color: var(--muted); opacity: .7; }
+  .card[data-status="todo"] .unas { padding-left: 26px; }   /* clear of the queue-number badge */
+  /* hovering a name lights every card that agent holds; the rest step back */
+  .board.hl .card { transition: opacity .15s ease; }
+  .board.hl .card:not(.hl) { opacity: .4; }
   @keyframes enter { from { opacity: 0; transform: translateY(4px); } }
   .card.dragging { opacity: .4; }
   .card:hover { border-color: var(--neutral); box-shadow: inset 0 1px 0 var(--card-hi), var(--shadow-hover); transform: translateY(-2px); }
@@ -1140,7 +1145,7 @@ function card(t) {
   const asking = !!t.needs_input && doing;
   const reviewing = !!t.review && doing && !asking;
   const reportLink = t.report && (asking || reviewing || done) ? `<a class="report-link" href="${BASE}/reports/${esc(t.report.file)}" target="_blank" rel="noopener" title="Open this card's report in a new tab" aria-label="Open report"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 1.5h5.5L12.5 5v9.5H4z"/><path d="M9.5 1.5V5h3M6 8.5h4.5M6 11h4.5"/></svg>Report</a>` : '';
-  const top = who ? `<div class="top">${who}${runChip}${reportLink}${when}</div>` : '';
+  const top = who ? `<div class="top">${who}${runChip}${reportLink}${when}</div>` : `<div class="top"><span class="unas">Unassigned</span></div>`;   // the holder is always the first row, same place on every card
   const askFlag = asking ? `<div class="ask-flag"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 2a4 4 0 0 0-4 4v3L2.8 11h10.4L12 9V6a4 4 0 0 0-4-4z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M6.5 13a1.5 1.5 0 0 0 3 0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Needs your input</div>` : reviewing ? `<div class="ask-flag rev"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>Ready for review</div>` : '';
   // ask / review: the agent's one sentence is the card's first line, large, with a reply box Troy can answer in (stored on the card; the agent reads it with `agentboard answer`)
   const said = (asking || reviewing) ? (t.question || t.result || t.status_text || '') : '';
@@ -1153,9 +1158,9 @@ function card(t) {
   const fresh = !firstRender && !seen.has(t.id);
   const flash = !firstRender && seen.has(t.id) && lastUpdated.get(t.id) !== t.updated;
   seen.add(t.id); lastUpdated.set(t.id, t.updated);
-  return `<div class="card ${done ? 'done' : ''} ${asking ? 'ask' : ''} ${reviewing ? 'review' : ''} ${abandoned && !asking && !reviewing ? 'abandoned' : ''} ${live && !asking && !reviewing ? 'livebar' : ''} ${fresh ? 'enter' : ''} ${flash ? 'flash' : ''} ${selected.has(t.id) ? 'selected' : ''} " style="--c:${colorOf(t)}" draggable="${backlog ? 'false' : 'true'}" tabindex="0" data-id="${esc(t.id)}" data-status="${t.status}"
+  return `<div class="card ${done ? 'done' : ''} ${asking ? 'ask' : ''} ${reviewing ? 'review' : ''} ${abandoned && !asking && !reviewing ? 'abandoned' : ''} ${live && !asking && !reviewing ? 'livebar' : ''} ${fresh ? 'enter' : ''} ${flash ? 'flash' : ''} ${selected.has(t.id) ? 'selected' : ''} " style="--c:${colorOf(t)}" data-agent="${esc(t.agent || '')}" draggable="${backlog ? 'false' : 'true'}" tabindex="0" data-id="${esc(t.id)}" data-status="${t.status}"
       aria-label="${esc(t.title)}, ${t.status}${asking ? ', needs your input' : reviewing ? ', ready for review' : abandoned ? ', no update in a long time, possibly abandoned' : ''}${t.agent ? ', ' + esc(t.agent) : ''}${proj ? ', project ' + esc(proj.name) : ''}${blockers.length ? ', blocked by ' + blockers.map(b => esc(b.title)).join(', ') : ''}">
-    ${copy}${askFlag}${saidRow}${foldRow}${blockedRow}${top}${projPill}${todo && t._q ? `<span class="qnum" aria-label="Queue position ${t._q}">${t._q}</span>` : ''}<div class="title ${done ? 'has-check' : ''}">${checkIcon}${done ? `<span>${esc(t.title)}</span>` : esc(t.title)}</div>${desc}${asking || reviewing ? '' : note}${bar}${meta}${who ? '' : reportLink}${replyRow}${reviewing ? `<button class="btn markdone" data-done="${esc(t.id)}">Mark done</button>` : ''}</div>`;
+    ${copy}${top}${askFlag}${saidRow}${foldRow}${blockedRow}${projPill}${todo && t._q ? `<span class="qnum" aria-label="Queue position ${t._q}">${t._q}</span>` : ''}<div class="title ${done ? 'has-check' : ''}">${checkIcon}${done ? `<span>${esc(t.title)}</span>` : esc(t.title)}</div>${desc}${asking || reviewing ? '' : note}${bar}${meta}${who ? '' : reportLink}${replyRow}${reviewing ? `<button class="btn markdone" data-done="${esc(t.id)}">Mark done</button>` : ''}</div>`;
 }
 
 // the parent's segmented bar (one cell per subtask), which doubles as the expand toggle, plus its quiet rows
@@ -1248,6 +1253,7 @@ function render() {
   // each column scrolls on its own, and the rebuild below replaces those scrollers: remember where they were
   const scrolls = Object.fromEntries([...$('board').querySelectorAll('.col')].map(c => [c.dataset.status, c.querySelector('.cards')?.scrollTop || 0]));
   $('board').style.setProperty('--tracks', cols.map(([k]) => k === 'doing' ? 'minmax(0, 1.4fr)' : 'minmax(0, 1fr)').join(' '));
+  $('board').classList.remove('hl');   // a re-render drops the hover highlight with the cards it lit
   $('board').innerHTML = cols.map(([k, label]) => {
     let list = by[k], more = '';
     if (k === 'done' && !showAllDone && list.length > DONE_SHOWN) {
@@ -2494,6 +2500,19 @@ if (SOLO) {
 }
 else if (location.hash === '#/hud') openHud();
 else if (location.hash.length > 1) openPanel(decodeURIComponent(location.hash.slice(1)));
+
+// hover a name on any card: every card of that agent stays lit, the rest step back
+const boardEl = $('board');
+boardEl.addEventListener('mouseover', e => {
+  const w = e.target.closest('.who'); if (!w) return;
+  const n = w.dataset.agent;
+  boardEl.classList.add('hl');
+  boardEl.querySelectorAll('.card').forEach(c => c.classList.toggle('hl', c.dataset.agent === n));
+});
+boardEl.addEventListener('mouseout', e => {
+  if (!e.target.closest('.who') || e.relatedTarget?.closest?.('.who')) return;
+  boardEl.classList.remove('hl'); boardEl.querySelectorAll('.card.hl').forEach(c => c.classList.remove('hl'));
+});
 </script>
 </body>
 </html>

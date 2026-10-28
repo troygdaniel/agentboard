@@ -134,7 +134,7 @@ def cmd_list(a):
         stale = idle is not None and idle >= threshold
         if a.stale and not stale:
             continue
-        who = f"  [{t['agent']}]" if t.get("agent") else ""
+        who = f"  [{t.get('agent') or 'Unassigned'}]"
         flag = f"  ⚠ STALE ({int(idle)}m idle)" if stale else ""
         sub = t.get("parent_id") in ids
         n, d = counts.get(t["id"], (0, 0))

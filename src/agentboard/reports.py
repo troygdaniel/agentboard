@@ -283,7 +283,7 @@ def build_html(task, board_dir, run=None, git=None, extras="", now=None):
     cost = ""
     if run and isinstance(run.get("cost_usd"), (int, float)):
         cost = f"run ${run['cost_usd']:.2f} · {int(run.get('duration_s') or 0)}s"
-    chips = [f"<code>{e(tid)}</code>", e(task.get("agent") or "no agent"), f'<span class="chip state">{state}</span>', e((now or datetime.now()).strftime("%d %b %H:%M"))] + ([e(cost)] if cost else [])
+    chips = [f"<code>{e(tid)}</code>", e(task.get("agent") or "Unassigned"), f'<span class="chip state">{state}</span>', e((now or datetime.now()).strftime("%d %b %H:%M"))] + ([e(cost)] if cost else [])
     tiles = [_tile(len(commits_l), "commits")] if git else []
     for t in tests[:2]:
         failed = bool(re.search(r"fail", t, re.I))
