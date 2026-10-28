@@ -82,10 +82,15 @@ For a Claude Code terminal (ORCH or an agent): `agentboard dictate` (Enter, spea
 
 ### Done summary
 
-**Summary** on the Done column header (and `/summary?since=1d|7d|30d|all&project=<id>`) turns the finished cards into one page to read or share:
-grouped by project and day, a plain-words headline per project, one line per card (title plus the agent's one sentence), the counts, cards closed
-per day stacked by agent, and a lane per agent. **Copy text** puts the same summary on the clipboard as markdown; **Save as HTML** downloads the page.
-On the command line: `agentboard summary [--since 7d] [--project <id>] [--html <path>]`.
+**Summary** on the Done column header (and `/summary?since=1d|7d|30d|all&project=<id>`) turns the finished cards into one page about the work
+itself, not the management of it: one number and three plain facts; a bar of the kinds of change (added, fixed, improved, tested, documented,
+explored, found from the card titles and asks); a **work map** (projects split into work areas found from shared title words, sized by cards,
+washed with the main kind of change; click an area for its cards); then each project as collapsed work areas. A card row is the title and the
+outcome in one line (numbers in bold) and opens to what was asked, the full result, the timeline and links to the board card and its report.
+The search box and a click on a kind scope the whole page. Everything is drawn in the page itself (inline SVG, no outside scripts), both themes,
+phone width. **Copy text** puts the summary on the clipboard as markdown, **Copy Mermaid** a mindmap of projects and areas to paste where
+Mermaid renders (GitHub, Obsidian, Notion), **Save as HTML** downloads the page.
+On the command line: `agentboard summary [--since 7d] [--project <id>] [--html <path>] [--mermaid]`.
 
 **Keep it simple.** The ORCH prompt carries a named `Keep it simple` block (one sentence, one idea, detail on demand) that ORCH copies into every card description and assignment it writes. It is instructed, not checked. `update`, `ask` and `review` take `--body` / `--body-file`, or a multi-line text whose first line is the sentence and the rest the body; the card shows the sentence large and the rest behind a collapsed **Details** fold.
 

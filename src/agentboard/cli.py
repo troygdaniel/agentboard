@@ -249,12 +249,14 @@ def cmd_report(a):
 
 
 def cmd_summary(a):
-    """The Done cards grouped by project and day: plain text on stdout, or a self-contained HTML page with --html."""
+    """The Done cards by project and work area: plain text on stdout, a Mermaid mindmap with --mermaid, or a self-contained HTML page with --html."""
     data = summarylib.build(_store(), a.since, a.project)
     if a.html:
         path = Path(a.html).expanduser()
         path.write_text(summarylib.build_html(data))
         print(f"wrote {path}")
+    elif a.mermaid:
+        print(summarylib.to_mermaid(data), end="")
     else:
         print(summarylib.to_text(data), end="")
 
@@ -1031,10 +1033,11 @@ def main(argv=None):
     sp.add_argument("--apply", action="store_true", help="merge them (a snapshot is taken first); without it only lists them")
     sp = add("report", cmd_report, "markdown recap of what was completed today (or --date), by agent — for a standup or daily log")
     sp.add_argument("--date", help="YYYY-MM-DD (default: today)")
-    sp = add("summary", cmd_summary, "the finished (Done) cards grouped by project and day, as text or a shareable HTML page")
+    sp = add("summary", cmd_summary, "the finished (Done) cards by project and work area, as text, a Mermaid mindmap or a shareable HTML page")
     sp.add_argument("--since", default=summarylib.DEFAULT_SINCE, help="1d (today), 7d (default), 30d or all")
     sp.add_argument("--project", help="only this project id")
     sp.add_argument("--html", metavar="PATH", help="write a self-contained HTML page to PATH instead of printing text")
+    sp.add_argument("--mermaid", action="store_true", help="print a Mermaid mindmap (projects and work areas) instead of text")
     sp = add("dictate", cmd_dictate, "speak instead of type: records the mic, transcribes on this Mac (whisper.cpp), puts the text on the clipboard")
     sp.add_argument("--paste", action="store_true", help="after 3 seconds press Cmd+V in the window you click (needs Accessibility for the terminal)")
     sp.add_argument("--file", help="transcribe this audio file instead of recording")
