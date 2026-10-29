@@ -1,10 +1,8 @@
 """Assign from the board: a queued card gets a holder, the chat tells ORCH, /api/agents lists who is free first."""
 import json
-import os
 import tempfile
 import unittest
 from pathlib import Path
-from unittest import mock
 
 from agentboard.store import BoardError, Store
 
