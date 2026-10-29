@@ -11,7 +11,7 @@ import json
 import re
 from datetime import date, timedelta
 
-from . import hud
+from . import hud, nav
 from .store import BoardError
 
 DEFAULT_SINCE = "7d"
@@ -478,7 +478,7 @@ $('#copy').onclick = async () => {
 };
 $('#save').onclick = () => {
   const doc = document.documentElement.cloneNode(true);
-  doc.querySelectorAll('.acts,.filters,script,#msg').forEach(n => n.remove());
+  doc.querySelectorAll('.acts,.filters,script,#msg,.ab-top').forEach(n => n.remove());
   const blob = new Blob(['<!doctype html>' + doc.outerHTML], { type: 'text/html' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob); a.download = 'done-summary.html'; a.click();
@@ -680,10 +680,10 @@ def build_html(data, base=""):
     seg = "".join(f'<a href="{e(base)}/summary?since={v}{qp}"{" class=on" if v == cur else ""}>{lab}</a>'
                   for v, lab in (("1d", "Today"), ("7d", "7 days"), ("30d", "30 days"), ("all", "All")))
     parts = ['<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex">',
-             f'<title>Done summary</title><style>{CSS}</style></head><body data-total="{data["total"]}"><main>',
+             f'<title>Done summary</title><style>{CSS}{nav.CSS}</style></head><body data-total="{data["total"]}">{nav.top_bar(base, "summary", _span(data))}<main>',
              f'<div class="top"><div><h1>Done summary</h1><p class="meta">{e(_span(data))}</p></div>'
              '<div class="acts"><button id="copy" type="button">Copy text</button><button id="copymm" type="button" title="A Mermaid mindmap of projects and work areas">Copy Mermaid</button><button id="save" type="button">Save as HTML</button>'
-             f'<a class="btn" href="{e(base)}/">Board</a></div></div><p id="msg" role="status"></p>'
+             '</div></div><p id="msg" role="status"></p>'
              f'<div class="filters"><div class="seg">{seg}</div><input id="q" type="search" placeholder="Search the work" aria-label="Search the work"><button id="clear" type="button">Clear</button></div>']
     if not data["total"]:
         parts.append('<p class="none">Nothing finished in this window.</p>')
