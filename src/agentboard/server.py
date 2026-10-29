@@ -193,6 +193,13 @@ def make_handler(default_store, port):
                 data = hud.build(self.store.load(), abandoned_min=hud.stale_minutes(conf), retired=hud.retired(conf), roster=hud.roster(conf))
                 data["backup"] = self.store.backups.status()   # {last_backup_min, snapshots, last_sync, sync_dir}: the HUD's "backup N min ago" chip
                 self._send(200, data)
+            elif url.path == "/api/agents":
+                # who a card can be handed to: every agent the HUD knows plus the [orch] roster, idle first, then the least loaded
+                conf = _config(self.store)
+                agents = hud.build(self.store.load(), abandoned_min=hud.stale_minutes(conf), retired=hud.retired(conf), roster=hud.roster(conf))["agents"]
+                rank = {"idle": 0, "review": 1, "working": 2, "quiet": 3, "waiting": 4, "abandoned": 5}
+                agents.sort(key=lambda a: (rank.get(a["state"], 9), a["open"], a["name"]))
+                self._send(200, {"agents": [{"name": a["name"], "color": a["color"], "state": a["state"], "open": a["open"], "task": a["task"] if a["state"] != "idle" else ""} for a in agents]})
             elif url.path == "/api/config":
                 conf = _config(self.store)
                 self._send(200, {"dispatch": bool(conf.get("ui", {}).get("dispatch", True)),
@@ -249,6 +256,12 @@ def make_handler(default_store, port):
                 elif path == "/api/project-delete":
                     self.store.delete_project(body["id"])
                     self._send(200, {"ok": True})
+                elif path == "/api/assign":
+                    agent = body.get("agent")
+                    if agent is not None and not isinstance(agent, str):
+                        raise BoardError("agent must be a string")
+                    color = body.get("color")
+                    self._send(200, self.store.assign(body["id"], agent, color if isinstance(color, str) else None))
                 elif path == "/api/task-project":
                     t = self.store.set_project(body["id"], body.get("project_id"))
                     self._send(200, t)

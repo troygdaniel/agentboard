@@ -340,6 +340,29 @@
   .copy.copied .cp-x, .copy.copied:hover .cp-ok, .copy.copied:focus-visible .cp-ok { display: none; }
   .copy.copied:hover .cp-x, .copy.copied:focus-visible .cp-x { display: inline; }
   .copy.copied:hover, .copy.copied:focus-visible { color: var(--text); border-color: var(--neutral); background: var(--chip); }
+  /* Assign: hand a queued card to an agent from the card itself. The picker lists idle agents first (a hollow ring),
+     then busy ones with what they hold; one popover for the page, anchored under the button that opened it. */
+  .card-act.assign { color: var(--text); border-color: color-mix(in srgb, var(--accent) 30%, var(--line)); }
+  .card-act.assign.has { color: var(--muted); }
+  #assign-pop { position: fixed; z-index: 15; min-width: 240px; max-width: min(360px, calc(100vw - 24px)); padding: 6px; border-radius: 12px;
+    background: var(--surface); border: 1px solid var(--line); box-shadow: inset 0 1px 0 var(--card-hi), var(--shadow-hover), 0 18px 40px -20px rgba(0,0,0,.45); }
+  #assign-pop[hidden] { display: none; }
+  .ap-h { display: flex; align-items: center; gap: 8px; padding: 6px 8px 4px; font-size: var(--fs-xs); font-weight: 600; letter-spacing: var(--tr-label); text-transform: uppercase; color: var(--muted); }
+  .ap-h .cnt { background: var(--chip); border-radius: 999px; padding: 0 7px; letter-spacing: 0; line-height: 18px; font-variant-numeric: tabular-nums; box-shadow: inset 0 0 0 1px var(--line); }
+  .ap-row { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: 4px 10px; align-items: center; width: 100%; padding: 7px 10px 7px 8px; border: 0; border-radius: 8px;
+    background: none; font: inherit; color: var(--text); cursor: pointer; text-align: left; min-height: 36px; }
+  .ap-row:hover, .ap-row:focus-visible { background: var(--chip); outline: none; }
+  .ap-row .av { --c: var(--neutral); width: 22px; height: 22px; }
+  .ap-row.idle .av { background: transparent; box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--c) 70%, var(--line)); }
+  .ap-row .nm { font-weight: 600; font-size: var(--fs-md); white-space: nowrap; }
+  .ap-row .nm.cur::after { content: ' ✓'; color: var(--ok); }
+  .ap-row .st { grid-column: 2 / span 2; font-size: var(--fs-xs); color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ap-row .tag { font-size: var(--fs-xs); font-weight: 600; letter-spacing: var(--tr-tight); text-transform: uppercase; color: var(--muted); white-space: nowrap; }
+  .ap-row.idle .tag { color: var(--ok); }
+  .ap-row.waiting .tag, .ap-row.abandoned .tag { color: var(--err); } .ap-row.quiet .tag { color: var(--warn); } .ap-row.review .tag { color: var(--ok); }
+  .ap-row.none { color: var(--muted); border-top: 1px solid var(--line); border-radius: 0 0 8px 8px; margin-top: 4px; }
+  .ap-empty { padding: 8px 10px 10px; font-size: var(--fs-sm); color: var(--muted); max-width: 300px; }
+  .ap-empty code { font-size: var(--fs-xs); }
   .drop { height: 2px; background: var(--accent); border-radius: 1px; margin: -5px 0; pointer-events: none; }
   .more { font-size: var(--fs-sm); color: var(--muted); background: none; border: 0; padding: 6px 10px 2px; cursor: pointer; text-align: left; flex: none; }
   .more:hover { color: var(--text); }
@@ -1038,6 +1061,8 @@
 </div>
 
 
+<div id="assign-pop" role="dialog" aria-label="Assign to an agent" hidden></div>
+
 <div id="toast" role="status" aria-live="polite">
   <div class="toast-row"><span id="toast-text"></span><button id="toast-undo">Undo</button></div>
   <div class="toast-bar"><b id="toast-cd"></b></div>
@@ -1213,7 +1238,9 @@ function card(t) {
   const laterBtn = todo ? `<button class="card-act" data-later="${esc(t.id)}" title="Move to Later (backlog)"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 3v7m0 0L5 7m3 3l3-3M3 13h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Later</button>` : '';
   const toTodoBtn = backlog ? `<button class="card-act" data-to-todo="${esc(t.id)}" title="Move to Todo"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 13V6m0 0L5 9m3-3l3 3M3 3h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Move to Todo</button>` : '';
   const queued = todo ? `<span class="when"><svg width="11" height="11" viewBox="0 0 16 16" fill="none" aria-hidden="true" style="vertical-align:-1px;margin-right:4px"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5"/><path d="M8 5v3l2 1.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>queued ${a.text}</span>` : when;
-  const meta = !who && (queued || laterBtn || toTodoBtn) ? `<div class="meta">${laterBtn}${toTodoBtn}${queued}</div>` : '';
+  // hand the card to an agent from here; once it has a holder the button reads as a quiet "change" and the top row shows who
+  const assignBtn = todo ? `<button class="card-act assign ${t.agent ? 'has' : ''}" data-assign="${esc(t.id)}" aria-haspopup="dialog" title="${t.agent ? 'Assigned to ' + esc(t.agent) + '. Click to change' : 'Hand this card to an agent'}"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="6.5" cy="5.5" r="2.6" stroke="currentColor" stroke-width="1.5"/><path d="M2 13.5c.4-2.7 2.2-4 4.5-4s4.1 1.3 4.5 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M12 5.5v4M10 7.5h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>${t.agent ? 'Reassign' : 'Assign'}</button>` : '';
+  const meta = (todo || backlog || !who) && (queued || laterBtn || toTodoBtn || assignBtn) ? `<div class="meta">${assignBtn}${laterBtn}${toTodoBtn}${who ? '' : queued}</div>` : '';
   const nSubs = t.subs_total || 0;   // a parent's % is the computed mean of its subtasks (Σ), and its one bar is the segmented toggle
   const line = doing && nSubs && !t.needs_input && !t.review ? parentLine(t) : t.status_text;   // a question or review request is never replaced by a subtask's note
   const note = doing ? `<div class="note"><span title="${esc(line)}">${esc(line)}</span><span class="pct ${nSubs ? 'computed' : ''}">${t.progress || 0}%</span></div>`
@@ -1871,7 +1898,7 @@ $('p-move').addEventListener('click', async e => {
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && openId && !$('add').classList.contains('open')) closePanel(); });
 document.addEventListener('click', e => {
   if (!e.target.isConnected) return;    // the click re-rendered its own button; not an outside click
-  if (openId && !e.target.closest('#panel, .card, #theme, #add, #toast, #move')) closePanel();
+  if (openId && !e.target.closest('#panel, .card, #theme, #add, #toast, #move, #assign-pop')) closePanel();
   if ($('later').classList.contains('open') && !e.target.closest('#later, #later-btn, #toast, .card')) $('later').classList.remove('open');
   if ($('chat').classList.contains('open') && !e.target.closest('#chat, #chat-btn, #toast')) $('chat').classList.remove('open');
 });
@@ -2568,6 +2595,8 @@ $('board').addEventListener('click', async e => {
     } catch (err) { showError('Could not clear: ' + err.message); }
     raw = ''; load(); return;
   }
+  const asg = e.target.closest('[data-assign]');
+  if (asg) { if (assignFor === asg.dataset.assign) closeAssign(); else openAssign(asg, asg.dataset.assign); return; }
   const lb = e.target.closest('[data-later]');
   if (lb) { move(lb.dataset.later, 'backlog'); return; }
   const md = e.target.closest('[data-done]');
@@ -2598,6 +2627,50 @@ $('board').addEventListener('click', async e => {
   } catch (err) { btn.textContent = 'Failed'; showError('Copy failed: ' + err.message); }
   setTimeout(() => { btn.textContent = 'Copy prompt'; }, 1800);
 });
+
+// --- Assign: the picker. One fetch of /api/agents per open (idle first, then the least loaded); a click posts /api/assign.
+// The hook on the server side posts one line to the shared chat so ORCH knows to hand the card over. ---
+let assignFor = null;
+const STATE_WORD = { idle: 'idle', working: 'working', quiet: 'quiet', waiting: 'asking', review: 'in review', abandoned: 'quiet' };
+async function openAssign(btn, id) {
+  assignFor = id;
+  const pop = $('assign-pop'), r = btn.getBoundingClientRect();
+  pop.innerHTML = `<div class="ap-h">Assign to</div><div class="ap-empty">Loading…</div>`;
+  pop.hidden = false;
+  const x = Math.min(r.left, window.innerWidth - 12 - Math.min(360, window.innerWidth - 24));
+  pop.style.left = Math.max(12, x) + 'px'; pop.style.top = Math.min(r.bottom + 6, window.innerHeight - 60) + 'px';
+  let agents = [];
+  try { agents = (await (await fetch('/api/agents', { cache: 'no-store' })).json()).agents || []; } catch (e) { agents = []; }
+  if (assignFor !== id) return;
+  const cur = byId.get(id)?.agent || '';
+  const idle = agents.filter(a => a.state === 'idle').length;
+  const rows = agents.map(a => `<button class="ap-row ${esc(a.state)}" data-assign-name="${esc(a.name)}" data-assign-color="${esc(a.color || '')}" role="menuitem">
+      <span class="av" style="--c:${hudColor(a.color || 'var(--neutral)')}" aria-hidden="true">${esc(nodeGlyph(a.name))}</span><span class="nm ${a.name === cur ? 'cur' : ''}">${esc(a.name)}</span>
+      <span class="tag">${esc(STATE_WORD[a.state] || a.state)}${a.state !== 'idle' && a.open > 1 ? ' · ' + a.open : ''}</span>${a.task ? `<span class="st" title="${esc(a.task)}">${esc(a.task)}</span>` : ''}</button>`).join('');
+  pop.innerHTML = `<div class="ap-h">Assign to <span class="cnt">${idle} free</span></div>` + (rows || `<div class="ap-empty">No agents yet. Name them under <code>[orch] agents</code> in config.toml, or they appear once they run <code>agentboard start</code>.</div>`)
+    + (cur ? `<button class="ap-row none" data-assign-name="" role="menuitem"><span class="av" aria-hidden="true">–</span><span class="nm">Unassign</span><span class="tag">back to the queue</span></button>` : '');
+  if (btn.isConnected) pop.style.top = Math.min(btn.getBoundingClientRect().bottom + 6, window.innerHeight - pop.offsetHeight - 12) + 'px';
+  pop.querySelector('.ap-row')?.focus();
+}
+function closeAssign() { assignFor = null; const pop = $('assign-pop'); if (!pop.hidden) { pop.hidden = true; pop.innerHTML = ''; } }
+$('assign-pop').addEventListener('click', async e => {
+  const row = e.target.closest('[data-assign-name]'); if (!row || !assignFor) return;
+  const id = assignFor, name = row.dataset.assignName, color = row.dataset.assignColor;
+  closeAssign();
+  try {
+    await api('/api/assign', { id, agent: name || null, color: color || null });
+    showError('');
+    toast(name ? `Assigned “${byId.get(id)?.title || id}” to ${name} — ORCH has been told` : `Unassigned “${byId.get(id)?.title || id}”`);
+  } catch (err) { showError('Could not assign: ' + err.message); }
+  raw = ''; load();
+});
+$('assign-pop').addEventListener('keydown', e => {
+  const rows = [...$('assign-pop').querySelectorAll('.ap-row')], i = rows.indexOf(document.activeElement);
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); rows[(i + (e.key === 'ArrowDown' ? 1 : rows.length - 1)) % rows.length]?.focus(); }
+  else if (e.key === 'Escape') { e.stopPropagation(); closeAssign(); }
+});
+document.addEventListener('click', e => { if (assignFor && !e.target.closest('#assign-pop, [data-assign]')) closeAssign(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && assignFor) closeAssign(); }, true);
 
 // --- ORCH: copy a boot prompt for the orchestrator session, built from live board state at click time ---
 $('orch-btn').addEventListener('click', async () => {

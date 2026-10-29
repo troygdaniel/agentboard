@@ -307,6 +307,35 @@ class Store:
             _recompute(tasks, t)
             return t
 
+    def assign(self, task_id, name, color=None, by="Troy"):
+        """Troy hands a queued card to an agent from the board: the card keeps its column (Todo or Later) and shows the
+        agent as its holder until that agent claims it. name=None takes the assignment off again.
+
+        The hook: ORCH follows the shared chat (`agentboard chat tail --follow`), so one line goes there naming the card
+        and the agent, which is how ORCH knows to hand the card over. Nothing else is called."""
+        name = (name or "").strip() or None
+        with self.transaction() as tasks:
+            t = self.get(tasks, task_id)
+            if t["status"] not in ("todo", "backlog"):
+                raise BoardError(f"{task_id} is in {t['status']}; only a queued card (Todo or Later) can be assigned")
+            if t.get("parent_id"):
+                raise BoardError("assign the parent card; its subtasks follow it")
+            was = t.get("agent")
+            if name == was and (not color or color == t.get("color")):
+                return t
+            if name:
+                t["agent"] = name
+                if color:
+                    t["color"] = color
+                _log(t, f"Assigned to {name}", by=by)
+            else:
+                t.pop("agent", None)
+                _log(t, "Assignment removed", by=by)
+            t["updated"] = _now()
+        self.chat_send(by, f"ORCH: {by} assigned {task_id} to {name}; hand it over." if name
+                       else f"ORCH: {by} took {task_id} back from {was or 'its agent'}; it is unassigned.", "user")
+        return t
+
     def ask(self, task_id, question, body_md=None):
         """Agent flags that it is blocked on the user. Cleared by the next update.
 
