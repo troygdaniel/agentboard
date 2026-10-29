@@ -102,7 +102,7 @@ class Collect(unittest.TestCase):
         self.assertIn("    Pakled 3\n      Relay 3", mm)
         page = summary.build_html(d, "/b/x")
         for s in ("Done summary", "Fix the relay", "What kind of work", "Where the work went", 'class="map"', 'id="copy"', 'id="copymm"', 'id="save"',
-                  "/b/x/summary?since=30d", "data-theme", "/b/x/#a", "/b/x/reports/a-1.html", "<h4>Asked</h4>", "<h4>Timeline</h4>", "halfway"):
+                  "/b/x/summary?since=30d", "data-theme", "/b/x/#a", "/b/x/reports/a-1.html", "<h4>Asked</h4>", "<h4>How it went</h4>", "doing 30 min", "<summary>Timeline</summary>", "halfway"):
             self.assertIn(s, page)
         self.assertIn("Nothing finished", summary.build_html({**summary.collect([], [], "1d", today=TODAY), "project": ""}))
 
@@ -121,6 +121,34 @@ class Collect(unittest.TestCase):
         self.assertIn(f"<summary>{9 - summary.OTHER_SHOWN} more</summary>", page)
         txt = summary.to_text(summary.collect([task(f"m{i}", f"Card {i}", "2026-10-28") for i in range(15)], [], "1d", today=TODAY))
         self.assertIn("...and 3 more.", txt)
+
+    def test_blobs_become_steps_bands_or_lines(self):
+        steps = summary.blocks("Let Troy speak: 1) a mic button on the board (local only); 2) dictate into a terminal; 3) keep replies short. Nothing bought without Troy's words.")
+        self.assertEqual(steps[0][0], "steps")
+        self.assertEqual(steps[0][1], "Let Troy speak")
+        self.assertEqual([summary._short(i) for i in steps[0][2]], ["mic button on the board", "dictate into a terminal", "keep replies short"])
+        self.assertEqual(steps[0][3], "Nothing bought without Troy's words.")
+        self.assertEqual(summary.blocks("ACTION Troy: reinstall. STATUS x done-ready, pushed. WHY nothing."), [("bands", [("Action", "Troy: reinstall."), ("Status", "x done-ready, pushed."), ("Why", "nothing.")])])
+        self.assertEqual(summary.blocks("Pushed; 12 tests pass. Verified live. ORCH to restart."), [("lines", ["Pushed; 12 tests pass.", "Verified live.", "ORCH to restart."])])
+        self.assertEqual(summary.blocks("one short thing"), [("p", "one short thing")])
+        self.assertEqual(summary.blocks(""), [])
+        line = summary._inline("Troy: edit src/agentboard/voice.py, run --paste in 2 min <b>")
+        self.assertIn('<span class="who-chip">Troy</span>', line)
+        self.assertIn("<code>src/agentboard/voice.py</code>", line)
+        self.assertIn("<code>--paste</code>", line)
+        self.assertIn("<b>2 min</b>", line)
+        self.assertIn("&lt;b&gt;", line)
+        self.assertNotIn("<code>", summary._inline("the ask/review boxes"))
+        self.assertIn("<li><div>", summary._render("Do: 1) one thing; 2) another thing."))
+
+    def test_journey_from_the_log(self):
+        from datetime import datetime
+        log = [{"at": datetime(2026, 10, 28, 9), "status": "todo"}, {"at": datetime(2026, 10, 28, 11), "status": "doing"},
+               {"at": datetime(2026, 10, 28, 11, 40), "status": "doing"}, {"at": datetime(2026, 10, 28, 14, 40), "status": "done"}]
+        self.assertEqual(summary.journey(log), [("todo", 7200.0), ("doing", 13200.0)])
+        self.assertEqual(summary.journey([]), [])
+        self.assertIn("doing 3.7 h", summary._journey(log))
+        self.assertEqual([summary._dur(x) for x in (30, 90, 5400, 100000)], ["<1 min", "2 min", "1.5 h", "1.2 d"])
 
     def test_squarify_fills_the_rectangle(self):
         r = summary.squarify([("a", 6), ("b", 3), ("c", 1)], 0, 0, 100, 50)

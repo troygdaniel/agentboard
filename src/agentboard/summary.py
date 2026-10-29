@@ -108,6 +108,7 @@ def _card(t, at):
             continue
         log.append({"at": hud._t(entry.get("at")), "status": str(entry.get("status") or ""), "progress": entry.get("progress"), "text": str(entry.get("text") or "")})
     desc = re.sub(r"[ \t]+\n", "\n", str(t.get("description") or "")).strip()
+    desc = re.sub(r"^\([^)]*\)[,.]?\s*(\w+ slice\.\s*)?", "", desc)      # "(your worktree), places slice." preamble
     if len(desc) > DESC_MAX:
         desc = desc[:DESC_MAX - 1].rstrip() + "…"
     report = t.get("report") if isinstance(t.get("report"), dict) else {}
@@ -418,12 +419,25 @@ details.theme>summary:hover{{background:var(--bg)}}details.theme>summary::before
 details.cd{{border-top:1px solid var(--line)}}details.cd summary{{list-style:none;display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:baseline;padding:7px 0;cursor:pointer;min-height:40px}}
 summary::-webkit-details-marker{{display:none}}.cd summary:hover{{background:var(--bg)}}
 .tag{{display:inline-flex;gap:5px;align-items:center;font-size:11px;color:var(--mut);width:6.2rem;white-space:nowrap}}.tag i{{width:9px;height:9px;border-radius:3px;background:var(--c);display:block;flex:none}}
-.cd .t{{min-width:0}}.cd .t b{{font-weight:600;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}}.cd[open] .t b{{display:block}}.cd .t span{{display:block;color:var(--mut);font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
+.cd .t{{min-width:0}}.cd .t>b{{font-weight:600;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}}.cd[open] .t>b{{display:block}}.cd .t span{{display:block;color:var(--mut);font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
 .cd .t span b{{font-weight:600;color:var(--fg)}}.cd[open] .t span{{white-space:normal}}.cd .who{{font-size:12px;color:var(--mut);white-space:nowrap;font-variant-numeric:tabular-nums}}
-.cd .body{{padding:2px 0 12px 0;font-size:14px}}.body h4{{margin:8px 0 2px;font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--mut);font-weight:600}}
-.body p{{margin:0;white-space:pre-wrap;overflow-wrap:anywhere}}.body .desc{{color:var(--mut)}}
-.tl{{list-style:none;margin:2px 0 0;padding:0;border-left:2px solid var(--line)}}.tl li{{display:grid;grid-template-columns:3.4rem 3rem 1fr;gap:8px;padding:2px 0 2px 10px;font-size:13px;color:var(--mut);align-items:baseline}}
+.cd .body{{padding:2px 0 14px 0;font-size:15px;line-height:1.55;max-width:44rem}}.body h4{{margin:12px 0 4px;font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--mut);font-weight:600}}
+.body p{{margin:0 0 4px;overflow-wrap:anywhere}}.body .desc{{color:var(--fg)}}.body code{{font:13px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace;background:var(--bg);border:1px solid var(--line);border-radius:5px;padding:0 4px;overflow-wrap:anywhere}}
+.body b{{font-weight:600}}.body em{{font-style:italic;color:var(--mut)}}.body .aside{{color:var(--mut);font-size:13px}}.who-chip{{display:inline-block;font-size:12px;font-weight:600;border:1px solid var(--line);border-radius:99px;padding:0 8px;background:var(--bg)}}
+.ac{{--c:var(--ac)}}.ok{{--c:var(--ok)}}
+.lines,.items{{margin:0 0 4px;padding:0 0 0 1.2rem}}.lines li,.items li{{margin:0 0 4px;padding-left:2px}}.lines{{list-style:disc}}.items{{list-style:none;padding-left:0;counter-reset:it}}
+.items li{{display:grid;grid-template-columns:1.5rem 1fr;gap:6px;align-items:baseline}}.items li::before{{counter-increment:it;content:counter(it);font-size:12px;font-weight:600;color:var(--ac);border:1px solid var(--ac);border-radius:99px;width:1.4rem;height:1.4rem;display:inline-flex;align-items:center;justify-content:center}}
+.chain{{list-style:none;margin:4px 0 10px;padding:0;display:flex;gap:4px 0;flex-wrap:wrap;align-items:stretch}}.chain li{{display:flex;gap:8px;align-items:center;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:6px 12px 6px 8px;font-size:13px;max-width:16rem;position:relative;margin-right:22px}}
+.chain li b{{background:var(--ac);color:#fff;border-radius:99px;width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center;font-size:12px;flex:none}}
+.chain li:not(:last-child)::after{{content:"";position:absolute;right:-16px;top:50%;width:10px;height:10px;border-top:2px solid var(--mut);border-right:2px solid var(--mut);transform:translateY(-50%) rotate(45deg)}}
+.bands{{display:grid;gap:4px;margin:0 0 4px}}.band{{display:grid;grid-template-columns:4.6rem 1fr;gap:8px;padding:6px 10px;border-radius:8px;background:var(--bg);border-left:4px solid var(--c, var(--line))}}
+.band>span{{font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--mut);padding-top:3px}}.band-action{{--c:var(--ac)}}.band-status{{--c:var(--ok)}}.band-why{{--c:var(--gr)}}
+.journey{{display:flex;gap:2px;height:12px;border-radius:4px;overflow:hidden;background:var(--bg);margin:2px 0 0}}.journey i{{display:block;background:var(--c);min-width:3px}}
+.jl{{display:flex;gap:4px 14px;flex-wrap:wrap;font-size:12px;color:var(--mut);margin:4px 0 0}}.jl i,.tl i{{display:inline-block;width:8px;height:8px;border-radius:2px;background:var(--c);margin-right:5px;vertical-align:baseline}}.jl .tot{{margin-left:auto;color:var(--fg)}}
+.tld{{margin:6px 0 0}}.tld summary{{cursor:pointer;color:var(--mut);font-size:13px;min-height:32px;display:flex;align-items:center;list-style:none}}.tld summary::before{{content:"▸ ";color:var(--mut)}}.tld[open] summary::before{{content:"▾ "}}
+.tl{{list-style:none;margin:2px 0 0;padding:0;border-left:2px solid var(--line)}}.tl li{{display:grid;grid-template-columns:5.2rem 6.4rem 1fr;gap:8px;padding:2px 0 2px 10px;font-size:13px;color:var(--mut);align-items:baseline}}
 .tl li b{{color:var(--fg);font-weight:500;font-variant-numeric:tabular-nums}}.tl li span{{overflow-wrap:anywhere}}.links{{margin:10px 0 0;display:flex;gap:14px;flex-wrap:wrap}}.links a{{color:var(--ac)}}
+@media(max-width:600px){{.tl li{{grid-template-columns:1fr;gap:0}}.band{{grid-template-columns:1fr}}}}
 details.more summary{{cursor:pointer;color:var(--mut);font-size:14px;min-height:36px;display:flex;align-items:center;list-style:none}}
 .none{{color:var(--mut)}}#msg{{color:var(--mut);font-size:14px;margin:8px 0 0}}[hidden]{{display:none!important}}
 @media(max-width:600px){{.tag{{width:auto}}.tag span{{display:none}}.cd .who{{display:none}}}}
@@ -485,6 +499,126 @@ def _slot(kind):
     return f"s{KIND_SLOT[kind]}" if kind in KIND_SLOT else "sg"
 
 
+# -- readable text: a blob becomes steps, bands or one sentence per line, with the code-ish bits and numbers marked ----------------
+CODE = re.compile(r"(?<![\w/`])((?:~?/)?(?:[\w.-]+/){1,}[\w.-]+|[\w-]+\.(?:py|js|ts|md|html|json|toml|yml|yaml|sh|css|txt|csv|svg|sql)\b|--[\w-]+|[A-Z][A-Z0-9_]{2,}=[^\s,;)]+|/api/[\w/-]+|`[^`]+`)")
+WHO = re.compile(r"^(Troy|ORCH|AGENT-\d+|GENERAL)(:\s*)")
+ASIDE = re.compile(r"\((?:[^()]|\([^()]*\)){14,}\)")
+QUOTE = re.compile(r"(?<![\w])'([^'\n]{2,80})'(?![\w])|\"([^\"\n]{2,80})\"")
+ENUM = re.compile(r"(?:(?<=\s)|^)\(?(\d{1,2})[).:]\s+(?=\S)")
+SENT = re.compile(r"(?<=[.!?])\s+(?=[A-Z(\"'])")
+STATUS_SLOT = {"todo": "sg", "backlog": "sg", "later": "sg", "doing": "ac", "needs_input": "s1", "review": "s6", "done": "ok"}
+
+
+def _inline(text):
+    """HTML for one line of agent text: escaped, then numbers bold, paths/flags/files as code, quotes in italics, asides muted, a leading name as a chip."""
+    t = html.escape(text, quote=False)     # text nodes only, so quotes may stay (the quote regex needs them)
+
+    def code(m):
+        s = m.group(1)
+        if "/" in s and not s.startswith(("/", "~")) and "." not in s and s.count("/") < 2:
+            return s       # "ask/review" is words, not a path
+        return "<code>" + s.strip("`") + "</code>"
+    t = CODE.sub(code, t)
+    t = NUM.sub(r"<b>\1</b>", t)
+    t = QUOTE.sub(lambda m: "<em>" + (m.group(1) or m.group(2)) + "</em>", t)
+    t = ASIDE.sub(lambda m: '<span class="aside">' + m.group(0) + "</span>", t)
+    return WHO.sub(lambda m: f'<span class="who-chip">{m.group(1)}</span> ', t, count=1)
+
+
+def _short(item, words=6):
+    """A few words for a step box: the item up to its first clause break."""
+    s = re.split(r"[:;(]| (?:that|which|so|since|because|e\.g\.|i\.e\.) ", item, maxsplit=1)[0].strip(" .")
+    parts = s.split(", ")
+    if len(parts) > 1 and len(parts[0].split()) <= 3:      # "on the board, a mic button" starts with where, not what
+        parts = parts[1:]
+    s = re.sub(r"^(a|an|the|and|then|also)\s+", "", parts[0], flags=re.I)
+    ws = s.split()
+    return " ".join(ws[:words]) + ("…" if len(ws) > words else "")
+
+
+def blocks(text):
+    """Blocks for a blob of agent text: ('bands', [(label, text)]), ('steps', preamble, [items], tail), ('lines', [sentence]), ('p', text)."""
+    t = re.sub(r"\s+", " ", str(text or "")).strip()
+    if not t:
+        return []
+    m = re.search(r"\bACTION\b[:\s]*(.*?)\s*\bSTATUS\b[:\s]*(.*?)\s*\bWHY\b[:\s]*(.*)", t)
+    if m:
+        return [("bands", [("Action", m.group(1).strip()), ("Status", m.group(2).strip()), ("Why", m.group(3).strip())])]
+    marks = [(mm.start(), mm.end(), int(mm.group(1))) for mm in ENUM.finditer(t)]
+    marks = [mk for i, mk in enumerate(marks) if mk[2] == i + 1][: len(marks)]
+    if len(marks) >= 2 and marks[0][2] == 1 and all(mk[2] == i + 1 for i, mk in enumerate(marks)):
+        pre = t[:marks[0][0]].strip(" :;-")
+        items = [t[marks[i][1]:(marks[i + 1][0] if i + 1 < len(marks) else len(t))].strip(" ;,") for i in range(len(marks))]
+        tail = ""
+        last = SENT.split(items[-1])
+        if len(last) > 1 and len(last[-1]) > 24:     # a closing sentence after the last item is not part of it
+            items[-1], tail = " ".join(last[:-1]), last[-1]
+        return [("steps", pre, items, tail)]
+    sents = [s.strip() for s in SENT.split(t) if s.strip()]
+    if len(sents) >= 2:
+        return [("lines", sents)]
+    if t.count("; ") >= 2:
+        return [("lines", [s.strip() for s in t.split("; ") if s.strip()])]
+    return [("p", t)]
+
+
+def _render(text):
+    """The HTML for a blob: steps as a numbered chain plus the full items, bands as labelled rows, else one sentence per line."""
+    out = []
+    for b in blocks(text):
+        if b[0] == "bands":
+            out.append('<div class="bands">' + "".join(f'<div class="band band-{lab.lower()}"><span>{lab}</span><div>{_inline(txt)}</div></div>' for lab, txt in b[1] if txt) + "</div>")
+        elif b[0] == "steps":
+            _k, pre, items, tail = b
+            if pre:
+                out.append(f'<p>{_inline(pre)}</p>')
+            out.append('<ol class="chain">' + "".join(f'<li><b>{i + 1}</b><span>{html.escape(_short(it))}</span></li>' for i, it in enumerate(items)) + "</ol>")
+            out.append('<ol class="items">' + "".join(f"<li><div>{_inline(it)}</div></li>" for it in items) + "</ol>")
+            if tail:
+                out.append(f'<p class="tail">{_inline(tail)}</p>')
+        elif b[0] == "lines":
+            out.append('<ul class="lines">' + "".join(f"<li>{_inline(s)}</li>" for s in b[1]) + "</ul>")
+        else:
+            out.append(f"<p>{_inline(b[1])}</p>")
+    return "".join(out)
+
+
+def _dur(sec):
+    if sec < 60:
+        return "<1 min"
+    if sec < 3600:
+        return f"{round(sec / 60)} min"
+    if sec < 86400:
+        h = sec / 3600
+        return f"{h:.1f} h".replace(".0 h", " h")
+    return f"{sec / 86400:.1f} d".replace(".0 d", " d")
+
+
+def journey(log):
+    """[(status, seconds)] the card spent in each status, from its log; [] when the log cannot say."""
+    pts = [(l["at"], l["status"]) for l in log if l.get("at") and l.get("status")]
+    out = []
+    for (a, s), (b, _n) in zip(pts, pts[1:]):
+        sec = max(0, (b - a).total_seconds())
+        if out and out[-1][0] == s:
+            out[-1] = (s, out[-1][1] + sec)
+        else:
+            out.append((s, sec))
+    return out if sum(s for _k, s in out) > 0 else []
+
+
+def _journey(log):
+    """A bar of how the card moved: one segment per status, as long as the time it stayed there, with a legend of the durations."""
+    segs = journey(log)
+    if not segs:
+        return ""
+    total = sum(s for _k, s in segs)
+    e = html.escape
+    bar = "".join(f'<i class="{STATUS_SLOT.get(k, "sg")}" style="flex:{max(s, total / 40):.0f}" title="{e(k)}: {_dur(s)}"></i>' for k, s in segs)
+    leg = "".join(f'<span><i class="{STATUS_SLOT.get(k, "sg")}"></i>{e(k.replace("_", " "))} {_dur(s)}</span>' for k, s in segs)
+    return f'<div class="journey" role="img" aria-label="Time in each status">{bar}</div><div class="jl">{leg}<span class="tot">{_dur(total)} in all</span></div>'
+
+
 def _kbar(kinds, total, label):
     e = html.escape
     segs = "".join(f'<i class="mark {_slot(k)}" data-kind="{e(k)}" style="flex:{n}" title="{e(k)}: {n} ({_pct(n, total)}%)"></i>' for k, n in ((k, kinds[k]) for k in kind_order(kinds)))
@@ -507,13 +641,13 @@ def _row(c, base):
     q = e((c["title"] + " " + c["line"] + " " + c["asked"] + " " + c["agent"]).lower(), quote=True)
     body = []
     if c["asked"] or c["description"]:
-        body.append(f'<h4>Asked</h4><p class="desc">{e(c["description"] or c["asked"])}</p>')
+        body.append(f'<h4>Asked</h4><div class="desc">{_render(c["description"] or c["asked"])}</div>')
     if c["result"]:
-        body.append(f'<h4>Result</h4><p>{e(c["result"])}</p>')
+        body.append(f'<h4>Result</h4>{_render(c["result"])}')
     if c["log"]:
-        items = "".join(f'<li><b>{e(l["at"].strftime("%d %b %H:%M")) if l["at"] else ""}</b><span>{e(l["status"])}{"" if l["progress"] is None else " " + str(l["progress"]) + "%"}</span><span>{e(l["text"])}</span></li>'
+        items = "".join(f'<li><b>{e(l["at"].strftime("%d %b %H:%M")) if l["at"] else ""}</b><span><i class="{STATUS_SLOT.get(l["status"], "sg")}"></i>{e(l["status"].replace("_", " "))}{"" if l["progress"] is None else " " + str(l["progress"]) + "%"}</span><span>{_inline(l["text"])}</span></li>'
                         for l in c["log"])
-        body.append(f'<h4>Timeline</h4><ul class="tl">{items}</ul>')
+        body.append(f'<h4>How it went</h4>{_journey(c["log"])}<details class="tld"><summary>Timeline</summary><ul class="tl">{items}</ul></details>')
     links = f'<a href="{e(base)}/#{e(c["id"])}">Open on the board</a>' + (f'<a href="{e(base)}/reports/{e(c["report"])}">Report</a>' if c["report"] else "")
     who = c["at"].strftime("%d %b") + (f' · {e(c["agent"])}' if c["agent"] else "")
     return (f'<details class="cd" data-kind="{e(c["kind"])}" data-q="{q}"><summary><span class="tag"><i class="{_slot(c["kind"])}"></i><span>{e(c["kind"])}</span></span>'
