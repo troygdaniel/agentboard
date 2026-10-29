@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Five UX ideas (ux-five)
+- **Your move strip.** Every card that needs you sits in one strip under the header, asks first, then reviews, then agents gone quiet, each with its action right there (Reply, Mark done, Send back, Open, To Todo) and a bar of how long it has waited. Hidden when nothing needs you.
+
 ### Keep it simple
 - The ORCH prompt (Copy ORCH, and the one-shot and instructions variants) gains a named `Keep it simple` block that ORCH must copy word for word into every card description and assignment it writes: one sentence, one idea, detail on demand. Instructed only; nothing checks it.
 - `agentboard update`, `ask` and `review` take a first line plus a body: `--body` / `--body-file`, or a multi-line text whose first line is the sentence and the rest the body. On the card the sentence is the large first line and the rest sits behind a collapsed `Details` fold.

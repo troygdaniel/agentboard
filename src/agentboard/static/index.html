@@ -892,6 +892,42 @@
     background: var(--surface); color: var(--text); font: var(--fs-md)/1.6 ui-monospace, Menlo, monospace; overflow-x: auto;
   }
   #error { color: var(--warn); font-size: var(--fs-md); margin-bottom: 16px; display: none; }
+  /* ----- Your move: every card that needs Troy, as one strip under the header, each with the action
+     it needs right there (answer, sign off, send back, hand back to the queue) — no hunting the columns.
+     Red = needs an answer (or an agent went quiet), green = ready for sign-off. Hidden when nothing needs him. ----- */
+  #move { display: none; flex: none; margin: -6px 0 16px; padding: 10px 12px 10px; border-radius: 14px;
+    border: 1px solid var(--line); background: var(--panel); box-shadow: inset 0 1px 0 var(--panel-hi), var(--panel-sh); position: relative; isolation: isolate; }
+  #move.on { display: block; }
+  #move::before { content: ''; position: absolute; inset: 0; border-radius: 14px; pointer-events: none; z-index: -1;
+    background: radial-gradient(60% 80% at 0% 50%, color-mix(in srgb, var(--err) 7%, transparent), transparent 70%); }
+  .mv-head { display: flex; align-items: center; gap: 8px; margin: 0 0 8px 2px; font-size: var(--fs-xs); font-weight: 600; letter-spacing: var(--tr-label); text-transform: uppercase; color: var(--text); }
+  .mv-head .cnt { background: var(--chip); border-radius: 999px; padding: 0 7px; line-height: 18px; letter-spacing: 0; font-variant-numeric: tabular-nums; box-shadow: inset 0 0 0 1px var(--line); }
+  .mv-head .mv-wait { margin-left: auto; font-weight: 500; letter-spacing: var(--tr-tight); text-transform: none; color: var(--muted); }
+  .mv-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 8px; }
+  .mv { --mc: var(--err); position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "av top acts" "av said acts" "av age acts"; gap: 5px 10px; align-items: center;
+    padding: 9px 12px 9px 16px; border-radius: 10px; background: var(--surface); border: 1px solid color-mix(in srgb, var(--mc) 32%, var(--line));
+    box-shadow: inset 0 1px 0 var(--card-hi), var(--shadow); cursor: pointer; min-width: 0; transition: border-color .12s, box-shadow .15s, transform .15s; }
+  .mv:hover { transform: translateY(-1px); box-shadow: inset 0 1px 0 var(--card-hi), var(--shadow-hover), 0 12px 28px -16px color-mix(in srgb, var(--mc) 60%, transparent); }
+  .mv:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .mv::after { content: ''; position: absolute; left: 1px; top: 10px; bottom: 10px; width: 3px; border-radius: 0 2px 2px 0; background: var(--mc); box-shadow: 0 0 10px var(--mc); }
+  .mv.review { --mc: var(--ok); } .mv.stale { --mc: var(--warn); }
+  .mv .av { grid-area: av; width: 26px; height: 26px; font-size: var(--fs-sm); }
+  .mv-top { grid-area: top; display: flex; align-items: center; gap: 8px; min-width: 0; font-size: var(--fs-sm); color: var(--muted); }
+  .mv-top .nm { color: var(--text); font-weight: 600; white-space: nowrap; }
+  .mv-kind { display: inline-flex; align-items: center; gap: 4px; color: var(--mc); font-size: var(--fs-xs); font-weight: 600; letter-spacing: var(--tr-tight); text-transform: uppercase; white-space: nowrap; }
+  .mv-kind svg { width: 11px; height: 11px; }
+  .mv-top .ttl { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mv-top .age { margin-left: auto; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .mv-said { grid-area: said; font-size: var(--fs-base); font-weight: 600; letter-spacing: -.005em; color: var(--mc); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+  .mv.stale .mv-said { color: var(--text); font-weight: 500; }
+  /* how long it has waited, against the longest wait on the strip: a glance says which is oldest */
+  .mv-age { grid-area: age; height: 3px; border-radius: 2px; background: var(--well); overflow: hidden; }
+  .mv-age b { display: block; height: 100%; width: var(--w, 0%); background: var(--mc); box-shadow: 0 0 8px -1px var(--mc); }
+  .mv-acts { grid-area: acts; display: flex; flex-direction: column; gap: 5px; align-items: stretch; }
+  .mv-acts .btn { font-size: var(--fs-sm); padding: 3px 10px; min-height: 26px; white-space: nowrap; }
+  .mv-acts .btn.go { border-color: var(--ok); color: var(--ok); } .mv-acts .btn.go:hover { background: color-mix(in srgb, var(--ok) 12%, transparent); }
+  @media (max-width: 900px) { .mv-list { grid-template-columns: 1fr; } .mv { grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "av top" "av said" "av age" "acts acts"; }
+    .mv-acts { flex-direction: row; margin-top: 3px; } .mv-acts .btn { flex: 1; min-height: 32px; } }
   /* stacked on a phone: the page scrolls as one, columns size to their cards */
   @media (max-width: 900px) {   /* below this three columns no longer fit (cards and the header overflowed at ~780px) */
     .wrap { height: auto; min-height: 100vh; padding: 16px 16px 40px; }
@@ -945,6 +981,10 @@
     <button class="btn primary">Add</button>
   </form>
   <div id="error" role="alert"></div>
+  <section id="move" aria-label="Your move: cards that need you">
+    <div class="mv-head">Your move <span class="cnt" id="mv-n"></span><span class="mv-wait" id="mv-wait"></span></div>
+    <div class="mv-list" id="mv-list"></div>
+  </section>
 
   <div id="welcome">
     <h2>No tasks yet</h2>
@@ -1201,6 +1241,58 @@ function toggleSubs(btn) {
 }
 const FLAG_LABEL = { needs_input: 'needs input', review: 'to review' };
 
+// --- Your move: the strip of cards that need a person, with the action each one needs ---
+const MV_ICON = {
+  ask: '<svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 2a4 4 0 0 0-4 4v3L2.8 11h10.4L12 9V6a4 4 0 0 0-4-4z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M6.5 13a1.5 1.5 0 0 0 3 0" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>',
+  review: '<svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  stale: '<svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 2.5l6 11H2z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M8 7v3M8 11.6v.4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>',
+};
+const MV_WORD = { ask: 'answer', review: 'sign off', stale: 'quiet' };
+// one row per card that needs Troy: asks first (someone is blocked), then reviews, then agents gone quiet; oldest first within each
+function moveRows(working) {
+  const limit = cfg.stale_minutes || DEFAULT_STALE_MIN;
+  const rows = working.map(t => {
+    const kind = t.needs_input ? 'ask' : t.review ? 'review' : ago(t.updated).min >= limit ? 'stale' : null;
+    return kind && { t, kind, age: ago(t.updated).min };
+  }).filter(Boolean);
+  const rank = { ask: 0, review: 1, stale: 2 };
+  return rows.sort((a, b) => rank[a.kind] - rank[b.kind] || b.age - a.age);
+}
+function renderMove(working) {
+  const rows = moveRows(working), box = $('move');
+  box.classList.toggle('on', rows.length > 0);
+  if (!rows.length) { $('mv-list').innerHTML = ''; return; }
+  const longest = Math.max(1, ...rows.map(r => r.age));
+  const waited = rows.reduce((n, r) => n + r.age, 0);
+  $('mv-n').textContent = rows.length;
+  $('mv-wait').textContent = waited ? `${dur(waited)} waiting on you` : '';
+  const html = rows.map(({ t, kind, age }) => {
+    const said = kind === 'stale' ? (t.status_text || 'no update') : (t.question || t.result || t.status_text || '');
+    const acts = kind === 'ask' ? `<button class="btn primary" data-mv-reply="${esc(t.id)}">Reply</button><button class="btn" data-mv-open="${esc(t.id)}">Open</button>`
+      : kind === 'review' ? `<button class="btn go" data-mv-done="${esc(t.id)}">Mark done</button><button class="btn" data-mv-reply="${esc(t.id)}">Send back</button>`
+      : `<button class="btn" data-mv-open="${esc(t.id)}">Open</button><button class="btn" data-mv-release="${esc(t.id)}" title="Back to Todo, so someone else can pick it up">To Todo</button>`;
+    return `<div class="mv ${kind}" data-mv-open="${esc(t.id)}" role="button" tabindex="0" style="--c:${colorOf(t)}" aria-label="${esc(t.agent || 'An agent')}: ${esc(said)}, ${MV_WORD[kind]}">
+      <span class="av" aria-hidden="true">${esc(nodeGlyph(t.agent || '?'))}</span>
+      <div class="mv-top"><span class="nm">${esc(t.agent || 'Unassigned')}</span><span class="mv-kind">${MV_ICON[kind]}${MV_WORD[kind]}</span><span class="ttl" title="${esc(t.title)}">${esc(t.title)}</span><span class="age">${age < 1 ? 'just now' : dur(age)}</span></div>
+      <div class="mv-said" title="${esc(said)}">${esc(said)}</div>
+      <div class="mv-age" aria-hidden="true"><b style="--w:${Math.round(age / longest * 100)}%"></b></div>
+      <div class="mv-acts">${acts}</div></div>`;
+  }).join('');
+  if ($('mv-list').dataset.k !== html) { $('mv-list').dataset.k = html; $('mv-list').innerHTML = html; }   // only when something changed: buttons keep focus between polls
+}
+$('move').addEventListener('click', e => {
+  const b = e.target.closest('button');
+  if (b?.dataset.mvDone) { confirmDoneClick(b); move(b.dataset.mvDone, 'done'); return; }
+  if (b?.dataset.mvReply) { openPanel(b.dataset.mvReply, { reply: true }); return; }
+  if (b?.dataset.mvRelease) { move(b.dataset.mvRelease, 'todo'); return; }
+  const r = e.target.closest('[data-mv-open]');
+  if (r) openPanel(r.dataset.mvOpen);
+});
+$('move').addEventListener('keydown', e => {
+  const r = e.target.closest?.('.mv');
+  if (r && e.target === r && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openPanel(r.dataset.mvOpen); }
+});
+
 function render() {
   const by = Object.fromEntries(COLUMNS.map(([k]) => [k, []]));
   const rawQ = ($('filter').value || '').trim(), q = rawQ.toLowerCase();
@@ -1249,6 +1341,7 @@ function render() {
 
   $('welcome').style.display = tasks.length ? 'none' : 'block';
   $('board').style.display = tasks.length ? '' : 'none';
+  renderMove(working);
 
   const focusId = document.activeElement?.dataset?.id;
   const focusToggle = document.activeElement?.dataset?.toggleSubs;
@@ -1701,14 +1794,25 @@ async function loadPrompt() {
   if ($('pre')) $('pre').textContent = promptText;
 }
 
-function openPanel(id) {
+function openPanel(id, opts) {
   if (openId !== id) { detailRaw = ''; promptText = ''; promptOpen = false; descOpen = false; actAll = false; replyOpen = false; replyDraft = ''; openEntries = new Set(); resetScroll = true; }
+  if (opts && opts.reply) { replyOpen = true; detailRaw = ''; }   // straight into the reply box (the Your move strip)
   lastFocus = document.activeElement;
   $('later').classList.remove('open');
   openId = id;
   history.replaceState(null, '', '#' + encodeURIComponent(id));
   $('panel').classList.add('open'); document.body.classList.add('panel-open');
-  refreshPanel().then(() => $('p-close').focus());
+  refreshPanel().then(() => focusSoon(() => (opts && opts.reply && $('p-reply-text')) || $('p-close')));
+}
+// #panel slides in with a visibility transition, so nothing inside it can take focus in the same frame it opens:
+// retry on the next frames until the focus actually lands (or give up quietly after a few hundred ms)
+function focusSoon(getEl) {
+  const t0 = Date.now();
+  (function attempt() {
+    const el = getEl(); if (!el) return;
+    el.focus({ preventScroll: true });
+    if (document.activeElement !== el && Date.now() - t0 < 400) requestAnimationFrame(attempt);
+  })();
 }
 function closePanel(skipFocus) {
   openId = null; detailRaw = '';
@@ -1727,7 +1831,7 @@ $('p-move').addEventListener('click', async e => {
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && openId && !$('add').classList.contains('open')) closePanel(); });
 document.addEventListener('click', e => {
   if (!e.target.isConnected) return;    // the click re-rendered its own button; not an outside click
-  if (openId && !e.target.closest('#panel, .card, #theme, #add, #toast')) closePanel();
+  if (openId && !e.target.closest('#panel, .card, #theme, #add, #toast, #move')) closePanel();
   if ($('later').classList.contains('open') && !e.target.closest('#later, #later-btn, #toast, .card')) $('later').classList.remove('open');
   if ($('chat').classList.contains('open') && !e.target.closest('#chat, #chat-btn, #toast')) $('chat').classList.remove('open');
 });
