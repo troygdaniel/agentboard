@@ -190,7 +190,7 @@ def make_handler(default_store, port):
                 self._send(200, {"projects": self.store.load_projects()})
             elif url.path == "/api/hud":
                 conf = _config(self.store)
-                data = hud.build(self.store.load(), abandoned_min=hud.stale_minutes(conf), retired=hud.retired(conf))
+                data = hud.build(self.store.load(), abandoned_min=hud.stale_minutes(conf), retired=hud.retired(conf), roster=hud.roster(conf))
                 data["backup"] = self.store.backups.status()   # {last_backup_min, snapshots, last_sync, sync_dir}: the HUD's "backup N min ago" chip
                 self._send(200, data)
             elif url.path == "/api/config":

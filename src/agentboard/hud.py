@@ -25,6 +25,15 @@ def retired(conf):
     return {x.strip() for x in v if isinstance(x, str) and x.strip()} if isinstance(v, list) else set()
 
 
+def roster(conf):
+    """[orch] agents = [{name="AGENT-1"}, ...]: the peers ORCH hands work to. Only an explicit list counts (the built-in
+    default roster would put phantom agents on boards that never use it). Anything else is ignored."""
+    spec = (conf or {}).get("orch", {}).get("agents")
+    if not isinstance(spec, list):
+        return []
+    return [str(p["name"]).strip() for p in spec if isinstance(p, dict) and str(p.get("name") or "").strip()]
+
+
 def _t(s):
     try:
         return datetime.strptime(s, FMT)
@@ -109,6 +118,34 @@ def _bucket(times, now, n, minutes):
         if 0 <= age < n * minutes:
             out[n - 1 - int(age // minutes)] += 1
     return out
+
+
+def chart(task, kids, now, n=TIMELINE_BUCKETS, minutes=TIMELINE_MIN):
+    """One chart per agent: the % of its current card at the end of each bucket of the window (carried forward; None before
+    the card said anything) and how many log lines landed in each bucket, the card's subtasks included. Same buckets as the
+    timeline and the queue, so the HUD draws them on one axis."""
+    pts = []
+    for src in (task, *kids):
+        for e in src.get("log", []):
+            at = _t(e.get("at"))
+            if at:
+                pts.append((at, src is task, e.get("progress")))
+    pts.sort(key=lambda x: x[0])
+    start = now - timedelta(minutes=n * minutes)
+    pct, events, cur, i = [], [0] * n, None, 0
+    for b in range(n):
+        end = start + timedelta(minutes=(b + 1) * minutes)
+        while i < len(pts) and pts[i][0] <= end:
+            at, own, p = pts[i]
+            if at > start:
+                events[b] += 1
+            if own and isinstance(p, (int, float)) and not isinstance(p, bool):
+                cur = max(0, min(100, int(p)))
+            i += 1
+        pct.append(cur)
+    if task.get("status") == "doing" and pct and pct[-1] is not None:   # the live value is what the card says now, not its last log line
+        pct[-1] = max(0, min(100, int(task.get("progress") or 0)))
+    return {"pct": pct, "events": events}
 
 
 def segments(t, now):
@@ -232,9 +269,10 @@ def dur(minutes):
     return f"{m}m" if m < 60 else f"{m // 60}h{m % 60:02d}"
 
 
-def build(tasks, now=None, feed_limit=60, abandoned_min=None, retired=()):
+def build(tasks, now=None, feed_limit=60, abandoned_min=None, retired=(), roster=()):
     """retired: agent names to leave out of agents/lanes/actions (see retired()); their cards still
-    count in the totals, feed and timeline, so history is untouched."""
+    count in the totals, feed and timeline, so history is untouched. roster: agent names that belong on
+    the HUD even with no card yet (they show as idle, folded with the other idle agents)."""
     now = now or datetime.now()
     abandoned_min = ABANDONED_MIN if abandoned_min is None else abandoned_min
     retired = set(retired or ())
@@ -316,7 +354,7 @@ def build(tasks, now=None, feed_limit=60, abandoned_min=None, retired=()):
         recent = [{"at": e["at"], "text": pre + e.get("text", "")} for e, pre in reversed(feed)][:3]   # newest first
         agents.append({
             "name": name, "color": next((t.get("color") for t in ts if t.get("color")), None),
-            "state": state,
+            "state": state, "chart": chart(cur, [k for k in tasks if k.get("parent_id") == cur["id"]], now),
             "question": cur.get("question", ""),
             "task": cur["title"], "task_id": cur["id"], "progress": cur.get("progress", 0),
             "status_text": cur.get("status_text", ""), "updated": cur.get("updated"), "started": began, "recent": recent,
@@ -326,8 +364,14 @@ def build(tasks, now=None, feed_limit=60, abandoned_min=None, retired=()):
             "open_titles": [t["title"] for t in doing[:4]],
             "spark": _bucket([x for x in times if x], now, SPARK_BUCKETS, SPARK_MIN),
         })
+    for name in roster:   # a configured peer with no card yet is still an agent: idle, with nothing to say
+        if name and name not in by_agent and name not in retired:
+            agents.append({"name": name, "color": None, "state": "idle", "chart": {"pct": [None] * TIMELINE_BUCKETS, "events": [0] * TIMELINE_BUCKETS},
+                           "question": "", "task": "", "task_id": "", "progress": 0, "status_text": "", "updated": None, "started": None,
+                           "recent": [], "done": 0, "done_today": 0, "open": 0, "open_titles": [], "spark": [0] * SPARK_BUCKETS})
     order = {"abandoned": 0, "waiting": 1, "review": 2, "working": 3, "quiet": 4, "idle": 5}
     agents.sort(key=lambda a: (order[a["state"]], a["name"]))
+    idle = [a for a in agents if a["state"] == "idle"]
 
     for name in lanes:
         lanes[name].sort(key=lambda r: r["a"])
@@ -343,6 +387,9 @@ def build(tasks, now=None, feed_limit=60, abandoned_min=None, retired=()):
         "waiting_s": round(waiting_s),  # agent-seconds spent waiting on / for the user
 
         "agents": agents,
+        # the idle agents folded into one line: who, how many, and the one fact that matters for each (what they last did, when)
+        "idle": {"n": len(idle), "done_today": sum(a["done_today"] for a in idle),
+                 "agents": [{"name": a["name"], "color": a["color"], "task": a["task"], "updated": a["updated"], "done_today": a["done_today"]} for a in idle]},
         "actions": actions([t for t in top if t.get("agent") not in retired], now, abandoned_min),
         "events": events[:feed_limit],
         "totals": {

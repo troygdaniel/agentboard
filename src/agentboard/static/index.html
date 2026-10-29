@@ -489,6 +489,36 @@
      "looks odd"): a 4px line under the task/status lines, the % at its end. Idle rows have none. */
   .h-one .h-prgw { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
   .h-one .h-prog { flex: 1; height: 4px; border-radius: 2px; }
+  /* one chart per agent: its card's % over the last hour as a stepped line with the area under it lit in the
+     agent's state colour, and a tick per bucket where the agent said something (brighter = more). Same 2-minute
+     buckets and the same -60m..now axis as the load track under it, so the two read as one instrument. */
+  .h-chw { flex: 1; min-width: 0; display: flex; }
+  .h-chart { flex: 1; min-width: 0; width: 100%; height: 38px; display: block; border-radius: 6px; border: 1px solid rgba(110,190,255,.12);
+    background: linear-gradient(90deg, rgba(110,190,255,.14) 1px, transparent 1px) 0 0 / 25% 100%, linear-gradient(180deg, rgba(110,190,255,.05), rgba(110,190,255,.02)); }
+  .h-chart .ar { fill: var(--c); opacity: .16; }
+  .h-chart .ln { fill: none; stroke: var(--c); stroke-width: 1.6px; filter: drop-shadow(0 0 4px var(--c)); }
+  .h-chart .dot { stroke: var(--c); stroke-width: 6px; stroke-linecap: round; filter: drop-shadow(0 0 6px var(--c)); }
+  .h-chart .ev rect { fill: var(--hcy); }
+  .h-row.working .h-chart .dot { animation: hdot 2.2s ease-in-out infinite; }
+  @keyframes hdot { 50% { stroke-width: 9px; } }
+  /* the idle agents fold into one row: a chip per agent (glyph, name, how long ago, signed off today); click to open the rows */
+  .h-row.h-fold { flex: none; min-height: 0; padding: 9px 12px 9px 16px; cursor: pointer; opacity: .85; align-items: center; }
+  .h-row.h-fold:hover { opacity: 1; background: rgba(110,190,255,.04); }
+  .h-row.h-fold::before { background: var(--hdim); box-shadow: none; opacity: .45; }
+  .h-row.h-fold .h-av { color: var(--hdim); --c: var(--hdim); box-shadow: inset 0 0 0 1.5px rgba(127,149,173,.6); }
+  .h-fold .h-name { font-size: var(--fs-sm); letter-spacing: var(--tr-label); color: var(--hdim); align-items: center; }
+  .h-fold .h-name em { color: var(--hdim); }
+  .h-fold .chev { flex: none; color: var(--hdim); transition: transform .18s ease; margin-left: 2px; }
+  .h-fold[aria-expanded="true"] .chev { transform: rotate(90deg); }
+  .h-fold-list { display: flex; flex-wrap: wrap; gap: 5px 14px; margin-top: 5px; }
+  .h-fchip { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-xs); color: var(--hdim); letter-spacing: var(--tr-tight); white-space: nowrap; }
+  .h-fchip i { width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; font-style: normal; font-size: 10px; color: var(--htext);
+    background: color-mix(in srgb, var(--c) 14%, transparent); box-shadow: inset 0 0 0 1.5px var(--c); filter: saturate(.5); }
+  .h-fchip b { color: var(--htext); font-weight: 500; }
+  .h-fchip .ok { color: var(--hok); }
+  .h-fold .h-card { white-space: normal; }
+  .h-idle[hidden] { display: none; }
+  .h-idle .h-row { min-height: 64px; }
   .h-one .h-pct { margin: 0; flex: none; min-width: 3.2ch; text-align: right; font-size: var(--fs-sm); }
   .h-one .h-row.idle .h-prgw { display: none; }
   /* the age may take two lines ("wrapped / 2h") rather than run under the bar */
@@ -509,7 +539,7 @@
   .h-head .h-h2 h4 { margin: 0; }
   .h-head .ln-wait { float: none; margin-left: 18px; }
   .h-one .h-scroll { display: flex; flex-direction: column; }
-  .h-one .h-row { flex: 1 0 auto; min-height: 100px; }   /* room for title + bar + progress on the right */
+  .h-one .h-row { flex: 1 0 auto; min-height: 126px; }   /* room for title + chart + load track on the right */
   .h-one .h-row:first-child { border-top: 0; }
   .h-load .ln-track { height: clamp(30px, 26%, 56px); min-height: 0; flex: none; width: 100%; }   /* grows a little with a tall row */
   /* Troy (2026-10-24): tall rows left empty space around the text. Each row now carries its last
@@ -709,6 +739,16 @@
   .ln-ticks span { position: absolute; top: 0; transform: translateX(-50%); } .ln-ticks span:first-child { transform: none; } .ln-ticks span:last-child { transform: translateX(-100%); }
   .h-empty { color: var(--hdim); padding: 6px 0; }
   @media (max-width: 980px) { .h-grid { overflow-y: auto; } }
+  /* a phone: tighter columns and type, names on one line, the idle chips wrap */
+  @media (max-width: 600px) {
+    .hud { --fs-xs: 11px; --fs-sm: 12px; --fs-md: 14px; --fs-lg: 16px; --fs-xl: 18px; padding: 10px 10px 12px; font-size: 14px; }
+    .h-one { --cols: 32px minmax(0, 1fr) 54px; --gap: 10px; }
+    .h-one .h-row { padding: 8px 8px 8px 12px; min-height: 0; }
+    .h-name { white-space: nowrap; }
+    .h-av { width: 28px; height: 28px; font-size: var(--fs-sm); }
+    .h-head, .h-foot { padding-left: 8px; padding-right: 8px; }
+    .h-head .ln-sub, .h-head .ln-wait { display: none; }
+  }
   @media (prefers-reduced-motion: reduce) { .hud *, .hud *::before, .hud *::after { animation: none !important; } }
   body.solo { overflow: hidden; }
   body.solo .wrap, body.solo #toast, body.solo #keys { display: none; }
@@ -2127,6 +2167,7 @@ const byName = (a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 
 
 function hudRender(d) {
   d.agents = [...d.agents].sort(byName);
+  lastHud = d;
   hudSounds(d);
   renderTiles(d.totals, d.backup);
   if (SOLO) {
@@ -2184,6 +2225,7 @@ function loadTrack(d, a, win, start, end) {   // the agent's last hour as segmen
 }
 
 $('h-tele')?.addEventListener('click', e => {
+  if (e.target.closest('#h-fold')) { idleOpen = !idleOpen; teleKey = ''; if (lastHud) renderGrid(lastHud); $('h-fold')?.focus(); return; }
   const r = e.target.closest('.h-row.attn[data-id]'); if (!r) return;
   const id = r.dataset.id;
   if (SOLO) { window.open(BASE + '/#' + encodeURIComponent(id), 'agentboard-board'); return; }
@@ -2205,24 +2247,58 @@ $('hud-inner')?.addEventListener('pointermove', e => {
   if (k) inner.dataset.hk = k; else delete inner.dataset.hk;
 });
 $('hud-inner')?.addEventListener('pointerleave', () => delete $('hud-inner').dataset.hk);
+$('h-tele')?.addEventListener('keydown', e => {
+  if (e.target.id === 'h-fold' && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); e.target.click(); }
+});
 
+// the agent's hour as one chart: a stepped line of its card's % (None before the card said anything), the area under it,
+// a tick per bucket with activity, and a dot at the live value. preserveAspectRatio=none stretches the box to the column,
+// so strokes are non-scaling and the dot is a round-capped zero-length stroke rather than a circle (which would squash).
+function progChart(a) {
+  const pct = a.chart?.pct || [], ev = a.chart?.events || [], n = Math.max(1, pct.length), W = 300, H = 40, PAD = 4, FOOT = 7;
+  const x = i => (i + 1) / n * W, y = v => PAD + (100 - v) / 100 * (H - PAD - FOOT - 2);
+  let line = '', last = null;
+  pct.forEach((v, i) => { if (v == null) return; const x0 = (i / n * W).toFixed(1), x1 = x(i).toFixed(1), yy = y(v).toFixed(1);
+    line += last === null ? `M${x0} ${yy} H${x1}` : ` V${yy} H${x1}`; last = v; });
+  const evMax = Math.max(1, ...ev);
+  const ticks = ev.map((c, i) => c ? `<rect x="${(i / n * W).toFixed(1)}" y="${H - FOOT + 1}" width="${(W / n - .6).toFixed(1)}" height="${FOOT - 2}" opacity="${(.3 + .7 * c / evMax).toFixed(2)}"/>` : '').join('');
+  if (last === null) return `<svg class="h-chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true"><g class="ev">${ticks}</g></svg>`;
+  const yEnd = y(last).toFixed(1), xStart = (pct.findIndex(v => v != null) / n * W).toFixed(1);
+  const area = `${line} V${H - FOOT} H${xStart} Z`;
+  return `<svg class="h-chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true"><path class="ar" d="${area}"/><g class="ev">${ticks}</g>`
+    + `<path class="ln" d="${line}" vector-effect="non-scaling-stroke"/><path class="dot" d="M${W} ${yEnd} l0 .01" vector-effect="non-scaling-stroke"/></svg>`;
+}
+let idleOpen = false, lastHud = null;   // the idle fold: closed until clicked; remembered for the session
 function renderGrid(d) {
   const box = $('h-tele'); if (!box) return;
   const all = d.agents, agents = teleOrder(all);
+  const active = agents.filter(a => a.state !== 'idle'), idle = agents.filter(a => a.state === 'idle');
   const win = (d.window_min || 60) * 60000, end = Date.now(), start = end - win;
   if (!agents.length) { box.innerHTML = `<div class="h-empty">No agents yet. They appear when they run <b>agentboard start</b>.</div>`; teleKey = ''; return; }
-  const key = agents.map(a => a.name).join('|');
+  const key = agents.map(a => a.name + (a.state === 'idle' ? '~' : '')).join('|') + (idleOpen ? '+' : '-');
   if (key !== teleKey) {
     teleKey = key;
-    box.innerHTML = agents.map(a => `<div class="h-row" data-agent="${hh(a.name)}">
+    const row = a => `<div class="h-row" data-agent="${hh(a.name)}">
       <span class="h-av">${hh(nodeGlyph(a.name))}</span>
       <div class="h-who"><div class="h-name">${hh(a.name)}<em></em></div><span class="h-status"></span><div class="h-ask"></div>
         <ul class="h-recent"></ul></div>
       <span class="h-since"></span>
-      <div class="h-load"><span class="h-card"></span><div class="ln-track"></div>
-        <div class="h-prgw"><div class="h-prog"><b></b></div><span class="h-pct"></span></div></div></div>`).join('')
+      <div class="h-load"><span class="h-card"></span><div class="h-prgw" title="progress over the last 60 min; ticks are updates"><span class="h-chw"></span><span class="h-pct"></span></div><div class="ln-track"></div></div></div>`;
+    const fold = !idle.length ? '' : `<div class="h-row h-fold" id="h-fold" role="button" tabindex="0" aria-expanded="${idleOpen}" aria-controls="h-idle" title="${idleOpen ? 'Hide' : 'Show'} the idle agents">
+        <span class="h-av" id="h-fold-n">${idle.length}</span>
+        <div class="h-who"><div class="h-name">IDLE<em>${idle.length === 1 ? '1 agent' : idle.length + ' agents'}</em><svg class="chev" width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M3 1l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6"/></svg></div><div class="h-fold-list" id="h-fold-list"></div></div>
+        <span class="h-since" id="h-fold-since"></span>
+        <div class="h-load"><span class="h-card" id="h-fold-card"></span></div></div>
+      <div class="h-idle" id="h-idle" ${idleOpen ? '' : 'hidden'}>${idle.map(row).join('')}</div>`;
+    box.innerHTML = active.map(row).join('') + fold
       + `<div class="h-row h-q"><span class="h-av"></span><div class="h-who" id="h-qlab">QUEUE</div><span class="h-since"></span>
          <div class="h-load"><div class="ln-track" id="h-qtrack" title="unclaimed cards in Todo over the hour"></div></div></div>`;
+  }
+  if (idle.length) {   // the fold's chips: glyph, name, how long since they last spoke, signed off today
+    const chips = idle.map(a => `<span class="h-fchip" style="--c:${hudColor(a.color)}"><i>${hh(nodeGlyph(a.name))}</i><b>${hh(a.name)}</b>${a.updated ? hh(ago(a.updated).text.replace(' ago', '')) : 'no card yet'}${a.done_today ? `<span class="ok">✓${a.done_today}</span>` : ''}</span>`).join('');
+    const fl = $('h-fold-list'); if (fl && fl.dataset.k !== chips) { fl.dataset.k = chips; fl.innerHTML = chips; }
+    const doneT = idle.reduce((n, a) => n + (a.done_today || 0), 0);
+    const fc = $('h-fold-card'); if (fc) fc.textContent = doneT ? `${doneT} signed off today` : (idleOpen ? '' : 'nothing open');
   }
   const asks = new Map(); for (const x of d.actions || []) if (!asks.has(x.agent)) asks.set(x.agent, x);   // most urgent per agent
   agents.forEach(a => {
@@ -2245,7 +2321,8 @@ function renderGrid(d) {
     r.querySelector('.h-card').title = (a.open_titles || []).join('\n') || a.task || '';
     r.querySelector('.h-status').textContent = a.status_text || (a.state === 'idle' ? '' : 'no status yet');
     r.querySelector('.h-name').title = `${a.open || 0} open · ${a.done_today || 0} signed off today`;   // on hover only; Troy does not read it
-    r.querySelector('.h-prog b').style.width = (a.progress || 0) + '%';
+    const ch = progChart(a), cw = r.querySelector('.h-chw');
+    if (cw.dataset.k !== ch) { cw.dataset.k = ch; cw.innerHTML = ch; }   // only when the chart actually changed, so the dot keeps breathing
     r.querySelector('.h-pct').textContent = (a.progress || 0) + '%';
     r.querySelector('.h-since').textContent = a.updated ? ago(a.updated).text.replace(' ago', '') : '';
     const { sg, title } = loadTrack(d, a, win, start, end), tr = r.querySelector('.h-load .ln-track');

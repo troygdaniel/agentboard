@@ -3,6 +3,7 @@
 ## Unreleased
 
 ### Five UX ideas (ux-five)
+- **HUD: one chart per agent, idle agents folded.** Each active row carries a stepped chart of its card's % over the last hour with a tick per update, on the same axis as the load track; `/api/hud` adds `chart` per agent and an `idle` fold. Idle agents collapse into one row of chips (name, how long ago, signed off today) that opens on click. `[orch] agents` peers with no card yet show as idle.
 - **Your move strip.** Every card that needs you sits in one strip under the header, asks first, then reviews, then agents gone quiet, each with its action right there (Reply, Mark done, Send back, Open, To Todo) and a bar of how long it has waited. Hidden when nothing needs you.
 
 ### Keep it simple
