@@ -385,7 +385,26 @@
   .empty:empty { display: none; }
   /* Done column day dividers (Today / Yesterday / Earlier) — a flex child like any card,
      so the column's existing gap spaces it the same as everything else */
-  .day-div { font-size: var(--fs-xs); font-weight: 600; letter-spacing: var(--tr-tight); text-transform: uppercase; color: var(--muted); padding: 0 2px; }
+  .day-div { font-size: var(--fs-xs); font-weight: 600; letter-spacing: var(--tr-tight); text-transform: uppercase; color: var(--muted); padding: 0 2px; display: flex; align-items: center; gap: 6px; }
+  .day-div .n { font-weight: 500; letter-spacing: 0; color: var(--muted); opacity: .8; font-variant-numeric: tabular-nums; }
+  /* the 7-day ribbon: one bar per day (today at the right), as tall as that day's finished cards, the count on top and the
+     weekday under it; click a day to see only its cards, click again for all. A glance says how the week went. */
+  .ribbon { display: flex; align-items: flex-end; gap: 3px; padding: 0 8px 10px; flex: none; }
+  .rb { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 2px; background: none; border: 0; padding: 3px 0 2px; border-radius: 7px;
+    cursor: pointer; color: var(--muted); font: inherit; font-size: var(--fs-xs); line-height: 1; transition: background .12s, color .12s; }
+  .rb:hover { background: var(--chip); color: var(--text); }
+  .rb b { font-weight: 600; font-variant-numeric: tabular-nums; color: var(--text); min-height: 11px; }
+  .rb.zero b { color: var(--muted); opacity: .6; }
+  .rb .v { width: 100%; height: 26px; display: flex; align-items: flex-end; padding: 0 3px; }
+  .rb i { display: block; width: 100%; height: var(--h, 0%); min-height: 2px; border-radius: 3px 3px 1px 1px; background: var(--ok); opacity: .5; transition: height .3s ease; }
+  .rb.zero i { background: var(--line); opacity: 1; }
+  .rb.today i { opacity: .85; }
+  .rb.on { background: var(--chip); color: var(--text); box-shadow: inset 0 0 0 1px var(--line); }
+  .rb.on i { opacity: 1; box-shadow: 0 0 8px color-mix(in srgb, var(--ok) 60%, transparent); }
+  .rb span { text-transform: uppercase; letter-spacing: var(--tr-tight); }
+  .rb.today span { color: var(--text); font-weight: 600; }
+  .rb-sum { flex: none; align-self: center; margin-left: 4px; font-size: var(--fs-xs); color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .rb-sum b { color: var(--text); font-weight: 600; }
 
   .proj-row { margin-bottom: 8px; }
   .proj {
@@ -1201,15 +1220,37 @@ function ago(iso) {
   return { text, min: m };
 }
 
-// Calendar-day bucket for the Done column's day dividers — midnight-based (not a rolling
-// 24h window), so "Yesterday" means the previous calendar day, matching how people actually
-// think about "what did we finish yesterday vs. today."
-function dayBucket(iso) {
+// Calendar days for the Done column — midnight-based (not a rolling 24h window), so "Yesterday"
+// means the previous calendar day, matching how people actually think about "what did we finish
+// yesterday vs. today." daysAgo(): 0 today, 1 yesterday, …; null when the stamp is unreadable.
+const atMidnight = x => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+function daysAgo(iso) {
   const d = new Date(iso);
-  if (isNaN(d)) return 'Earlier';
-  const atMidnight = x => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
-  const days = Math.round((atMidnight(new Date()) - atMidnight(d)) / 86400000);
-  return days <= 0 ? 'Today' : days === 1 ? 'Yesterday' : 'Earlier';
+  if (isNaN(d)) return null;
+  return Math.max(0, Math.round((atMidnight(new Date()) - atMidnight(d)) / 86400000));
+}
+const RIBBON_DAYS = 7;
+// the group label a card gets: Today, Yesterday, then the weekday and date inside the week, Earlier past it
+function dayLabel(n) {
+  if (n == null || n >= RIBBON_DAYS) return 'Earlier';
+  if (n === 0) return 'Today';
+  if (n === 1) return 'Yesterday';
+  const d = new Date(atMidnight(new Date()) - n * 86400000);
+  return d.toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' });
+}
+let doneDay = null;   // a day picked on the ribbon (days ago), or null for the whole column
+function ribbonHtml(done) {
+  const counts = Array(RIBBON_DAYS).fill(0);
+  done.forEach(t => { const n = daysAgo(t.updated); if (n != null && n < RIBBON_DAYS) counts[n]++; });
+  const max = Math.max(1, ...counts), week = counts.reduce((a, b) => a + b, 0);
+  const cells = [];
+  for (let n = RIBBON_DAYS - 1; n >= 0; n--) {
+    const d = new Date(atMidnight(new Date()) - n * 86400000), c = counts[n];
+    const wd = d.toLocaleDateString([], { weekday: 'short' }).slice(0, 2), full = dayLabel(n) + (n > 1 ? '' : ', ' + d.toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' }));
+    cells.push(`<button class="rb ${n === 0 ? 'today' : ''} ${c ? '' : 'zero'} ${doneDay === n ? 'on' : ''}" type="button" data-day="${n}" aria-pressed="${doneDay === n}" title="${esc(full)}: ${c} done${c ? '. Click to see only these' : ''}" aria-label="${esc(full)}: ${c} done">` +
+      `<b>${c || ''}</b><span class="v" aria-hidden="true"><i style="--h:${Math.round(c / max * 100)}%"></i></span><span>${esc(wd)}</span></button>`);
+  }
+  return `<div class="ribbon" role="group" aria-label="Finished in the last 7 days">${cells.join('')}<span class="rb-sum" title="finished in the last 7 days"><b>${week}</b> · 7d</span></div>`;
 }
 
 // render() only restores focus to a focused card itself; the badge and Copy button live inside one, so
@@ -1436,28 +1477,34 @@ function render() {
   $('board').style.setProperty('--tracks', cols.map(([k]) => k === 'doing' ? 'minmax(0, 1.4fr)' : 'minmax(0, 1fr)').join(' '));
   $('board').classList.remove('hl');   // a re-render drops the hover highlight with the cards it lit
   $('board').innerHTML = cols.map(([k, label]) => {
-    let list = by[k], more = '';
-    if (k === 'done' && !showAllDone && list.length > DONE_SHOWN) {
-      more = `<button class="more" id="more">Show ${list.length - DONE_SHOWN} more</button>`;
-      list = list.slice(0, DONE_SHOWN);
+    let list = by[k], more = '', ribbon = '';
+    if (k === 'done') {
+      ribbon = ribbonHtml(list);
+      if (doneDay != null) list = list.filter(t => daysAgo(t.updated) === doneDay);   // one day from the ribbon: all of it, no fold
+      else if (!showAllDone && list.length > DONE_SHOWN) {
+        more = `<button class="more" id="more">Show ${list.length - DONE_SHOWN} more</button>`;
+        list = list.slice(0, DONE_SHOWN);
+      }
     }
     let body;
     if (k === 'done' && list.length) {
-      // list is sorted most-recent-first, so a run of matching buckets is always contiguous —
-      // one divider per run is enough, no need to group into a map first
+      // list is sorted most-recent-first, so a run of matching days is always contiguous: one
+      // divider per run, with that day's count (of the cards on show, whole day or the folded top)
+      const total = {};
+      list.forEach(t => { const l = dayLabel(daysAgo(t.updated)); total[l] = (total[l] || 0) + 1; });
       let lastBucket = null;
       body = list.map(t => {
-        const bucket = dayBucket(t.updated);
-        const div = bucket !== lastBucket ? `<div class="day-div">${bucket}</div>` : '';
+        const bucket = dayLabel(daysAgo(t.updated));
+        const div = bucket !== lastBucket ? `<div class="day-div">${esc(bucket)}<span class="n">${total[bucket]}</span></div>` : '';
         lastBucket = bucket;
         return div + card(t);
       }).join('');
     } else {
-      body = list.length ? list.map(card).join('') : `<div class="empty">${(q || pf || flagFilter) ? 'No matches' : EMPTY[k]}</div>`;
+      body = list.length ? list.map(card).join('') : `<div class="empty">${(q || pf || flagFilter) ? 'No matches' : doneDay != null ? 'Nothing finished ' + dayLabel(doneDay).toLowerCase() : EMPTY[k]}</div>`;
     }
     const clr = k === 'done' ? `<a class="clear-done sum-link" href="${(window.AB_BASE || '')}/summary" target="_blank" rel="noopener" title="Summary of finished work, to read or share">Summary</a>` + (by.done.length ? `<button class="clear-done" id="clear-done" title="Archive all Done cards">Clear</button>` : '') : '';
     const p = k === 'doing' && pres ? `<b class="pres" aria-hidden="true">${pres}</b>` : '';
-    return `<section class="col ${k}" data-status="${k}"><h2>${label} <span class="cnt">${by[k].length}</span>${p}${clr}</h2><div class="cards">${body}</div>${more}</section>`;
+    return `<section class="col ${k}" data-status="${k}"><h2>${label} <span class="cnt">${by[k].length}</span>${p}${clr}</h2>${ribbon}<div class="cards">${body}</div>${more}</section>`;
   }).join('');
   $('board').querySelectorAll('.col').forEach(c => { const k = c.querySelector('.cards'); if (k) k.scrollTop = scrolls[c.dataset.status] || 0; });
   // live counts: a brief tick when a column's count changes
@@ -2603,6 +2650,8 @@ $('board').addEventListener('click', async e => {
   const sr = e.target.closest('[data-sub-id]');
   if (sr) { openPanel(sr.dataset.subId); return; }
   if (e.target.id === 'more') { showAllDone = true; return render(); }
+  const rb = e.target.closest('[data-day]');
+  if (rb) { const n = +rb.dataset.day; doneDay = doneDay === n ? null : n; render(); $('board').querySelector(`[data-day="${n}"]`)?.focus({ preventScroll: true }); return; }
   if (e.target.id === 'clear-done') {
     try {
       const r = await api('/api/clear-done', {});
