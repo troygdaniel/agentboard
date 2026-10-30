@@ -366,10 +366,11 @@ def autopilot_once(store, claude, roster, model=None, budget=None, per_hour=None
             if share_every_min <= 0 or (last and (now - last).total_seconds() < share_every_min * 60):
                 continue
             mine = own_history(store, name)
-            if not mine:
+            doing = doing_now(tasks, recent, name)
+            if not mine or not doing:   # nothing of its own to offer, or nobody on anything to tie it to: the model is not asked
                 continue
         try:
-            d = draft_share(store, name, claude, model=model, budget=budget, mine=mine) if sharing else draft_reply(store, name, claude, model=model, budget=budget, inbox=inbox)
+            d = draft_share(store, name, claude, model=model, budget=budget, mine=mine, doing=doing) if sharing else draft_reply(store, name, claude, model=model, budget=budget, inbox=inbox)
         except BoardError as e:
             if log:
                 log(f"autopilot: {name}: {e}")
@@ -434,7 +435,7 @@ def own_history(store, name):
     return recall(store.load(), [], "", agent=name, limit=6, log_lines=6)
 
 
-def draft_share(store, name, claude, model=None, budget=None, recent_chat=12, mine=None):
+def draft_share(store, name, claude, model=None, budget=None, recent_chat=12, mine=None, doing=None):
     """One thing from `name`'s own history that the others would not know, in the chat's voice, or None. Only its own cards
     feed the prompt, so it cannot speak for a peer; the recent chat is there so it does not repeat what was said."""
     conf = idle_conf(store.dir)
@@ -444,7 +445,7 @@ def draft_share(store, name, claude, model=None, budget=None, recent_chat=12, mi
     if not mine:
         return None
     chat = store.chat_list(limit=200)
-    doing = doing_now(store.load(), chat, name)
+    doing = doing_now(store.load(), chat, name) if doing is None else doing
     if not doing:   # nobody is on anything: nothing to tie a share to
         return None
     prompt = SHARE_PROMPT.format(name=name, voice=VOICE, today=datetime.now().strftime("%A %d %B %Y, %H:%M"), memory="\n".join(recall_lines(mine)),
