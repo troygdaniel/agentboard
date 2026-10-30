@@ -10,7 +10,7 @@ exception SECURITY.md lists for one-shot runs). Chat never changes a card, spend
 import json
 import re
 import subprocess
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from .store import CHAT_TOPICS, BoardError
 
@@ -129,13 +129,21 @@ def recall(tasks, chat, query="", agent=None, card=None, limit=10, log_lines=6):
     return rows[:limit] if not card else rows
 
 
-def recall_lines(rows):
+def _age(stamp, now=None):
+    t = _t(str(stamp or "")[:19])
+    if not t:
+        return ""
+    m = int(((now or datetime.now()) - t).total_seconds() // 60)
+    return "just now" if m < 1 else f"{m}m ago" if m < 60 else f"{m // 60}h ago" if m < 1440 else f"{m // 1440}d ago"
+
+
+def recall_lines(rows, now=None):
     """The same rows as text for a terminal: one line per card, its matching history under it; chat lines likewise."""
     out = []
     for r in rows:
         if r["kind"] == "card":
             flag = " (archived)" if r["archived"] else ""
-            out.append(f"card  {r['id']}  [{r['status']}]  {r['agent'] or 'unassigned'}  {r['updated'][:16]}  {r['title']}{flag}")
+            out.append(f"card  {r['id']}  [{r['status']}]  {r['agent'] or 'unassigned'}  {r['updated'][:16]} ({_age(r['updated'], now)})  {r['title']}{flag}")
             if r["line"]:
                 out.append(f"      {r['line']}")
             for e in r["log"]:
@@ -188,35 +196,44 @@ Troy must approve it first."""
 
 DRAFT_PROMPT = """\
 You are {name}, one of several coding agents sharing a board with Troy (the human) and ORCH (the orchestrator). You have no
-card right now. Below are the chat messages waiting for you and what the board remembers about recent work. Write ONE reply to
-the message that most needs you.
+card right now. Today is {today}. Below are the chat messages waiting for you and what the board remembers about recent work.
+Write ONE reply to the message that most needs you.
 
 {voice}
 
+Only say something that adds information. If your reply would only acknowledge, thank, agree, or say that you are idle or have
+no card, answer exactly NOTHING. A card marked done, and any ask or question older than a day, is closed: never raise it as if
+it were open. When you answer a question, end with one specific question back if there is a real one, so the thread can go on;
+do not invent one. If nothing needs a reply, answer exactly NOTHING.
+
 Format: start with TO: <name or all> and TOPIC: <learn|help|heads-up|handoff|status>, then the line (at most 200 characters),
-then optionally DETAIL: and a few lines of the technical part. If nothing needs a reply, answer exactly NOTHING.
+then optionally DETAIL: and a few lines of the technical part.
 
 Messages for you (newest last):
 {inbox}
 
-What the board remembers (cards, updates, history):
+What the board remembers (cards, updates, history; the age is since the last change):
 {memory}
 """
 
 SHARE_PROMPT = """\
 You are {name}, one of several coding agents sharing a board with Troy (the human) and ORCH (the orchestrator). You have no
-card right now and nothing to answer. Offer the others ONE thing from your own work that they are not working on and would not
-know: a gotcha you hit, how something is actually wired, what a tool or service turned out to need. It must come from your own
-history below, not from anyone else's, and it must not repeat what the chat already says. If nothing there is worth a line
-to a colleague, answer exactly NOTHING.
+card right now and nothing to answer. Today is {today}. Offer ONE thing from your own work that bears on what a colleague is
+doing right now: a gotcha you hit, how something is actually wired, what a tool or service turned out to need. It must come
+from your own history below, it must tie to one of the cards in progress below (say whose, and end with a short question to
+them), and it must not repeat what the chat already says. If nothing you know touches what anyone is on, answer exactly NOTHING.
+A generic tip nobody is about to need is NOTHING.
 
 {voice}
 
-Format: start with TO: all and TOPIC: learn, then the line (at most 200 characters), then optionally DETAIL: and a few lines
-of the technical part.
+Format: start with TO: <that agent's name> and TOPIC: learn, then the line (at most 200 characters), then optionally DETAIL:
+and a few lines of the technical part.
 
-Your own work (cards, updates, history, newest last):
+Your own work (cards, updates, history, newest last; the age is since the last change):
 {memory}
+
+What the others are on right now:
+{doing}
 
 What the chat already says (newest last):
 {chat}
@@ -307,9 +324,18 @@ def idle_agents(tasks, roster):
 
 
 DEFAULT_SHARE_EVERY_MIN = 60     # an idle agent with nothing to answer offers one thing from its own work this often, at most
+DEFAULT_LIVE_MIN = 20            # an agent that spoke or touched a card this recently is awake: the board does not speak for it
 
 
-def autopilot_once(store, claude, roster, model=None, budget=None, per_hour=None, now=None, log=None, share_every_min=None):
+def awake(tasks, chat, name, now, live_min):
+    """Has `name` itself said or done anything in the last live_min minutes? (Its own real lines and card changes; not auto lines.)"""
+    since = now - timedelta(minutes=live_min)
+    if any(m.get("sender") == name and not m.get("via") and (_t(m.get("at")) or datetime.min) >= since for m in chat):
+        return True
+    return any(t.get("agent") == name and (_t(t.get("updated")) or datetime.min) >= since for t in tasks)
+
+
+def autopilot_once(store, claude, roster, model=None, budget=None, per_hour=None, now=None, log=None, share_every_min=None, live_min=None):
     """One round: for each idle roster agent with unread chat, one draft on the cheaper model, posted as that agent with
     via=idle (shown as auto on the board; the agent's own session sees it in its inbox). The board never answers itself:
     an auto line is not a prompt for another round, so two idle agents cannot chatter at each other; real sessions may
@@ -323,10 +349,14 @@ def autopilot_once(store, claude, roster, model=None, budget=None, per_hour=None
     cursors = read_cursors(store)
     posted = []
     share_every_min = float(share_every_min if share_every_min is not None else conf.get("share_every_min", DEFAULT_SHARE_EVERY_MIN))
+    live_min = float(live_min if live_min is not None else conf.get("live_min", DEFAULT_LIVE_MIN))
+    recent = store.chat_list(limit=200)
     p, count, hour, shared = _hour_count(store, now)
     for name in idle_agents(tasks, roster):
         if count >= per_hour:
             break
+        if awake(tasks, recent, name, now, live_min):   # its real session is talking or working: let it speak for itself
+            continue
         after = cursors.get(name)
         inbox = [m for m in store.chat_inbox(name, after=after if isinstance(after, int) else None) if not m.get("via")]   # the board never answers itself (auto lines, its own notices)
         sharing = not inbox
@@ -356,7 +386,7 @@ def autopilot_once(store, claude, roster, model=None, budget=None, per_hour=None
         if not d:
             continue
         if sharing:
-            m = store.chat_send(name, d["text"], to="all", topic="learn", detail=d["detail"], via="idle")
+            m = store.chat_send(name, d["text"], to=d["to"] or "all", topic="learn", detail=d["detail"], via="idle")
         else:
             asked = next((m for m in reversed(inbox) if m.get("to") == name), inbox[-1])
             m = store.chat_send(name, d["text"], to=d["to"], topic=d["topic"], detail=d["detail"], reply_to=asked["seq"], via="idle")
@@ -378,9 +408,25 @@ def draft_reply(store, name, claude, model=None, budget=None, inbox=None, limit=
     tasks = store.load()
     words = " ".join(m["text"] for m in inbox)
     mem = recall(tasks, [], words, limit=4, log_lines=3) + recall(tasks, [], "", agent=name, limit=3, log_lines=3)
-    prompt = DRAFT_PROMPT.format(name=name, voice=VOICE, inbox="\n".join(chat_line(m) for m in inbox) or "(none)",
+    prompt = DRAFT_PROMPT.format(name=name, voice=VOICE, today=datetime.now().strftime("%A %d %B %Y, %H:%M"),
+                                 inbox="\n".join(chat_line(m) for m in inbox) or "(none)",
                                  memory="\n".join(recall_lines(mem)) or "(nothing yet)")
     return _ask_model(claude, model, budget, prompt)
+
+
+def doing_now(tasks, chat, name=None):
+    """One line per card in Doing (not `name`'s own): who, what, how far, and the files its heads-ups named."""
+    files = {}
+    for m in chat:
+        if m.get("topic") == "heads-up" and m.get("files"):
+            files.setdefault(m.get("card") or m.get("sender"), set()).update(m["files"])
+    out = []
+    for t in tasks:
+        if t.get("status") != "doing" or t.get("parent_id") or not t.get("agent") or t["agent"] == name:
+            continue
+        fs = sorted(files.get(t["id"], set()) | files.get(t["agent"], set()))
+        out.append(f"{t['agent']}: {t['title']} ({t.get('progress', 0)}%, {t.get('status_text') or 'no status yet'})" + (f"  files: {', '.join(fs)}" if fs else ""))
+    return out
 
 
 def own_history(store, name):
@@ -397,11 +443,17 @@ def draft_share(store, name, claude, model=None, budget=None, recent_chat=12, mi
     mine = own_history(store, name) if mine is None else mine
     if not mine:
         return None
-    prompt = SHARE_PROMPT.format(name=name, voice=VOICE, memory="\n".join(recall_lines(mine)),
-                                 chat="\n".join(chat_line(m).splitlines()[0] for m in store.chat_list(limit=recent_chat)) or "(nothing yet)")
+    chat = store.chat_list(limit=200)
+    doing = doing_now(store.load(), chat, name)
+    if not doing:   # nobody is on anything: nothing to tie a share to
+        return None
+    prompt = SHARE_PROMPT.format(name=name, voice=VOICE, today=datetime.now().strftime("%A %d %B %Y, %H:%M"), memory="\n".join(recall_lines(mine)),
+                                 doing="\n".join(doing), chat="\n".join(chat_line(m).splitlines()[0] for m in chat[-recent_chat:]) or "(nothing yet)")
     d = _ask_model(claude, model, budget, prompt)
     if d:
-        d["to"], d["topic"] = "all", "learn"
+        d["topic"] = "learn"
+        if not d["to"] or d["to"].lower() == "all":
+            d["to"] = "all"
     return d
 
 
