@@ -1,5 +1,6 @@
 """agentboard command line."""
 import argparse
+import json
 import os
 import shlex
 import subprocess
@@ -9,6 +10,7 @@ from datetime import date
 from pathlib import Path
 
 from . import __version__
+from . import agentchat
 from . import backup as backuplib
 from . import hud as hudlib
 from . import prompt as promptlib
@@ -19,7 +21,7 @@ from . import runs as runslib
 from . import sms as smslib
 from .server import serve
 from . import boards as boardlib
-from .store import DIR_NAME, BoardError, Store, find_dir, subtask_counts
+from .store import CHAT_TOPICS, DIR_NAME, BoardError, Store, find_dir, subtask_counts
 
 SAMPLE_CONFIG = '''\
 # agentboard config. Providers add context to task prompts.
@@ -327,23 +329,37 @@ def cmd_project_unassign(a):
     print(f"{t['id']}: untied from its project")
 
 
-def _chat_line(m):
-    who = f"{m['sender']} (you)" if m["kind"] == "user" else m["sender"]
-    return f"[{m['at']}] {who}: {m['text']}"
+_chat_line = agentchat.chat_line
+
+
+def _chat_name(a):
+    name = a.name or os.environ.get("AGENTBOARD_NAME") or ("Troy" if getattr(a, "user", False) else None)
+    if not name:
+        raise BoardError("give --name (or set AGENTBOARD_NAME) so the board can show who's talking")
+    return name
 
 
 def cmd_chat_send(a):
-    name = a.name or os.environ.get("AGENTBOARD_NAME") or ("Troy" if a.user else None)
-    if not name:
-        raise BoardError("give --name (or set AGENTBOARD_NAME) so the board can show who's talking")
-    m = _store().chat_send(name, a.text, kind="user" if a.user else "agent")
+    name = _chat_name(a)
+    detail = a.detail
+    if a.detail_file:
+        try:
+            detail = Path(a.detail_file).expanduser().read_text()
+        except OSError as e:
+            raise BoardError(f"--detail-file: {e}") from e
+    m = _store().chat_send(name, a.text, kind="user" if a.user else "agent", to=a.to, topic=a.topic, detail=detail, card=a.card,
+                           files=a.file or None, propose=a.propose, reply_to=a.reply_to, color=a.color or os.environ.get("AGENTBOARD_COLOR"))
     print(_chat_line(m))
 
 
+def _for(m, name):
+    return not name or m["sender"] == name or not m.get("to") or m["to"] in ("all", name)
+
+
 def cmd_chat_tail(a):
-    """Print recent chat; --follow polls and streams new messages (Ctrl+C stops)."""
+    """Print recent chat; --follow polls and streams new messages (Ctrl+C stops); --for keeps what one name would read."""
     s = _store()
-    msgs = s.chat_list(limit=a.limit)
+    msgs = [m for m in s.chat_list(limit=a.limit) if _for(m, a.for_name)]
     for m in msgs:
         print(_chat_line(m))
     if not a.follow:
@@ -353,10 +369,122 @@ def cmd_chat_tail(a):
         while True:
             time.sleep(a.interval)
             for m in s.chat_list(after=last):
-                print(_chat_line(m))
+                if _for(m, a.for_name):
+                    print(_chat_line(m), flush=True)
                 last = m["seq"]
     except KeyboardInterrupt:
         pass
+
+
+def _cursor_path(s):
+    return s.dir / "chat-cursors.json"
+
+
+def _cursors(s):
+    try:
+        d = json.loads(_cursor_path(s).read_text())
+        return d if isinstance(d, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def cmd_chat_inbox(a):
+    """Unread messages for an agent: addressed to it, to all, or plain lines, after the last one it read. The cursor is kept
+    per name in .agentboard/chat-cursors.json; --after overrides it, --all ignores it. --wait blocks for the next one."""
+    name = _chat_name(a)
+    s = _store()
+    after = None if a.all else (a.after if a.after is not None else _cursors(s).get(name))
+    deadline = time.time() + (a.wait or 0)
+    while True:
+        msgs = s.chat_inbox(name, after=after, limit=a.limit)
+        if msgs or not a.wait or time.time() >= deadline:
+            break
+        time.sleep(a.interval)
+    for m in msgs:
+        print(_chat_line(m))
+    if msgs and not a.keep:
+        cur = _cursors(s)
+        cur[name] = max(msgs[-1]["seq"], cur.get(name, 0) if isinstance(cur.get(name), int) else 0)
+        try:
+            _cursor_path(s).write_text(json.dumps(cur))
+        except OSError:
+            pass
+    if not msgs:
+        print("(nothing new)" if not a.wait else "(nothing new; waited)")
+        if a.wait:
+            sys.exit(1)
+
+
+def cmd_chat_approvals(a):
+    rows = _store().chat_approvals(a.name or os.environ.get("AGENTBOARD_NAME"))
+    if not rows:
+        print("no proposed actions")
+        return
+    for m in rows:
+        act = m["action"]
+        print(f"#{m['seq']}  {act['status']:<9} {m['sender']}: {act['text']}" + (f"   ({act['by']} {act['decided_at']})" if act.get("by") else ""))
+
+
+def cmd_chat_decide(a):
+    m = _store().chat_decide(a.seq, a.decision)
+    print(_chat_line(m))
+
+
+def cmd_chat_agents(a):
+    s = _store()
+    if a.state in ("on", "off"):
+        s.set_chat_agents(a.state == "on")
+    on = s.chat_agents()
+    print("agent chat is " + ("on: agents may talk to each other on the shared chat (Troy still approves any action)" if on
+                              else "off: agents post plain status lines only (turn on with: agentboard chat agents on)"))
+
+
+def cmd_chat_idle(a):
+    """For an agent with nothing to do: draft one reply to its inbox on a cheaper model, from the board's memory. Prints the
+    draft; posts it only with --send. --wait N first waits up to N seconds for a message."""
+    name = _chat_name(a)
+    s = _store()
+    if not s.chat_agents():
+        raise BoardError("agent chat is off for this board")
+    claude = os.environ.get("AGENTBOARD_CLAUDE") or a.claude or runslib.claude_binary(s.dir)
+    after = _cursors(s).get(name)
+    deadline = time.time() + (a.wait or 0)
+    while True:
+        inbox = s.chat_inbox(name, after=after)
+        if inbox or not a.wait or time.time() >= deadline:
+            break
+        time.sleep(a.interval)
+    if not inbox:
+        print("(nothing to answer)")
+        sys.exit(1)
+    d = agentchat.draft_reply(s, name, claude, model=a.model, budget=a.budget, inbox=inbox)
+    cur = _cursors(s)
+    cur[name] = inbox[-1]["seq"]
+    try:
+        _cursor_path(s).write_text(json.dumps(cur))
+    except OSError:
+        pass
+    if not d:
+        print("(the draft was: nothing to say)")
+        return 0
+    print(f"draft -> {d['to'] or 'all'} [{d['topic'] or 'status'}]: {d['text']}" + (f"\n    {d['detail']}" if d["detail"] else ""))
+    if a.send:
+        asked = next((m for m in reversed(inbox) if m.get("to") == name), inbox[-1])   # thread to the line that was for this agent
+        m = s.chat_send(name, d["text"], to=d["to"], topic=d["topic"], detail=d["detail"], reply_to=asked["seq"])
+        print("sent " + _chat_line(m).splitlines()[0])
+
+
+def cmd_recall(a):
+    """What the board remembers: cards, updates and history matching a few words (every agent's, archived too), and chat."""
+    s = _store()
+    if not (a.query or a.card or a.agent):
+        raise BoardError("say what to look for: a few words, --card <id> or --agent <name>")
+    rows = agentchat.recall(s.load(), s.chat_list(limit=500), a.query or "", agent=a.agent, card=a.card, limit=a.limit)
+    if a.json:
+        print(json.dumps(rows, indent=2))
+        return
+    lines = agentchat.recall_lines(rows)
+    print("\n".join(lines) if lines else "nothing on the board matches")
 
 
 WAIT_FLAGS = ("review", "needs_input")  # pseudo-targets: a flag on the task, not a column
@@ -609,7 +737,14 @@ for, since both mean progress is stalled on a human, not on more waiting.
 
 
 def cmd_instructions(a):
-    print(INSTRUCTIONS.replace("agentboard ", f"{promptlib.agentboard_cmd(find_dir())} ") if a.absolute else INSTRUCTIONS)
+    text = INSTRUCTIONS
+    try:
+        board_dir = find_dir()
+    except BoardError:
+        board_dir = None
+    if board_dir and agentchat.is_on(board_dir):
+        text = text.rstrip("\n") + "\n\n" + agentchat.protocol(board_dir)
+    print(text.replace("agentboard ", f"{promptlib.agentboard_cmd(board_dir)} ") if a.absolute and board_dir else text)
 
 
 def cmd_demo(a):
@@ -1043,6 +1178,12 @@ def main(argv=None):
     sp.add_argument("--file", help="transcribe this audio file instead of recording")
     sp.add_argument("--mic", help="avfoundation input, e.g. ':2' (default: the system's default microphone)")
     add("clear", cmd_clear, "archive all Done tasks (kept for history and the HUD)")
+    sp = add("recall", cmd_recall, "what the board remembers: cards, updates and history matching a few words (every agent's), and chat")
+    sp.add_argument("query", nargs="?", help="a few words")
+    sp.add_argument("--card", metavar="ID", help="one card's whole history")
+    sp.add_argument("--agent", metavar="NAME", help="one agent's cards")
+    sp.add_argument("--limit", type=int, default=10)
+    sp.add_argument("--json", action="store_true")
     sp = add("spawn", cmd_spawn, "open a new Terminal window per name, cd here, launch an agent in each (macOS)")
     sp.add_argument("names", help="comma-separated session names, e.g. atlas,scribe,bolt")
     sp.add_argument("--colors", help="comma-separated hex colors, one per name (default: built-in palette)")
@@ -1198,13 +1339,49 @@ def main(argv=None):
         return csp
 
     csp = cadd("send", cmd_chat_send, "post a message (who's on what, asking for a hand, handing off work)")
-    csp.add_argument("text")
+    csp.add_argument("text", help="one line; a multi-line text keeps its first line and the rest becomes the detail")
     csp.add_argument("--name", help="your session name (or $AGENTBOARD_NAME)")
     csp.add_argument("--user", action="store_true", help="post as the human (Troy), not an agent")
+    csp.add_argument("--to", help="who it is for: an agent name, ORCH, or all (agent chat must be on)")
+    csp.add_argument("--topic", choices=list(CHAT_TOPICS), help="status (default), learn, help, heads-up or handoff")
+    csp.add_argument("--detail", help="the technical part, shown on tap under the line")
+    csp.add_argument("--detail-file", dest="detail_file", metavar="PATH", help="read the detail from a file")
+    csp.add_argument("--card", metavar="ID", help="the card this is about")
+    csp.add_argument("--file", action="append", metavar="PATH", help="a shared file you are about to touch; repeat for more")
+    csp.add_argument("--propose", metavar="ACTION", help="an action for Troy to approve first (chat never does it)")
+    csp.add_argument("--reply-to", dest="reply_to", type=int, metavar="N", help="the message number this answers")
+    csp.add_argument("--color", help="your colour (or $AGENTBOARD_COLOR); default: the colour of your cards")
     csp = cadd("tail", cmd_chat_tail, "read recent messages, optionally following live")
     csp.add_argument("--limit", type=int, default=30)
     csp.add_argument("--follow", action="store_true", help="keep polling and print new messages (Ctrl+C stops)")
     csp.add_argument("--interval", type=float, default=2.0, help="seconds between polls with --follow")
+    csp.add_argument("--for", dest="for_name", metavar="NAME", help="only what NAME would read: its own lines, lines to it or to all")
+    csp = cadd("inbox", cmd_chat_inbox, "unread messages for you (to you, to all, or plain lines); remembers where you got to")
+    csp.add_argument("--name", help="your session name (or $AGENTBOARD_NAME)")
+    csp.add_argument("--after", type=int, metavar="N", help="messages after number N (default: where you left off)")
+    csp.add_argument("--all", action="store_true", help="everything, ignoring where you left off")
+    csp.add_argument("--keep", action="store_true", help="do not move your cursor")
+    csp.add_argument("--wait", type=float, metavar="SECONDS", help="block up to SECONDS for the next message (exit 1 if none)")
+    csp.add_argument("--interval", type=float, default=2.0)
+    csp.add_argument("--limit", type=int, default=50)
+    csp = cadd("approvals", cmd_chat_approvals, "proposed actions and what Troy decided (--name: only yours)")
+    csp.add_argument("--name", help="only this agent's proposals (or $AGENTBOARD_NAME)")
+    csp = cadd("approve", cmd_chat_decide, "approve a proposed action (Troy)")
+    csp.add_argument("seq", type=int, metavar="N")
+    csp.set_defaults(decision="approved")
+    csp = cadd("decline", cmd_chat_decide, "decline a proposed action (Troy)")
+    csp.add_argument("seq", type=int, metavar="N")
+    csp.set_defaults(decision="declined")
+    csp = cadd("agents", cmd_chat_agents, "the board-wide switch: on, off, or status (default off)")
+    csp.add_argument("state", nargs="?", choices=["on", "off", "status"], default="status")
+    csp = cadd("idle", cmd_chat_idle, "draft one reply to your inbox on a cheaper model, from the board's memory; --send posts it")
+    csp.add_argument("--name", help="your session name (or $AGENTBOARD_NAME)")
+    csp.add_argument("--model", help=f"claude model for the draft (default: [chat] idle_model, else {agentchat.DEFAULT_IDLE_MODEL})")
+    csp.add_argument("--budget", type=float, help=f"dollars per draft (default: [chat] idle_budget_usd, else {agentchat.DEFAULT_IDLE_BUDGET})")
+    csp.add_argument("--send", action="store_true", help="post the draft (default: print it)")
+    csp.add_argument("--wait", type=float, metavar="SECONDS", help="first wait up to SECONDS for a message")
+    csp.add_argument("--interval", type=float, default=5.0)
+    csp.add_argument("--claude", help="the claude binary (default: $AGENTBOARD_CLAUDE, [run] claude, or PATH)")
 
     a = p.parse_args(argv)
     if a.board:

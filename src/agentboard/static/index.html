@@ -957,6 +957,36 @@
   .cmsg.user .cmsg-head { flex-direction: row-reverse; }
   .cmsg.user .cmsg-txt { background: color-mix(in srgb, var(--accent) 10%, var(--surface));
     border-color: color-mix(in srgb, var(--accent) 30%, var(--line)); }
+  /* agent chat: a bubble is one line in the agent's colour; the detail, the card, the files and a proposed action sit under it,
+     shown on tap. Troy's Approve / Decline live on the proposal itself. The switch is in the drawer's head. */
+  .cmsg.agent .cmsg-txt { border-left: 3px solid var(--c, var(--neutral)); }
+  .cmsg-head .to { color: var(--muted); }
+  .cmsg-head .topic { font-size: var(--fs-xs); font-weight: 600; letter-spacing: var(--tr-tight); text-transform: uppercase; color: var(--tc, var(--muted)); }
+  .topic.learn { --tc: var(--info); } .topic.help { --tc: var(--warn); } .topic.heads-up { --tc: var(--run); } .topic.handoff { --tc: var(--ok); }
+  .cmsg-meta { display: flex; flex-wrap: wrap; gap: 4px 6px; margin-top: 4px; align-items: center; }
+  .cmsg-meta .chip { font-size: var(--fs-xs); padding: 1px 8px; background: var(--chip); color: var(--muted); border-radius: 999px; white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+  .cmsg-meta .chip.card { color: var(--text); cursor: pointer; } .cmsg-meta .chip.card:hover { text-decoration: underline; text-underline-offset: 2px; }
+  .cmsg-meta .chip.file { font-family: ui-monospace, Menlo, monospace; }
+  .cmsg-meta .chip.file::before { content: '✎ '; }
+  .cmsg-more.dt { font-size: var(--fs-xs); }
+  .cmsg-detail { margin-top: 4px; padding: 8px 12px; border-radius: 8px; background: var(--chip); font-size: var(--fs-md); line-height: 1.5; color: var(--text); overflow-wrap: anywhere; }
+  .cmsg-detail[hidden] { display: none; }
+  .cmsg-act { margin-top: 6px; padding: 8px 10px 8px 12px; border-radius: 8px; border: 1px solid color-mix(in srgb, var(--warn) 45%, var(--line)); border-left-width: 4px; background: color-mix(in srgb, var(--warn) 7%, var(--surface)); font-size: var(--fs-md); }
+  .cmsg-act .lab { display: block; font-size: var(--fs-xs); font-weight: 600; letter-spacing: var(--tr-tight); text-transform: uppercase; color: var(--warn); margin-bottom: 2px; }
+  .cmsg-act.approved { border-color: color-mix(in srgb, var(--ok) 45%, var(--line)); background: color-mix(in srgb, var(--ok) 7%, var(--surface)); } .cmsg-act.approved .lab { color: var(--ok); }
+  .cmsg-act.declined { border-color: var(--line); background: var(--surface); opacity: .8; } .cmsg-act.declined .lab { color: var(--muted); }
+  .cmsg-act .acts { display: flex; gap: 6px; margin-top: 6px; }
+  .cmsg-act .acts .btn { min-height: 26px; padding: 2px 10px; font-size: var(--fs-sm); }
+  .cmsg-act .acts .btn.go { border-color: var(--ok); color: var(--ok); }
+  .cmsg-act .decided { font-size: var(--fs-xs); color: var(--muted); margin-top: 4px; }
+  .cmsg.enter { animation: enter .25s ease-out; }
+  .sw { display: inline-flex; align-items: center; gap: 7px; font-size: var(--fs-sm); color: var(--muted); cursor: pointer; user-select: none; }
+  .sw input { appearance: none; width: 30px; height: 18px; border-radius: 999px; background: var(--chip); box-shadow: inset 0 0 0 1px var(--line); position: relative; cursor: pointer; margin: 0; transition: background .15s; }
+  .sw input::after { content: ''; position: absolute; top: 3px; left: 3px; width: 12px; height: 12px; border-radius: 50%; background: var(--muted); transition: transform .15s, background .15s; }
+  .sw input:checked { background: color-mix(in srgb, var(--ok) 35%, var(--chip)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ok) 60%, var(--line)); }
+  .sw input:checked::after { transform: translateX(12px); background: var(--ok); }
+  .sw input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .sw.on { color: var(--text); }
   .chat-form { display: flex; gap: 8px; padding: 14px 20px; border-top: 1px solid var(--line); flex: none; }
   .chat-form input { flex: 1; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 6px 12px; min-height: 32px; }
   #chat-n { display: inline-block; min-width: 16px; text-align: center; background: var(--accent); color: var(--bg);
@@ -1206,10 +1236,11 @@
 
 <aside id="chat" aria-label="Agent chat">
   <div class="p-head"><strong style="font-weight:600">Chat</strong><span class="spacer"></span>
+    <label class="sw" id="chat-sw" title="Agent chat: with this on, agents talk to each other here (learnings, help, heads-ups, handoffs). You approve any action."><input type="checkbox" id="chat-agents" aria-label="Agents talk to each other"><span>Agents talk</span></label>
     <button class="icon-btn" id="chat-close" aria-label="Close"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button></div>
   <div class="p-body" id="chat-body"></div>
   <form id="chat-form" class="chat-form">
-    <input id="chat-input" placeholder="Message the agents…" aria-label="Message the agents" autocomplete="off">
+    <input id="chat-input" placeholder="Message the agents… (@AGENT-2 to address one)" aria-label="Message the agents" autocomplete="off">
     <button class="btn primary">Send</button>
   </form>
 </aside>
@@ -1693,6 +1724,7 @@ async function loadChat() {
     const d = await r.json();
     const msgs = d.messages || [];
     const maxSeq = msgs.length ? msgs[msgs.length - 1].seq : 0;
+    setChatSwitch(!!d.agents);
     if (chatFirstLoad) {
       // Establish the baseline on the very first poll after page load, whether or not any
       // messages exist yet — if this were gated on "the first poll that finds a non-empty
@@ -1704,30 +1736,91 @@ async function loadChat() {
       renderChat();
       return;
     }
-    if (maxSeq === chatMaxSeq) return;   // nothing new
-    chatMsgs = msgs; chatMaxSeq = maxSeq;
+    if (maxSeq === chatMaxSeq && JSON.stringify(msgs.map(m => m.action?.status)) === chatActKey) return;   // nothing new (a decision changes a message in place)
+    const fresh = msgs.filter(m => m.seq > chatMaxSeq);
+    chatMsgs = msgs; chatMaxSeq = maxSeq; chatActKey = JSON.stringify(msgs.map(m => m.action?.status));
     if ($('chat').classList.contains('open')) chatSeenSeq = maxSeq;  // visible now: counts as seen, not unread later
     else chatUnread = msgs.filter(m => m.seq > chatSeenSeq).length;
+    // pacing: several lines landing in one poll (a few agents answering at once) are revealed one at a time, at
+    // reading speed, while the drawer is open; the data is never delayed, only the reveal
+    if ($('chat').classList.contains('open') && fresh.length > 1) {
+      fresh.slice(1).forEach(m => chatHold.add(m.seq));
+      let i = 1;
+      const tick = () => { if (i >= fresh.length) return; chatHold.delete(fresh[i++].seq); renderChat(); setTimeout(tick, CHAT_DRIP_MS); };
+      setTimeout(tick, CHAT_DRIP_MS);
+    }
     renderChat();
   } catch (e) { /* connectivity already reflected by the main status indicator */ }
 }
 const CHAT_CLAMP_CHARS = 280;   // an "unusually long" message past this stays collapsed until expanded
+const CHAT_DRIP_MS = 700;       // the reveal gap between lines that arrived together
+let chatAgents = false, chatActKey = '', chatSwitchBusy = false;
+const chatHold = new Set(), chatDetail = new Set(), chatShown = new Set();   // seqs held back by the drip, with the detail open, already drawn
+function setChatSwitch(on) {
+  if (chatSwitchBusy) return;
+  chatAgents = on;
+  const sw = $('chat-sw'), box = $('chat-agents');
+  if (box && box.checked !== on) box.checked = on;
+  if (sw) sw.classList.toggle('on', on);
+}
+$('chat-agents').addEventListener('change', async e => {
+  const on = e.target.checked; chatSwitchBusy = true;
+  try { const r = await api('/api/chat-agents', { on }); chatAgents = !!r.agents; showError(''); toast(chatAgents ? 'Agents talk to each other now; you approve any action they propose' : 'Agent chat off: plain status lines only'); }
+  catch (err) { showError('Could not change agent chat: ' + err.message); e.target.checked = chatAgents; }
+  chatSwitchBusy = false; setChatSwitch(chatAgents); renderChat();
+});
+const TOPIC_WORD = { learn: 'learned', help: 'help', 'heads-up': 'heads-up', handoff: 'handoff' };
+function chatBubble(m) {
+  const long = m.text.length > CHAT_CLAMP_CHARS, open = chatExpanded.has(m.seq);
+  const toggle = long ? `<button class="p-more cmsg-more" data-seq="${m.seq}">${open ? 'Show less' : 'Show more'}</button>` : '';
+  const to = m.to ? `<span class="to">→ ${esc(m.to)}</span>` : '';
+  const topic = m.topic && m.topic !== 'status' ? `<span class="topic ${esc(m.topic)}">${esc(TOPIC_WORD[m.topic] || m.topic)}</span>` : '';
+  const chips = [m.card ? `<span class="chip card" data-chat-card="${esc(m.card)}" role="button" tabindex="0" title="Open the card">${esc(byId.get(m.card)?.title || m.card)}</span>` : '',
+    ...(m.files || []).map(f => `<span class="chip file" title="${esc(f)}">${esc(f.split('/').pop())}</span>`),
+    m.reply_to ? `<span class="chip">re #${m.reply_to}</span>` : ''].filter(Boolean);
+  const meta = chips.length ? `<div class="cmsg-meta">${chips.join('')}</div>` : '';
+  const dOpen = chatDetail.has(m.seq);
+  const detail = m.detail ? `<button class="p-more cmsg-more dt" data-detail="${m.seq}" aria-expanded="${dOpen}">${dOpen ? 'Detail ▾' : 'Detail ▸'}</button><div class="cmsg-detail fmt" ${dOpen ? '' : 'hidden'}>${fmt(m.detail)}</div>` : '';
+  let act = '';
+  if (m.action) {
+    const a = m.action, st = a.status || 'proposed';
+    act = `<div class="cmsg-act ${esc(st)}"><span class="lab">${st === 'proposed' ? 'Proposes · needs your OK' : st === 'approved' ? 'Approved' : 'Declined'}</span>${esc(a.text)}`
+      + (st === 'proposed' ? `<div class="acts"><button class="btn go" data-decide="approved" data-seq="${m.seq}">Approve</button><button class="btn" data-decide="declined" data-seq="${m.seq}">Decline</button></div>`
+        : `<div class="decided">${esc(a.by || 'Troy')} · ${ago(a.decided_at).text}</div>`) + '</div>';
+  }
+  const fresh = !chatShown.has(m.seq) && !chatFirstLoad; chatShown.add(m.seq);
+  return `<div class="cmsg ${m.kind} ${fresh ? 'enter' : ''}" style="--c:${hudColor(m.color || '')}"><div class="cmsg-head"><b>${esc(m.sender)}</b>${to}${topic}<span>${ago(m.at).text}</span></div>`
+    + `<div class="cmsg-txt ${long && !open ? 'clamp' : ''}">${esc(m.text)}</div>${toggle}${meta}${detail}${act}</div>`;
+}
 function renderChat() {
   const body = $('chat-body');
   const nearBottom = body.scrollTop + body.clientHeight >= body.scrollHeight - 48;
-  body.innerHTML = chatMsgs.length ? chatMsgs.map(m => {
-    const long = m.text.length > CHAT_CLAMP_CHARS, open = chatExpanded.has(m.seq);
-    const toggle = long ? `<button class="p-more cmsg-more" data-seq="${m.seq}">${open ? 'Show less' : 'Show more'}</button>` : '';
-    return `<div class="cmsg ${m.kind}"><div class="cmsg-head"><b>${esc(m.sender)}</b><span>${ago(m.at).text}</span></div><div class="cmsg-txt ${long && !open ? 'clamp' : ''}">${esc(m.text)}</div>${toggle}</div>`;
-  }).join('') : `<div class="empty">No messages yet. Agents post here to self-organize — jump in any time.</div>`;
+  const shown = chatMsgs.filter(m => !chatHold.has(m.seq));
+  body.innerHTML = shown.length ? shown.map(chatBubble).join('')
+    : `<div class="empty">${chatAgents ? 'No messages yet. Agents talk to each other here; you approve anything they propose.' : 'No messages yet. Agents post status here — turn on Agents talk and they can help each other too.'}</div>`;
   if (nearBottom) body.scrollTop = body.scrollHeight;
   $('chat-n').textContent = chatUnread ? String(chatUnread) : '';
 }
-$('chat-body').addEventListener('click', e => {
+$('chat-body').addEventListener('click', async e => {
+  const card = e.target.closest('[data-chat-card]');
+  if (card) { openPanel(card.dataset.chatCard); return; }
+  const dec = e.target.closest('[data-decide]');
+  if (dec) {
+    dec.disabled = true;
+    try { await api('/api/chat-decide', { seq: +dec.dataset.seq, decision: dec.dataset.decide }); showError(''); chatActKey = ''; loadChat(); }   // a changed status redraws without a drip
+    catch (err) { showError('Could not decide: ' + err.message); dec.disabled = false; }
+    return;
+  }
+  const dt = e.target.closest('[data-detail]');
+  if (dt) { const seq = +dt.dataset.detail; if (chatDetail.has(seq)) chatDetail.delete(seq); else chatDetail.add(seq); renderChat(); return; }
   const btn = e.target.closest('.cmsg-more'); if (!btn) return;
   const seq = +btn.dataset.seq;
   if (chatExpanded.has(seq)) chatExpanded.delete(seq); else chatExpanded.add(seq);
   renderChat();
+});
+$('chat-body').addEventListener('keydown', e => {
+  const card = e.target.closest?.('[data-chat-card]');
+  if (card && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openPanel(card.dataset.chatCard); }
 });
 
 function setStatus(ok) {

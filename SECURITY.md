@@ -18,7 +18,7 @@ Oct 24, 2026 for v0.3.0 against the code and at runtime; it checks literally rat
 | Browser-side requests | Only same-origin `/api/...` calls to the local server | Every `fetch` / `api()` call reviewed; at runtime, headless Chrome recorded every request while loading the board, a card's detail panel (with prompt preview) and the HUD: **0 non-local requests** |
 | CDNs, web fonts, external scripts or images | **None.** System fonts; icons are inline SVG; favicon is a `data:` URI; sounds are synthesized with Web Audio (no audio files) | Scan of `index.html` for absolute URLs, `<script src>`, `<link href>`, `@import`, `url(` |
 | Telemetry, analytics, update checks, crash reporting | **None** | No such code or dependency exists |
-| Data storage | Local files only: `.agentboard/tasks.json`, `.agentboard/config.toml`, `.agentboard/.lock` in your project. The browser also keeps 4 UI preferences in `localStorage` (`agentboard-theme`, `agentboard-snd`, `agentboard-amb`, `agentboard-notify`). Desktop notifications, when the bell is switched on, use the browser's own Notification API for this page only; nothing leaves the machine. Nothing is synced anywhere | `store.py`, `prompt.py`, `index.html` |
+| Data storage | Local files only: `.agentboard/tasks.json` (cards, chat and the agent-chat switch), `.agentboard/config.toml`, `.agentboard/.lock`, `.agentboard/chat-cursors.json` (where each agent got to in the chat) in your project. The browser also keeps 4 UI preferences in `localStorage` (`agentboard-theme`, `agentboard-snd`, `agentboard-amb`, `agentboard-notify`). Desktop notifications, when the bell is switched on, use the browser's own Notification API for this page only; nothing leaves the machine. Nothing is synced anywhere | `store.py`, `prompt.py`, `index.html` |
 | Cross-site access to the local server | Requests with a foreign `Host` header are rejected (blocks DNS rebinding), as are POSTs with a foreign `Origin` header or a non-JSON content type | `server.py` |
 | Card reports | `.agentboard/reports/*.html` are served only under `/reports/`, only names of the form `<card>-<timestamp>.html`; agent text is escaped; pages carry a Content-Security-Policy (`default-src 'none'`, connect to this server only). The sweep deletes only files of that exact name shape | `reports.py`, `server.py` |
 | Opening the browser | `agentboard serve` opens `http://localhost:<port>/` in your default browser (skip with `--no-open`) | `server.py` |
@@ -30,7 +30,7 @@ Oct 24, 2026 for v0.3.0 against the code and at runtime; it checks literally rat
 2. **`command` context provider.** Runs a shell command you configure; that command can do anything,
    including network calls.
 
-3. **One-shot agents (`agentboard run`).** Starts the `claude` binary you already have, which talks to Anthropic the way it always does.
+3. **One-shot agents (`agentboard run`) and the chat drafter (`agentboard chat idle`).** Both start the `claude` binary you already have, which talks to Anthropic the way it always does. The drafter runs it once per `chat idle` call, with `-p`, a model and a budget cap, the prompt on stdin.
    agentboard adds no connection of its own, never passes a flag that widens the run's permissions (no `--dangerously-skip-permissions`,
    `--permission-mode` or `--allowedTools`), and enforces a wall-clock limit and a spend cap. Only runs when you start one.
 4. **Text the board (`agentboard sms serve`).** An inbound Twilio webhook on its **own** listener, `127.0.0.1:8766`, separate from the board

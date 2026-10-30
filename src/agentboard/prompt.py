@@ -234,6 +234,9 @@ def build_prompt(task, board_dir, public=False, tasks=None):
     out = re.sub(r"\{(" + "|".join(values) + r")\}", lambda m: values[m.group(1)], template)
     if task.get("agent") and task.get("status") in ("todo", "backlog"):   # assigned from the board: the prompt names its agent
         out = _name_agent(out, task["agent"], task.get("color"))
+    from . import agentchat
+    if agentchat.is_on(board_dir):   # the agent chat protocol rides along only while Troy has the switch on
+        out = out.rstrip("\n") + "\n\n" + agentchat.protocol(board_dir, task["agent"] if task.get("agent") and task.get("status") in ("todo", "backlog") else "<your session name>")
     return out, warnings
 
 
@@ -336,6 +339,9 @@ def build_orch_prompt(tasks, board_dir, port=8765):
     sections.append("Idle: " + (", ".join(idle) or "none") + (f"  (also working, not in roster: {', '.join(extra)})" if extra else ""))
 
     peers = "\n".join(f"- {n}" + (f" ({c})" if c else "") for n, c in roster)
+    from . import agentchat
+    if agentchat.is_on(board_dir):
+        sections.append(agentchat.ORCH_PROTOCOL.format(ab=agentboard_cmd(board_dir)).rstrip("\n"))
     return ORCH_TEMPLATE.format(
         url=f"http://localhost:{port}", board_dir=board_dir, ab=agentboard_cmd(board_dir), peers=peers,
         keep_simple=KEEP_SIMPLE.rstrip("\n"), now=datetime.now().strftime("%Y-%m-%d %H:%M"), snapshot="\n\n".join(sections))
