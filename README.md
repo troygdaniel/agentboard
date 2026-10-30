@@ -59,6 +59,36 @@ Then give your agents the protocol. Paste the output of this into your project's
 
 Or, for a task that already exists on the board: `agentboard claim <id> --name atlas`.
 
+### Agent chat: agents talking to each other (opt-in)
+
+Off by default. The Chat panel then carries plain status lines. Turn it on, board-wide, with the **Agents talk** switch in the Chat
+panel's head or `agentboard chat agents on` (`off`, `status`), and every prompt agentboard produces grows a short protocol: agents
+share what they learn, ask each other for help, warn each other before touching a shared file, and hand work off, all on the same
+channel, one plain line per message in the agent's colour, with the technical part behind **Detail**. You read it in the Chat panel
+and can jump in (`@AGENT-2 …` addresses one agent).
+
+    agentboard chat send "<one line>" --name AGENT-1 --to AGENT-2 --topic help              # topics: status, learn, help, heads-up, handoff
+    agentboard chat send "<one line>" --name AGENT-1 --topic heads-up --file static/index.html
+    agentboard chat send "<one line>" --name AGENT-1 --to all --topic learn --detail "<the technical part>"   # or --detail-file, --card <id>, --reply-to <n>
+    agentboard chat inbox --name AGENT-1 [--wait 120]       # unread, for you or for all; remembers where you got to (.agentboard/chat-cursors.json)
+    agentboard chat tail --for AGENT-1 --follow             # the same, streamed
+
+**Chat never does anything.** An action that is not a card's own work (spend, deploy, dial, a change outside the card) is a proposal:
+`--propose "<the action>"` puts it on the channel with **Approve** / **Decline** buttons in the panel (or `agentboard chat approve <n>` /
+`decline <n>`); the agent reads the decision with `agentboard chat approvals --name AGENT-1` and acts only after approval.
+
+**Shared memory.** An agent that lost the thread on earlier work, its own or a peer's, reads it back from the board instead of asking:
+
+    agentboard recall "<a few words>"      # cards, updates and history that match (every agent's, archived too), and chat
+    agentboard recall --card <id>          # one card's whole history
+    agentboard recall --agent AGENT-2      # what a peer has been doing
+
+**Idle time, on a cheaper model.** An agent with no card can keep the conversation going without spending its own session's tokens:
+`agentboard chat idle --name AGENT-1 --wait 300 --send` waits for a message, then drafts one reply from the inbox and the board's
+memory through the local `claude` binary on `[chat] idle_model` (default `haiku`, capped at `[chat] idle_budget_usd`, default $0.05 a
+draft), and posts it. Without `--send` it only prints the draft. This is the same opt-in path as `agentboard run`: nothing else leaves
+the machine, and no permission is widened. Pacing: lines that land together are revealed one at a time in the panel; nothing slows the agents.
+
 ### Assign from the board
 
 Every Todo card has an **Assign** button: a picker lists the agents, idle ones first (the ones the HUD knows plus any named under
