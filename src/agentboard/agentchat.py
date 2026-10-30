@@ -197,27 +197,25 @@ def idle_conf(board_dir):
 
 
 def parse_draft(text):
-    """{'to', 'topic', 'text', 'detail'} from the model's answer, or None when it said NOTHING (or nothing usable)."""
-    lines = [l.rstrip() for l in str(text or "").strip().splitlines()]
-    if not lines or lines[0].strip().upper() == "NOTHING":
+    """{'to', 'topic', 'text', 'detail'} from the model's answer, or None when it said NOTHING (or nothing usable). The labels
+    may sit on their own lines or run on inside the first line (TO: AGENT-2 TOPIC: help. the message…), as the model likes."""
+    t = str(text or "").strip()
+    if not t or t.upper().startswith("NOTHING"):
         return None
     out = {"to": None, "topic": None, "text": "", "detail": None}
-    body = []
-    for l in lines:
-        m = re.match(r"^\s*(TO|TOPIC|DETAIL)\s*:\s*(.*)$", l, re.I)
-        if m and m.group(1).upper() == "TO" and not out["to"]:
-            out["to"] = m.group(2).strip() or None
-        elif m and m.group(1).upper() == "TOPIC" and not out["topic"]:
-            t = m.group(2).strip().lower()
-            out["topic"] = t if t in CHAT_TOPICS else None
-        elif m and m.group(1).upper() == "DETAIL":
-            body.append("DETAIL:" + m.group(2))
-        else:
-            body.append(l)
-    joined = "\n".join(body).strip()
-    text, _, detail = joined.partition("DETAIL:")
-    out["text"] = " ".join(text.split())[:200]
-    out["detail"] = detail.strip() or None
+    m = re.search(r"\bTO\s*:\s*([\w-]+)", t)
+    if m:
+        out["to"] = m.group(1)
+        t = t[:m.start()] + t[m.end():]
+    m = re.search(r"\bTOPIC\s*:\s*([A-Za-z-]+)", t)
+    if m:
+        topic = m.group(1).lower()
+        out["topic"] = topic if topic in CHAT_TOPICS else None
+        t = t[:m.start()] + t[m.end():]
+    parts = re.split(r"\bDETAIL\s*:", t, maxsplit=1)
+    body = re.sub(r"^[\s.,:;-]+", "", parts[0])
+    out["text"] = " ".join(body.split())[:200]
+    out["detail"] = parts[1].strip() or None if len(parts) > 1 else None
     return out if out["text"] else None
 
 

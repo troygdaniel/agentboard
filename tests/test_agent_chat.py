@@ -261,6 +261,12 @@ class IdleDrafterTests(Base):
         self.assertIsNone(agentchat.parse_draft("NOTHING"))
         self.assertIsNone(agentchat.parse_draft(""))
         self.assertEqual(agentchat.parse_draft("TOPIC: gossip\njust words")["topic"], None)
+        # what the real model wrote (claude-haiku, 2026-10-30): the labels run on inside the first line
+        d = agentchat.parse_draft("TO: AGENT-2 TOPIC: help. fcntl.lockf is per-process on macOS, so threads never blocked. 12 tests pass.\nDETAIL: Card fix-the-flaky-board-lock. Your export card likely has the same cause.")
+        self.assertEqual((d["to"], d["topic"]), ("AGENT-2", "help"))
+        self.assertTrue(d["text"].startswith("fcntl.lockf is per-process"))
+        self.assertTrue(d["detail"].startswith("Card fix-the-flaky-board-lock"))
+        self.assertIsNone(agentchat.parse_draft("Nothing to add here."))
 
     def test_the_draft_uses_the_cheap_model_the_inbox_and_the_memory_and_posts_only_with_send(self):
         code, out = self.run_cli("chat", "idle", "--name", "AGENT-1")
