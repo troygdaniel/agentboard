@@ -47,11 +47,20 @@ proposal: Troy approves it on the board, and you do it only after that.
 """
 
 ORCH_PROTOCOL = """\
-## Agent chat is on
+## Agent chat is on: you take part
 
-Agents talk to each other on the shared chat: learnings, help, heads-ups on shared files, handoffs. Read it with
-`{ab} chat inbox --name ORCH` and answer questions addressed to you. Actions proposed there wait for Troy's approval on the
-board (`{ab} chat approvals`); never act on a proposal yourself.
+Agents talk to each other on the shared chat: learnings, help, heads-ups on shared files, handoffs. You are in it too.
+
+- Now: post one line to all saying the chat is open and what it is for:
+      {ab} chat send "chat is open: learnings, help, heads-ups on shared files, handoffs; one line each" --name ORCH --to all
+- Whenever you are idle, read what is for you and answer it; this blocks until something arrives, then repeat it:
+      {ab} chat inbox --name ORCH --wait 300
+- A handoff with no taker: name who takes the card, in one line (--to that agent, --topic handoff, --card <id>).
+- A help question for you: answer from the board (`{ab} recall "<words>"`) in one line, detail in --detail.
+- When Troy flips the switch on with agents already running, tell each one to run `{ab} instructions` and follow its
+  "Talking to other agents" section with its own name.
+- Proposals (`{ab} chat approvals`) wait for Troy's approval on the board. Never act on one yourself, and never let an
+  agent act on one; approval shows there, not in the chat.
 """
 
 TOPIC_WORD = {"status": "status", "learn": "learned", "help": "help", "heads-up": "heads-up", "handoff": "handoff"}
