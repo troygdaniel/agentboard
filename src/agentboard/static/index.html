@@ -1004,6 +1004,7 @@
   .mv:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .mv::after { content: ''; position: absolute; left: 1px; top: 10px; bottom: 10px; width: 3px; border-radius: 0 2px 2px 0; background: var(--mc); box-shadow: 0 0 10px var(--mc); }
   .mv.review { --mc: var(--ok); } .mv.stale { --mc: var(--warn); }
+  .mv.ask .mv-acts { align-self: start; }
   .mv .av { grid-area: av; width: 26px; height: 26px; font-size: var(--fs-sm); }
   .mv-top { grid-area: top; display: flex; align-items: center; gap: 8px; min-width: 0; font-size: var(--fs-sm); color: var(--muted); }
   .mv-top .nm { color: var(--text); font-weight: 600; white-space: nowrap; }
@@ -1019,7 +1020,28 @@
   .mv-acts { grid-area: acts; display: flex; flex-direction: column; gap: 5px; align-items: stretch; }
   .mv-acts .btn { font-size: var(--fs-sm); padding: 3px 10px; min-height: 26px; white-space: nowrap; }
   .mv-acts .btn.go { border-color: var(--ok); color: var(--ok); } .mv-acts .btn.go:hover { background: color-mix(in srgb, var(--ok) 12%, transparent); }
-  @media (max-width: 900px) { .mv-list { grid-template-columns: 1fr; } .mv { grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "av top" "av said" "av age" "acts acts"; }
+  /* quick replies: the options in the question as one-tap chips (red ring = an option the agent named), then the three
+     that fit any ask; the typed box stays beside them. Same chips on the strip, the card and the panel. */
+  .mv { grid-template-areas: "av top acts" "av said acts" "av age acts" "av extra extra"; }
+  .mv-extra { grid-area: extra; min-width: 0; }
+  .mv-extra:empty { display: none; }
+  .qr { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .qr-ch { border: 1px solid var(--line); background: var(--chip); border-radius: 999px; padding: 3px 11px; font: inherit; font-size: var(--fs-sm); font-weight: 600; color: var(--text);
+    min-height: 28px; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; max-width: 100%; }
+  .qr-ch span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .qr-ch:hover { border-color: var(--neutral); background: var(--surface); }
+  .qr-ch.opt { border-color: color-mix(in srgb, var(--err) 45%, var(--line)); color: var(--err); }
+  .qr-ch.opt::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--err); opacity: .8; flex: none; }
+  .qr-ch.ok { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 45%, var(--line)); }
+  .qr-ch.hold { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 45%, var(--line)); }
+  .qr-ch:disabled { opacity: .6; cursor: default; }
+  .qr form { flex: 1; min-width: 150px; display: flex; gap: 6px; margin: 0; }
+  .qr form input { flex: 1; min-width: 0; min-height: 28px; border: 1px solid var(--line); border-radius: 8px; padding: 3px 10px; font: inherit; font-size: var(--fs-sm); background: var(--surface); color: var(--text); }
+  .qr form input::placeholder { color: var(--muted); }
+  .qr form .btn { min-height: 28px; padding: 3px 10px; font-size: var(--fs-sm); }
+  .qr .replied { font-size: var(--fs-xs); color: var(--muted); } .qr .replied b { color: var(--ok); }
+  .card .qr { margin: 0 0 8px; } .lat .qr { margin: 0 0 12px; }
+  @media (max-width: 900px) { .mv-list { grid-template-columns: 1fr; } .mv { grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "av top" "av said" "av age" "extra extra" "acts acts"; }
     .mv-acts { flex-direction: row; margin-top: 3px; } .mv-acts .btn { flex: 1; min-height: 32px; } }
   /* stacked on a phone: the page scrolls as one, columns size to their cards */
   @media (max-width: 900px) {   /* below this three columns no longer fit (cards and the header overflowed at ~780px) */
@@ -1321,8 +1343,9 @@ function card(t) {
   const saidRow = said ? `<div class="said" title="${esc(said)}">${esc(said)}</div>` : '';
   // everything past the one sentence waits behind a collapsed Details fold
   const foldRow = t.details ? `<details class="fold"><summary>Details</summary><div class="fold-body">${esc(t.details)}</div></details>` : '';
-  const replyRow = (asking || reviewing) ? `<form class="card-reply" data-reply="${esc(t.id)}">` +
-    (t.reply && t.reply.text ? `<div class="replied">You replied: ${esc(t.reply.text)}</div>` : '') +
+  const quick = asking ? quickHtml(t, false) : '';
+  const replyRow = (asking || reviewing) ? quick + `<form class="card-reply" data-reply="${esc(t.id)}">` +
+    (t.reply && t.reply.text && !asking ? `<div class="replied">You replied: ${esc(t.reply.text)}</div>` : '') +
     `<div class="rr"><input name="text" autocomplete="off" maxlength="2000" placeholder="Reply${t.agent ? ' to ' + esc(t.agent) : ''}…" aria-label="Reply to ${esc(t.agent || 'the agent')}"><button class="btn primary" type="submit">Send</button></div></form>` : '';
   const fresh = !firstRender && !seen.has(t.id);
   const flash = !firstRender && seen.has(t.id) && lastUpdated.get(t.id) !== t.updated;
@@ -1361,6 +1384,57 @@ function toggleSubs(btn) {
 }
 const FLAG_LABEL = { needs_input: 'needs input', review: 'to review' };
 
+// --- quick replies: the options an ask names become one-tap chips ---
+const QUICK_ALWAYS = [['Go ahead', 'ok'], ['Hold', 'hold'], ['Your call', '']];
+const YESNO = /^(should|shall|can|could|do|does|did|is|are|was|will|would|may|want|ok|okay|ready|proceed|go|fine|happy|alright|mind)\b/i;
+const LEAD = /^(?:between|either|pick|choose|go with|use|prefer|take|with|keep|try|do you want|would you like|should (?:i|we)|shall (?:i|we)|do (?:i|we)|is it|it's|its)\s+/i;
+// the options in a question: "(1) a (2) b" or "1. a 2. b" lists, "x or y?", "x, y or z?", else yes/no for a yes/no question
+function quickOptions(q) {
+  const t = String(q || '').replace(/\s+/g, ' ').trim();
+  if (!t) return [];
+  const clean = x => x.split(/(?<=[.!?])\s+(?=[A-Z])/)[0].trim().replace(/^[\s,;:]+|[\s?.;,:!]+$/g, '').replace(/^["'“‘(]+|["'”’)]+$/g, '');   // one option, not the sentence after it
+  const st = splitSteps(t);
+  if (st && st.items.length >= 2) return st.items.map(x => clean(x.replace(/^\(?\d{1,2}[.)]\s*/, ''))).filter(Boolean).slice(0, 6);
+  const m = t.match(/([^?:]*\bor\b[^?]*)\?/i) || t.match(/:\s*([^?]*\bor\b[^?]*)$/i);
+  if (m) {
+    let parts = m[1].split(/\s*,\s*|\s+or\s+/i).map(x => clean(x.replace(LEAD, ''))).filter(Boolean);
+    if (parts.length >= 2) {
+      const lastN = parts[parts.length - 1].split(' ').length;   // "Should I use Postgres or SQLite" -> the first option is the tail of its clause
+      parts = parts.map((x, i) => { const w = x.split(' '); return i === 0 && w.length > lastN ? w.slice(-lastN).join(' ') : x; });
+      parts = parts.filter((x, i) => x && parts.indexOf(x) === i && x.length <= 40);
+      if (parts.length >= 2) return parts.slice(0, 6);
+    }
+  }
+  if (/\?\s*$/.test(t) && YESNO.test(t)) return ['Yes', 'No'];
+  return [];
+}
+function quickHtml(t, withForm = true) {   // the strip row has no box of its own; the card and the panel already do
+  if (t.reply && t.reply.text) return `<div class="qr"><span class="replied">You replied <b>${esc(t.reply.text)}</b> · ${esc(t.agent || 'the agent')} reads it next</span></div>`;
+  const opts = quickOptions(t.question || t.status_text);
+  const chip = (label, cls, text) => `<button class="qr-ch ${cls}" type="button" data-quick="${esc(t.id)}" data-text="${esc(text || label)}" title="Reply “${esc(text || label)}”"><span>${esc(label)}</span></button>`;
+  return `<div class="qr">${opts.map(o => chip(o, 'opt')).join('')}${QUICK_ALWAYS.map(([l, c]) => chip(l, c)).join('')}`
+    + (withForm ? `<form class="qr-free" data-quick-form="${esc(t.id)}"><input name="text" autocomplete="off" maxlength="2000" placeholder="or type…" aria-label="Reply to ${esc(t.agent || 'the agent')}"><button class="btn primary" type="submit">Send</button></form>` : '') + '</div>';
+}
+async function quickReply(id, text, btn) {
+  if (btn) { btn.disabled = true; btn.blur(); }   // focus off the strip, so it may redraw with the reply
+  try { await api('/api/reply', { id, text }); showError(''); toast(`Replied “${text}”`); }
+  catch (err) { showError('Could not send reply: ' + err.message); if (btn) btn.disabled = false; }
+  raw = ''; detailRaw = ''; load();
+}
+// one handler for every place the chips appear (strip, cards, panel): a chip sends its text, the little form sends what was typed
+function quickEvents(root) {
+  root.addEventListener('click', e => {
+    const b = e.target.closest('[data-quick]'); if (!b) return;
+    e.stopPropagation(); quickReply(b.dataset.quick, b.dataset.text, b);
+  });
+  root.addEventListener('submit', e => {
+    const f = e.target.closest('[data-quick-form]'); if (!f) return;
+    e.preventDefault(); e.stopPropagation();
+    const text = f.elements.text.value.trim(); if (!text) { f.elements.text.focus(); return; }
+    f.elements.text.value = ''; f.elements.text.blur(); quickReply(f.dataset.quickForm, text);
+  });
+}
+
 // --- Your move: the strip of cards that need a person, with the action each one needs ---
 const MV_ICON = {
   ask: '<svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 2a4 4 0 0 0-4 4v3L2.8 11h10.4L12 9V6a4 4 0 0 0-4-4z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M6.5 13a1.5 1.5 0 0 0 3 0" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>',
@@ -1388,7 +1462,7 @@ function renderMove(working) {
   $('mv-wait').textContent = waited ? `${dur(waited)} waiting on you` : '';
   const html = rows.map(({ t, kind, age }) => {
     const said = kind === 'stale' ? (t.status_text || 'no update') : (t.question || t.result || t.status_text || '');
-    const acts = kind === 'ask' ? `<button class="btn primary" data-mv-reply="${esc(t.id)}">Reply</button><button class="btn" data-mv-open="${esc(t.id)}">Open</button>`
+    const acts = kind === 'ask' ? `<button class="btn" data-mv-open="${esc(t.id)}">Open</button>`
       : kind === 'review' ? `<button class="btn go" data-mv-done="${esc(t.id)}">Mark done</button><button class="btn" data-mv-reply="${esc(t.id)}">Send back</button>`
       : `<button class="btn" data-mv-open="${esc(t.id)}">Open</button><button class="btn" data-mv-release="${esc(t.id)}" title="Back to Todo, so someone else can pick it up">To Todo</button>`;
     return `<div class="mv ${kind}" data-mv-open="${esc(t.id)}" role="button" tabindex="0" style="--c:${colorOf(t)}" aria-label="${esc(t.agent || 'An agent')}: ${esc(said)}, ${MV_WORD[kind]}">
@@ -1396,11 +1470,13 @@ function renderMove(working) {
       <div class="mv-top"><span class="nm">${esc(t.agent || 'Unassigned')}</span><span class="mv-kind">${MV_ICON[kind]}${MV_WORD[kind]}</span><span class="ttl" title="${esc(t.title)}">${esc(t.title)}</span><span class="age">${age < 1 ? 'just now' : dur(age)}</span></div>
       <div class="mv-said" title="${esc(said)}">${esc(said)}</div>
       <div class="mv-age" aria-hidden="true"><b style="--w:${Math.round(age / longest * 100)}%"></b></div>
-      <div class="mv-acts">${acts}</div></div>`;
+      <div class="mv-acts">${acts}</div><div class="mv-extra">${kind === 'ask' ? quickHtml(t) : ''}</div></div>`;
   }).join('');
-  if ($('mv-list').dataset.k !== html) { $('mv-list').dataset.k = html; $('mv-list').innerHTML = html; }   // only when something changed: buttons keep focus between polls
+  if ($('mv-list').dataset.k !== html && !$('mv-list').contains(document.activeElement)) { $('mv-list').dataset.k = html; $('mv-list').innerHTML = html; }   // only when something changed, never under a hand on it
 }
+quickEvents($('move'));
 $('move').addEventListener('click', e => {
+  if (e.target.closest('[data-quick], [data-quick-form]')) return;
   const b = e.target.closest('button');
   if (b?.dataset.mvDone) { confirmDoneClick(b); move(b.dataset.mvDone, 'done'); return; }
   if (b?.dataset.mvReply) { openPanel(b.dataset.mvReply, { reply: true }); return; }
@@ -1555,7 +1631,7 @@ async function load() {
     ]);
     if (!r.ok) throw new Error('HTTP ' + r.status);
     const text = await r.text();
-    if (document.activeElement?.id === 'p-reply-text' || document.activeElement?.closest?.('.card-reply')) return;   // never re-render under a reply being typed
+    if (document.activeElement?.id === 'p-reply-text' || document.activeElement?.closest?.('.card-reply, .qr-free')) return;   // never re-render under a reply being typed
     const minute = Math.floor(Date.now() / 60000);
     let changed = false;
     if (rp.ok) {
@@ -1835,8 +1911,8 @@ function panelHtml(t) {
   const head = t.needs_input ? `<b>Waiting on you</b><span>${esc(t.agent || 'an agent')} asked ${since}</span>`
     : rv ? `<b>Ready for review</b><span>${esc(t.agent || 'an agent')} finished ${since}</span>`
     : t.status === 'done' ? `<b>Result</b><span>${esc(t.agent || '')} ${since}</span>` : `<b>Latest</b><span>${since}</span>`;
-  const btns = t.needs_input || rv ? `<div class="lat-btns">${rv ? '<button class="btn primary go" id="p-lat-done">Mark done</button>' : ''}<button class="btn" id="p-reply-toggle">${replyOpen ? 'Cancel reply' : 'Reply'}</button></div>
-    <div class="reply" ${replyOpen ? '' : 'hidden'}><textarea id="p-reply-text" placeholder="Reply as Troy — saved to this card's log (⌘↵ to send)">${esc(replyDraft)}</textarea><div class="lat-btns" style="margin:0"><button class="btn primary" id="p-reply-send">Send reply</button></div></div>` : '';
+  const btns = (t.needs_input ? quickHtml(t, false) : '') + (t.needs_input || rv ? `<div class="lat-btns">${rv ? '<button class="btn primary go" id="p-lat-done">Mark done</button>' : ''}<button class="btn" id="p-reply-toggle">${replyOpen ? 'Cancel reply' : 'Reply'}</button></div>
+    <div class="reply" ${replyOpen ? '' : 'hidden'}><textarea id="p-reply-text" placeholder="Reply as Troy — saved to this card's log (⌘↵ to send)">${esc(replyDraft)}</textarea><div class="lat-btns" style="margin:0"><button class="btn primary" id="p-reply-send">Send reply</button></div></div>` : '');
   const latest = sawText || bodyHtml ? `<div class="lat">${'<div class="lat-h">' + head + '</div>'}${parsed.has ? arwHtml(parsed) : `<div class="fmt">${fmt(sawText)}</div>`}${bodyHtml}${btns}</div>` : '';
   const askC = latest, revC = '', result = '';
   const projectSel = `<div class="p-sec"><h3>Project</h3><select class="btn" id="p-project" style="width:100%" aria-label="Project">
@@ -1982,7 +2058,9 @@ $('p-body').addEventListener('change', async e => {
   catch (err) { showError('Could not set project: ' + err.message); }
   raw = ''; detailRaw = ''; load();
 });
+quickEvents($('p-body'));
 $('p-body').addEventListener('click', async e => {
+  if (e.target.closest('.qr')) return;
   const sr = e.target.closest('[data-sub-id]');
   if (sr) { openPanel(sr.dataset.subId); return; }
   const b = e.target.closest('button'); if (!b) return;
@@ -2631,14 +2709,16 @@ $('title').onkeydown = e => { if (e.key === 'Escape') { toggleAdd(false); $('tit
 $('board').addEventListener('submit', async e => {
   const f = e.target.closest('.card-reply');
   if (!f) return;
+  if (e.defaultPrevented) return;
   e.preventDefault();
   const input = f.elements.text, text = input.value.trim();
   if (!text) { input.focus(); return; }
   try { await api('/api/reply', { id: f.dataset.reply, text }); input.value = ''; input.blur(); showError(''); raw = ''; load(); }
   catch (err) { showError('Could not send reply: ' + err.message); }
 });
+quickEvents($('board'));
 $('board').addEventListener('click', async e => {
-  if (e.target.closest('.card-reply') || e.target.closest('a.report-link')) return;   // typing or sending a reply must not open the panel
+  if (e.target.closest('.card-reply, a.report-link, .qr')) return;   // typing or sending a reply must not open the panel
   const selCard = e.target.closest('.card');
   if (selCard && (e.shiftKey || e.metaKey || e.ctrlKey)) {
     e.preventDefault();

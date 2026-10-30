@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Round two (ux-six)
+- **Quick replies on asks.** The options an ask names become one-tap chips (`3 or 5?` gives 3 and 5; `x, y or z?`, `(1) … (2) …` lists and yes/no questions likewise), plus Go ahead, Hold and Your call on every ask. On the Your move row the chips replace the Reply button and sit beside a small typed box; on the card and in the panel they sit above the reply box. A tap sends the reply the usual way (`/api/reply`, read with `agentboard answer`).
+
 ### Five UX ideas (ux-five)
 - **HUD: one chart per agent, idle agents folded.** Each active row carries a stepped chart of its card's % over the last hour with a tick per update, on the same axis as the load track; `/api/hud` adds `chart` per agent and an `idle` fold. Idle agents collapse into one row of chips (name, how long ago, signed off today) that opens on click. `[orch] agents` peers with no card yet show as idle.
 - **Assign from a Todo card.** An Assign button on every Todo card opens a picker of agents, idle ones first (from the HUD's view plus `[orch] agents`), then the busy ones with what they hold; a click hands the card to that agent (it stays in Todo with that holder until the agent claims it), and Unassign takes it back. The hook: the board posts one line to the shared chat (`ORCH: Troy assigned <id> to <agent>; hand it over.`), which ORCH follows; the ORCH prompt says to act on it. New: `Store.assign`, `POST /api/assign`, `GET /api/agents`.
