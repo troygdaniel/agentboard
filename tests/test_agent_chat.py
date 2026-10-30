@@ -256,6 +256,8 @@ open(os.environ["FAKE_RECORD"], "w").write(json.dumps(rec))
 mode = os.environ.get("FAKE_MODE", "ok")
 if mode == "nothing":
     print(json.dumps({{"type": "result", "result": "NOTHING"}})); sys.exit(0)
+if "Offer the others ONE thing" in rec["stdin"]:
+    print(json.dumps({{"type": "result", "result": "TO: all\\nTOPIC: learn\\nby the way, lockf only locks per process on a Mac, so two threads can both get in.\\nDETAIL: use flock on the fd"}})); sys.exit(0)
 if mode == "fail":
     sys.stderr.write("boom\\n"); sys.exit(2)
 print(json.dumps({{"type": "result", "result": "TO: AGENT-2\\nTOPIC: learn\\nflock on the fd, not lockf; it survives threads\\nDETAIL: see store.py _lock, fcntl.flock(fd, LOCK_EX)"}}))
@@ -298,6 +300,7 @@ class IdleDrafterTests(_FakeClaude):
         self.assertNotIn("--dangerously-skip-permissions", " ".join(rec["argv"]))
         self.assertIn("how did you solve the lock problem?", rec["stdin"])      # the inbox
         self.assertIn("fcntl locks are per process", rec["stdin"])              # the board's memory
+        self.assertIn("like two colleagues at a desk", rec["stdin"])            # the voice
         self.assertEqual(len(self.s.chat_list()), 2)                            # the switch's line and the question: printed, not posted
         asked = self.s.chat_send("AGENT-2", "ping", to="AGENT-1")
         self.s.chat_send("AGENT-3", "unrelated line for everyone", to="all")
@@ -367,12 +370,43 @@ class AutopilotTests(_FakeClaude):
         self.s.chat_send("Troy", "@AGENT-2 are you free?", kind="user", to="AGENT-2")
         self.s.update("harden-webhook-retries", 100, "done", status="done")   # AGENT-1 is idle now too
         self.s.chat_send("Troy", "@AGENT-1 are you free?", kind="user", to="AGENT-1")
-        posted = agentchat.autopilot_once(self.s, str(self.fake), self.roster)
+        posted = agentchat.autopilot_once(self.s, str(self.fake), self.roster, share_every_min=0)   # replies only, no sharing in this test
         self.assertEqual(len(posted), 2)                      # [chat] autopilot_per_hour = 2: the third waits for the next hour
-        self.assertEqual(agentchat.autopilot_once(self.s, str(self.fake), self.roster), [])
+        self.assertEqual(agentchat.autopilot_once(self.s, str(self.fake), self.roster, share_every_min=0), [])
         from datetime import datetime, timedelta
-        later = agentchat.autopilot_once(self.s, str(self.fake), self.roster, now=datetime.now() + timedelta(hours=1))
+        later = agentchat.autopilot_once(self.s, str(self.fake), self.roster, now=datetime.now() + timedelta(hours=1), share_every_min=0)
         self.assertEqual(len(later), 1)
+
+    def test_an_idle_agent_with_nothing_to_answer_shares_one_thing_an_hour_from_its_own_work(self):
+        self.s.update("harden-webhook-retries", 100, "flock on the fd fixed it", status="done")   # AGENT-1 is idle now, with history
+        agentchat.write_cursor(self.s, "AGENT-1", 3)      # and has read everything
+        posted = agentchat.autopilot_once(self.s, str(self.fake), ["AGENT-1"])
+        self.assertEqual(len(posted), 1)
+        m = posted[0]
+        self.assertEqual((m["to"], m["topic"], m["via"]), ("all", "learn", "idle"))
+        self.assertTrue(m["text"].startswith("by the way, lockf"))
+        self.assertNotIn("reply_to", m)
+        stdin = json.loads(self.record.read_text())["stdin"]
+        self.assertIn("Offer the others ONE thing", stdin)
+        self.assertIn("fcntl locks are per process", stdin)             # its own history
+        self.assertIn("like two colleagues at a desk", stdin)           # the voice
+        self.assertEqual(agentchat.autopilot_once(self.s, str(self.fake), ["AGENT-1"]), [])   # not again this hour
+        from datetime import datetime, timedelta
+        later = agentchat.autopilot_once(self.s, str(self.fake), ["AGENT-1"], now=datetime.now() + timedelta(minutes=61))
+        self.assertEqual(len(later), 1)
+        self.assertEqual(agentchat.autopilot_once(self.s, str(self.fake), ["AGENT-1"], now=datetime.now() + timedelta(hours=3), share_every_min=0), [])   # 0 = never
+
+    def test_the_cli_can_share_by_hand(self):
+        agentchat.write_cursor(self.s, "AGENT-1", 3)        # AGENT-1 has read everything and has a history
+        code, out = self.run_cli("chat", "idle", "--name", "AGENT-1", "--share")
+        self.assertIn("draft -> all [learn]: by the way, lockf", out)
+        self.assertEqual(self.s.chat_list()[-1]["seq"], 3)   # printed, not posted
+        agentchat.write_cursor(self.s, "AGENT-3", 3)
+        code, out = self.run_cli("chat", "idle", "--name", "AGENT-3", "--share")
+        self.assertIn("nothing worth sharing", out)          # no history of its own: nothing to offer, the model is not asked
+        code, out = self.run_cli("chat", "idle", "--name", "AGENT-1", "--share", "--send")
+        self.assertIn("sent #", out)
+        self.assertEqual(self.s.chat_list()[-1]["topic"], "learn")
 
     def test_nothing_runs_while_the_switch_is_off_and_the_cli_round_prints(self):
         self.s.set_chat_agents(False)
