@@ -336,6 +336,47 @@ class Store:
                        else f"ORCH: {by} took {task_id} back from {was or 'its agent'}; it is unassigned.", "user")
         return t
 
+    def edit(self, task_id, title=None, description=None, blocked_by=None, by="Troy"):
+        """Change a card's words and shape from the board: its title, its description, the cards it is blocked by. One log line
+        per thing changed, marked as Troy's. Never its holder or its column (claim/assign/move do those)."""
+        if title is not None:
+            title = _clean_title(title)
+        if description is not None and not isinstance(description, str):
+            raise BoardError("description must be text")
+        if blocked_by is not None and not (isinstance(blocked_by, list) and all(isinstance(b, str) for b in blocked_by)):
+            raise BoardError("blocked_by must be a list of task ids")
+        with self.transaction() as tasks:
+            t = self.get(tasks, task_id)
+            changed = []
+            if title is not None and title != t["title"]:
+                _log(t, f"Title changed from “{t['title']}”", by=by)
+                t["title"] = title
+                changed.append("title")
+            if description is not None and description.strip() != (t.get("description") or "").strip():
+                t["description"] = description.strip()
+                _log(t, "Description changed" if t["description"] else "Description removed", by=by)
+                changed.append("description")
+            if blocked_by is not None:
+                ids = list(dict.fromkeys(b for b in blocked_by if b and b != task_id))
+                by_id = {x["id"]: x for x in tasks}
+                missing = [b for b in ids if b not in by_id]
+                if missing:
+                    raise BoardError(f"blocked-by: no such task: {', '.join(missing)}")
+                circular = [b for b in ids if by_id[b].get("parent_id") == task_id]
+                if circular:
+                    raise BoardError(f"a card cannot wait on its own subtask: {', '.join(circular)}")
+                if ids != list(t.get("blocked_by") or []):
+                    if ids:
+                        t["blocked_by"] = ids
+                        _log(t, "Blocked by " + ", ".join(by_id[b]["title"] for b in ids), by=by)
+                    else:
+                        t.pop("blocked_by", None)
+                        _log(t, "No longer blocked", by=by)
+                    changed.append("blocked_by")
+            if changed:
+                t["updated"] = _now()
+            return t
+
     def hand_to(self, task_id, name, color=None, by="Troy"):
         """Troy gives a live card to another agent from the board: it goes back to the top of Todo under the new agent (who
         claims it as usual), its ask/review state clears, the old agent is released, and its open subtasks follow. A queued

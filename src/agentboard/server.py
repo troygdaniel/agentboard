@@ -262,6 +262,8 @@ def make_handler(default_store, port):
                         raise BoardError("agent must be a string")
                     color = body.get("color")
                     self._send(200, self.store.assign(body["id"], agent, color if isinstance(color, str) else None))
+                elif path == "/api/edit":
+                    self._send(200, self.store.edit(body["id"], body.get("title"), body.get("description"), body.get("blocked_by")))
                 elif path == "/api/hand":
                     if not isinstance(body.get("agent"), str):
                         raise BoardError("agent must be a string")

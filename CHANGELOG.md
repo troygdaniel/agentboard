@@ -3,6 +3,7 @@
 ## Unreleased
 
 ### Round two (ux-six)
+- **Edit in place on the card.** In the panel the title and the description are editable where they are (click, or `e` for the title); Save or ⌘↵, Esc cancels; one log line per change, marked as yours. The subtask list ends in an add row (Enter adds a subtask under the card), and a Blocked by row takes any open card by its title and shows the blockers as chips with a remover. Agents and columns never change this way. New: `Store.edit`, `POST /api/edit`.
 - **Hand to… on quiet cards.** The Your move row of an agent gone quiet (and the panel of any live card) opens the same picker as Assign, idle agents first, without the current holder; one pick sends the card to the top of Todo under the new agent, clears its ask/review state, releases the old agent, takes the open subtasks along, and tells ORCH in the chat (`ORCH: Troy handed <id> from <old> to <new>; hand it over.`). "Nobody yet" sends it back to Todo unassigned. The panel of a queued card gets Assign / Reassign. New: `Store.hand_to`, `POST /api/hand`.
 - **Quick replies on asks.** The options an ask names become one-tap chips (`3 or 5?` gives 3 and 5; `x, y or z?`, `(1) … (2) …` lists and yes/no questions likewise), plus Go ahead, Hold and Your call on every ask. On the Your move row the chips replace the Reply button and sit beside a small typed box; on the card and in the panel they sit above the reply box. A tap sends the reply the usual way (`/api/reply`, read with `agentboard answer`).
 

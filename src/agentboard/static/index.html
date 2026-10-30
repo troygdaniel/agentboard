@@ -978,6 +978,30 @@
   #toast.on .toast-bar b { animation: toastcd linear forwards; }
   @keyframes toastcd { from { transform: scaleX(1); } to { transform: scaleX(0); } }
   .p-actions .btn.primary { order: -1; }
+  /* edit in place: the title and the description are editable where they are; an add row ends the subtask list;
+     blockers are chips with a remover and a box that takes a card by its title */
+  .ed { position: relative; border: 1px dashed transparent; border-radius: 8px; padding: 4px 56px 4px 8px; margin: -4px -8px; cursor: text; }
+  .ed:hover, .ed:focus-visible { border-color: var(--neutral); background: color-mix(in srgb, var(--accent) 4%, transparent); outline: none; }
+  .ed .pen { position: absolute; right: 8px; top: 6px; font-size: var(--fs-xs); color: var(--muted); letter-spacing: var(--tr-tight); text-transform: uppercase; font-weight: 600; opacity: 0; }
+  .ed:hover .pen, .ed:focus-visible .pen { opacity: 1; }
+  .ed.empty { color: var(--muted); font-size: var(--fs-md); }
+  .ed-form { display: grid; gap: 8px; }
+  .ed-form input, .ed-form textarea { width: 100%; font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--neutral); border-radius: 8px; padding: 8px 10px; }
+  .ed-form input.title { font-size: var(--fs-xl); font-weight: 600; letter-spacing: -.02em; line-height: 1.3; }
+  .ed-form textarea { min-height: 96px; resize: vertical; font-size: var(--fs-lg); line-height: 1.5; }
+  .ed-acts { display: flex; gap: 8px; align-items: center; }
+  .ed-acts small { color: var(--muted); font-size: var(--fs-xs); margin-left: auto; }
+  .p-subs li.sub-add { color: var(--muted); }
+  .p-subs li.sub-add input { flex: 1; min-width: 0; font: inherit; font-size: var(--fs-md); color: var(--text); background: none; border: 0; border-bottom: 1px dashed var(--neutral); padding: 2px 0; }
+  .p-subs li.sub-add input:focus { outline: none; border-bottom-color: var(--text); }
+  .p-subs li.sub-add .plus { color: var(--muted); font-size: var(--fs-sm); }
+  .bl-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .bl-chip { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-sm); color: var(--warn); background: var(--chip); border-radius: 999px; padding: 2px 6px 2px 10px; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--warn) 40%, var(--line)); max-width: 100%; }
+  .bl-chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bl-chip button { background: none; border: 0; color: inherit; cursor: pointer; font: inherit; width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; padding: 0; }
+  .bl-chip button:hover { background: color-mix(in srgb, var(--warn) 18%, transparent); }
+  .bl-row input { flex: 1; min-width: 160px; font: inherit; font-size: var(--fs-md); color: var(--text); background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 5px 10px; min-height: 30px; }
+  .bl-row input::placeholder { color: var(--muted); }
   #welcome { display: none; max-width: 520px; margin: 64px auto; color: var(--muted); }
   #welcome h2 { color: var(--text); font-size: var(--fs-lg); font-weight: 600; margin-bottom: 8px; }
   #welcome pre {
@@ -1156,6 +1180,7 @@
     <dt><kbd>↑ ↓ ← →</kbd></dt><dd>Move between cards</dd>
     <dt><kbd>j</kbd> <kbd>k</kbd></dt><dd>Next / previous card</dd>
     <dt><kbd>Enter</kbd></dt><dd>Open card</dd>
+    <dt><kbd>e</kbd></dt><dd>Edit the open card's title</dd>
     <dt><kbd>f</kbd> <kbd>s</kbd></dt><dd>HUD: fullscreen, sound</dd>
     <dt><kbd>Alt</kbd> + arrows</dt><dd>Move the card</dd>
     <dt><kbd>Shift</kbd> + click</dt><dd>Select a range of cards</dd>
@@ -1631,7 +1656,8 @@ async function load() {
     ]);
     if (!r.ok) throw new Error('HTTP ' + r.status);
     const text = await r.text();
-    if (document.activeElement?.id === 'p-reply-text' || document.activeElement?.closest?.('.card-reply, .qr-free')) return;   // never re-render under a reply being typed
+    const ae = document.activeElement;   // never re-render under something being typed (an empty add box is fine to redraw: focus is put back)
+    if (ae?.id === 'p-reply-text' || ae?.closest?.('.card-reply, .qr-free, .ed-form') || ((ae?.id === 'p-sub-add' || ae?.id === 'p-block-add') && ae.value)) return;
     const minute = Math.floor(Date.now() / 60000);
     let changed = false;
     if (rp.ok) {
@@ -1896,6 +1922,7 @@ function arwHtml(p, small) {
 }
 const entryHtml = text => { const p = parseArw(text); return p.has ? arwHtml(p, true) : `<div class="fmt">${fmt(text)}</div>`; };
 let replyOpen = false, replyDraft = '', openEntries = new Set(), resetScroll = false;
+let panelEdit = null, panelDraft = '';   // 'title' | 'description' while one of them is being edited in place, and the text so far
 
 function panelHtml(t) {
   const doing = t.status === 'doing', stale = doing && ago(t.updated).min >= STALE_MIN;
@@ -1919,7 +1946,11 @@ function panelHtml(t) {
     <option value="">No project</option>
     ${projects.map(p => `<option value="${esc(p.id)}" ${t.project_id === p.id ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}
   </select></div>`;
-  const desc = t.description ? `<div class="p-sec"><h3>Description</h3><div class="p-desc fmt ${descOpen ? '' : 'clamp'}" id="p-desc">${fmt(t.description)}</div><button class="p-more" id="p-desc-more" hidden>${descOpen ? 'Show less' : 'Show more'}</button></div>` : '';
+  const edActs = `<div class="ed-acts"><button class="btn primary" type="submit">Save</button><button class="btn" type="button" data-ed-cancel>Cancel</button><small>⌘↵ saves · Esc cancels</small></div>`;
+  const desc = panelEdit === 'description'
+    ? `<div class="p-sec"><h3>Description</h3><form class="ed-form" data-ed="description"><textarea id="ed-field" aria-label="Description">${esc(panelDraft)}</textarea>${edActs}</form></div>`
+    : t.description ? `<div class="p-sec"><h3>Description</h3><div class="ed" data-ed-open="description" tabindex="0" role="button" title="Click to edit"><div class="p-desc fmt ${descOpen ? '' : 'clamp'}" id="p-desc">${fmt(t.description)}</div><span class="pen">edit</span></div><button class="p-more" id="p-desc-more" hidden>${descOpen ? 'Show less' : 'Show more'}</button></div>`
+    : `<div class="p-sec"><h3>Description</h3><div class="ed empty" data-ed-open="description" tabindex="0" role="button">Add a description…<span class="pen">edit</span></div></div>`;
   // the Latest card shows the review/ask/status text itself; drop that one entry from the timeline (replies stay)
   const srcIdx = t.status === 'done' ? -1 : t.needs_input ? logAll.findIndex(e => e.text.startsWith('Needs input:'))
     : rv ? logAll.findIndex(e => e.text.startsWith('Ready for review:')) : (logAll.length ? 0 : -1);
@@ -1940,16 +1971,27 @@ function panelHtml(t) {
     ? `<div class="p-sec"><h3>Subtask of</h3><ul class="p-subs"><li data-sub-id="${esc(t.parent_id)}"><span class="sn">${esc(byId.get(t.parent_id).title)}</span></li></ul></div>` : '';
   const kids = kidsMap.get(t.id) || [];
   const slots = byId.get(t.id)?.subs || kids;   // same slots as the card's bar, archived ones included in the count
-  const subsList = kids.length ? `<div class="p-sec"><h3>Subtasks<span class="n">${slots.filter(sl => subDone(byId.get(sl.id) || sl)).length}/${slots.length}</span></h3><ul class="p-subs">${kids.map(k =>
-    `<li class="${subDone(k) ? 'sdone' : ''}" data-sub-id="${esc(k.id)}"><span class="sn">${esc(k.title)}</span><span class="sp">${subDone(k) ? 'done' : (k.progress || 0) + '%'}</span></li>`).join('')}</ul></div>` : '';
+  // every top-level card may grow subtasks from here (a parent in Doing lends them its agent the way the CLI does)
+  const addSub = t.parent_id || t.status === 'done' ? '' : `<li class="sub-add"><span class="plus">+</span><input id="p-sub-add" placeholder="Add a subtask…" aria-label="Add a subtask" maxlength="200" autocomplete="off"><span class="sp">↵</span></li>`;
+  const subsList = kids.length || addSub ? `<div class="p-sec"><h3>Subtasks${kids.length ? `<span class="n">${slots.filter(sl => subDone(byId.get(sl.id) || sl)).length}/${slots.length}</span>` : ''}</h3><ul class="p-subs">${kids.map(k =>
+    `<li class="${subDone(k) ? 'sdone' : ''}" data-sub-id="${esc(k.id)}"><span class="sn">${esc(k.title)}</span><span class="sp">${subDone(k) ? 'done' : (k.progress || 0) + '%'}</span></li>`).join('')}${addSub}</ul></div>` : '';
+  // blockers: chips with a remover, and a box that takes any open card by its title
+  const blockers = (t.blocked_by || []).map(id => byId.get(id)).filter(Boolean);
+  const candidates = tasks.filter(x => x.id !== t.id && x.status !== 'done' && !isKid(x) && x.parent_id !== t.id && !(t.blocked_by || []).includes(x.id));
+  const blocked = t.parent_id || t.status === 'done' ? '' : `<div class="p-sec"><h3>Blocked by${blockers.length ? `<span class="n">${blockers.length}</span>` : ''}</h3><div class="bl-row">${blockers.map(b =>
+    `<span class="bl-chip ${b.status === 'done' ? 'sdone' : ''}" style="${b.status === 'done' ? 'color:var(--ok);box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--ok) 40%, var(--line))' : ''}"><span title="${esc(b.title)}">${esc(b.title)}${b.status === 'done' ? ' ✓' : ''}</span><button type="button" data-unblock="${esc(b.id)}" aria-label="No longer blocked by ${esc(b.title)}">×</button></span>`).join('')}
+    <input id="p-block-add" list="p-block-list" placeholder="${blockers.length ? 'Add another card…' : 'Type a card title to add one'}" aria-label="Blocked by" autocomplete="off"><datalist id="p-block-list">${candidates.map(x => `<option value="${esc(x.title)}"></option>`).join('')}</datalist></div></div>`;
   // actions and activity sit near the top; the long description comes after, collapsed
-  return `<h2>${esc(t.title)}</h2>${who}${askC}${revC}${prog}${result}
+  const titleHtml = panelEdit === 'title'
+    ? `<form class="ed-form" data-ed="title"><input id="ed-field" class="title" value="${esc(panelDraft).replace(/"/g, '&quot;')}" aria-label="Title" maxlength="200" autocomplete="off">${edActs}</form>`
+    : `<h2 class="ed" data-ed-open="title" tabindex="0" role="button" title="Click to edit (e)">${esc(t.title)}<span class="pen">edit</span></h2>`;
+  return `${titleHtml}${who}${askC}${revC}${prog}${result}
     <div class="p-actions">${copy}<button class="btn danger" id="p-del">Delete</button></div>
-    ${par}${subsList}${projectSel}${tl}${desc}${details}${prompt}`;
+    ${par}${subsList}${blocked}${projectSel}${tl}${desc}${details}${prompt}`;
 }
 
 async function refreshPanel() {
-  if (!openId) return;
+  if (!openId || panelEdit) return;   // a field being edited keeps the panel as it is
   try {
     const r = await fetch('/api/task?id=' + encodeURIComponent(openId), { cache: 'no-store' });
     if (r.status === 404) { closePanel(true); showError('That task no longer exists.'); return; }
@@ -1975,10 +2017,11 @@ function renderPanel(t) {
       mv.className = 'btn' + (t.status === 'doing' ? ' primary' : '') + (rv ? ' go' : '');
       mv.disabled = false; delete mv.dataset.confirmed;   // confirmDoneClick() freezes the button; each card starts fresh
     }
-    const keep = resetScroll ? 0 : $('p-body').scrollTop;
+    const keep = resetScroll ? 0 : $('p-body').scrollTop, fid = document.activeElement?.id;
     resetScroll = false;
     $('p-body').innerHTML = panelHtml(t);
     $('p-body').scrollTop = keep;
+    if (fid === 'p-sub-add' || fid === 'p-block-add') $(fid)?.focus({ preventScroll: true });   // the add boxes keep the hand that was on them
     document.querySelectorAll('#p-body .te-text').forEach(el => {   // offer "More" only on entries that are actually cut off
       const btn = el.nextElementSibling;
       if (btn?.dataset.more) btn.hidden = !openEntries.has(el.dataset.at) && el.scrollHeight <= el.clientHeight + 1;
@@ -1999,7 +2042,7 @@ async function loadPrompt() {
 }
 
 function openPanel(id, opts) {
-  if (openId !== id) { detailRaw = ''; promptText = ''; promptOpen = false; descOpen = false; actAll = false; replyOpen = false; replyDraft = ''; openEntries = new Set(); resetScroll = true; }
+  if (openId !== id) { detailRaw = ''; promptText = ''; promptOpen = false; descOpen = false; actAll = false; replyOpen = false; replyDraft = ''; openEntries = new Set(); resetScroll = true; panelEdit = null; panelDraft = ''; }
   if (opts && opts.reply) { replyOpen = true; detailRaw = ''; }   // straight into the reply box (the Your move strip)
   lastFocus = document.activeElement;
   $('later').classList.remove('open');
@@ -2019,7 +2062,7 @@ function focusSoon(getEl) {
   })();
 }
 function closePanel(skipFocus) {
-  openId = null; detailRaw = '';
+  openId = null; detailRaw = ''; panelEdit = null; panelDraft = '';
   history.replaceState(null, '', location.pathname);
   $('panel').classList.remove('open'); document.body.classList.remove('panel-open');
   if (!skipFocus) lastFocus?.focus?.();
@@ -2032,7 +2075,7 @@ $('p-move').addEventListener('click', async e => {
   await move(openId, to);
   if (to === 'done') closePanel();
 });
-document.addEventListener('keydown', e => { if (e.key === 'Escape' && openId && !$('add').classList.contains('open')) closePanel(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && openId && !panelEdit && !$('add').classList.contains('open')) closePanel(); });
 document.addEventListener('click', e => {
   if (!e.target.isConnected) return;    // the click re-rendered its own button; not an outside click
   if (openId && !e.target.closest('#panel, .card, #theme, #add, #toast, #move, #assign-pop')) closePanel();
@@ -2060,9 +2103,64 @@ $('p-body').addEventListener('change', async e => {
   catch (err) { showError('Could not set project: ' + err.message); }
   raw = ''; detailRaw = ''; load();
 });
+function startEdit(field) {
+  if (!lastDetail) return;
+  panelEdit = field; panelDraft = field === 'title' ? lastDetail.title : (lastDetail.description || '');
+  renderPanel(lastDetail);
+  const f = $('ed-field'); if (f) { f.focus(); if (field === 'title') f.select(); }
+}
+function stopEdit() { panelEdit = null; panelDraft = ''; if (lastDetail) renderPanel(lastDetail); detailRaw = ''; refreshPanel(); }
+async function saveEdit() {
+  const field = panelEdit, value = ($('ed-field')?.value ?? panelDraft);
+  if (!field) return;
+  if (field === 'title' && !value.trim()) { $('ed-field')?.focus(); return; }
+  try { await api('/api/edit', { id: openId, [field]: value }); showError(''); }
+  catch (err) { showError('Could not save: ' + err.message); return; }
+  panelEdit = null; panelDraft = ''; raw = ''; detailRaw = ''; await refreshPanel(); load();
+}
+async function addSubtask(title) {
+  try { await api('/api/tasks', { title, parent_id: openId }); showError(''); raw = ''; detailRaw = ''; await load(); }   // load() redraws the board (kidsMap) and then the panel
+  catch (err) { showError('Could not add the subtask: ' + err.message); }
+}
+async function setBlockers(ids) {
+  try { await api('/api/edit', { id: openId, blocked_by: ids }); showError(''); raw = ''; detailRaw = ''; await load(); }
+  catch (err) { showError('Could not change the blockers: ' + err.message); }
+}
+$('p-body').addEventListener('submit', e => {
+  const f = e.target.closest('.ed-form'); if (!f) return;
+  e.preventDefault(); saveEdit();
+});
+$('p-body').addEventListener('input', e => { if (e.target.id === 'ed-field') panelDraft = e.target.value; });
+$('p-body').addEventListener('keydown', e => {
+  if (e.target.id === 'ed-field') {
+    if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); stopEdit(); }
+    else if (e.key === 'Enter' && (e.metaKey || e.ctrlKey || e.target.tagName === 'INPUT')) { e.preventDefault(); saveEdit(); }
+    return;
+  }
+  if (e.target.id === 'p-sub-add' && e.key === 'Enter') { e.preventDefault(); const v = e.target.value.trim(); if (v) { e.target.value = ''; addSubtask(v); } return; }
+  if (e.target.id === 'p-block-add' && e.key === 'Enter') {
+    e.preventDefault(); const v = e.target.value.trim().toLowerCase(); if (!v || !lastDetail) return;
+    const hit = tasks.find(x => x.title.toLowerCase() === v && x.id !== openId) || tasks.find(x => x.title.toLowerCase().includes(v) && x.id !== openId && x.status !== 'done');
+    if (!hit) { showError(`No open card called “${e.target.value.trim()}”`); return; }
+    e.target.value = ''; setBlockers([...(lastDetail.blocked_by || []), hit.id]); return;
+  }
+  const ed = e.target.closest?.('[data-ed-open]');
+  if (ed && e.target === ed && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); startEdit(ed.dataset.edOpen); }
+});
+$('p-body').addEventListener('change', e => {   // picking a title from the datalist
+  if (e.target.id !== 'p-block-add' || !lastDetail) return;
+  const v = e.target.value.trim().toLowerCase(), hit = tasks.find(x => x.title.toLowerCase() === v && x.id !== openId);
+  if (hit) { e.target.value = ''; setBlockers([...(lastDetail.blocked_by || []), hit.id]); }
+});
 quickEvents($('p-body'));
 $('p-body').addEventListener('click', async e => {
   if (e.target.closest('.qr')) return;
+  const ub = e.target.closest('[data-unblock]');
+  if (ub && lastDetail) { setBlockers((lastDetail.blocked_by || []).filter(x => x !== ub.dataset.unblock)); return; }
+  if (e.target.closest('[data-ed-cancel]')) { stopEdit(); return; }
+  if (e.target.closest('.ed-form, .bl-row, .sub-add')) return;
+  const ed = e.target.closest('[data-ed-open]');
+  if (ed && !e.target.closest('#p-desc-more')) { startEdit(ed.dataset.edOpen); return; }
   const hb = e.target.closest('[data-hand], [data-assign]');
   if (hb) { const id = hb.dataset.hand || hb.dataset.assign; if (assignFor === id) closeAssign(); else openAssign(hb, id, hb.dataset.hand ? 'hand' : 'assign'); return; }
   const sr = e.target.closest('[data-sub-id]');
@@ -2646,6 +2744,7 @@ document.addEventListener('keydown', e => {
   if (hudIsOpen()) { if (e.key === 'f') toggleHudFull(); else if (e.key === 's') $('h-snd').click(); else if (e.key === 'h') closeHud(); return; }
   if (e.key === '?') { $('keys').classList.toggle('on'); return; }
   if (e.key === 'n') { e.preventDefault(); toggleAdd(true); return; }
+  if (e.key === 'e' && openId && !panelEdit) { e.preventDefault(); startEdit('title'); return; }
   if (e.key === 'l') { $('later-btn').click(); return; }
   if (e.key === 'c') { $('chat-btn').click(); return; }
   if (e.key === 'h') { $('hud-btn').click(); return; }
