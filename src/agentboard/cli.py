@@ -11,6 +11,7 @@ from pathlib import Path
 
 from . import __version__
 from . import agentchat
+from . import hooks as hookslib
 from . import backup as backuplib
 from . import hud as hudlib
 from . import prompt as promptlib
@@ -345,7 +346,35 @@ def _chat_name(a):
     name = a.name or os.environ.get("AGENTBOARD_NAME") or ("Troy" if getattr(a, "user", False) else None)
     if not name:
         raise BoardError("give --name (or set AGENTBOARD_NAME) so the board can show who's talking")
+    hookslib.remember_session(_store().dir, name)   # so the SendMessage hook can post as this session
     return name
+
+
+def cmd_me(a):
+    """Tell the board who this session is, so mirrored messages carry the name."""
+    s = _store()
+    sid = hookslib.remember_session(s.dir, a.name)
+    print(f"this session is {a.name}" + ("" if sid else " (no CLAUDE_CODE_SESSION_ID in this shell; set AGENTBOARD_NAME instead)"))
+
+
+def cmd_hook(a):
+    """Called by Claude Code after a SendMessage: the payload is on stdin. Always exits 0 and prints nothing."""
+    try:
+        s = _store()
+    except BoardError:
+        return
+    hookslib.run_hook(s)
+
+
+def cmd_hooks(a):
+    """hooks install: the SendMessage hook into this project's .claude/settings.json; hooks status: is it there."""
+    s = _store()
+    project = Path(a.project).expanduser() if a.project else s.dir.parent
+    if a.what == "install":
+        p, changed = hookslib.install(project)
+        print(f"{'installed' if changed else 'already installed'}: {p}\nEvery session in this project now mirrors its SendMessage calls to the chat (restart running sessions once).")
+    else:
+        print(f"{'installed' if hookslib.installed(project) else 'not installed'}: {hookslib.settings_path(project)}")
 
 
 def cmd_chat_send(a):
@@ -658,6 +687,7 @@ def cmd_spawn(a):
 
 
 def cmd_start(a):
+    hookslib.remember_session(_store().dir, _agent_name(a))
     t, created = _store().start_card(a.title, _agent_name(a), a.color or os.environ.get("AGENTBOARD_COLOR"),
                                      a.description or "", a.id, a.project, blocked_by=a.blocked_by, force=a.force,
                                      parent_id=a.parent)
@@ -886,6 +916,7 @@ def cmd_rm(a):
 def cmd_claim(a):
     name = _agent_name(a)
     s = _store()
+    hookslib.remember_session(s.dir, name)
     t = s.claim(a.id, name, a.color or os.environ.get("AGENTBOARD_COLOR"), a.force)
     print(f"claimed {t['id']} as {name}")
     _print_subtasks(s.load(), t["id"])
@@ -1221,6 +1252,13 @@ def main(argv=None):
     sp.add_argument("--file", help="transcribe this audio file instead of recording")
     sp.add_argument("--mic", help="avfoundation input, e.g. ':2' (default: the system's default microphone)")
     add("clear", cmd_clear, "archive all Done tasks (kept for history and the HUD)")
+    sp = add("me", cmd_me, "tell the board this session's name, so mirrored messages carry it")
+    sp.add_argument("--name", required=True)
+    sp = add("hook", cmd_hook, "for Claude Code hooks: mirror a SendMessage call (payload on stdin) to the chat")
+    sp.add_argument("event", choices=["send-message"])
+    sp = add("hooks", cmd_hooks, "install the SendMessage mirror hook into this project's .claude/settings.json, or show its status")
+    sp.add_argument("what", nargs="?", choices=["install", "status"], default="status")
+    sp.add_argument("--project", help="the project folder (default: the one holding .agentboard)")
     sp = add("recall", cmd_recall, "what the board remembers: cards, updates and history matching a few words (every agent's), and chat")
     sp.add_argument("query", nargs="?", help="a few words")
     sp.add_argument("--card", metavar="ID", help="one card's whole history")
