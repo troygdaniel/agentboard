@@ -232,7 +232,17 @@ def build_prompt(task, board_dir, public=False, tasks=None):
     # one pass over the template, so a placeholder that appears inside a substituted value
     # (a description mentioning "{ab}", say) is left as written rather than expanded again
     out = re.sub(r"\{(" + "|".join(values) + r")\}", lambda m: values[m.group(1)], template)
+    if task.get("agent") and task.get("status") in ("todo", "backlog"):   # assigned from the board: the prompt names its agent
+        out = _name_agent(out, task["agent"], task.get("color"))
     return out, warnings
+
+
+def _name_agent(text, agent, color=None):
+    """A queued card with a holder (Assign / Hand to… on the board) gets a prompt that already says who claims it, so the paste
+    into that agent's terminal needs no edit: the placeholder name becomes the agent's, with its colour when the card has one."""
+    name = '"' + agent.replace('"', "") + '"'
+    text = text.replace('--name "<your session name>"', f"--name {name}" + (f" --color {color}" if color and re.fullmatch(r"[\w#-]{1,32}", color) else ""))
+    return text.replace("<your session name>", agent)
 
 
 DEFAULT_PEERS = (("AGENT-1", "green"), ("AGENT-2", "green"), ("AGENT-3", "green"),

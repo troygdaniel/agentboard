@@ -2976,13 +2976,25 @@ $('assign-pop').addEventListener('click', async e => {
   closeAssign();
   try {
     if (mode === 'hand') {
-      if (name) { await api('/api/hand', { id, agent: name, color: color || null }); toast(`Handed “${title}” to ${name} — ORCH has been told`); }
+      if (name) await api('/api/hand', { id, agent: name, color: color || null });
       else { await move(id, 'todo'); return; }   // nobody yet: back to the queue, unassigned (move() already reloads)
     } else {
       await api('/api/assign', { id, agent: name || null, color: color || null });
-      toast(name ? `Assigned “${title}” to ${name} — ORCH has been told` : `Unassigned “${title}”`);
     }
     showError('');
+    const verb = mode === 'hand' ? 'Handed' : 'Assigned';
+    if (!name) toast(`Unassigned “${title}”`);
+    else {
+      // the card's prompt, now naming that agent, goes on the clipboard: the one step left is the paste into its terminal
+      let note = 'ORCH has been told';
+      try {
+        const r = await fetch('/api/prompt?id=' + encodeURIComponent(id)), d = await r.json();
+        if (!r.ok) throw new Error(d.error);
+        await navigator.clipboard.writeText(d.prompt);
+        note = 'prompt on the clipboard, ORCH told' + (d.warnings.length ? ' · ' + d.warnings.join(' · ') : '');
+      } catch (e) { note = 'ORCH told; the prompt could not be copied here (use Copy prompt)'; }
+      toast(`${verb} “${title}” to ${name} — ${note}`);
+    }
   } catch (err) { showError((mode === 'hand' ? 'Could not hand over: ' : 'Could not assign: ') + err.message); }
   raw = ''; detailRaw = ''; load();
 });
