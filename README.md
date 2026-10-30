@@ -298,7 +298,12 @@ straight into a standup or a daily log:
 
 ## Notifications (opt-in)
 
-Off by default. Turn on native macOS banners for **needs input** and **ready for review** so you don't have to
+**From the board tab:** the bell in the top bar turns on desktop notifications through the browser's own Notification API (local, no
+service, no new dependency). While the tab is in the background you get one when a card needs an answer (and again every 15 minutes
+while it waits), once when a card is ready for sign-off, and once when an agent goes quiet; clicking it brings the tab back and
+opens the card. In front, the Your move strip and the sounds already say it.
+
+**From the terminal, on macOS:** off by default. Turn on native macOS banners for **needs input** and **ready for review** so you don't have to
 keep the board or HUD open to notice a blocked or finished agent:
 
     [notify]
