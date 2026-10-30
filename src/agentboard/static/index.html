@@ -1464,7 +1464,7 @@ function renderMove(working) {
     const said = kind === 'stale' ? (t.status_text || 'no update') : (t.question || t.result || t.status_text || '');
     const acts = kind === 'ask' ? `<button class="btn" data-mv-open="${esc(t.id)}">Open</button>`
       : kind === 'review' ? `<button class="btn go" data-mv-done="${esc(t.id)}">Mark done</button><button class="btn" data-mv-reply="${esc(t.id)}">Send back</button>`
-      : `<button class="btn" data-mv-open="${esc(t.id)}">Open</button><button class="btn" data-mv-release="${esc(t.id)}" title="Back to Todo, so someone else can pick it up">To Todo</button>`;
+      : `<button class="btn primary" data-hand="${esc(t.id)}" aria-haspopup="dialog" title="Give this card to another agent">Hand to…</button><button class="btn" data-mv-open="${esc(t.id)}">Open</button>`;
     return `<div class="mv ${kind}" data-mv-open="${esc(t.id)}" role="button" tabindex="0" style="--c:${colorOf(t)}" aria-label="${esc(t.agent || 'An agent')}: ${esc(said)}, ${MV_WORD[kind]}">
       <span class="av" aria-hidden="true">${esc(nodeGlyph(t.agent || '?'))}</span>
       <div class="mv-top"><span class="nm">${esc(t.agent || 'Unassigned')}</span><span class="mv-kind">${MV_ICON[kind]}${MV_WORD[kind]}</span><span class="ttl" title="${esc(t.title)}">${esc(t.title)}</span><span class="age">${age < 1 ? 'just now' : dur(age)}</span></div>
@@ -1480,7 +1480,7 @@ $('move').addEventListener('click', e => {
   const b = e.target.closest('button');
   if (b?.dataset.mvDone) { confirmDoneClick(b); move(b.dataset.mvDone, 'done'); return; }
   if (b?.dataset.mvReply) { openPanel(b.dataset.mvReply, { reply: true }); return; }
-  if (b?.dataset.mvRelease) { move(b.dataset.mvRelease, 'todo'); return; }
+  if (b?.dataset.hand) { if (assignFor === b.dataset.hand) closeAssign(); else openAssign(b, b.dataset.hand, 'hand'); return; }
   const r = e.target.closest('[data-mv-open]');
   if (r) openPanel(r.dataset.mvOpen);
 });
@@ -1933,7 +1933,9 @@ function panelHtml(t) {
   const ctx = (t.ctx || []).length ? `<dt>Context</dt><dd>${t.ctx.map(c => `<code>${esc(c)}</code>`).join(' ')}</dd>` : '';
   const details = `<div class="p-sec"><h3>Details</h3><dl><dt>ID</dt><dd><code>${esc(t.id)}</code></dd><dt>Created</dt><dd>${stamp(t.created)}</dd><dt>Updated</dt><dd>${stamp(t.updated)}</dd>${ctx}</dl></div>`;
   const prompt = !cfg.dispatch ? '' : `<div class="p-sec"><details id="pd" ${promptOpen ? 'open' : ''}><summary>Prompt</summary><pre id="pre">${esc(promptText || 'Loading…')}</pre></details></div>`;
-  const copy = (cfg.dispatch ? `<button class="btn" id="p-copy">Copy prompt</button>` : '') + (t.run && t.run.status === 'running' && t.run.alive !== false ? `<button class="btn danger" id="p-run-stop" title="Stop the one-shot run (the card moves to ask)">Stop run</button>` : '');
+  const hand = t.parent_id ? '' : t.status === 'doing' ? `<button class="btn" id="p-hand" data-hand="${esc(t.id)}" aria-haspopup="dialog" title="Give this card to another agent">Hand to…</button>`
+    : t.status !== 'done' ? `<button class="btn" id="p-hand" data-assign="${esc(t.id)}" aria-haspopup="dialog" title="${t.agent ? 'Assigned to ' + esc(t.agent) + '. Click to change' : 'Hand this card to an agent'}">${t.agent ? 'Reassign' : 'Assign'}</button>` : '';
+  const copy = hand + (cfg.dispatch ? `<button class="btn" id="p-copy">Copy prompt</button>` : '') + (t.run && t.run.status === 'running' && t.run.alive !== false ? `<button class="btn danger" id="p-run-stop" title="Stop the one-shot run (the card moves to ask)">Stop run</button>` : '');
   const par = t.parent_id && byId.get(t.parent_id)
     ? `<div class="p-sec"><h3>Subtask of</h3><ul class="p-subs"><li data-sub-id="${esc(t.parent_id)}"><span class="sn">${esc(byId.get(t.parent_id).title)}</span></li></ul></div>` : '';
   const kids = kidsMap.get(t.id) || [];
@@ -2061,6 +2063,8 @@ $('p-body').addEventListener('change', async e => {
 quickEvents($('p-body'));
 $('p-body').addEventListener('click', async e => {
   if (e.target.closest('.qr')) return;
+  const hb = e.target.closest('[data-hand], [data-assign]');
+  if (hb) { const id = hb.dataset.hand || hb.dataset.assign; if (assignFor === id) closeAssign(); else openAssign(hb, id, hb.dataset.hand ? 'hand' : 'assign'); return; }
   const sr = e.target.closest('[data-sub-id]');
   if (sr) { openPanel(sr.dataset.subId); return; }
   const b = e.target.closest('button'); if (!b) return;
@@ -2775,12 +2779,13 @@ $('board').addEventListener('click', async e => {
 
 // --- Assign: the picker. One fetch of /api/agents per open (idle first, then the least loaded); a click posts /api/assign.
 // The hook on the server side posts one line to the shared chat so ORCH knows to hand the card over. ---
-let assignFor = null;
+let assignFor = null, assignMode = 'assign';   // 'assign': a queued card gets a holder; 'hand': a live card goes to someone else
 const STATE_WORD = { idle: 'idle', working: 'working', quiet: 'quiet', waiting: 'asking', review: 'in review', abandoned: 'quiet' };
-async function openAssign(btn, id) {
-  assignFor = id;
+async function openAssign(btn, id, mode = 'assign') {
+  assignFor = id; assignMode = mode;
+  const head = mode === 'hand' ? 'Hand to' : 'Assign to';
   const pop = $('assign-pop'), r = btn.getBoundingClientRect();
-  pop.innerHTML = `<div class="ap-h">Assign to</div><div class="ap-empty">Loading…</div>`;
+  pop.innerHTML = `<div class="ap-h">${head}</div><div class="ap-empty">Loading…</div>`;
   pop.hidden = false;
   const x = Math.min(r.left, window.innerWidth - 12 - Math.min(360, window.innerWidth - 24));
   pop.style.left = Math.max(12, x) + 'px'; pop.style.top = Math.min(r.bottom + 6, window.innerHeight - 60) + 'px';
@@ -2788,33 +2793,40 @@ async function openAssign(btn, id) {
   try { agents = (await (await fetch('/api/agents', { cache: 'no-store' })).json()).agents || []; } catch (e) { agents = []; }
   if (assignFor !== id) return;
   const cur = byId.get(id)?.agent || '';
+  if (mode === 'hand') agents = agents.filter(a => a.name !== cur);   // the point is someone else
   const idle = agents.filter(a => a.state === 'idle').length;
   const rows = agents.map(a => `<button class="ap-row ${esc(a.state)}" data-assign-name="${esc(a.name)}" data-assign-color="${esc(a.color || '')}" role="menuitem">
       <span class="av" style="--c:${hudColor(a.color || 'var(--neutral)')}" aria-hidden="true">${esc(nodeGlyph(a.name))}</span><span class="nm ${a.name === cur ? 'cur' : ''}">${esc(a.name)}</span>
       <span class="tag">${esc(STATE_WORD[a.state] || a.state)}${a.state !== 'idle' && a.open > 1 ? ' · ' + a.open : ''}</span>${a.task ? `<span class="st" title="${esc(a.task)}">${esc(a.task)}</span>` : ''}</button>`).join('');
-  pop.innerHTML = `<div class="ap-h">Assign to <span class="cnt">${idle} free</span></div>` + (rows || `<div class="ap-empty">No agents yet. Name them under <code>[orch] agents</code> in config.toml, or they appear once they run <code>agentboard start</code>.</div>`)
-    + (cur ? `<button class="ap-row none" data-assign-name="" role="menuitem"><span class="av" aria-hidden="true">–</span><span class="nm">Unassign</span><span class="tag">back to the queue</span></button>` : '');
+  pop.innerHTML = `<div class="ap-h">${head} <span class="cnt">${idle} free</span></div>` + (rows || `<div class="ap-empty">No agents yet. Name them under <code>[orch] agents</code> in config.toml, or they appear once they run <code>agentboard start</code>.</div>`)
+    + (cur && mode === 'assign' ? `<button class="ap-row none" data-assign-name="" role="menuitem"><span class="av" aria-hidden="true">–</span><span class="nm">Unassign</span><span class="tag">back to the queue</span></button>` : '')
+    + (mode === 'hand' ? `<button class="ap-row none" data-assign-name="" role="menuitem"><span class="av" aria-hidden="true">–</span><span class="nm">Nobody yet</span><span class="tag">back to Todo</span></button>` : '');
   if (btn.isConnected) pop.style.top = Math.min(btn.getBoundingClientRect().bottom + 6, window.innerHeight - pop.offsetHeight - 12) + 'px';
   pop.querySelector('.ap-row')?.focus();
 }
 function closeAssign() { assignFor = null; const pop = $('assign-pop'); if (!pop.hidden) { pop.hidden = true; pop.innerHTML = ''; } }
 $('assign-pop').addEventListener('click', async e => {
   const row = e.target.closest('[data-assign-name]'); if (!row || !assignFor) return;
-  const id = assignFor, name = row.dataset.assignName, color = row.dataset.assignColor;
+  const id = assignFor, mode = assignMode, name = row.dataset.assignName, color = row.dataset.assignColor, title = byId.get(id)?.title || id;
   closeAssign();
   try {
-    await api('/api/assign', { id, agent: name || null, color: color || null });
+    if (mode === 'hand') {
+      if (name) { await api('/api/hand', { id, agent: name, color: color || null }); toast(`Handed “${title}” to ${name} — ORCH has been told`); }
+      else { await move(id, 'todo'); return; }   // nobody yet: back to the queue, unassigned (move() already reloads)
+    } else {
+      await api('/api/assign', { id, agent: name || null, color: color || null });
+      toast(name ? `Assigned “${title}” to ${name} — ORCH has been told` : `Unassigned “${title}”`);
+    }
     showError('');
-    toast(name ? `Assigned “${byId.get(id)?.title || id}” to ${name} — ORCH has been told` : `Unassigned “${byId.get(id)?.title || id}”`);
-  } catch (err) { showError('Could not assign: ' + err.message); }
-  raw = ''; load();
+  } catch (err) { showError((mode === 'hand' ? 'Could not hand over: ' : 'Could not assign: ') + err.message); }
+  raw = ''; detailRaw = ''; load();
 });
 $('assign-pop').addEventListener('keydown', e => {
   const rows = [...$('assign-pop').querySelectorAll('.ap-row')], i = rows.indexOf(document.activeElement);
   if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); rows[(i + (e.key === 'ArrowDown' ? 1 : rows.length - 1)) % rows.length]?.focus(); }
   else if (e.key === 'Escape') { e.stopPropagation(); closeAssign(); }
 });
-document.addEventListener('click', e => { if (assignFor && !e.target.closest('#assign-pop, [data-assign]')) closeAssign(); });
+document.addEventListener('click', e => { if (assignFor && !e.target.closest('#assign-pop, [data-assign], [data-hand]')) closeAssign(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && assignFor) closeAssign(); }, true);
 
 // --- ORCH: copy a boot prompt for the orchestrator session, built from live board state at click time ---

@@ -262,6 +262,11 @@ def make_handler(default_store, port):
                         raise BoardError("agent must be a string")
                     color = body.get("color")
                     self._send(200, self.store.assign(body["id"], agent, color if isinstance(color, str) else None))
+                elif path == "/api/hand":
+                    if not isinstance(body.get("agent"), str):
+                        raise BoardError("agent must be a string")
+                    color = body.get("color")
+                    self._send(200, self.store.hand_to(body["id"], body["agent"], color if isinstance(color, str) else None))
                 elif path == "/api/task-project":
                     t = self.store.set_project(body["id"], body.get("project_id"))
                     self._send(200, t)

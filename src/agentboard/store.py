@@ -336,6 +336,40 @@ class Store:
                        else f"ORCH: {by} took {task_id} back from {was or 'its agent'}; it is unassigned.", "user")
         return t
 
+    def hand_to(self, task_id, name, color=None, by="Troy"):
+        """Troy gives a live card to another agent from the board: it goes back to the top of Todo under the new agent (who
+        claims it as usual), its ask/review state clears, the old agent is released, and its open subtasks follow. A queued
+        card is simply assigned. The same hook as assign(): one line in the shared chat tells ORCH."""
+        name = (name or "").strip()
+        if not name:
+            raise BoardError("say who to hand it to")
+        if self.get(self.load(), task_id)["status"] in ("todo", "backlog"):
+            return self.assign(task_id, name, color, by)
+        with self.transaction() as tasks:
+            t = self.get(tasks, task_id)
+            if t.get("parent_id"):
+                raise BoardError("hand over the parent card; its subtasks follow it")
+            if t["status"] == "done":
+                raise BoardError(f"{task_id} is done; reopen it first")
+            was = t.get("agent")
+            if was == name:
+                raise BoardError(f"{task_id} is already with {name}")
+            tasks.remove(t)
+            _set_status(tasks, t, "todo")   # releases the old holder, takes the open subtasks along
+            for f in ("needs_input", "question", "ask_child", "review", "reply", "body_md"):
+                t.pop(f, None)
+            t["agent"] = name
+            if color:
+                t["color"] = color
+            t["progress"] = min(int(t.get("progress", 0)), 95)
+            t["status_text"] = f"Handed to {name}"
+            _log(t, f"Handed from {was or 'nobody'} to {name}", by=by)
+            t["updated"] = _now()
+            top = next((i for i, x in enumerate(tasks) if x["status"] == "todo"), len(tasks))   # the top of Todo, like a new card
+            tasks.insert(top, t)
+        self.chat_send(by, f"ORCH: {by} handed {task_id} from {was or 'nobody'} to {name}; hand it over.", "user")
+        return t
+
     def ask(self, task_id, question, body_md=None):
         """Agent flags that it is blocked on the user. Cleared by the next update.
 
