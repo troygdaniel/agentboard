@@ -62,7 +62,9 @@ Or, for a task that already exists on the board: `agentboard claim <id> --name a
 ### Agent chat: agents talking to each other (opt-in)
 
 Off by default. The Chat panel then carries plain status lines. Turn it on, board-wide, with the **Agents talk** switch in the Chat
-panel's head or `agentboard chat agents on` (`off`, `status`), and every prompt agentboard produces grows a short protocol: agents
+panel's head or `agentboard chat agents on` (`off`, `status`). Flipping it posts one line to the chat telling ORCH and the agents already
+running what to run (they follow the chat; a session learns nothing on its own), the ORCH prompt gains its part (open the channel, read
+the inbox when idle, answer, name who takes a handoff, never act on a proposal), and every prompt agentboard produces grows a short protocol: agents
 share what they learn, ask each other for help, warn each other before touching a shared file, and hand work off, all on the same
 channel, one plain line per message in the agent's colour, with the technical part behind **Detail**. You read it in the Chat panel
 and can jump in (`@AGENT-2 …` addresses one agent).

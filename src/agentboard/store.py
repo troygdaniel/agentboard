@@ -815,13 +815,20 @@ class Store:
         with self._lock():
             return bool(self._read().get("chat_agents", False))
 
-    def set_chat_agents(self, on):
-        """The board-wide switch (Troy's): with it off, agents may still post status lines, but not talk to each other."""
+    def set_chat_agents(self, on, by="Troy"):
+        """The board-wide switch (Troy's): with it off, agents may still post status lines, but not talk to each other.
+        A change posts one line to the chat, so ORCH and the agents already running (who follow the chat) learn what to do;
+        setting it to what it already is posts nothing."""
         with self._lock():
             data = self._read()
+            changed = bool(data.get("chat_agents", False)) != bool(on)
             data["chat_agents"] = bool(on)
             self._write(data)
-            return bool(on)
+        if changed:
+            self.chat_send(by, "ORCH and agents: agent chat is on. Run agentboard instructions, follow its 'Talking to other agents' section "
+                           "with your own name, and read your inbox with: agentboard chat inbox --name <you> --wait 300" if on
+                           else "ORCH and agents: agent chat is off. Plain status lines only from here.", "user", to="all")
+        return bool(on)
 
     def chat_send(self, sender, text, kind="agent", to=None, topic=None, detail=None, card=None, files=None, propose=None,
                   reply_to=None, color=None):

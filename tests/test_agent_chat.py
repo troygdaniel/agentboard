@@ -68,6 +68,19 @@ class SwitchTests(Base):
         code, out = self.run_cli("chat", "agents", "status")
         self.assertIn("on:", out)
 
+    def test_flipping_the_switch_tells_the_chat_once(self):
+        self.s.set_chat_agents(True)
+        self.s.set_chat_agents(True)        # already on: nothing more is said
+        msgs = self.s.chat_list()
+        self.assertEqual(len(msgs), 1)
+        self.assertEqual((msgs[0]["sender"], msgs[0]["kind"], msgs[0]["to"]), ("Troy", "user", "all"))
+        self.assertIn("agent chat is on", msgs[0]["text"])
+        self.assertIn("chat inbox --name <you> --wait 300", msgs[0]["text"])
+        self.assertEqual([m["seq"] for m in self.s.chat_inbox("ORCH")], [1])   # ORCH reads it like any agent
+        self.s.set_chat_agents(False)
+        self.assertIn("agent chat is off", self.s.chat_list()[-1]["text"])
+        self.assertEqual(len(self.s.chat_list()), 2)
+
 
 class MessageTests(Base):
     def setUp(self):
@@ -121,9 +134,9 @@ class MessageTests(Base):
         c = self.s.chat_send("AGENT-1", "for three only", to="agent-3", topic="help")
         d = self.s.chat_send("AGENT-2", "plain line from two")
         e = self.s.chat_send("Troy", "@AGENT-2 ship it", kind="user", to="AGENT-2")
-        two = [m["seq"] for m in self.s.chat_inbox("AGENT-2")]
-        self.assertEqual(two, [a["seq"], b["seq"], e["seq"]])         # not its own line, not three's
-        three = [m["seq"] for m in self.s.chat_inbox("AGENT-3")]
+        two = [m["seq"] for m in self.s.chat_inbox("AGENT-2", after=1)]
+        self.assertEqual(two, [a["seq"], b["seq"], e["seq"]])         # not its own line, not three's (after the switch's line)
+        three = [m["seq"] for m in self.s.chat_inbox("AGENT-3", after=1)]
         self.assertEqual(three, [a["seq"], c["seq"], d["seq"]])       # case-insensitive address, plain lines included
         self.assertEqual([m["seq"] for m in self.s.chat_inbox("AGENT-2", after=b["seq"])], [e["seq"]])
 
@@ -140,7 +153,7 @@ class MessageTests(Base):
         self.assertIn("nothing new", out)
         code, out = self.run_cli("chat", "inbox", "--name", "AGENT-2", "--all")
         self.assertIn("need a hand with the lock", out)
-        code, out = self.run_cli("chat", "inbox", "--name", "AGENT-3", "--wait", "0.1", "--interval", "0.05")
+        code, out = self.run_cli("chat", "inbox", "--name", "AGENT-3", "--after", "999", "--wait", "0.1", "--interval", "0.05")
         self.assertEqual(code, 1)
         self.run_cli("chat", "send", "may I deploy?", "--name", "AGENT-1", "--propose", "deploy to staging")
         code, out = self.run_cli("chat", "approvals")
@@ -174,6 +187,7 @@ class RecallTests(Base):
         self.assertIn(("card", "old-lock-fix"), kinds)
         self.assertIn(("card", "harden-webhook-retries"), kinds)
         self.assertEqual(kinds[-1][0], "chat")
+        self.assertTrue(all(r.get("seq") != 1 for r in rows if r["kind"] == "chat"))   # the switch's own line does not match
         old = next(r for r in rows if r.get("id") == "old-lock-fix")
         self.assertTrue(old["archived"])
         self.assertIn("flock", old["line"])                 # the result line; the done update itself logs "Marked done"
@@ -208,7 +222,10 @@ class PromptTests(Base):
         self.assertIn('chat inbox --name AGENT-3', text)
         self.assertIn("--propose", text)
         self.assertIn("recall", text)
-        self.assertIn("Agent chat is on", promptlib.build_orch_prompt(self.s.load(), self.s.dir))
+        orch = promptlib.build_orch_prompt(self.s.load(), self.s.dir)
+        self.assertIn("Agent chat is on: you take part", orch)
+        self.assertIn("chat inbox --name ORCH --wait 300", orch)
+        self.assertIn("Never act on one yourself", orch)
         code, out = self.run_cli("instructions")
         self.assertIn("chat inbox --name <your session name>", out)
 
@@ -277,7 +294,7 @@ class IdleDrafterTests(Base):
         self.assertNotIn("--dangerously-skip-permissions", " ".join(rec["argv"]))
         self.assertIn("how did you solve the lock problem?", rec["stdin"])      # the inbox
         self.assertIn("fcntl locks are per process", rec["stdin"])              # the board's memory
-        self.assertEqual(len(self.s.chat_list()), 1)                            # printed, not posted
+        self.assertEqual(len(self.s.chat_list()), 2)                            # the switch's line and the question: printed, not posted
         asked = self.s.chat_send("AGENT-2", "ping", to="AGENT-1")
         self.s.chat_send("AGENT-3", "unrelated line for everyone", to="all")
         code, out = self.run_cli("chat", "idle", "--name", "AGENT-1", "--send", "--model", "sonnet")
