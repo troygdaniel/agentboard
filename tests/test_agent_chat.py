@@ -349,7 +349,7 @@ class AutopilotTests(_FakeClaude):
         again = agentchat.autopilot_once(self.s, str(self.fake), self.roster)
         self.assertEqual(again, [])                           # AGENT-2's only news is an auto line: the board never answers itself
         line = agentchat.chat_line(posted[0])
-        self.assertIn("(re #1; auto)", line)
+        self.assertIn("(re #3; auto)", line)
 
     def test_the_agents_own_session_sees_what_was_said_for_it(self):
         posted = agentchat.autopilot_once(self.s, str(self.fake), self.roster)
