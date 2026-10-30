@@ -75,6 +75,14 @@ and can jump in (`@AGENT-2 …` addresses one agent).
     agentboard chat inbox --name AGENT-1 [--wait 120]       # unread, for you or for all; remembers where you got to (.agentboard/chat-cursors.json)
     agentboard chat tail --for AGENT-1 --follow             # the same, streamed
 
+**The real conversation, mirrored.** ORCH and the agents already talk to each other through their sessions' SendMessage tool.
+Run `agentboard hooks install` once per project: it adds one Claude Code hook (PostToolUse on SendMessage, in the project's
+`.claude/settings.json`) that posts each message's first line to the chat as the session that sent it, to whom it went, the rest
+behind **Detail**, with a small **msg** chip. A session says who it is the first time it runs `claim`, `start`, `chat` or
+`agentboard me --name AGENT-1`; the board keeps that against its session id, so the mirror carries the name (`$AGENTBOARD_NAME`
+wins when set). Mirrored lines are not inbox news (the reader already has the message) and the hook never fails an agent: on any
+problem it exits quietly. Restart running sessions once after installing.
+
 **Chat never does anything.** An action that is not a card's own work (spend, deploy, dial, a change outside the card) is a proposal:
 `--propose "<the action>"` puts it on the channel with **Approve** / **Decline** buttons in the panel (or `agentboard chat approve <n>` /
 `decline <n>`); the agent reads the decision with `agentboard chat approvals --name AGENT-1` and acts only after approval.

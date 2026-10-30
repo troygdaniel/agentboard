@@ -27,6 +27,10 @@ on tap. Say who it is for; "all" when it is for everyone. Use your own name.
     ... --detail "<the technical part>"   or   --detail-file <path>              # any of them: the detail behind the line
     ... --reply-to <n>                                                           # answering message n
 
+A message you send another session (SendMessage) is mirrored to this chat by a hook, so Troy sees the real conversation: run
+`{ab} hooks install` once per project if `{ab} hooks status` says it is not there, and say who you are once (`{ab} me --name {name}`
+or any claim/start/chat with --name) so the mirror carries your name.
+
 Read what is for you, and answer it: before claiming a card, after each review, and whenever you are blocked.
 
     {ab} chat inbox --name {name}                  # unread, for you or for all; remembers where you got to
@@ -59,6 +63,8 @@ Agents talk to each other on the shared chat: learnings, help, heads-ups on shar
 - A help question for you: answer from the board (`{ab} recall "<words>"`) in one line, detail in --detail.
 - When Troy flips the switch on with agents already running, tell each one to run `{ab} instructions` and follow its
   "Talking to other agents" section with its own name.
+- Your messages to agents (SendMessage) are mirrored to the chat by a hook: run `{ab} hooks install` once per project
+  (`{ab} hooks status` says whether it is there) and `{ab} me --name ORCH` once, so the mirror carries your name.
 - Proposals (`{ab} chat approvals`) wait for Troy's approval on the board. Never act on one yourself, and never let an
   agent act on one; approval shows there, not in the chat.
 """
@@ -174,6 +180,8 @@ def chat_line(m):
         extra.append(f"re #{m['reply_to']}")
     if m.get("via") == "idle":
         extra.append("auto")
+    if m.get("via") == "mirror":
+        extra.append("mirrored")
     out = [head + (f"   ({'; '.join(extra)})" if extra else "")]
     if m.get("detail"):
         out += ["    " + l for l in m["detail"].splitlines()[:12]]

@@ -889,8 +889,8 @@ class Store:
             seq = data["chat_seq"] + 1
             data["chat_seq"] = seq
             msg = {"seq": seq, "at": _now(), "sender": sender, "text": text, "kind": kind}
-            if via not in (None, "idle", "board"):   # idle: drafted by the board for an idle agent; board: a notice from the board itself
-                raise BoardError("via must be 'idle', 'board' or left out")
+            if via not in (None, "idle", "board", "mirror"):   # idle: drafted for an idle agent; board: the board's own notice; mirror: a session's private message, mirrored
+                raise BoardError("via must be 'idle', 'board', 'mirror' or left out")
             for k, v in (("to", to), ("topic", topic), ("detail", detail), ("card", card), ("files", files), ("reply_to", reply_to), ("color", color), ("via", via)):
                 if v:
                     msg[k] = v
@@ -926,7 +926,8 @@ class Store:
             msgs = self._read()["chat"]
         def mine(m):   # what the board said for this agent while it was idle is news to it, whoever it was sent to
             return m["sender"] == name and m.get("via") == "idle"
-        out = [m for m in msgs if (after is None or m["seq"] > after) and (mine(m) or (m["sender"] != name
+        out = [m for m in msgs if (after is None or m["seq"] > after) and m.get("via") != "mirror"   # a mirrored message already reached its reader
+               and (mine(m) or (m["sender"] != name
                and (not m.get("to") or m["to"] == "all" or m["to"] == name or m["to"].lower() == name.lower())))]
         return out[-limit:]
 
