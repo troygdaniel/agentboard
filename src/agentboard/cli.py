@@ -469,7 +469,8 @@ def cmd_chat_idle(a):
         return 0
     print(f"draft -> {d['to'] or 'all'} [{d['topic'] or 'status'}]: {d['text']}" + (f"\n    {d['detail']}" if d["detail"] else ""))
     if a.send:
-        m = s.chat_send(name, d["text"], to=d["to"], topic=d["topic"], detail=d["detail"], reply_to=inbox[-1]["seq"])
+        asked = next((m for m in reversed(inbox) if m.get("to") == name), inbox[-1])   # thread to the line that was for this agent
+        m = s.chat_send(name, d["text"], to=d["to"], topic=d["topic"], detail=d["detail"], reply_to=asked["seq"])
         print("sent " + _chat_line(m).splitlines()[0])
 
 

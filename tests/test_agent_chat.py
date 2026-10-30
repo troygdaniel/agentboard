@@ -278,10 +278,12 @@ class IdleDrafterTests(Base):
         self.assertIn("how did you solve the lock problem?", rec["stdin"])      # the inbox
         self.assertIn("fcntl locks are per process", rec["stdin"])              # the board's memory
         self.assertEqual(len(self.s.chat_list()), 1)                            # printed, not posted
-        self.run_cli("chat", "send", "ping", "--name", "AGENT-2", "--to", "AGENT-1")
+        asked = self.s.chat_send("AGENT-2", "ping", to="AGENT-1")
+        self.s.chat_send("AGENT-3", "unrelated line for everyone", to="all")
         code, out = self.run_cli("chat", "idle", "--name", "AGENT-1", "--send", "--model", "sonnet")
         self.assertIn("sent #", out)
         last = self.s.chat_list()[-1]
+        self.assertEqual(last["reply_to"], asked["seq"])   # threaded to the line that was for it, not the last line
         self.assertEqual((last["sender"], last["to"], last["topic"], last["text"][:12]), ("AGENT-1", "AGENT-2", "learn", "flock on the"))
         self.assertEqual(last["detail"], "see store.py _lock, fcntl.flock(fd, LOCK_EX)")
         self.assertIn("--model", json.loads(self.record.read_text())["argv"])
