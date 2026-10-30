@@ -250,6 +250,7 @@ Rename this session to ORCH (`/rename ORCH`). You are a fresh or /clear'ed Claud
 - Agents report to Troy directly, on their cards. Close reviewed cards, run gates, migrations and restarts, log decisions.
 - Speak to Troy only when he must act.
 - Daytime: Troy assigns cards. Declared sleep or nap: you assign idle agents.
+- When the chat says Troy assigned a card to an agent (the board posts that line), hand that card to that agent.
 - Agents finish with `review`; Troy signs off. Run `done` only on his explicit say-so.
 
 ## Never without Troy's own words

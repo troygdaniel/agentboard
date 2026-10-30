@@ -59,6 +59,15 @@ Then give your agents the protocol. Paste the output of this into your project's
 
 Or, for a task that already exists on the board: `agentboard claim <id> --name atlas`.
 
+### Assign from the board
+
+Every Todo card has an **Assign** button: a picker lists the agents, idle ones first (the ones the HUD knows plus any named under
+`[orch] agents` in `config.toml`), then the busy ones with the card they hold. One click hands the card to that agent: it stays in Todo
+showing that holder until the agent claims it (`agentboard claim <id> --name <agent>`), and **Unassign** takes it back. The hook that
+tells ORCH is one line in the shared chat, `ORCH: Troy assigned <id> to <agent>; hand it over.`, which ORCH already follows with
+`agentboard chat tail --follow`; nothing else is called. Also on the board: a **Your move** strip under the header lists every card that
+needs you (asks, reviews, agents gone quiet) with its action right there, and the Done column shows a 7-day ribbon of what was finished.
+
 ### Reports: action first
 
 Every prompt agentboard produces (Copy prompt, the `agentboard run` prompt, the instructions snippet, the ORCH prompt) ends with one rule:

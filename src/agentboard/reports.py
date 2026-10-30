@@ -11,6 +11,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 from . import markdown as mdlib
+from . import nav
 from . import prompt as promptlib
 from . import runs
 from .store import BoardError
@@ -178,7 +179,8 @@ def extras_md(board_dir, card_id):
 # -- the page -----------------------------------------------------------------------------------------------------------------------
 CSS = """
 :root{color-scheme:light dark;--bg:#fafaf8;--fg:#17171a;--mut:#6b6b73;--line:#e2e2de;--card:#fff;--ok:#1d7a4a;--err:#b42318;--ac:#2f6fed}
-@media(prefers-color-scheme:dark){:root{--bg:#0e1116;--fg:#ececf1;--mut:#9aa0ad;--line:#262b36;--card:#151a22;--ok:#4cc38a;--err:#ff7a70;--ac:#7aa2ff}}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0e1116;--fg:#ececf1;--mut:#9aa0ad;--line:#262b36;--card:#151a22;--ok:#4cc38a;--err:#ff7a70;--ac:#7aa2ff}}
+:root[data-theme="dark"]{color-scheme:dark;--bg:#0e1116;--fg:#ececf1;--mut:#9aa0ad;--line:#262b36;--card:#151a22;--ok:#4cc38a;--err:#ff7a70;--ac:#7aa2ff}:root[data-theme="light"]{color-scheme:light}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
 main{max-width:46rem;margin:0 auto;padding:24px 16px 64px}h1{font-size:24px;margin:0 0 4px;line-height:1.25}h2{font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--mut);margin:28px 0 8px}
 .meta{color:var(--mut);font-size:14px;margin:0}.action{margin:18px 0 0;padding:14px 16px;border-radius:12px;border:1px solid var(--line);background:var(--card);border-left:6px solid var(--ok);font-size:20px;font-weight:600;line-height:1.35}
@@ -199,6 +201,7 @@ button.go{background:var(--ok);color:#fff;border-color:var(--ok);font-weight:600
 """
 
 JS = """
+try { const t = localStorage.getItem('agentboard-theme'); if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t); } catch (e) {}
 const BASE = location.pathname.split('/reports/')[0];
 const id = document.body.dataset.card, msg = document.getElementById('msg');
 async function post(path, body) {
@@ -264,7 +267,7 @@ def _file_bars(files):
         f'<div><span>{html.escape(k)}</span><i style="width:{max(6, round(100 * n / big))}%"></i><span>{n}</span></div>' for k, n in sorted(groups.items(), key=lambda kv: -kv[1])[:8]) + "</div>"
 
 
-def build_html(task, board_dir, run=None, git=None, extras="", now=None):
+def build_html(task, board_dir, run=None, git=None, extras="", now=None, base=""):
     e = html.escape
     tid, title = task["id"], task["title"]
     state = "done" if task.get("status") == "done" else "review"
@@ -292,7 +295,7 @@ def build_html(task, board_dir, run=None, git=None, extras="", now=None):
         tiles.append(_tile(len(files), "files changed"))
     parts = [
         '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex">',
-        f"<title>{e(title)}: report</title><style>{CSS}</style></head><body data-card=\"{e(tid)}\"><main>",
+        f"<title>{e(title)}: report</title><style>{CSS}{nav.CSS}</style></head><body data-card=\"{e(tid)}\">{nav.top_bar(base, "reports", "Report: " + title)}<main>",
         f'<h1>{e(title)}</h1><div class="chips">' + "".join(f'<span class="chip">{c}</span>' if "chip" not in c else c for c in chips) + "</div>",
         f'<div class="action {"ask" if asking else ""}"><small>{"Needs your answer" if asking else "For you"}</small>{e(sentence)}</div>',
     ]
@@ -340,7 +343,7 @@ def write_report(store, task_id, now=None):
     now = now or datetime.now()
     task = store.get(store.load(), task_id)
     run = _latest_run(store.dir, task_id)
-    page = build_html(task, store.dir, run, git_info(store.dir, task, run), extras_md(store.dir, task_id), now)
+    page = build_html(task, store.dir, run, git_info(store.dir, task, run), extras_md(store.dir, task_id), now, base=_base_of(store))
     d = reports_dir(store.dir)
     d.mkdir(parents=True, exist_ok=True)
     name = f"{task_id}-{now.strftime('%Y%m%d-%H%M%S')}.html"
@@ -351,6 +354,20 @@ def write_report(store, task_id, now=None):
     tmp.write_text(page)
     tmp.replace(d / name)
     return name
+
+
+def _base_of(store):
+    """The url prefix this board is served under ('' for the default board, '/b/<name>' for a registered one), so the report's
+    top bar links stay on this board. A report is written by the CLI too, where the name is all there is to go on."""
+    try:
+        from . import boards
+        name = boards.name_for(store.dir)
+        cur = boards.current_dir()
+        if name and (cur is None or cur.resolve() != store.dir.resolve()):
+            return f"/b/{name}"
+    except Exception:   # noqa: BLE001  (the registry is optional; a report never fails over it)
+        pass
+    return ""
 
 
 def maybe_report(store, ids):
@@ -385,6 +402,6 @@ def index_html(board_dir, base=""):
     e = html.escape
     items = "".join(f'<li><a href="{e(base)}/reports/{e(r["file"])}">{e(r["card"])}</a> <span class="meta">{e(r["at"].strftime("%d %b %H:%M"))}</span></li>' for r in list_reports(board_dir))
     return (f'<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Reports</title>'
-            f"<style>{CSS}</style></head><body><main><h1>Reports</h1><p class=\"meta\">Newest first. Older ones are removed after {keep_hours(board_dir):g} hours; the newest per card stays.</p>"
+            f"<style>{CSS}{nav.CSS}</style></head><body>{nav.top_bar(base, 'reports')}<main><h1>Reports</h1><p class=\"meta\">Newest first. Older ones are removed after {keep_hours(board_dir):g} hours; the newest per card stays.</p>"
             + (f"<ul>{items}</ul>" if items else '<p class="none">No reports yet. One is written when a card enters review or done.</p>') + "</main></body></html>")
 
