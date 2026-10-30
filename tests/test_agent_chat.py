@@ -262,7 +262,8 @@ print(json.dumps({{"type": "result", "result": "TO: AGENT-2\\nTOPIC: learn\\nflo
 '''
 
 
-class IdleDrafterTests(Base):
+class _FakeClaude(Base):
+    """A board with the switch on, a fake claude binary, and one question from AGENT-2 to AGENT-1 on the channel."""
     def setUp(self):
         super().setUp()
         self.s.set_chat_agents(True)
@@ -273,6 +274,8 @@ class IdleDrafterTests(Base):
         os.environ.update({"AGENTBOARD_CLAUDE": str(self.fake), "FAKE_RECORD": str(self.record), "FAKE_MODE": "ok"})
         self.s.chat_send("AGENT-2", "how did you solve the lock problem?", to="AGENT-1", topic="help")
 
+
+class IdleDrafterTests(_FakeClaude):
     def test_parse_draft(self):
         d = agentchat.parse_draft("TO: all\nTOPIC: learn\none line here\nDETAIL: the rest\nmore")
         self.assertEqual(d, {"to": "all", "topic": "learn", "text": "one line here", "detail": "the rest\nmore"})
@@ -327,7 +330,7 @@ if __name__ == "__main__":
     unittest.main()
 
 
-class AutopilotTests(IdleDrafterTests):
+class AutopilotTests(_FakeClaude):
     """The board's own rounds, with the fake claude: who gets a draft, what it is marked as, and the caps."""
 
     def setUp(self):
@@ -342,7 +345,7 @@ class AutopilotTests(IdleDrafterTests):
         posted = agentchat.autopilot_once(self.s, str(self.fake), self.roster)
         self.assertEqual([(m["sender"], m["via"], m["to"]) for m in posted], [("AGENT-3", "idle", "AGENT-2")])   # AGENT-2 asked, so it is not news to it; AGENT-1 is busy
         self.assertEqual(posted[0]["reply_to"], 3)            # the line to all (seq 1, the switch's own notice, is never answered by a ghost)
-        self.assertEqual(agentchat.read_cursors(self.s)["AGENT-3"], posted[0]["seq"])
+        self.assertEqual(agentchat.read_cursors(self.s)["AGENT-3"], posted[0]["seq"] - 1)   # the cursor stops before its own auto line, so its real session reads it
         again = agentchat.autopilot_once(self.s, str(self.fake), self.roster)
         self.assertEqual(again, [])                           # AGENT-2's only news is an auto line: the board never answers itself
         line = agentchat.chat_line(posted[0])
