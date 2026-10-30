@@ -384,6 +384,7 @@ class AutopilotTests(_FakeClaude):
         self.s.start("Export pipeline", "AGENT-2", "blue")
         self.s.update("export-pipeline", 30, "threads share one lock path")
         self.s.chat_send("AGENT-2", "in the exporter for a while", topic="heads-up", files=["src/export.py"], card="export-pipeline")
+        agentchat.write_cursor(self.s, "AGENT-1", 4)      # that heads-up is read too: nothing to answer, so it shares
         posted = agentchat.autopilot_once(self.s, str(self.fake), ["AGENT-1"], live_min=0)
         self.assertEqual(len(posted), 1)
         m = posted[0]
