@@ -75,6 +75,7 @@ class SwitchTests(Base):
         self.assertEqual(len(msgs), 1)
         self.assertEqual((msgs[0]["sender"], msgs[0]["kind"], msgs[0]["to"]), ("Troy", "user", "all"))
         self.assertIn("agent chat is on", msgs[0]["text"])
+        self.assertEqual(msgs[0]["via"], "board")
         self.assertIn("chat inbox --name <you> --wait 300", msgs[0]["text"])
         self.assertEqual([m["seq"] for m in self.s.chat_inbox("ORCH")], [1])   # ORCH reads it like any agent
         self.s.set_chat_agents(False)
@@ -324,3 +325,59 @@ class IdleDrafterTests(Base):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class AutopilotTests(IdleDrafterTests):
+    """The board's own rounds, with the fake claude: who gets a draft, what it is marked as, and the caps."""
+
+    def setUp(self):
+        super().setUp()
+        self.s.dir.mkdir(parents=True, exist_ok=True)
+        (self.s.dir / "config.toml").write_text('[orch]\nagents = [{name="AGENT-1"}, {name="AGENT-2"}, {name="AGENT-3"}]\n[chat]\nautopilot_per_hour = 2\n')
+        self.roster = ["AGENT-1", "AGENT-2", "AGENT-3"]
+
+    def test_idle_agents_with_unread_chat_get_one_draft_each_marked_auto(self):
+        # AGENT-1 holds a Doing card (busy); AGENT-2 and AGENT-3 are idle; the inbox so far is AGENT-2's question to AGENT-1
+        posted = agentchat.autopilot_once(self.s, str(self.fake), self.roster)
+        self.assertEqual([(m["sender"], m["via"], m["to"]) for m in posted], [("AGENT-3", "idle", "AGENT-2")])   # AGENT-2 asked, so it is not news to it; AGENT-1 is busy
+        self.assertEqual(posted[0]["reply_to"], 2)            # the question (seq 1 is the switch's own notice, which no ghost answers)
+        self.assertEqual(agentchat.read_cursors(self.s)["AGENT-3"], posted[0]["seq"])
+        again = agentchat.autopilot_once(self.s, str(self.fake), self.roster)
+        self.assertEqual(again, [])                           # AGENT-2's only news is an auto line: the board never answers itself
+        line = agentchat.chat_line(posted[0])
+        self.assertIn("(re #1; auto)", line)
+
+    def test_the_agents_own_session_sees_what_was_said_for_it(self):
+        posted = agentchat.autopilot_once(self.s, str(self.fake), self.roster)
+        mine = self.s.chat_inbox("AGENT-3", after=0)
+        self.assertIn(posted[0]["seq"], [m["seq"] for m in mine])                       # its own auto line is in its inbox, though it went to AGENT-2
+        self.s.chat_send("AGENT-3", "a real line from the real session", to="all")
+        self.assertNotIn("a real line", " ".join(m["text"] for m in self.s.chat_inbox("AGENT-3", after=0)))   # its real lines are not
+
+    def test_the_board_never_answers_itself_and_the_hourly_cap_holds(self):
+        self.s.chat_send("AGENT-2", "ghost to everyone", to="all", via="idle")
+        self.s.chat_send("AGENT-2", "ghost to three", to="AGENT-3", via="idle")
+        agentchat.write_cursor(self.s, "AGENT-3", 2)   # AGENT-3 has read the human question; only ghost lines are left
+        self.assertEqual(agentchat.autopilot_once(self.s, str(self.fake), self.roster), [])
+        self.s.chat_send("Troy", "@AGENT-3 are you free?", kind="user", to="AGENT-3")
+        self.s.chat_send("Troy", "@AGENT-2 are you free?", kind="user", to="AGENT-2")
+        self.s.update("harden-webhook-retries", 100, "done", status="done")   # AGENT-1 is idle now too
+        self.s.chat_send("Troy", "@AGENT-1 are you free?", kind="user", to="AGENT-1")
+        posted = agentchat.autopilot_once(self.s, str(self.fake), self.roster)
+        self.assertEqual(len(posted), 2)                      # [chat] autopilot_per_hour = 2: the third waits for the next hour
+        self.assertEqual(agentchat.autopilot_once(self.s, str(self.fake), self.roster), [])
+        from datetime import datetime, timedelta
+        later = agentchat.autopilot_once(self.s, str(self.fake), self.roster, now=datetime.now() + timedelta(hours=1))
+        self.assertEqual(len(later), 1)
+
+    def test_nothing_runs_while_the_switch_is_off_and_the_cli_round_prints(self):
+        self.s.set_chat_agents(False)
+        self.assertEqual(agentchat.autopilot_once(self.s, str(self.fake), self.roster), [])
+        code, out = self.run_cli("chat", "autopilot", "--once")
+        self.assertIn("agent chat is off", str(code))
+        self.s.set_chat_agents(True)
+        code, out = self.run_cli("chat", "autopilot", "--once")
+        self.assertIn("autopilot: #", out)
+        self.assertIn("AGENT-3 -> AGENT-2", out)
+        code, out = self.run_cli("chat", "autopilot", "--once")
+        self.assertIn("nothing to say", out)
