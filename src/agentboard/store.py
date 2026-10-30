@@ -16,6 +16,10 @@ except ImportError:  # Windows
 
 STATUSES = ("backlog", "todo", "doing", "done")
 DIR_NAME = ".agentboard"
+# agent chat: what a message may be about, and how long its one line and its detail may be
+CHAT_TOPICS = ("status", "learn", "help", "heads-up", "handoff")
+CHAT_LINE_MAX, CHAT_DETAIL_MAX, CHAT_FILES_MAX = 300, 4000, 20
+CHAT_DECISIONS = ("approved", "declined")
 
 
 class BoardError(Exception):
@@ -96,6 +100,7 @@ class Store:
         data.setdefault("projects", [])
         data.setdefault("chat", [])
         data.setdefault("chat_seq", 0)
+        data.setdefault("chat_agents", False)   # the board-wide switch for agents talking to each other; off until Troy turns it on
         return data
 
     def _write(self, data):
@@ -805,22 +810,120 @@ class Store:
 
     # -- shared chat (agents self-organizing, visible to the user) ----------
 
-    def chat_send(self, sender, text, kind="agent"):
-        """Post a message to the shared channel. kind is 'agent' or 'user' (the human)."""
+    def chat_agents(self):
+        """Is agent-to-agent chat on for this board?"""
+        with self._lock():
+            return bool(self._read().get("chat_agents", False))
+
+    def set_chat_agents(self, on):
+        """The board-wide switch (Troy's): with it off, agents may still post status lines, but not talk to each other."""
+        with self._lock():
+            data = self._read()
+            data["chat_agents"] = bool(on)
+            self._write(data)
+            return bool(on)
+
+    def chat_send(self, sender, text, kind="agent", to=None, topic=None, detail=None, card=None, files=None, propose=None,
+                  reply_to=None, color=None):
+        """Post a message to the shared channel. kind is 'agent' or 'user' (the human).
+
+        The one line is what the panel shows; everything else is optional and shown on tap: `to` (an agent, ORCH or all),
+        `topic` (status, learn, help, heads-up, handoff), `detail` (the technical part), `card` (a card id it is about),
+        `files` (paths other agents should know are being touched), `propose` (an action for Troy to approve; chat never does
+        it), `reply_to` (the seq it answers). A multi-line text keeps its first line and the rest becomes the detail. Anything
+        beyond a plain line is agent-to-agent talk and needs the board-wide switch on."""
         if kind not in ("agent", "user"):
             raise BoardError("kind must be 'agent' or 'user'")
         text = (text or "").strip()
         if not text:
             raise BoardError("empty chat message")
+        first, _, rest = text.partition("\n")
+        text = first.strip()
+        if rest.strip() and not detail:
+            detail = rest
+        if len(text) > CHAT_LINE_MAX:
+            raise BoardError(f"keep the line under {CHAT_LINE_MAX} characters; put the rest in --detail")
+        to = (to or "").strip() or None
+        if to and to.lower() == "all":
+            to = "all"
+        if topic is not None:
+            topic = str(topic).strip().lower() or None
+            if topic and topic not in CHAT_TOPICS:
+                raise BoardError(f"topic must be one of {', '.join(CHAT_TOPICS)}")
+        if detail is not None:
+            if not isinstance(detail, str):
+                raise BoardError("detail must be text")
+            detail = detail.strip()[:CHAT_DETAIL_MAX] or None
+        if files is not None:
+            if not (isinstance(files, list) and all(isinstance(f, str) and f.strip() for f in files)):
+                raise BoardError("files must be a list of paths")
+            files = [f.strip()[:200] for f in files][:CHAT_FILES_MAX] or None
+        if propose is not None:
+            propose = str(propose).strip()[:CHAT_LINE_MAX] or None
+        if reply_to is not None:
+            try:
+                reply_to = int(reply_to)
+            except (TypeError, ValueError):
+                raise BoardError("reply-to must be a message number") from None
+        if color is not None and not re.fullmatch(r"[#\w(),.% -]{1,32}", str(color)):
+            color = None
+        talk = bool(to or (topic and topic != "status") or detail or files or propose or reply_to)
         with self._lock():
             data = self._read()
+            if talk and kind == "agent" and not data.get("chat_agents"):
+                raise BoardError("agent chat is off for this board; Troy turns it on with `agentboard chat agents on` (a plain line still posts)")
+            if card:
+                if not any(t["id"] == card for t in data["tasks"]):
+                    raise BoardError(f"no such task: {card}")
+            if reply_to is not None and not any(m["seq"] == reply_to for m in data["chat"]):
+                raise BoardError(f"no chat message #{reply_to}")
+            if kind == "agent" and not color:   # the bubble takes the agent's colour from its cards
+                color = next((t.get("color") for t in reversed(data["tasks"]) if t.get("agent") == sender and t.get("color")), None)
             seq = data["chat_seq"] + 1
             data["chat_seq"] = seq
             msg = {"seq": seq, "at": _now(), "sender": sender, "text": text, "kind": kind}
+            for k, v in (("to", to), ("topic", topic), ("detail", detail), ("card", card), ("files", files), ("reply_to", reply_to), ("color", color)):
+                if v:
+                    msg[k] = v
+            if propose:
+                msg["action"] = {"text": propose, "status": "proposed"}
             data["chat"].append(msg)
             del data["chat"][:-CHAT_MAX]
             self._write(data)
             return msg
+
+    def chat_decide(self, seq, decision, by="Troy"):
+        """Troy approves or declines an action an agent proposed in the chat. The decision is recorded on the message; the agent
+        reads it with `agentboard chat approvals`. Nothing else happens here: the agent does the work, after approval."""
+        if decision not in CHAT_DECISIONS:
+            raise BoardError(f"decision must be one of {', '.join(CHAT_DECISIONS)}")
+        with self._lock():
+            data = self._read()
+            m = next((m for m in data["chat"] if m["seq"] == int(seq)), None)
+            if not m:
+                raise BoardError(f"no chat message #{seq}")
+            if not m.get("action"):
+                raise BoardError(f"message #{seq} proposes no action")
+            if m["action"].get("status") != "proposed":
+                raise BoardError(f"message #{seq} was already {m['action']['status']}")
+            m["action"].update({"status": decision, "decided_at": _now(), "by": by})
+            self._write(data)
+            return m
+
+    def chat_inbox(self, name, after=None, limit=50):
+        """What `name` has not read yet: messages after seq `after` from someone else, addressed to them, to all, or to no one
+        in particular (a plain status line). The agent remembers the last seq it saw."""
+        with self._lock():
+            msgs = self._read()["chat"]
+        out = [m for m in msgs if (after is None or m["seq"] > after) and m["sender"] != name
+               and (not m.get("to") or m["to"] == "all" or m["to"] == name or m["to"].lower() == name.lower())]
+        return out[-limit:]
+
+    def chat_approvals(self, name=None):
+        """Every proposed action on the channel (or `name`'s own), newest last, with its status."""
+        with self._lock():
+            msgs = self._read()["chat"]
+        return [m for m in msgs if m.get("action") and (name is None or m["sender"] == name)]
 
     def chat_list(self, after=None, limit=100):
         """Messages after a given seq (for polling), or the last `limit` if after is omitted."""
