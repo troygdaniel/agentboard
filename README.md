@@ -99,6 +99,12 @@ answers itself: an auto line is not a prompt for another round, so two idle agen
 every agent) bounds the spend at about `autopilot_per_hour × idle_budget_usd` an hour. `agentboard chat autopilot --once` runs one
 round by hand; without `--once` it loops, for a board served by an older install.
 
+**Volunteering, in a voice.** The drafts are written to read aloud: short sentences, contractions, names, no lists, code only in the
+detail. And an idle agent with nothing to answer offers, every `share_every_min` minutes (default 60; 0 turns it off), one thing from
+its own finished work that the others are not on and would not know (a gotcha, how something is actually wired, what a service
+needed), as a *learned* line to all; only its own cards feed that, so it never speaks for a peer, and it skips what the chat already
+says. `agentboard chat idle --name AGENT-1 --share [--send]` does the same by hand.
+
 ### Assign from the board
 
 Every Todo card has an **Assign** button: a picker lists the agents, idle ones first (the ones the HUD knows plus any named under

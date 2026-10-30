@@ -115,7 +115,7 @@ def recall(tasks, chat, query="", agent=None, card=None, limit=10, log_lines=6):
                      "updated": t.get("updated") or "", "archived": bool(t.get("archived")), "score": score,
                      "line": str(t.get("result") or t.get("status_text") or "")[:200],
                      "log": [{"at": e.get("at", ""), "status": e.get("status", ""), "progress": e.get("progress"), "text": str(e.get("text") or "")[:200], "by": e.get("by")}
-                             for e in (hits if not card else log)[-(log_lines if not card else 200):]]})
+                             for e in (log if (card or (agent and not words)) else hits)[-(log_lines if not card else 200):]]})   # one card, or one agent's cards: the history itself
     if words and not card:
         for m in chat:
             blob = (m.get("text", "") + " " + str(m.get("detail") or "")).lower()
@@ -180,21 +180,46 @@ DEFAULT_IDLE_MODEL = "haiku"       # the claude CLI's alias for its cheapest tie
 DEFAULT_IDLE_BUDGET = 0.05         # dollars per draft, passed as --max-budget-usd
 IDLE_TIMEOUT_S = 120
 
+VOICE = """\
+How to write: like two colleagues at a desk, not a report. Short sentences. Contractions. Say the other person's name. No lists,
+no headings, no quotes around words. No code, paths or flags in the line; those go after DETAIL:. The line must read aloud as
+speech. One idea per message. Never propose spending, deploying, dialling or changing anything outside a card; if asked to, say
+Troy must approve it first."""
+
 DRAFT_PROMPT = """\
 You are {name}, one of several coding agents sharing a board with Troy (the human) and ORCH (the orchestrator). You have no
-card right now. Below are the chat messages waiting for you and what the board remembers about recent work. Write ONE reply,
-plain words, as a quick message to a teammate.
+card right now. Below are the chat messages waiting for you and what the board remembers about recent work. Write ONE reply to
+the message that most needs you.
 
-Rules: one line of at most 200 characters. If a technical detail helps, put it after a line that says DETAIL: (a few lines at
-most). Start with TO: <name or all> and TOPIC: <learn|help|heads-up|handoff|status>. Never propose spending, deploying,
-dialling or changing anything outside a card; if asked to, say Troy must approve it. If nothing needs a reply, answer exactly
-NOTHING.
+{voice}
+
+Format: start with TO: <name or all> and TOPIC: <learn|help|heads-up|handoff|status>, then the line (at most 200 characters),
+then optionally DETAIL: and a few lines of the technical part. If nothing needs a reply, answer exactly NOTHING.
 
 Messages for you (newest last):
 {inbox}
 
 What the board remembers (cards, updates, history):
 {memory}
+"""
+
+SHARE_PROMPT = """\
+You are {name}, one of several coding agents sharing a board with Troy (the human) and ORCH (the orchestrator). You have no
+card right now and nothing to answer. Offer the others ONE thing from your own work that they are not working on and would not
+know: a gotcha you hit, how something is actually wired, what a tool or service turned out to need. It must come from your own
+history below, not from anyone else's, and it must not repeat what the chat already says. If nothing there is worth a line
+to a colleague, answer exactly NOTHING.
+
+{voice}
+
+Format: start with TO: all and TOPIC: learn, then the line (at most 200 characters), then optionally DETAIL: and a few lines
+of the technical part.
+
+Your own work (cards, updates, history, newest last):
+{memory}
+
+What the chat already says (newest last):
+{chat}
 """
 
 
@@ -257,13 +282,22 @@ def write_cursor(store, name, seq):
 
 
 def _hour_count(store, now):
+    """The autopilot's little state file: drafts this hour, and when each agent last shared something unprompted."""
     p = store.dir / "chat-autopilot.json"
     try:
         d = json.loads(p.read_text())
     except (OSError, ValueError):
         d = {}
     hour = now.strftime("%Y-%m-%dT%H")
-    return p, (d.get("count", 0) if d.get("hour") == hour else 0), hour
+    shared = d.get("shared") if isinstance(d.get("shared"), dict) else {}
+    return p, (d.get("count", 0) if d.get("hour") == hour else 0), hour, shared
+
+
+def _t(s):
+    try:
+        return datetime.strptime(s, "%Y-%m-%dT%H:%M:%S")
+    except (TypeError, ValueError):
+        return None
 
 
 def idle_agents(tasks, roster):
@@ -272,7 +306,10 @@ def idle_agents(tasks, roster):
     return [n for n in roster if n and n not in busy]
 
 
-def autopilot_once(store, claude, roster, model=None, budget=None, per_hour=None, now=None, log=None):
+DEFAULT_SHARE_EVERY_MIN = 60     # an idle agent with nothing to answer offers one thing from its own work this often, at most
+
+
+def autopilot_once(store, claude, roster, model=None, budget=None, per_hour=None, now=None, log=None, share_every_min=None):
     """One round: for each idle roster agent with unread chat, one draft on the cheaper model, posted as that agent with
     via=idle (shown as auto on the board; the agent's own session sees it in its inbox). The board never answers itself:
     an auto line is not a prompt for another round, so two idle agents cannot chatter at each other; real sessions may
@@ -285,30 +322,44 @@ def autopilot_once(store, claude, roster, model=None, budget=None, per_hour=None
     tasks = store.load()
     cursors = read_cursors(store)
     posted = []
-    p, count, hour = _hour_count(store, now)
+    share_every_min = float(share_every_min if share_every_min is not None else conf.get("share_every_min", DEFAULT_SHARE_EVERY_MIN))
+    p, count, hour, shared = _hour_count(store, now)
     for name in idle_agents(tasks, roster):
         if count >= per_hour:
             break
         after = cursors.get(name)
         inbox = [m for m in store.chat_inbox(name, after=after if isinstance(after, int) else None) if not m.get("via")]   # the board never answers itself (auto lines, its own notices)
-        if not inbox:
-            continue
+        sharing = not inbox
+        mine = None
+        if sharing:   # nothing to answer: offer one thing from its own work, once in a while, and only if it has a history
+            last = _t(shared.get(name))
+            if share_every_min <= 0 or (last and (now - last).total_seconds() < share_every_min * 60):
+                continue
+            mine = own_history(store, name)
+            if not mine:
+                continue
         try:
-            d = draft_reply(store, name, claude, model=model, budget=budget, inbox=inbox)
+            d = draft_share(store, name, claude, model=model, budget=budget, mine=mine) if sharing else draft_reply(store, name, claude, model=model, budget=budget, inbox=inbox)
         except BoardError as e:
             if log:
                 log(f"autopilot: {name}: {e}")
             continue
-        write_cursor(store, name, store.chat_list(limit=1)[-1]["seq"] if store.chat_list(limit=1) else inbox[-1]["seq"])
+        if sharing:
+            shared[name] = now.strftime("%Y-%m-%dT%H:%M:%S")
+        else:
+            write_cursor(store, name, store.chat_list(limit=1)[-1]["seq"] if store.chat_list(limit=1) else inbox[-1]["seq"])
         count += 1
         try:
-            p.write_text(json.dumps({"hour": hour, "count": count}))
+            p.write_text(json.dumps({"hour": hour, "count": count, "shared": shared}))
         except OSError:
             pass
         if not d:
             continue
-        asked = next((m for m in reversed(inbox) if m.get("to") == name), inbox[-1])
-        m = store.chat_send(name, d["text"], to=d["to"], topic=d["topic"], detail=d["detail"], reply_to=asked["seq"], via="idle")
+        if sharing:
+            m = store.chat_send(name, d["text"], to="all", topic="learn", detail=d["detail"], via="idle")
+        else:
+            asked = next((m for m in reversed(inbox) if m.get("to") == name), inbox[-1])
+            m = store.chat_send(name, d["text"], to=d["to"], topic=d["topic"], detail=d["detail"], reply_to=asked["seq"], via="idle")
         posted.append(m)
         if log:
             log("autopilot: " + chat_line(m).splitlines()[0])
@@ -327,8 +378,34 @@ def draft_reply(store, name, claude, model=None, budget=None, inbox=None, limit=
     tasks = store.load()
     words = " ".join(m["text"] for m in inbox)
     mem = recall(tasks, [], words, limit=4, log_lines=3) + recall(tasks, [], "", agent=name, limit=3, log_lines=3)
-    prompt = DRAFT_PROMPT.format(name=name, inbox="\n".join(chat_line(m) for m in inbox) or "(none)",
+    prompt = DRAFT_PROMPT.format(name=name, voice=VOICE, inbox="\n".join(chat_line(m) for m in inbox) or "(none)",
                                  memory="\n".join(recall_lines(mem)) or "(nothing yet)")
+    return _ask_model(claude, model, budget, prompt)
+
+
+def own_history(store, name):
+    """What `name` itself did: its cards with their history (the only thing it may share as its own)."""
+    return recall(store.load(), [], "", agent=name, limit=6, log_lines=6)
+
+
+def draft_share(store, name, claude, model=None, budget=None, recent_chat=12, mine=None):
+    """One thing from `name`'s own history that the others would not know, in the chat's voice, or None. Only its own cards
+    feed the prompt, so it cannot speak for a peer; the recent chat is there so it does not repeat what was said."""
+    conf = idle_conf(store.dir)
+    model = model or conf.get("idle_model") or DEFAULT_IDLE_MODEL
+    budget = float(budget if budget is not None else conf.get("idle_budget_usd", DEFAULT_IDLE_BUDGET))
+    mine = own_history(store, name) if mine is None else mine
+    if not mine:
+        return None
+    prompt = SHARE_PROMPT.format(name=name, voice=VOICE, memory="\n".join(recall_lines(mine)),
+                                 chat="\n".join(chat_line(m).splitlines()[0] for m in store.chat_list(limit=recent_chat)) or "(nothing yet)")
+    d = _ask_model(claude, model, budget, prompt)
+    if d:
+        d["to"], d["topic"] = "all", "learn"
+    return d
+
+
+def _ask_model(claude, model, budget, prompt):
     argv = [claude, "-p", "--output-format", "json", "--model", str(model), "--max-budget-usd", f"{budget:g}"]
     try:
         p = subprocess.run(argv, input=prompt, capture_output=True, text=True, timeout=IDLE_TIMEOUT_S)

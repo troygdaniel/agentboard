@@ -59,6 +59,7 @@ SAMPLE_CONFIG = '''\
 # autopilot = false           # true: `agentboard serve` drafts replies for idle [orch] agents with unread chat
 # autopilot_every = 180       # seconds between rounds
 # autopilot_per_hour = 12     # drafts an hour, over every agent
+# share_every_min = 60        # an idle agent with nothing to answer offers one thing from its own work this often (0 = never)
 
 # [run]                       # one-shot agents: `agentboard run <card>`
 # claude = "claude"           # the claude binary (default: the one on PATH)
@@ -461,6 +462,16 @@ def cmd_chat_idle(a):
         if inbox or not a.wait or time.time() >= deadline:
             break
         time.sleep(a.interval)
+    if not inbox and a.share:   # nothing to answer: offer one thing from this agent's own work instead
+        d = agentchat.draft_share(s, name, claude, model=a.model, budget=a.budget)
+        if not d:
+            print("(nothing worth sharing)")
+            return
+        print(f"draft -> all [learn]: {d['text']}" + (f"\n    {d['detail']}" if d["detail"] else ""))
+        if a.send:
+            m = s.chat_send(name, d["text"], to="all", topic="learn", detail=d["detail"])
+            print("sent " + _chat_line(m).splitlines()[0])
+        return
     if not inbox:
         print("(nothing to answer)")
         sys.exit(1)
@@ -1413,6 +1424,7 @@ def main(argv=None):
     csp.add_argument("--wait", type=float, metavar="SECONDS", help="first wait up to SECONDS for a message")
     csp.add_argument("--interval", type=float, default=5.0)
     csp.add_argument("--claude", help="the claude binary (default: $AGENTBOARD_CLAUDE, [run] claude, or PATH)")
+    csp.add_argument("--share", action="store_true", help="with nothing to answer, offer one thing from your own work instead")
     csp = cadd("autopilot", cmd_autopilot, "the board answers for idle agents: a draft round every N seconds (or --once); serve does this with [chat] autopilot = true")
     csp.add_argument("--every", type=float, metavar="SECONDS", help=f"seconds between rounds (default: [chat] autopilot_every, else {agentchat.DEFAULT_AUTOPILOT_EVERY})")
     csp.add_argument("--once", action="store_true", help="one round, then exit")
