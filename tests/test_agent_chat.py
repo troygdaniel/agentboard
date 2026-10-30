@@ -335,12 +335,13 @@ class AutopilotTests(IdleDrafterTests):
         self.s.dir.mkdir(parents=True, exist_ok=True)
         (self.s.dir / "config.toml").write_text('[orch]\nagents = [{name="AGENT-1"}, {name="AGENT-2"}, {name="AGENT-3"}]\n[chat]\nautopilot_per_hour = 2\n')
         self.roster = ["AGENT-1", "AGENT-2", "AGENT-3"]
+        self.s.chat_send("AGENT-2", "anyone know the lock trick?", to="all", topic="help")   # seq 3: the switch notice is 1, the question to AGENT-1 is 2
 
     def test_idle_agents_with_unread_chat_get_one_draft_each_marked_auto(self):
         # AGENT-1 holds a Doing card (busy); AGENT-2 and AGENT-3 are idle; the inbox so far is AGENT-2's question to AGENT-1
         posted = agentchat.autopilot_once(self.s, str(self.fake), self.roster)
         self.assertEqual([(m["sender"], m["via"], m["to"]) for m in posted], [("AGENT-3", "idle", "AGENT-2")])   # AGENT-2 asked, so it is not news to it; AGENT-1 is busy
-        self.assertEqual(posted[0]["reply_to"], 2)            # the question (seq 1 is the switch's own notice, which no ghost answers)
+        self.assertEqual(posted[0]["reply_to"], 3)            # the line to all (seq 1, the switch's own notice, is never answered by a ghost)
         self.assertEqual(agentchat.read_cursors(self.s)["AGENT-3"], posted[0]["seq"])
         again = agentchat.autopilot_once(self.s, str(self.fake), self.roster)
         self.assertEqual(again, [])                           # AGENT-2's only news is an auto line: the board never answers itself
@@ -357,7 +358,7 @@ class AutopilotTests(IdleDrafterTests):
     def test_the_board_never_answers_itself_and_the_hourly_cap_holds(self):
         self.s.chat_send("AGENT-2", "ghost to everyone", to="all", via="idle")
         self.s.chat_send("AGENT-2", "ghost to three", to="AGENT-3", via="idle")
-        agentchat.write_cursor(self.s, "AGENT-3", 2)   # AGENT-3 has read the human question; only ghost lines are left
+        agentchat.write_cursor(self.s, "AGENT-3", 3)   # AGENT-3 has read the real lines; only ghost lines are left
         self.assertEqual(agentchat.autopilot_once(self.s, str(self.fake), self.roster), [])
         self.s.chat_send("Troy", "@AGENT-3 are you free?", kind="user", to="AGENT-3")
         self.s.chat_send("Troy", "@AGENT-2 are you free?", kind="user", to="AGENT-2")
