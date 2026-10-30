@@ -217,7 +217,7 @@ def make_handler(default_store, port):
             elif url.path == "/api/chat":
                 after = q.get("after", [None])[0]
                 after = int(after) if after and after.lstrip("-").isdigit() else None
-                self._send(200, {"messages": self.store.chat_list(after=after, limit=200)})
+                self._send(200, {"messages": self.store.chat_list(after=after, limit=200), "agents": self.store.chat_agents()})
             elif url.path == "/api/orch-prompt":
                 text = promptlib.build_orch_prompt(self.store.load(), self.store.dir, port=port)
                 self._send(200, {"prompt": text})
@@ -316,8 +316,17 @@ def make_handler(default_store, port):
                     sender = body.get("sender") or "Troy"
                     if not isinstance(sender, str) or not isinstance(body["text"], str):
                         raise BoardError("sender and text must be strings")
-                    m = self.store.chat_send(sender, body["text"], "user")
+                    text, to = body["text"], body.get("to")
+                    at = re.match(r"^@([\w-]+)\s+(.+)$", text.strip(), re.S)   # "@AGENT-2 can you…" addresses that agent
+                    if at and not to:
+                        to, text = at.group(1), at.group(2)
+                    m = self.store.chat_send(sender, text, "user", to=to if isinstance(to, str) else None,
+                                             reply_to=body.get("reply_to") if isinstance(body.get("reply_to"), int) else None)
                     self._send(200, m)
+                elif path == "/api/chat-agents":
+                    self._send(200, {"agents": self.store.set_chat_agents(bool(body.get("on")))})
+                elif path == "/api/chat-decide":
+                    self._send(200, self.store.chat_decide(body["seq"], body["decision"]))
                 else:
                     self._send(404, {"error": "not found"})
             except (BoardError, KeyError, ValueError, TypeError, AttributeError) as e:   # bad shapes are the client's mistake: 400, never a dropped connection
