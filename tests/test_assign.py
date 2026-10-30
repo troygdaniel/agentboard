@@ -84,3 +84,20 @@ class AgentsRouteTests(_Http):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PromptNamesTheAgentTests(unittest.TestCase):
+    def test_a_queued_card_with_a_holder_gets_a_prompt_that_names_it(self):
+        from agentboard import prompt as promptlib
+        with tempfile.TemporaryDirectory() as d:
+            s = Store(Path(d) / ".agentboard")
+            s.add("Queued", status="todo")
+            text, _ = promptlib.build_prompt(Store.get(s.load(), "queued"), s.dir, tasks=s.load())
+            self.assertIn('--name "<your session name>"', text)
+            s.assign("queued", "AGENT-3", "purple")
+            text, _ = promptlib.build_prompt(Store.get(s.load(), "queued"), s.dir, tasks=s.load())
+            self.assertIn('claim queued --name "AGENT-3" --color purple', text)
+            self.assertNotIn("<your session name>", text)
+            s.claim("queued", "AGENT-3")   # once claimed the generic wording is back (the prompt is for whoever holds it)
+            text, _ = promptlib.build_prompt(Store.get(s.load(), "queued"), s.dir, tasks=s.load())
+            self.assertIn("<your session name>", text)

@@ -1,0 +1,380 @@
+<meta charset="utf-8">
+<title>UX ideas, round two</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+  /* Layout: a short scored list first, then one card per idea: the score, where it lives, and a drawn mock of the thing
+     itself in the board's own tokens (the same :root as docs/subtasks-mockup.html and index.html). Nothing here is live. */
+  :root {
+    --bg: #fafaf9; --surface: #ffffff; --line: #e7e5e4;
+    --text: #1c1917; --muted: #6b6560; --accent: #1c1917;
+    --run: #c2570c; --warn: #b45309; --ok: #15803d; --err: #b42318; --neutral: #a8a29e; --info: #1d4ed8;
+    --chip: #f2f0ee; --well: rgba(28,25,23,.1); --card-hi: rgba(255,255,255,.8);
+    --glow1: rgba(99,102,241,.08); --glow2: rgba(251,146,60,.09); --dot: rgba(28,25,23,.07); --sheen: rgba(28,25,23,.22);
+    --panel: linear-gradient(180deg, rgba(255,255,255,.72), rgba(255,255,255,.4));
+    --panel-hi: rgba(255,255,255,.95); --panel-sh: 0 18px 40px -28px rgba(28,25,23,.35);
+    --shadow: 0 1px 2px rgba(28,25,23,.05), 0 1px 1px rgba(28,25,23,.03);
+    --fs-xs: 11px; --fs-sm: 12px; --fs-md: 13px; --fs-base: 14px; --fs-lg: 15px; --fs-xl: 23px;
+    --tr-label: .16em; --tr-tight: .06em;
+    --font: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #070b12; --surface: #0f1722; --line: #1c2a3a;
+      --text: #d6e9ff; --muted: #7f95ad; --accent: #d6e9ff;
+      --run: #ff9a3c; --warn: #ffc857; --ok: #5dffb0; --err: #ff6b6b; --neutral: #4b5f75; --info: #5ee7ff;
+      --chip: #15202e; --well: rgba(0,0,0,.45); --card-hi: rgba(255,255,255,.05);
+      --glow1: rgba(94,231,255,.12); --glow2: rgba(93,255,176,.06); --dot: rgba(110,190,255,.05); --sheen: rgba(255,255,255,.5);
+      --panel: linear-gradient(180deg, rgba(14,25,38,.74), rgba(8,15,24,.66));
+      --panel-hi: rgba(255,255,255,.045); --panel-sh: 0 18px 40px -26px rgba(0,0,0,.9);
+      --shadow: inset 0 1px 0 rgba(255,255,255,.03);
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #070b12; --surface: #0f1722; --line: #1c2a3a;
+    --text: #d6e9ff; --muted: #7f95ad; --accent: #d6e9ff;
+    --run: #ff9a3c; --warn: #ffc857; --ok: #5dffb0; --err: #ff6b6b; --neutral: #4b5f75; --info: #5ee7ff;
+    --chip: #15202e; --well: rgba(0,0,0,.45); --card-hi: rgba(255,255,255,.05);
+    --glow1: rgba(94,231,255,.12); --glow2: rgba(93,255,176,.06); --dot: rgba(110,190,255,.05); --sheen: rgba(255,255,255,.5);
+    --panel: linear-gradient(180deg, rgba(14,25,38,.74), rgba(8,15,24,.66));
+    --panel-hi: rgba(255,255,255,.045); --panel-sh: 0 18px 40px -26px rgba(0,0,0,.9);
+    --shadow: inset 0 1px 0 rgba(255,255,255,.03);
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body {
+    background:
+      radial-gradient(1000px 460px at 10% -8%, var(--glow1), transparent 70%) no-repeat,
+      radial-gradient(760px 420px at 96% -6%, var(--glow2), transparent 70%) no-repeat,
+      radial-gradient(var(--dot) 1px, transparent 1px) 0 0 / 22px 22px,
+      var(--bg);
+    min-height: 100vh; color: var(--text); font: var(--fs-base)/1.5 var(--font); -webkit-font-smoothing: antialiased; letter-spacing: -.003em;
+  }
+  .wrap { width: min(100%, 1100px); margin: 0 auto; padding-block: 18px 40px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  header { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 16px; padding-bottom: 14px; border-bottom: 1px solid var(--line); }
+  h1 { font-size: var(--fs-lg); font-weight: 600; letter-spacing: -.015em; display: flex; align-items: center; gap: 10px; }
+  .mock { font-size: var(--fs-xs); font-weight: 600; letter-spacing: var(--tr-label); text-transform: uppercase; color: var(--muted); }
+  .lede { color: var(--muted); font-size: var(--fs-md); max-width: 70ch; }
+  .lede b { color: var(--text); font-weight: 500; }
+  .spacer { flex: 1; }
+
+  /* ---- the scored list ---- */
+  .score { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; gap: 8px 14px; align-items: center; padding: 14px 16px; margin: 18px 0 26px;
+    border: 1px solid var(--line); border-radius: 14px; background: var(--panel); box-shadow: inset 0 1px 0 var(--panel-hi), var(--panel-sh); }
+  .score .h { font-size: var(--fs-xs); font-weight: 600; letter-spacing: var(--tr-label); text-transform: uppercase; color: var(--muted); }
+  .score .h.r { text-align: right; }
+  .rk { width: 24px; height: 24px; border-radius: 7px; display: grid; place-items: center; font-size: var(--fs-sm); font-weight: 700; background: var(--chip); box-shadow: inset 0 0 0 1px var(--line); font-variant-numeric: tabular-nums; }
+  .score a { color: var(--text); text-decoration: none; font-weight: 550; min-width: 0; }
+  .score a:hover { text-decoration: underline; text-underline-offset: 3px; }
+  .score a small { display: block; color: var(--muted); font-weight: 400; font-size: var(--fs-sm); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ba { display: grid; grid-template-columns: 2.2ch 120px 2.2ch auto; gap: 8px; align-items: center; font-variant-numeric: tabular-nums; font-size: var(--fs-sm); color: var(--muted); }
+  .ba b { color: var(--text); font-weight: 600; }
+  .ba .bar { position: relative; height: 6px; border-radius: 3px; background: var(--chip); box-shadow: inset 0 1px 2px var(--well); overflow: hidden; }
+  .ba .bar i { position: absolute; top: 0; bottom: 0; left: 0; border-radius: 3px; background: var(--neutral); width: var(--b); }
+  .ba .bar b { position: absolute; top: 0; bottom: 0; left: var(--b); width: calc(var(--a) - var(--b)); background: var(--ok); border-radius: 0 3px 3px 0; box-shadow: 0 0 8px -1px var(--ok); }
+  .eff { font-size: var(--fs-xs); font-weight: 600; letter-spacing: var(--tr-tight); color: var(--muted); background: var(--chip); border-radius: 999px; padding: 1px 8px; box-shadow: inset 0 0 0 1px var(--line); }
+  @media (max-width: 640px) { .score { grid-template-columns: 28px minmax(0, 1fr); } .score .h.r, .score .ba { grid-column: 2; } .ba { grid-template-columns: 2.2ch 1fr 2.2ch auto; } }
+
+  /* ---- one idea ---- */
+  .idea { margin: 0 0 22px; border: 1px solid var(--line); border-radius: 16px; background: var(--panel); box-shadow: inset 0 1px 0 var(--panel-hi), var(--panel-sh); overflow: hidden; scroll-margin-top: 12px; }
+  .idea > header { margin: 0; padding: 14px 18px 12px; border-bottom: 1px solid var(--line); gap: 10px 16px; }
+  .idea h2 { font-size: var(--fs-lg); font-weight: 600; display: flex; align-items: center; gap: 10px; letter-spacing: -.01em; text-wrap: balance; }
+  .idea .where { font: var(--fs-xs) var(--mono); color: var(--muted); }
+  .idea .what { padding: 12px 18px 0; color: var(--muted); font-size: var(--fs-md); max-width: 78ch; }
+  .idea .what b { color: var(--text); font-weight: 500; }
+  .idea .what ul { margin: 6px 0 0; padding-left: 18px; } .idea .what li { margin: 2px 0; }
+  .stage { padding: 16px 18px 18px; }
+  .stage-l { font-size: var(--fs-xs); font-weight: 600; letter-spacing: var(--tr-label); text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+
+  /* shared board bits, as index.html draws them */
+  .btn { background: none; border: 1px solid var(--line); border-radius: 8px; padding: 4px 11px; color: var(--text); min-height: 28px; font: inherit; font-size: var(--fs-sm); display: inline-flex; align-items: center; gap: 5px; }
+  .btn.primary { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+  .btn.go { border-color: var(--ok); color: var(--ok); }
+  .av { width: 24px; height: 24px; border-radius: 50%; flex: none; display: grid; place-items: center; font-size: var(--fs-xs); font-weight: 600; color: var(--text);
+    background: color-mix(in srgb, var(--c, var(--neutral)) 16%, var(--chip)); box-shadow: inset 0 0 0 1.5px var(--c, var(--neutral)); }
+  .av.ring { background: transparent; box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--c, var(--neutral)) 70%, var(--line)); }
+  .mv { --mc: var(--err); position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "av top acts" "av said acts" "av age acts" "av extra extra"; gap: 5px 10px; align-items: center;
+    padding: 9px 12px 9px 16px; border-radius: 10px; background: var(--surface); border: 1px solid color-mix(in srgb, var(--mc) 32%, var(--line)); box-shadow: inset 0 1px 0 var(--card-hi), var(--shadow); min-width: 0; }
+  .mv::after { content: ''; position: absolute; left: 1px; top: 10px; bottom: 10px; width: 3px; border-radius: 0 2px 2px 0; background: var(--mc); box-shadow: 0 0 10px var(--mc); }
+  .mv.stale { --mc: var(--warn); }
+  .mv > .av { grid-area: av; align-self: start; margin-top: 2px; }
+  .mv-top { grid-area: top; display: flex; align-items: center; gap: 8px; min-width: 0; font-size: var(--fs-sm); color: var(--muted); }
+  .mv-top .nm { color: var(--text); font-weight: 600; white-space: nowrap; }
+  .mv-kind { color: var(--mc); font-size: var(--fs-xs); font-weight: 600; letter-spacing: var(--tr-tight); text-transform: uppercase; white-space: nowrap; }
+  .mv-top .ttl { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mv-top .age { margin-left: auto; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .mv-said { grid-area: said; font-size: var(--fs-base); font-weight: 600; color: var(--mc); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mv.stale .mv-said { color: var(--text); font-weight: 500; }
+  .mv-age { grid-area: age; height: 3px; border-radius: 2px; background: var(--well); overflow: hidden; }
+  .mv-age b { display: block; height: 100%; width: var(--w, 0%); background: var(--mc); }
+  .mv-acts { grid-area: acts; display: flex; flex-direction: column; gap: 5px; }
+  .mv-extra { grid-area: extra; min-width: 0; }
+  @media (max-width: 640px) { .mv { grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "av top" "av said" "av age" "extra extra" "acts acts"; } .mv-acts { flex-direction: row; } .mv-acts .btn { flex: 1; justify-content: center; } }
+
+  /* 1. quick replies */
+  .qr { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 2px; }
+  .qr .ch { border: 1px solid var(--line); background: var(--chip); border-radius: 999px; padding: 3px 11px; font-size: var(--fs-sm); font-weight: 600; color: var(--text); min-height: 28px; display: inline-flex; align-items: center; gap: 6px; }
+  .qr .ch.opt { border-color: color-mix(in srgb, var(--err) 45%, var(--line)); color: var(--err); }
+  .qr .ch.opt::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--err); opacity: .8; }
+  .qr .ch.ok { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 45%, var(--line)); }
+  .qr .ch.hold { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 45%, var(--line)); }
+  .qr .free { flex: 1; min-width: 160px; display: flex; gap: 6px; }
+  .qr .free span { flex: 1; min-height: 28px; border: 1px solid var(--line); border-radius: 8px; padding: 4px 10px; font-size: var(--fs-sm); color: var(--muted); background: var(--surface); }
+  .qr .sent { font-size: var(--fs-xs); color: var(--muted); }
+  .qr .sent b { color: var(--ok); font-weight: 600; }
+
+  /* 2. hand to */
+  .pop { position: relative; z-index: 1; margin-top: 4px; width: min(100%, 300px); padding: 6px; border-radius: 12px; background: var(--surface); border: 1px solid var(--line); box-shadow: inset 0 1px 0 var(--card-hi), 0 18px 40px -20px rgba(0,0,0,.45); }
+  .ap-h { display: flex; align-items: center; gap: 8px; padding: 6px 8px 4px; font-size: var(--fs-xs); font-weight: 600; letter-spacing: var(--tr-label); text-transform: uppercase; color: var(--muted); }
+  .ap-h .cnt { background: var(--chip); border-radius: 999px; padding: 0 7px; letter-spacing: 0; line-height: 18px; box-shadow: inset 0 0 0 1px var(--line); }
+  .ap-row { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: 2px 10px; align-items: center; padding: 6px 10px 6px 8px; border-radius: 8px; font-size: var(--fs-md); }
+  .ap-row.hot { background: var(--chip); }
+  .ap-row .av { width: 22px; height: 22px; }
+  .ap-row .nm { font-weight: 600; white-space: nowrap; }
+  .ap-row .tag { font-size: var(--fs-xs); font-weight: 600; letter-spacing: var(--tr-tight); text-transform: uppercase; color: var(--muted); }
+  .ap-row.idle .tag { color: var(--ok); } .ap-row.working .tag { color: var(--muted); }
+  .ap-row .st { grid-column: 2 / span 2; font-size: var(--fs-xs); color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .chatline { margin-top: 12px; display: flex; align-items: flex-start; gap: 10px; }
+  .cmsg { max-width: 100%; }
+  .cmsg-head { display: flex; align-items: baseline; gap: 8px; font-size: var(--fs-sm); color: var(--muted); margin-bottom: 3px; } .cmsg-head b { color: var(--text); }
+  .cmsg-txt { background: color-mix(in srgb, var(--accent) 10%, var(--surface)); border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--line)); border-radius: 10px; padding: 7px 12px; font-size: var(--fs-md); font-family: var(--mono); }
+
+  /* 3. project rail */
+  .rail-stage { display: grid; grid-template-columns: 212px minmax(0, 1fr); gap: 14px; }
+  .rail { display: flex; flex-direction: column; gap: 4px; padding: 10px 8px; border: 1px solid var(--line); border-radius: 14px; background: var(--panel); box-shadow: inset 0 1px 0 var(--panel-hi), var(--panel-sh); }
+  .rail .h { display: flex; align-items: center; gap: 8px; padding: 0 8px 6px; font-size: var(--fs-xs); font-weight: 600; letter-spacing: var(--tr-label); text-transform: uppercase; color: var(--muted); }
+  .rail .h .spacer { flex: 1; }
+  .pr { display: grid; grid-template-columns: 10px minmax(0, 1fr) auto; grid-template-areas: "dot name n" "dot bar bar"; gap: 3px 8px; align-items: center; padding: 7px 8px; border-radius: 9px; }
+  .pr.on { background: var(--chip); box-shadow: inset 0 0 0 1px var(--line); }
+  .pr .dot { grid-area: dot; width: 8px; height: 8px; border-radius: 50%; background: var(--pc); box-shadow: 0 0 8px -1px var(--pc); }
+  .pr .name { grid-area: name; font-size: var(--fs-md); font-weight: 550; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 6px; }
+  .pr .name i { width: 7px; height: 7px; border-radius: 50%; background: var(--err); box-shadow: 0 0 8px var(--err); flex: none; }
+  .pr .n { grid-area: n; font-size: var(--fs-xs); color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .pr .sb { grid-area: bar; display: flex; gap: 2px; height: 5px; border-radius: 3px; overflow: hidden; }
+  .pr .sb i { display: block; height: 100%; background: var(--k); }
+  .sb .todo { --k: var(--neutral); } .sb .doing { --k: var(--run); } .sb .done { --k: var(--ok); }
+  .rail-leg { display: flex; gap: 10px; padding: 8px 8px 0; font-size: var(--fs-xs); color: var(--muted); border-top: 1px solid var(--line); margin-top: 4px; }
+  .rail-leg i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; background: var(--k); margin-right: 5px; vertical-align: -1px; }
+  .ghost { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+  .ghost .col { border: 1px solid var(--line); border-radius: 14px; padding: 10px 8px; min-height: 160px; background: var(--panel); display: flex; flex-direction: column; gap: 8px; }
+  .ghost .col h4 { font-size: var(--fs-xs); font-weight: 600; letter-spacing: var(--tr-label); text-transform: uppercase; color: var(--muted); padding: 0 6px; display: flex; gap: 8px; align-items: center; }
+  .ghost .col h4 .cnt { background: var(--chip); border-radius: 999px; padding: 0 7px; letter-spacing: 0; line-height: 18px; box-shadow: inset 0 0 0 1px var(--line); }
+  .ghost .card { height: 38px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); position: relative; display: flex; align-items: center; padding: 0 12px; gap: 8px; font-size: var(--fs-sm); color: var(--muted); }
+  .ghost .card::after { content: ''; position: absolute; left: 1px; top: 8px; bottom: 8px; width: 3px; border-radius: 0 2px 2px 0; background: var(--c, var(--neutral)); }
+  .ghost .card .pd { width: 7px; height: 7px; border-radius: 50%; background: var(--pc); }
+  .ghost .card.dim { opacity: .28; }
+  @media (max-width: 760px) { .rail-stage { grid-template-columns: 1fr; } .ghost { grid-template-columns: 1fr; } .ghost .col { min-height: 0; } }
+
+  /* 4. edit in place */
+  .panel { max-width: 560px; border: 1px solid var(--line); border-radius: 14px; background: var(--panel), var(--bg); box-shadow: inset 0 1px 0 var(--panel-hi), var(--panel-sh); overflow: hidden; }
+  .p-head { display: flex; align-items: center; gap: 10px; padding: 12px 18px; border-bottom: 1px solid var(--line); }
+  .pill { font-size: var(--fs-md); font-weight: 500; border-radius: 999px; padding: 2px 12px; background: var(--chip); color: var(--muted); }
+  .p-body { padding: 18px; display: flex; flex-direction: column; gap: 16px; }
+  .ed { position: relative; border: 1px dashed transparent; border-radius: 8px; padding: 4px 60px 4px 8px; margin: -4px -8px; }
+  .ed:hover, .ed.on { border-color: var(--neutral); background: color-mix(in srgb, var(--accent) 4%, transparent); }
+  .ed .pen { position: absolute; right: 8px; top: 6px; font-size: var(--fs-xs); color: var(--muted); letter-spacing: var(--tr-tight); text-transform: uppercase; font-weight: 600; }
+  .ed.on .pen { color: var(--text); }
+  .p-title { font-size: var(--fs-xl); font-weight: 600; letter-spacing: -.02em; line-height: 1.3; }
+  .p-title .caret { display: inline-block; width: 1.5px; height: 1em; background: var(--text); vertical-align: -3px; margin-left: 1px; animation: blink 1.1s steps(2) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+  .p-sec h3 { font-size: var(--fs-md); font-weight: 500; color: var(--muted); margin-bottom: 8px; }
+  .p-desc { font-size: var(--fs-lg); line-height: 1.6; color: var(--muted); }
+  .p-desc b { color: var(--text); font-weight: 500; }
+  .ed-acts { display: flex; gap: 8px; margin-top: 10px; align-items: center; }
+  .ed-acts small { color: var(--muted); font-size: var(--fs-xs); margin-left: auto; }
+  .subs { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; }
+  .subs li { display: grid; grid-template-columns: 16px 1fr auto; gap: 10px; align-items: center; padding: 6px 0; font-size: var(--fs-md); }
+  .subs .g { width: 14px; height: 14px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--neutral) 55%, var(--line)); justify-self: center; }
+  .subs .g.done { background: color-mix(in srgb, var(--ok) 16%, transparent); box-shadow: inset 0 0 0 1.5px var(--ok); }
+  .subs .p { font-variant-numeric: tabular-nums; font-size: var(--fs-sm); color: var(--muted); }
+  .subs li.add { color: var(--muted); } .subs li.add .g { box-shadow: inset 0 0 0 1.5px var(--line); display: grid; place-items: center; font-size: 10px; }
+  .subs li.add span.in { border-bottom: 1px dashed var(--neutral); padding-bottom: 1px; }
+  .kbd { font: var(--fs-xs) var(--mono); background: var(--chip); border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; color: var(--muted); }
+
+  /* 5. notifications */
+  .hdr { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); }
+  .hdr .brand { font-weight: 600; display: flex; align-items: center; gap: 8px; }
+  .tabs { display: inline-flex; gap: 2px; padding: 3px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+  .tabs span { padding: 0 10px; min-height: 26px; display: inline-flex; align-items: center; border-radius: 7px; font-size: var(--fs-sm); color: var(--muted); }
+  .tabs span.on { color: var(--text); background: var(--chip); font-weight: 600; box-shadow: inset 0 0 0 1px var(--line); }
+  .bell { width: 36px; height: 32px; display: grid; place-items: center; position: relative; }
+  .bell.on { border-color: var(--ok); color: var(--ok); }
+  .bell.on::after { content: ''; position: absolute; top: 5px; right: 6px; width: 6px; height: 6px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 8px var(--ok); }
+  .notif { margin: 16px 0 0 auto; width: min(100%, 360px); display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 2px 12px; padding: 12px 14px; border-radius: 14px;
+    background: var(--surface); border: 1px solid var(--line); box-shadow: 0 20px 40px -18px rgba(0,0,0,.45), inset 0 1px 0 var(--card-hi); }
+  .notif .ic { grid-row: 1 / span 3; width: 34px; height: 34px; border-radius: 9px; display: grid; place-items: center; background: color-mix(in srgb, var(--err) 14%, var(--chip)); color: var(--err); }
+  .notif .t { font-size: var(--fs-md); font-weight: 600; display: flex; gap: 8px; align-items: baseline; }
+  .notif .t small { color: var(--muted); font-weight: 400; margin-left: auto; }
+  .notif .b { font-size: var(--fs-md); color: var(--text); }
+  .notif .acts { display: flex; gap: 6px; margin-top: 6px; }
+  .notif .acts .btn { min-height: 26px; padding: 2px 10px; }
+  .rules { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; margin-top: 14px; }
+  .rule { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); font-size: var(--fs-sm); }
+  .rule i { width: 9px; height: 9px; border-radius: 50%; background: var(--k); box-shadow: 0 0 8px var(--k); flex: none; }
+  .rule small { color: var(--muted); margin-left: auto; white-space: nowrap; }
+
+  .foot { margin-top: 26px; color: var(--muted); font-size: var(--fs-sm); max-width: 80ch; }
+  .foot b { color: var(--text); font-weight: 500; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="1.5" y="2" width="3.5" height="12" rx="1.2" fill="currentColor" opacity=".35"/><rect x="6.25" y="2" width="3.5" height="8" rx="1.2" fill="currentColor"/><rect x="11" y="2" width="3.5" height="5" rx="1.2" fill="currentColor" opacity=".6"/></svg>agentboard <span class="mock">ux ideas, round two</span></h1>
+    <span class="spacer"></span>
+    <span class="lede">Five more, ranked. The score is <b>how fast you get the thing done</b>, 1 to 10, before and after; the chip is build effort. Pick any, in any order; nothing here is built yet.</span>
+  </header>
+
+  <section class="score" aria-label="Ranked ideas">
+    <span class="h">#</span><span class="h">Idea</span><span class="h r">Before → after · effort</span>
+    <span class="rk">1</span><a href="#i1">Quick replies on asks<small>the options in the question become one-tap chips; Go ahead, Hold, Your call always there</small></a>
+    <span class="ba"><span>4</span><span class="bar" style="--b:40%;--a:90%"><i></i><b></b></span><b>9</b><span class="eff">S</span></span>
+    <span class="rk">2</span><a href="#i2">Hand to… on quiet cards<small>move a stuck card to another agent in one pick; ORCH hears about it the same way as Assign</small></a>
+    <span class="ba"><span>5</span><span class="bar" style="--b:50%;--a:90%"><i></i><b></b></span><b>9</b><span class="eff">S</span></span>
+    <span class="rk">3</span><a href="#i3">Project rail<small>every project with a stacked bar of its work and a red dot when it needs you; click to filter</small></a>
+    <span class="ba"><span>5</span><span class="bar" style="--b:50%;--a:80%"><i></i><b></b></span><b>8</b><span class="eff">M</span></span>
+    <span class="rk">4</span><a href="#i4">Edit in place on the card<small>title, description, subtasks and blockers from the panel, no terminal</small></a>
+    <span class="ba"><span>2</span><span class="bar" style="--b:20%;--a:80%"><i></i><b></b></span><b>8</b><span class="eff">M</span></span>
+    <span class="rk">5</span><a href="#i5">Desktop notifications from the tab<small>a bell in the top bar; an ask or review pings you when the tab is in the background</small></a>
+    <span class="ba"><span>3</span><span class="bar" style="--b:30%;--a:80%"><i></i><b></b></span><b>8</b><span class="eff">S</span></span>
+  </section>
+
+  <!-- 1 -->
+  <article class="idea" id="i1">
+    <header><h2><span class="rk">1</span>Quick replies on asks</h2><span class="spacer"></span><span class="where">static/index.html</span></header>
+    <div class="what">Most asks are a choice. The board reads the question and offers its options as chips (<b>3 or 5?</b> becomes <b>3</b> and <b>5</b>; <b>yes/no</b>, <b>a, b or c</b>, numbered lists likewise), plus three that fit any ask: <b>Go ahead</b>, <b>Hold</b>, <b>Your call</b>. One tap sends the reply the way the box does today (<code>/api/reply</code>, the agent reads it with <code>agentboard answer</code>). The typed box stays for everything else. Same chips on the Your move row, the card and the panel.</div>
+    <div class="stage">
+      <div class="stage-l">Your move row, an ask</div>
+      <div class="mv" style="--c:#15803d">
+        <span class="av" style="--c:#15803d">1</span>
+        <div class="mv-top"><span class="nm">AGENT-1</span><span class="mv-kind">answer</span><span class="ttl">Harden webhook retries</span><span class="age">42m</span></div>
+        <div class="mv-said">Pick the retry limit: 3 or 5?</div>
+        <div class="mv-age"><b style="--w:100%"></b></div>
+        <div class="mv-acts"><span class="btn">Open</span></div>
+        <div class="mv-extra">
+          <div class="qr">
+            <span class="ch opt">3</span><span class="ch opt">5</span>
+            <span class="ch ok">Go ahead</span><span class="ch hold">Hold</span><span class="ch">Your call</span>
+            <span class="free"><span>or type…</span><span class="btn primary" style="flex:none">Send</span></span>
+          </div>
+        </div>
+      </div>
+      <div class="stage-l" style="margin-top:14px">After a tap</div>
+      <div class="mv" style="--c:#15803d;--mc:var(--neutral)">
+        <span class="av" style="--c:#15803d">1</span>
+        <div class="mv-top"><span class="nm">AGENT-1</span><span class="mv-kind" style="color:var(--ok)">answered</span><span class="ttl">Harden webhook retries</span><span class="age">just now</span></div>
+        <div class="mv-said" style="color:var(--text);font-weight:500">Pick the retry limit: 3 or 5?</div>
+        <div class="mv-age"><b style="--w:0%"></b></div>
+        <div class="mv-acts"><span class="btn">Open</span></div>
+        <div class="mv-extra"><div class="qr"><span class="sent">You replied <b>5</b> · the row leaves the strip once AGENT-1 moves on</span></div></div>
+      </div>
+    </div>
+  </article>
+
+  <!-- 2 -->
+  <article class="idea" id="i2">
+    <header><h2><span class="rk">2</span>Hand to… on quiet cards</h2><span class="spacer"></span><span class="where">static/index.html · store.py (one method, same hook as Assign)</span></header>
+    <div class="what">A card whose agent went quiet needs a new pair of hands, not a trip through Todo. <b>Hand to…</b> on the Your move row and in the panel opens the same picker as Assign, idle agents first. One pick: the card goes back to Todo under the new agent, the old agent is released, the card log says so, and the chat line tells ORCH: <code>ORCH: Troy handed &lt;id&gt; from AGENT-4 to AGENT-5; hand it over.</code> Also on any Doing card in the panel, for the times you just want it elsewhere.</div>
+    <div class="stage">
+      <div class="stage-l">Your move row, an agent gone quiet</div>
+      <div class="mv stale" style="--c:#c2570c">
+        <span class="av" style="--c:#c2570c">4</span>
+        <div class="mv-top"><span class="nm">AGENT-4</span><span class="mv-kind">quiet</span><span class="ttl">Backfill audit log</span><span class="age">3h00</span></div>
+        <div class="mv-said">half the rows migrated</div>
+        <div class="mv-age"><b style="--w:100%"></b></div>
+        <div class="mv-acts"><span class="btn primary">Hand to…</span><span class="btn">Open</span></div>
+        <div class="mv-extra">
+          <div class="pop">
+            <div class="ap-h">Hand to <span class="cnt">2 free</span></div>
+            <div class="ap-row idle hot"><span class="av ring" style="--c:#0d9488">5</span><span class="nm">AGENT-5</span><span class="tag">idle</span></div>
+            <div class="ap-row idle"><span class="av ring" style="--c:#0d9488">S</span><span class="nm">SCOUT</span><span class="tag">idle</span></div>
+            <div class="ap-row working"><span class="av" style="--c:#7c3aed">3</span><span class="nm">AGENT-3</span><span class="tag">working</span><span class="st">Tune cache eviction</span></div>
+            <div class="ap-row working"><span class="av" style="--c:#2563eb">2</span><span class="nm">AGENT-2</span><span class="tag">in review</span><span class="st">Ship the export pipeline</span></div>
+          </div>
+          <div class="chatline"><div class="cmsg"><div class="cmsg-head"><b>Troy</b><span>just now</span></div><div class="cmsg-txt">ORCH: Troy handed backfill-audit-log from AGENT-4 to AGENT-5; hand it over.</div></div></div>
+        </div>
+      </div>
+    </div>
+  </article>
+
+  <!-- 3 -->
+  <article class="idea" id="i3">
+    <header><h2><span class="rk">3</span>Project rail</h2><span class="spacer"></span><span class="where">static/index.html</span></header>
+    <div class="what">The project select becomes a thin rail on the left: each project with its colour, a stacked bar of its open and finished work (<b>todo · doing · done this week</b>), the count, and a red dot when one of its cards needs you. Click a project to filter the whole board (strip included), click again for all. Collapses to the dots on narrow screens; the select stays as the keyboard path.</div>
+    <div class="stage">
+      <div class="rail-stage">
+        <aside class="rail" aria-label="Projects">
+          <div class="h">Projects <span class="spacer"></span><span class="cnt" style="background:var(--chip);border-radius:999px;padding:0 7px;letter-spacing:0;line-height:18px;box-shadow:inset 0 0 0 1px var(--line)">3</span></div>
+          <div class="pr"><i class="dot" style="--pc:var(--neutral)"></i><span class="name">All</span><span class="n">8 open</span><span class="sb"><i class="todo" style="flex:3"></i><i class="doing" style="flex:5"></i><i class="done" style="flex:11"></i></span></div>
+          <div class="pr on"><i class="dot" style="--pc:#6366f1"></i><span class="name">Relay <i title="needs you"></i></span><span class="n">4 open</span><span class="sb"><i class="todo" style="flex:1"></i><i class="doing" style="flex:3"></i><i class="done" style="flex:4"></i></span></div>
+          <div class="pr"><i class="dot" style="--pc:#f59e0b"></i><span class="name">Books</span><span class="n">2 open</span><span class="sb"><i class="todo" style="flex:1"></i><i class="doing" style="flex:1"></i><i class="done" style="flex:3"></i></span></div>
+          <div class="pr"><i class="dot" style="--pc:var(--neutral)"></i><span class="name">No project</span><span class="n">2 open</span><span class="sb"><i class="todo" style="flex:1"></i><i class="doing" style="flex:1"></i><i class="done" style="flex:4"></i></span></div>
+          <div class="rail-leg"><span><i class="todo" style="--k:var(--neutral)"></i>todo</span><span><i class="doing" style="--k:var(--run)"></i>doing</span><span><i class="done" style="--k:var(--ok)"></i>done 7d</span></div>
+        </aside>
+        <div class="ghost" aria-label="The board, filtered to Relay">
+          <div class="col"><h4>Todo <span class="cnt">1</span></h4><div class="card" style="--c:var(--neutral)"><i class="pd" style="--pc:#6366f1"></i>Rate-limit the inbound SMS</div><div class="card dim"><i class="pd" style="--pc:#f59e0b"></i>Add screenshots to README</div></div>
+          <div class="col"><h4>Doing <span class="cnt">3</span></h4><div class="card" style="--c:#15803d"><i class="pd" style="--pc:#6366f1"></i>Harden webhook retries</div><div class="card" style="--c:#2563eb"><i class="pd" style="--pc:#6366f1"></i>Ship the export pipeline</div><div class="card dim" style="--c:#7c3aed"><i class="pd" style="--pc:#f59e0b"></i>Tune cache eviction</div></div>
+          <div class="col"><h4>Done <span class="cnt">4</span></h4><div class="card" style="--c:#15803d"><i class="pd" style="--pc:#6366f1"></i>Fix the relay</div><div class="card" style="--c:#2563eb"><i class="pd" style="--pc:#6366f1"></i>Add a relay health check</div><div class="card dim" style="--c:#7c3aed"><i class="pd" style="--pc:#f59e0b"></i>Tangen books</div></div>
+        </div>
+      </div>
+    </div>
+  </article>
+
+  <!-- 4 -->
+  <article class="idea" id="i4">
+    <header><h2><span class="rk">4</span>Edit in place on the card</h2><span class="spacer"></span><span class="where">static/index.html · server.py (one route: /api/edit)</span></header>
+    <div class="what">Today a card's title and description can only change from the terminal. In the panel, the title and the description become editable where they are (click, or <span class="kbd">e</span>); <b>Save</b> or <span class="kbd">⌘↵</span>, <b>Esc</b> cancels, and the log gets one line. The subtask list ends in an add row, and a <b>Blocked by</b> row takes a card by name with the same picker the filter uses. Agents are never edited this way; only the card's words and shape.</div>
+    <div class="stage">
+      <div class="stage-l">Detail panel, title being edited</div>
+      <div class="panel">
+        <div class="p-head"><span class="pill">Todo</span><span class="spacer"></span><span class="btn">Move to Later</span><span class="btn" style="width:32px;padding:0;justify-content:center">×</span></div>
+        <div class="p-body">
+          <div class="ed on"><div class="p-title">Rate-limit the inbound SMS<span class="caret"></span></div><span class="pen">editing</span>
+            <div class="ed-acts"><span class="btn primary">Save</span><span class="btn">Cancel</span><small>⌘↵ saves · Esc cancels</small></div></div>
+          <div class="p-sec"><h3>Description</h3><div class="ed"><div class="p-desc">One hour cap, then <b>403</b>. Count per sender, not per number, so a shared phone still works. Keep it simple: one sentence, one idea.</div><span class="pen">edit</span></div></div>
+          <div class="p-sec"><h3>Subtasks <span style="color:var(--muted);font-weight:400">1/3</span></h3>
+            <ul class="subs">
+              <li><span class="g done"></span><span>store: count per sender</span><span class="p">done</span></li>
+              <li><span class="g"></span><span>sms.py: the cap and the 403</span><span class="p">0%</span></li>
+              <li><span class="g"></span><span>tests</span><span class="p">0%</span></li>
+              <li class="add"><span class="g">+</span><span class="in">Add a subtask…</span><span class="p">↵</span></li>
+            </ul></div>
+          <div class="p-sec"><h3>Blocked by</h3><div class="ed"><div class="p-desc" style="font-size:var(--fs-md)">— <span style="color:var(--muted)">type a card title to add one</span></div><span class="pen">edit</span></div></div>
+        </div>
+      </div>
+    </div>
+  </article>
+
+  <!-- 5 -->
+  <article class="idea" id="i5">
+    <header><h2><span class="rk">5</span>Desktop notifications from the tab</h2><span class="spacer"></span><span class="where">static/index.html</span></header>
+    <div class="what">A bell in the top bar. On, the board uses the browser's own Notification API (local, no service, no new dependency) to ping you when a card needs an answer, is ready for sign-off, or its agent went quiet, but only while the tab is in the background; in front, the strip and the sounds already do it. Click a notification and the card's panel opens. Replaces the <code>[notify]</code> osascript route for the common case, and works in any browser.</div>
+    <div class="stage">
+      <div class="stage-l">Top bar, bell on</div>
+      <div class="hdr">
+        <span class="brand"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="1.5" y="2" width="3.5" height="12" rx="1.2" fill="currentColor" opacity=".35"/><rect x="6.25" y="2" width="3.5" height="8" rx="1.2" fill="currentColor"/><rect x="11" y="2" width="3.5" height="5" rx="1.2" fill="currentColor" opacity=".6"/></svg>agentboard</span>
+        <span class="tabs"><span class="on">Board</span><span>HUD</span><span>Summary</span><span>Reports</span></span>
+        <span class="spacer"></span>
+        <span class="btn bell on" title="Desktop notifications: on"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 2a4 4 0 0 0-4 4v3L2.8 11h10.4L12 9V6a4 4 0 0 0-4-4z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M6.5 13a1.5 1.5 0 0 0 3 0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></span>
+        <span class="btn" style="width:36px;justify-content:center"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M2.5 6v4h2.6L9 13V3L5.1 6H2.5z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M11.2 5.5a3.6 3.6 0 0 1 0 5M13 3.6a6 6 0 0 1 0 8.8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></span>
+      </div>
+      <div class="stage-l" style="margin-top:14px">What arrives, tab in the background</div>
+      <div class="notif" role="img" aria-label="A desktop notification: AGENT-1 needs your input, Pick the retry limit: 3 or 5?">
+        <span class="ic"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 2a4 4 0 0 0-4 4v3L2.8 11h10.4L12 9V6a4 4 0 0 0-4-4z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M6.5 13a1.5 1.5 0 0 0 3 0" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></span>
+        <div class="t">AGENT-1 needs your input <small>agentboard</small></div>
+        <div class="b">Pick the retry limit: 3 or 5?</div>
+        <div class="acts"><span class="btn primary">Open</span><span class="btn">Later</span></div>
+      </div>
+      <div class="rules">
+        <div class="rule"><i style="--k:var(--err)"></i>needs input<small>at once, then every 15 min while open</small></div>
+        <div class="rule"><i style="--k:var(--ok)"></i>ready for review<small>once</small></div>
+        <div class="rule"><i style="--k:var(--warn)"></i>agent gone quiet<small>once, at stale_minutes</small></div>
+      </div>
+    </div>
+  </article>
+
+  <p class="foot">Looked at and left out this round: an ETA on Doing cards from the progress chart (the pace of agents is too uneven to trust), a Later preview at the foot of Todo (the drawer is one key away), and chat threads per card (the Assign and Hand to lines already name the card). <b>Say which of the five you want</b>, or change the order, and they get built the same way as the last five: one commit each, tests, render checks in both themes and at phone width.</p>
+</div>
