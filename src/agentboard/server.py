@@ -374,6 +374,22 @@ def serve(store, port=8765, open_browser=True):
             time.sleep(300)
 
     threading.Thread(target=_backups, daemon=True).start()
+
+    def _autopilot():   # [chat] autopilot = true: the board answers for idle agents with unread chat, on the cheaper model
+        from . import agentchat, hud, runs
+        while True:
+            try:
+                conf = promptlib.load_config(store.dir)
+                chat = conf.get("chat", {}) if isinstance(conf.get("chat"), dict) else {}
+                every = float(chat.get("autopilot_every", agentchat.DEFAULT_AUTOPILOT_EVERY))
+                if chat.get("autopilot") is True and store.chat_agents():
+                    agentchat.autopilot_once(store, runs.claude_binary(store.dir), hud.roster(conf), log=lambda m: print(f"agentboard: {m}"))
+            except Exception as e:   # noqa: BLE001  (a draft problem never stops a board)
+                print(f"agentboard: autopilot: {e}")
+                every = agentchat.DEFAULT_AUTOPILOT_EVERY
+            time.sleep(max(30.0, every))
+
+    threading.Thread(target=_autopilot, daemon=True).start()
     try:
         srv.serve_forever()
     except KeyboardInterrupt:

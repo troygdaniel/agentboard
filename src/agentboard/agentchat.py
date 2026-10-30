@@ -164,6 +164,8 @@ def chat_line(m):
         extra.append("files " + ", ".join(m["files"]))
     if m.get("reply_to"):
         extra.append(f"re #{m['reply_to']}")
+    if m.get("via") == "idle":
+        extra.append("auto")
     out = [head + (f"   ({'; '.join(extra)})" if extra else "")]
     if m.get("detail"):
         out += ["    " + l for l in m["detail"].splitlines()[:12]]
@@ -226,6 +228,91 @@ def parse_draft(text):
     out["text"] = " ".join(body.split())[:200]
     out["detail"] = parts[1].strip() or None if len(parts) > 1 else None
     return out if out["text"] else None
+
+
+# ---- the autopilot: the drafter, run by the board itself for every idle agent with unread chat -------------------------------
+DEFAULT_AUTOPILOT_EVERY = 180      # seconds between rounds
+DEFAULT_AUTOPILOT_PER_HOUR = 12    # drafts an hour, over every agent: the spend ceiling is this times idle_budget_usd
+
+
+def _cursors_path(store):
+    return store.dir / "chat-cursors.json"
+
+
+def read_cursors(store):
+    try:
+        d = json.loads(_cursors_path(store).read_text())
+        return d if isinstance(d, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def write_cursor(store, name, seq):
+    cur = read_cursors(store)
+    cur[name] = max(int(seq), cur.get(name, 0) if isinstance(cur.get(name), int) else 0)
+    try:
+        _cursors_path(store).write_text(json.dumps(cur))
+    except OSError:
+        pass
+
+
+def _hour_count(store, now):
+    p = store.dir / "chat-autopilot.json"
+    try:
+        d = json.loads(p.read_text())
+    except (OSError, ValueError):
+        d = {}
+    hour = now.strftime("%Y-%m-%dT%H")
+    return p, (d.get("count", 0) if d.get("hour") == hour else 0), hour
+
+
+def idle_agents(tasks, roster):
+    """Roster agents with no card in Doing: the ones with time to talk."""
+    busy = {t.get("agent") for t in tasks if t.get("status") == "doing" and t.get("agent")}
+    return [n for n in roster if n and n not in busy]
+
+
+def autopilot_once(store, claude, roster, model=None, budget=None, per_hour=None, now=None, log=None):
+    """One round: for each idle roster agent with unread chat, one draft on the cheaper model, posted as that agent with
+    via=idle (shown as auto on the board; the agent's own session sees it in its inbox). The board never answers itself:
+    an auto line is not a prompt for another round, so two idle agents cannot chatter at each other; real sessions may
+    answer auto lines, and the hourly cap bounds the spend. Returns the messages posted."""
+    now = now or datetime.now()
+    conf = idle_conf(store.dir)
+    per_hour = int(per_hour if per_hour is not None else conf.get("autopilot_per_hour", DEFAULT_AUTOPILOT_PER_HOUR))
+    if not store.chat_agents():
+        return []
+    tasks = store.load()
+    cursors = read_cursors(store)
+    posted = []
+    p, count, hour = _hour_count(store, now)
+    for name in idle_agents(tasks, roster):
+        if count >= per_hour:
+            break
+        after = cursors.get(name)
+        inbox = [m for m in store.chat_inbox(name, after=after if isinstance(after, int) else None) if not m.get("via")]   # the board never answers itself (auto lines, its own notices)
+        if not inbox:
+            continue
+        try:
+            d = draft_reply(store, name, claude, model=model, budget=budget, inbox=inbox)
+        except BoardError as e:
+            if log:
+                log(f"autopilot: {name}: {e}")
+            continue
+        write_cursor(store, name, store.chat_list(limit=1)[-1]["seq"] if store.chat_list(limit=1) else inbox[-1]["seq"])
+        count += 1
+        try:
+            p.write_text(json.dumps({"hour": hour, "count": count}))
+        except OSError:
+            pass
+        if not d:
+            continue
+        asked = next((m for m in reversed(inbox) if m.get("to") == name), inbox[-1])
+        m = store.chat_send(name, d["text"], to=d["to"], topic=d["topic"], detail=d["detail"], reply_to=asked["seq"], via="idle")
+        posted.append(m)
+        if log:
+            log("autopilot: " + chat_line(m).splitlines()[0])
+    return posted
 
 
 def draft_reply(store, name, claude, model=None, budget=None, inbox=None, limit=8):

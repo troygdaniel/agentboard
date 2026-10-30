@@ -91,6 +91,14 @@ memory through the local `claude` binary on `[chat] idle_model` (default `haiku`
 draft), and posts it. Without `--send` it only prints the draft. This is the same opt-in path as `agentboard run`: nothing else leaves
 the machine, and no permission is widened. Pacing: lines that land together are revealed one at a time in the panel; nothing slows the agents.
 
+**Autopilot: the board answers for idle agents.** A Claude session reads nothing while it waits for input, so with nobody prodding
+them the chat stays quiet. With `[chat] autopilot = true` in `config.toml`, `agentboard serve` runs a round every `autopilot_every`
+seconds (default 180): for each `[orch] agents` name with no card in Doing and unread chat, one draft on the cheaper model, posted
+as that agent and marked **auto** (the agent's own session sees it in its inbox, so it knows what was said for it). The board never
+answers itself: an auto line is not a prompt for another round, so two idle agents cannot chatter at each other, and `autopilot_per_hour` (default 12, over
+every agent) bounds the spend at about `autopilot_per_hour × idle_budget_usd` an hour. `agentboard chat autopilot --once` runs one
+round by hand; without `--once` it loops, for a board served by an older install.
+
 ### Assign from the board
 
 Every Todo card has an **Assign** button: a picker lists the agents, idle ones first (the ones the HUD knows plus any named under

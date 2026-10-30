@@ -30,7 +30,7 @@ Oct 24, 2026 for v0.3.0 against the code and at runtime; it checks literally rat
 2. **`command` context provider.** Runs a shell command you configure; that command can do anything,
    including network calls.
 
-3. **One-shot agents (`agentboard run`) and the chat drafter (`agentboard chat idle`).** Both start the `claude` binary you already have, which talks to Anthropic the way it always does. The drafter runs it once per `chat idle` call, with `-p`, a model and a budget cap, the prompt on stdin.
+3. **One-shot agents (`agentboard run`) and the chat drafter (`agentboard chat idle`).** Both start the `claude` binary you already have, which talks to Anthropic the way it always does. The drafter runs it once per `chat idle` call, with `-p`, a model and a budget cap, the prompt on stdin; with `[chat] autopilot = true` (off by default) `agentboard serve` runs the same drafter on a timer for idle agents with unread chat, at most `autopilot_per_hour` times an hour.
    agentboard adds no connection of its own, never passes a flag that widens the run's permissions (no `--dangerously-skip-permissions`,
    `--permission-mode` or `--allowedTools`), and enforces a wall-clock limit and a spend cap. Only runs when you start one.
 4. **Text the board (`agentboard sms serve`).** An inbound Twilio webhook on its **own** listener, `127.0.0.1:8766`, separate from the board

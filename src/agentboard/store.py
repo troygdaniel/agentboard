@@ -827,11 +827,11 @@ class Store:
         if changed:
             self.chat_send(by, "ORCH and agents: agent chat is on. Run agentboard instructions, follow its 'Talking to other agents' section "
                            "with your own name, and read your inbox with: agentboard chat inbox --name <you> --wait 300" if on
-                           else "ORCH and agents: agent chat is off. Plain status lines only from here.", "user", to="all")
+                           else "ORCH and agents: agent chat is off. Plain status lines only from here.", "user", to="all", via="board")
         return bool(on)
 
     def chat_send(self, sender, text, kind="agent", to=None, topic=None, detail=None, card=None, files=None, propose=None,
-                  reply_to=None, color=None):
+                  reply_to=None, color=None, via=None):
         """Post a message to the shared channel. kind is 'agent' or 'user' (the human).
 
         The one line is what the panel shows; everything else is optional and shown on tap: `to` (an agent, ORCH or all),
@@ -889,7 +889,9 @@ class Store:
             seq = data["chat_seq"] + 1
             data["chat_seq"] = seq
             msg = {"seq": seq, "at": _now(), "sender": sender, "text": text, "kind": kind}
-            for k, v in (("to", to), ("topic", topic), ("detail", detail), ("card", card), ("files", files), ("reply_to", reply_to), ("color", color)):
+            if via not in (None, "idle", "board"):   # idle: drafted by the board for an idle agent; board: a notice from the board itself
+                raise BoardError("via must be 'idle', 'board' or left out")
+            for k, v in (("to", to), ("topic", topic), ("detail", detail), ("card", card), ("files", files), ("reply_to", reply_to), ("color", color), ("via", via)):
                 if v:
                     msg[k] = v
             if propose:
@@ -922,8 +924,10 @@ class Store:
         in particular (a plain status line). The agent remembers the last seq it saw."""
         with self._lock():
             msgs = self._read()["chat"]
-        out = [m for m in msgs if (after is None or m["seq"] > after) and m["sender"] != name
-               and (not m.get("to") or m["to"] == "all" or m["to"] == name or m["to"].lower() == name.lower())]
+        def mine(m):   # what the board said for this agent while it was idle is news to it, whoever it was sent to
+            return m["sender"] == name and m.get("via") == "idle"
+        out = [m for m in msgs if (after is None or m["seq"] > after) and (mine(m) or (m["sender"] != name
+               and (not m.get("to") or m["to"] == "all" or m["to"] == name or m["to"].lower() == name.lower())))]
         return out[-limit:]
 
     def chat_approvals(self, name=None):

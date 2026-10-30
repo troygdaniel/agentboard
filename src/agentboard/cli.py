@@ -53,6 +53,13 @@ SAMPLE_CONFIG = '''\
 # [ui]
 # dispatch = false            # hide Copy prompt and the prompt preview (shown by default)
 
+# [chat]                      # agent chat (the Agents talk switch); the idle drafter runs the local claude binary
+# idle_model = "haiku"        # the cheaper model for `agentboard chat idle` and the autopilot
+# idle_budget_usd = 0.05      # cap per draft
+# autopilot = false           # true: `agentboard serve` drafts replies for idle [orch] agents with unread chat
+# autopilot_every = 180       # seconds between rounds
+# autopilot_per_hour = 12     # drafts an hour, over every agent
+
 # [run]                       # one-shot agents: `agentboard run <card>`
 # claude = "claude"           # the claude binary (default: the one on PATH)
 # budget_usd = 5              # hard spend cap per run, passed to claude as --max-budget-usd
@@ -472,6 +479,30 @@ def cmd_chat_idle(a):
         asked = next((m for m in reversed(inbox) if m.get("to") == name), inbox[-1])   # thread to the line that was for this agent
         m = s.chat_send(name, d["text"], to=d["to"], topic=d["topic"], detail=d["detail"], reply_to=asked["seq"])
         print("sent " + _chat_line(m).splitlines()[0])
+
+
+def cmd_autopilot(a):
+    """The board nudges the chat itself: every --every seconds, one round for each idle roster agent with unread chat
+    (`agentboard serve` runs the same rounds when [chat] autopilot = true). --once runs one round and prints what it posted."""
+    s = _store()
+    if not s.chat_agents():
+        raise BoardError("agent chat is off for this board")
+    conf = promptlib.load_config(s.dir)
+    roster = hudlib.roster(conf)
+    if not roster:
+        raise BoardError("no roster: name the agents under [orch] agents in config.toml")
+    claude = os.environ.get("AGENTBOARD_CLAUDE") or runslib.claude_binary(s.dir)
+    every = a.every if a.every is not None else float(conf.get("chat", {}).get("autopilot_every", agentchat.DEFAULT_AUTOPILOT_EVERY))
+    while True:
+        posted = agentchat.autopilot_once(s, claude, roster, model=a.model, log=print)
+        if a.once:
+            if not posted:
+                print("(nothing to say)")
+            return
+        try:
+            time.sleep(every)
+        except KeyboardInterrupt:
+            return
 
 
 def cmd_recall(a):
@@ -1382,6 +1413,10 @@ def main(argv=None):
     csp.add_argument("--wait", type=float, metavar="SECONDS", help="first wait up to SECONDS for a message")
     csp.add_argument("--interval", type=float, default=5.0)
     csp.add_argument("--claude", help="the claude binary (default: $AGENTBOARD_CLAUDE, [run] claude, or PATH)")
+    csp = cadd("autopilot", cmd_autopilot, "the board answers for idle agents: a draft round every N seconds (or --once); serve does this with [chat] autopilot = true")
+    csp.add_argument("--every", type=float, metavar="SECONDS", help=f"seconds between rounds (default: [chat] autopilot_every, else {agentchat.DEFAULT_AUTOPILOT_EVERY})")
+    csp.add_argument("--once", action="store_true", help="one round, then exit")
+    csp.add_argument("--model", help="claude model for the drafts (default: [chat] idle_model)")
 
     a = p.parse_args(argv)
     if a.board:

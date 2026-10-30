@@ -968,6 +968,7 @@
   .cmsg-meta .chip.card { color: var(--text); cursor: pointer; } .cmsg-meta .chip.card:hover { text-decoration: underline; text-underline-offset: 2px; }
   .cmsg-meta .chip.file { font-family: ui-monospace, Menlo, monospace; }
   .cmsg-meta .chip.file::before { content: '✎ '; }
+  .cmsg-meta .chip.auto { color: var(--info); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--info) 40%, var(--line)); }
   .cmsg-more.dt { font-size: var(--fs-xs); }
   .cmsg-detail { margin-top: 4px; padding: 8px 12px; border-radius: 8px; background: var(--chip); font-size: var(--fs-md); line-height: 1.5; color: var(--text); overflow-wrap: anywhere; }
   .cmsg-detail[hidden] { display: none; }
@@ -1777,7 +1778,8 @@ function chatBubble(m) {
   const topic = m.topic && m.topic !== 'status' ? `<span class="topic ${esc(m.topic)}">${esc(TOPIC_WORD[m.topic] || m.topic)}</span>` : '';
   const chips = [m.card ? `<span class="chip card" data-chat-card="${esc(m.card)}" role="button" tabindex="0" title="Open the card">${esc(byId.get(m.card)?.title || m.card)}</span>` : '',
     ...(m.files || []).map(f => `<span class="chip file" title="${esc(f)}">${esc(f.split('/').pop())}</span>`),
-    m.reply_to ? `<span class="chip">re #${m.reply_to}</span>` : ''].filter(Boolean);
+    m.reply_to ? `<span class="chip">re #${m.reply_to}</span>` : '',
+    m.via === 'idle' ? `<span class="chip auto" title="Drafted by the board for this agent while it was idle, on the cheaper model">auto</span>` : ''].filter(Boolean);
   const meta = chips.length ? `<div class="cmsg-meta">${chips.join('')}</div>` : '';
   const dOpen = chatDetail.has(m.seq);
   const detail = m.detail ? `<button class="p-more cmsg-more dt" data-detail="${m.seq}" aria-expanded="${dOpen}">${dOpen ? 'Detail ▾' : 'Detail ▸'}</button><div class="cmsg-detail fmt" ${dOpen ? '' : 'hidden'}>${fmt(m.detail)}</div>` : '';
