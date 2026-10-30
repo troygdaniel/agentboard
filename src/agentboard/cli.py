@@ -60,6 +60,7 @@ SAMPLE_CONFIG = '''\
 # autopilot_every = 180       # seconds between rounds
 # autopilot_per_hour = 12     # drafts an hour, over every agent
 # share_every_min = 60        # an idle agent with nothing to answer offers one thing from its own work this often (0 = never)
+# live_min = 20               # an agent that spoke or touched a card this recently is awake: the board does not speak for it
 
 # [run]                       # one-shot agents: `agentboard run <card>`
 # claude = "claude"           # the claude binary (default: the one on PATH)
@@ -467,9 +468,9 @@ def cmd_chat_idle(a):
         if not d:
             print("(nothing worth sharing)")
             return
-        print(f"draft -> all [learn]: {d['text']}" + (f"\n    {d['detail']}" if d["detail"] else ""))
+        print(f"draft -> {d['to'] or 'all'} [learn]: {d['text']}" + (f"\n    {d['detail']}" if d["detail"] else ""))
         if a.send:
-            m = s.chat_send(name, d["text"], to="all", topic="learn", detail=d["detail"])
+            m = s.chat_send(name, d["text"], to=d["to"] or "all", topic="learn", detail=d["detail"])
             print("sent " + _chat_line(m).splitlines()[0])
         return
     if not inbox:
