@@ -191,6 +191,84 @@ def chat_line(m):
     return "\n".join(out)
 
 
+# ---- casual: the same line in a spoken tone, for the panel --------------------------------------------------------------------
+DEFAULT_CASUAL_PER_HOUR = 60
+CASUAL_MIN_CHARS = 24          # a line this short is already a line
+
+CASUAL_PROMPT = """\
+Rewrite the message below as ONE line a colleague would say out loud across a desk: friendly, plain, short sentences,
+contractions, the other person's name if there is one. Same facts, same names, same numbers and card ids; add nothing, drop
+nothing that matters. No lists, no headings, no code, no quotes, no labels like ACTION or STATUS. At most 200 characters. If it
+already reads that way, return it exactly as it is. Answer with the line only.
+
+From {sender}{to}:
+{text}
+"""
+
+
+def casual_eligible(m):
+    """Agents' lines and mirrored messages get a spoken version; Troy's own lines, the board's notices and the drafter's
+    (already in the voice) do not. A line that has one, or was looked at and left, is done."""
+    return (m.get("kind") == "agent" and m.get("via") in (None, "mirror") and "said" not in m
+            and len(m.get("text", "")) >= CASUAL_MIN_CHARS)
+
+
+def casual_line(claude, model, budget, m):
+    to = f" to {m['to']}" if m.get("to") else ""
+    text = m["text"] + ((" " + m["detail"].splitlines()[0]) if m.get("detail") and len(m["text"]) < 60 else "")
+    argv = [claude, "-p", "--output-format", "json", "--model", str(model), "--max-budget-usd", f"{budget:g}"]
+    try:
+        p = subprocess.run(argv, input=CASUAL_PROMPT.format(sender=m["sender"], to=to, text=text), capture_output=True, text=True, timeout=IDLE_TIMEOUT_S)
+    except (OSError, subprocess.TimeoutExpired) as e:
+        raise BoardError(f"could not run claude: {e}") from e
+    if p.returncode != 0:
+        raise BoardError("claude failed to rephrase")
+    out = p.stdout
+    try:
+        obj = json.loads(out.strip().splitlines()[-1])
+        out = obj.get("result", "") if isinstance(obj, dict) else out
+    except ValueError:
+        pass
+    line = " ".join(str(out or "").strip().strip('"').split())
+    return line[:300]
+
+
+def casual_once(store, claude, model=None, budget=None, per_hour=None, now=None, limit=10, log=None):
+    """One round: give up to `limit` eligible messages (newest first) their spoken version, within the hourly cap.
+    Returns the messages it touched. Shares the autopilot's state file for the cap."""
+    now = now or datetime.now()
+    conf = idle_conf(store.dir)
+    model = model or conf.get("idle_model") or DEFAULT_IDLE_MODEL
+    budget = float(budget if budget is not None else conf.get("idle_budget_usd", DEFAULT_IDLE_BUDGET))
+    per_hour = int(per_hour if per_hour is not None else conf.get("casual_per_hour", DEFAULT_CASUAL_PER_HOUR))
+    p = store.dir / "chat-casual.json"
+    try:
+        d = json.loads(p.read_text())
+    except (OSError, ValueError):
+        d = {}
+    hour = now.strftime("%Y-%m-%dT%H")
+    count = d.get("count", 0) if d.get("hour") == hour else 0
+    done = []
+    for m in [m for m in reversed(store.chat_list(limit=200)) if casual_eligible(m)][:limit]:
+        if count >= per_hour:
+            break
+        try:
+            said = casual_line(claude, model, budget, m)
+        except BoardError as e:
+            if log:
+                log(f"casual: #{m['seq']}: {e}")
+            break
+        count += 1
+        try:
+            p.write_text(json.dumps({"hour": hour, "count": count}))
+        except OSError:
+            pass
+        done.append(store.chat_set_said(m["seq"], said))
+        if log:
+            log(f"casual: #{m['seq']} {m['sender']}: {done[-1]['said'] or '(as written)'}")
+    return done
+
+
 # ---- the idle drafter: one reply on a cheaper model, from the inbox and the memory ------------------------------------------
 DEFAULT_IDLE_MODEL = "haiku"       # the claude CLI's alias for its cheapest tier; [chat] idle_model in config.toml overrides it
 DEFAULT_IDLE_BUDGET = 0.05         # dollars per draft, passed as --max-budget-usd

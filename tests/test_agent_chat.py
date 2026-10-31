@@ -441,3 +441,44 @@ class AutopilotTests(_FakeClaude):
         self.assertIn("AGENT-3 -> AGENT-2", out)
         code, out = self.run_cli("chat", "autopilot", "--once")
         self.assertIn("nothing to say", out)
+
+
+class CasualTests(_FakeClaude):
+    """The spoken version of a line, from the fake claude (which answers 'Hey AGENT-2, …' to a rephrase)."""
+
+    SPOKEN = "Hey AGENT-1, how did you get past the lock thing? I keep hitting it."
+
+    def setUp(self):
+        super().setUp()
+        rephrase = 'if "Rewrite the message below" in rec["stdin"]:\n    print(json.dumps({"type": "result", "result": %r})); sys.exit(0)\n' % self.SPOKEN
+        self.fake.write_text(FAKE.format(py=sys.executable).replace('if mode == "nothing":', rephrase + 'if mode == "nothing":'))
+
+    def test_eligible_lines_get_a_spoken_version_and_the_original_stays(self):
+        done = agentchat.casual_once(self.s, str(self.fake))
+        self.assertEqual([m["seq"] for m in done], [2])                         # the question; the switch's notice is the board's, not an agent's
+        m = self.s.chat_list()[-1]
+        self.assertEqual(m["text"], "how did you solve the lock problem?")
+        self.assertEqual(m["said"], self.SPOKEN)
+        self.assertIn("From AGENT-2 to AGENT-1:", json.loads(self.record.read_text())["stdin"])
+        self.assertEqual(agentchat.casual_once(self.s, str(self.fake)), [])      # done once
+
+    def test_who_is_left_as_written(self):
+        self.s.chat_send("Troy", "@AGENT-2 ship it when the tests pass", kind="user", to="AGENT-2")
+        self.s.chat_send("AGENT-3", "ok", to="all")                             # too short to be anything but a line
+        self.s.chat_send("AGENT-3", "by the way, lockf only locks per process on a Mac", to="all", topic="learn", via="idle")   # already in the voice
+        done = agentchat.casual_once(self.s, str(self.fake))
+        self.assertEqual([m["seq"] for m in done], [2])
+        self.s.chat_set_said(2, "how did you solve the lock problem?")           # identical: recorded as looked at, shown as written
+        self.assertEqual(self.s.chat_list()[1]["said"], "")
+        self.assertFalse(agentchat.casual_eligible(self.s.chat_list()[1]))
+
+    def test_the_cap_and_the_cli(self):
+        for i in range(3):
+            self.s.chat_send("AGENT-2", f"status report number {i}: the migration is at step {i} of 3", to="all")
+        done = agentchat.casual_once(self.s, str(self.fake), per_hour=2)
+        self.assertEqual(len(done), 2)
+        self.assertEqual(agentchat.casual_once(self.s, str(self.fake), per_hour=2), [])
+        code, out = self.run_cli("chat", "casual", "--once")
+        self.assertIn("casual: #", out)
+        code, out = self.run_cli("chat", "casual", "--once")
+        self.assertIn("nothing to rephrase", out)
