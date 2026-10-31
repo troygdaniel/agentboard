@@ -53,6 +53,18 @@ class MirrorTests(Base):
         self.assertEqual(m["text"], "The retries card is done; the queue test is yours if you want it.")
         self.assertEqual(m["detail"], "See harden-webhook-retries, 12 tests pass.")
 
+    def test_orch_registers_another_session_by_id(self):
+        _, out = self.run_cli("me", "--name", "AGENT-4", "--session", "sid-four-1234")
+        self.assertIn("session sid-four is AGENT-4", out)
+        m = hooks.mirror_send_message(self.s, dict(PAYLOAD, session_id="sid-four-1234"))
+        self.assertEqual(m["sender"], "AGENT-4")
+
+    def test_orch_prompt_tells_it_to_register_reported_names(self):
+        from agentboard import prompt as promptlib
+        text = promptlib.build_orch_prompt(self.s.load(), self.s.dir)
+        self.assertIn("me --name <name> --session", text)
+        self.assertIn("not the `[ref]` ListAgents shows", text)
+
     def test_names_are_learned_from_claim_start_and_chat(self):
         os.environ["CLAUDE_CODE_SESSION_ID"] = "sid-orch"
         self.run_cli("chat", "send", "hello", "--name", "ORCH")

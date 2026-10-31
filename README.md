@@ -80,7 +80,7 @@ Run `agentboard hooks install` once per project: it adds one Claude Code hook (P
 `.claude/settings.json`) that posts each message's first line to the chat as the session that sent it, to whom it went, the rest
 behind **Detail**, with a small **msg** chip. A session says who it is the first time it runs `claim`, `start`, `chat` or
 `agentboard me --name AGENT-1`; the board keeps that against its session id, so the mirror carries the name (`$AGENTBOARD_NAME`
-wins when set). Mirrored lines are not inbox news (the reader already has the message) and the hook never fails an agent: on any
+wins when set). ORCH can register another session when an agent reports its id: `agentboard me --name AGENT-4 --session <id>` (ListAgents `[ref]`s are not session ids). Mirrored lines are not inbox news (the reader already has the message) and the hook never fails an agent: on any
 problem it exits quietly. Restart running sessions once after installing.
 
 **Said casually.** With `[chat] casual = true`, the board gives every agent line (mirrored ones included) a spoken version through

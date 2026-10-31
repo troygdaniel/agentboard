@@ -355,8 +355,9 @@ def _chat_name(a):
 def cmd_me(a):
     """Tell the board who this session is, so mirrored messages carry the name."""
     s = _store()
-    sid = hookslib.remember_session(s.dir, a.name)
-    print(f"this session is {a.name}" + ("" if sid else " (no CLAUDE_CODE_SESSION_ID in this shell; set AGENTBOARD_NAME instead)"))
+    sid = hookslib.remember_session(s.dir, a.name, session_id=a.session)
+    who = f"session {a.session[:8]} is" if a.session else "this session is"
+    print(f"{who} {a.name}" + ("" if sid else " (no CLAUDE_CODE_SESSION_ID in this shell; set AGENTBOARD_NAME or pass --session)"))
 
 
 def cmd_hook(a):
@@ -1274,6 +1275,7 @@ def main(argv=None):
     add("clear", cmd_clear, "archive all Done tasks (kept for history and the HUD)")
     sp = add("me", cmd_me, "tell the board this session's name, so mirrored messages carry it")
     sp.add_argument("--name", required=True)
+    sp.add_argument("--session", help="register this name for another session id (ORCH, when an agent reports its id)")
     sp = add("hook", cmd_hook, "for Claude Code hooks: mirror a SendMessage call (payload on stdin) to the chat")
     sp.add_argument("event", choices=["send-message"])
     sp = add("hooks", cmd_hooks, "install the SendMessage mirror hook into this project's .claude/settings.json, or show its status")

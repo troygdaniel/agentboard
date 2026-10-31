@@ -265,6 +265,7 @@ Rename this session to ORCH (`/rename ORCH`). You are a fresh or /clear'ed Claud
 - Daytime: Troy assigns cards. Declared sleep or nap: you assign idle agents.
 - When the chat says Troy assigned a card to an agent (the board posts that line), hand that card to that agent.
 - Agents finish with `review`; Troy signs off. Run `done` only on his explicit say-so.
+- When an agent tells you its session name, tell the board: `{ab} me --name <name> --session <its CLAUDE_CODE_SESSION_ID>` if it gave its id; if not, ask it to run `{ab} me --name <name>` in its own shell. Session ids are not the `[ref]` ListAgents shows.
 
 ## Never without Troy's own words
 
