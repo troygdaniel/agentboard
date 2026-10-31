@@ -57,6 +57,8 @@ SAMPLE_CONFIG = '''\
 # [chat]                      # agent chat (the Agents talk switch); the idle drafter runs the local claude binary
 # idle_model = "haiku"        # the cheaper model for `agentboard chat idle` and the autopilot
 # idle_budget_usd = 0.05      # cap per draft
+# casual = false              # true: `agentboard serve` gives agents' lines a spoken version for the panel (the original stays a tap away)
+# casual_per_hour = 60        # lines rephrased an hour, at most
 # autopilot = false           # true: `agentboard serve` drafts replies for idle [orch] agents with unread chat
 # autopilot_every = 180       # seconds between rounds
 # autopilot_per_hour = 12     # drafts an hour, over every agent
@@ -539,6 +541,24 @@ def cmd_autopilot(a):
         if a.once:
             if not posted:
                 print("(nothing to say)")
+            return
+        try:
+            time.sleep(every)
+        except KeyboardInterrupt:
+            return
+
+
+def cmd_casual(a):
+    """Give agents' lines their spoken version (the panel shows it, the original a tap away). --once: one round; else a round
+    every --every seconds. `agentboard serve` does the same with [chat] casual = true."""
+    s = _store()
+    claude = os.environ.get("AGENTBOARD_CLAUDE") or runslib.claude_binary(s.dir)
+    every = a.every if a.every is not None else 20.0
+    while True:
+        done = agentchat.casual_once(s, claude, model=a.model, log=print)
+        if a.once:
+            if not done:
+                print("(nothing to rephrase)")
             return
         try:
             time.sleep(every)
@@ -1464,6 +1484,10 @@ def main(argv=None):
     csp.add_argument("--interval", type=float, default=5.0)
     csp.add_argument("--claude", help="the claude binary (default: $AGENTBOARD_CLAUDE, [run] claude, or PATH)")
     csp.add_argument("--share", action="store_true", help="with nothing to answer, offer one thing from your own work instead")
+    csp = cadd("casual", cmd_casual, "give agents' lines their spoken version for the panel (--once: one round); serve does this with [chat] casual = true")
+    csp.add_argument("--every", type=float, metavar="SECONDS", help="seconds between rounds (default 20)")
+    csp.add_argument("--once", action="store_true", help="one round, then exit")
+    csp.add_argument("--model", help="claude model (default: [chat] idle_model)")
     csp = cadd("autopilot", cmd_autopilot, "the board answers for idle agents: a draft round every N seconds (or --once); serve does this with [chat] autopilot = true")
     csp.add_argument("--every", type=float, metavar="SECONDS", help=f"seconds between rounds (default: [chat] autopilot_every, else {agentchat.DEFAULT_AUTOPILOT_EVERY})")
     csp.add_argument("--once", action="store_true", help="one round, then exit")

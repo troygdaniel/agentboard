@@ -901,6 +901,19 @@ class Store:
             self._write(data)
             return msg
 
+    def chat_set_said(self, seq, said):
+        """Keep the casual rendering of a message (the same facts in a spoken tone); the original text is untouched.
+        An empty or identical rendering records that the line was looked at and left as written."""
+        with self._lock():
+            data = self._read()
+            m = next((m for m in data["chat"] if m["seq"] == int(seq)), None)
+            if not m:
+                raise BoardError(f"no chat message #{seq}")
+            said = " ".join(str(said or "").split())[:CHAT_LINE_MAX]
+            m["said"] = said if said and said != m["text"] else ""
+            self._write(data)
+            return m
+
     def chat_decide(self, seq, decision, by="Troy"):
         """Troy approves or declines an action an agent proposed in the chat. The decision is recorded on the message; the agent
         reads it with `agentboard chat approvals`. Nothing else happens here: the agent does the work, after approval."""

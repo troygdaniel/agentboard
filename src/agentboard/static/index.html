@@ -970,6 +970,7 @@
   .cmsg-meta .chip.file::before { content: '✎ '; }
   .cmsg-meta .chip.auto { color: var(--info); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--info) 40%, var(--line)); }
   .cmsg-meta .chip.mirror { color: var(--muted); box-shadow: inset 0 0 0 1px var(--line); }
+  .cmsg-txt.spoken { font-style: normal; }
   .cmsg-more.dt { font-size: var(--fs-xs); }
   .cmsg-detail { margin-top: 4px; padding: 8px 12px; border-radius: 8px; background: var(--chip); font-size: var(--fs-md); line-height: 1.5; color: var(--text); overflow-wrap: anywhere; }
   .cmsg-detail[hidden] { display: none; }
@@ -1738,9 +1739,10 @@ async function loadChat() {
       renderChat();
       return;
     }
-    if (maxSeq === chatMaxSeq && JSON.stringify(msgs.map(m => m.action?.status)) === chatActKey) return;   // nothing new (a decision changes a message in place)
+    const actKey = JSON.stringify(msgs.map(m => [m.action?.status, m.said || '']));
+    if (maxSeq === chatMaxSeq && actKey === chatActKey) return;   // nothing new (a decision or a spoken version changes a message in place)
     const fresh = msgs.filter(m => m.seq > chatMaxSeq);
-    chatMsgs = msgs; chatMaxSeq = maxSeq; chatActKey = JSON.stringify(msgs.map(m => m.action?.status));
+    chatMsgs = msgs; chatMaxSeq = maxSeq; chatActKey = actKey;
     if ($('chat').classList.contains('open')) chatSeenSeq = maxSeq;  // visible now: counts as seen, not unread later
     else chatUnread = msgs.filter(m => m.seq > chatSeenSeq).length;
     // pacing: several lines landing in one poll (a few agents answering at once) are revealed one at a time, at
@@ -1773,7 +1775,7 @@ $('chat-agents').addEventListener('change', async e => {
 });
 const TOPIC_WORD = { learn: 'learned', help: 'help', 'heads-up': 'heads-up', handoff: 'handoff' };
 function chatBubble(m) {
-  const long = m.text.length > CHAT_CLAMP_CHARS, open = chatExpanded.has(m.seq);
+  const long = (m.said || m.text).length > CHAT_CLAMP_CHARS, open = chatExpanded.has(m.seq);
   const toggle = long ? `<button class="p-more cmsg-more" data-seq="${m.seq}">${open ? 'Show less' : 'Show more'}</button>` : '';
   const to = m.to ? `<span class="to">→ ${esc(m.to)}</span>` : '';
   const topic = m.topic && m.topic !== 'status' ? `<span class="topic ${esc(m.topic)}">${esc(TOPIC_WORD[m.topic] || m.topic)}</span>` : '';
@@ -1784,7 +1786,10 @@ function chatBubble(m) {
     m.via === 'mirror' ? `<span class="chip mirror" title="A message this session sent another session, mirrored here">msg</span>` : ''].filter(Boolean);
   const meta = chips.length ? `<div class="cmsg-meta">${chips.join('')}</div>` : '';
   const dOpen = chatDetail.has(m.seq);
-  const detail = m.detail ? `<button class="p-more cmsg-more dt" data-detail="${m.seq}" aria-expanded="${dOpen}">${dOpen ? 'Detail ▾' : 'Detail ▸'}</button><div class="cmsg-detail fmt" ${dOpen ? '' : 'hidden'}>${fmt(m.detail)}</div>` : '';
+  // the spoken version is the bubble when the board has one; the line as written sits with the detail, a tap away
+  const spoken = !!m.said, body = spoken ? m.said : m.text;
+  const detailText = (spoken ? 'As written: ' + m.text + (m.detail ? '\n\n' + m.detail : '') : m.detail);
+  const detail = detailText ? `<button class="p-more cmsg-more dt" data-detail="${m.seq}" aria-expanded="${dOpen}">${dOpen ? (spoken ? 'As written ▾' : 'Detail ▾') : (spoken ? 'As written ▸' : 'Detail ▸')}</button><div class="cmsg-detail fmt" ${dOpen ? '' : 'hidden'}>${fmt(detailText)}</div>` : '';
   let act = '';
   if (m.action) {
     const a = m.action, st = a.status || 'proposed';
@@ -1794,7 +1799,7 @@ function chatBubble(m) {
   }
   const fresh = !chatShown.has(m.seq) && !chatFirstLoad; chatShown.add(m.seq);
   return `<div class="cmsg ${m.kind} ${fresh ? 'enter' : ''}" style="--c:${hudColor(m.color || '')}"><div class="cmsg-head"><b>${esc(m.sender)}</b>${to}${topic}<span>${ago(m.at).text}</span></div>`
-    + `<div class="cmsg-txt ${long && !open ? 'clamp' : ''}">${esc(m.text)}</div>${toggle}${meta}${detail}${act}</div>`;
+    + `<div class="cmsg-txt ${long && !open ? 'clamp' : ''} ${spoken ? 'spoken' : ''}">${esc(body)}</div>${toggle}${meta}${detail}${act}</div>`;
 }
 function renderChat() {
   const body = $('chat-body');

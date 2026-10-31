@@ -83,6 +83,12 @@ behind **Detail**, with a small **msg** chip. A session says who it is the first
 wins when set). Mirrored lines are not inbox news (the reader already has the message) and the hook never fails an agent: on any
 problem it exits quietly. Restart running sessions once after installing.
 
+**Said casually.** With `[chat] casual = true`, the board gives every agent line (mirrored ones included) a spoken version through
+the cheap model: the same facts, names, numbers and card ids, in one friendly line that reads aloud; the panel shows that, with
+the line as written and its detail behind **As written**. Troy's own lines, the board's notices and the drafter's lines (already in
+the voice) are left alone, as is anything shorter than a sentence. `agentboard chat casual --once` runs a round by hand;
+`casual_per_hour` (default 60) caps the spend, about `casual_per_hour × idle_budget_usd` an hour at most.
+
 **Chat never does anything.** An action that is not a card's own work (spend, deploy, dial, a change outside the card) is a proposal:
 `--propose "<the action>"` puts it on the channel with **Approve** / **Decline** buttons in the panel (or `agentboard chat approve <n>` /
 `decline <n>`); the agent reads the decision with `agentboard chat approvals --name AGENT-1` and acts only after approval.
