@@ -88,9 +88,9 @@
   .wrap { width: min(100%, 1800px); margin: 0 auto; padding: 18px 28px 22px; height: 100vh; height: 100dvh;
     display: flex; flex-direction: column; }
 
-  header { display: flex; flex-wrap: wrap; row-gap: 8px; align-items: center; gap: 14px; flex: none; margin-bottom: 18px; padding-bottom: 14px;
+  header { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; flex: none; margin-bottom: 18px; padding-bottom: 14px;
     border-bottom: 1px solid var(--line); }
-  h1 { font-size: var(--fs-lg); font-weight: 600; letter-spacing: -.015em; display: flex; align-items: center; gap: 9px; }
+  h1 { font-size: var(--fs-lg); font-weight: 600; letter-spacing: -.015em; display: flex; align-items: center; gap: 9px; flex: 0 0 106px; }
   h1 svg { color: var(--text); }
   .filter { display: none; width: 160px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 5px 10px; min-height: 32px; }
   .filter.on { display: block; }
@@ -113,13 +113,14 @@
   #theme { width: 44px; height: 44px; padding: 0; display: grid; place-items: center; }   /* icon button: a 44px target (BJ: header tidy) */
   /* one top bar for the whole product: the same four tabs (Board, HUD, Summary, Reports) sit here, in the HUD's bar and on the
      summary and report pages (nav.py draws those); the page you are on is the lit one */
-  .ab-tabs { display: inline-flex; gap: 2px; padding: 3px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
-  .ab-tabs .tab { display: inline-flex; align-items: center; min-height: 30px; padding: 0 12px; border-radius: 7px; font-size: var(--fs-base); color: var(--muted); text-decoration: none; white-space: nowrap; cursor: pointer; }
+  .ab-tabs { display: inline-flex; gap: 2px; margin: 3px 0; padding: 3px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+  .ab-tabs .tab { display: inline-flex; align-items: center; min-height: 30px; padding: 0 12px; border-radius: 7px; font-size: var(--fs-base); letter-spacing: 0; font-feature-settings: normal; text-rendering: auto; color: var(--muted); text-decoration: none; white-space: nowrap; cursor: pointer; }
   .ab-tabs .tab:hover { color: var(--text); background: var(--chip); }
-  .ab-tabs .tab.on { color: var(--text); background: var(--chip); font-weight: 600; box-shadow: inset 0 0 0 1px var(--line); }
+  .ab-tabs .tab.on { color: var(--text); background: var(--chip); box-shadow: inset 0 0 0 1px var(--line); }
   .hud .ab-tabs { border-color: var(--hline); background: rgba(94,231,255,.04); }
-  .hud .ab-tabs .tab { color: var(--hdim); font: inherit; font-size: var(--fs-sm); min-height: 26px; padding: 0 10px; letter-spacing: var(--tr-tight); }
+  .hud .ab-tabs .tab { color: var(--hdim); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; font-size: 14px; letter-spacing: 0; }   /* the same face and size as every page; only the colours are the HUD's */
   .hud .ab-tabs .tab:hover { color: var(--hcy); background: rgba(94,231,255,.08); }
+  @media (max-width: 600px) { .hud .ab-tabs .tab { font-size: 13px; padding: 0 9px; } }
   .hud .ab-tabs .tab.on { color: var(--hcy); background: rgba(94,231,255,.1); box-shadow: inset 0 0 0 1px rgba(94,231,255,.35); text-shadow: 0 0 8px rgba(94,231,255,.5); }
   @media (max-width: 600px) { .ab-tabs .tab { padding: 0 9px; font-size: var(--fs-md); } }
 
@@ -483,10 +484,10 @@
   #hud.full .hud { max-width: none; border-radius: 0; border: 0; padding: 18px 24px 24px; }
   /* wraps instead of overflowing: with several alert chips the bar outgrew 1440px and the title/buttons
      broke onto two lines, the ticker collapsed to 0 and (half-screen) the clock/buttons clipped off-screen */
-  .h-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
-  .h-title, .h-live, .h-btn { white-space: nowrap; }
-  .h-title { letter-spacing: var(--tr-wide); color: var(--hcy); text-shadow: 0 0 6px rgba(94,231,255,.55), 0 0 22px rgba(94,231,255,.4); }
-  .h-title i { color: var(--hdim); font-style: normal; }
+  .h-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding: 7px 10px 0; min-height: 44px; box-sizing: content-box; }   /* with .hud's own padding: 28px in, 21px down, a 44px row, as on the other pages */
+  .h-brand { display: flex; align-items: center; gap: 9px; flex: 0 0 106px; font: 600 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; letter-spacing: -.015em; color: var(--htext); white-space: nowrap; }
+  @media (max-width: 600px) { .h-bar { padding: 11px 6px 0; } }   /* .hud has 10px of its own here: 16px in, 21px down */
+  .h-brand, .h-live, .h-btn { white-space: nowrap; }
   .h-btn { background: none; border: 1px solid var(--hline); color: var(--hdim); border-radius: 6px; padding: 3px 10px; font: inherit; cursor: pointer; }
   .h-btn:hover { color: var(--hcy); border-color: rgba(94,231,255,.5); }
   .h-live { display: inline-flex; align-items: center; gap: 6px; color: var(--hok); letter-spacing: var(--tr-label); font-size: var(--fs-xs); }
@@ -1045,7 +1046,7 @@
   .card .qr { margin: 0 0 8px; } .lat .qr { margin: 0 0 12px; }
   /* stacked on a phone: the page scrolls as one, columns size to their cards */
   @media (max-width: 900px) {   /* below this three columns no longer fit (cards and the header overflowed at ~780px) */
-    .wrap { height: auto; min-height: 100vh; padding: 16px 16px 40px; }
+    .wrap { height: auto; min-height: 100vh; padding: 18px 16px 40px; }   /* 18px down, as on desktop: the tab row sits where it does on the other pages */
     .board { grid-template-columns: minmax(0, 1fr); }
     .col { min-height: 160px; min-width: 0; }
     .cards { overflow: visible; flex: none; }
@@ -1119,7 +1120,7 @@
 <div id="hud" role="dialog" aria-label="Agent HUD">
   <div class="hud" id="hud-inner">
     <div class="h-bar">
-      <span class="h-title">AGENTBOARD <i>//</i> HUD</span>
+      <span class="h-brand"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="1.5" y="2" width="3.5" height="12" rx="1.2" fill="currentColor" opacity=".35"/><rect x="6.25" y="2" width="3.5" height="8" rx="1.2" fill="currentColor"/><rect x="11" y="2" width="3.5" height="5" rx="1.2" fill="currentColor" opacity=".6"/></svg>agentboard</span>
       <nav class="ab-tabs" aria-label="Pages"><a class="tab" id="h-tab-board" href="./">Board</a><a class="tab on" href="#/hud" aria-current="page">HUD</a><a class="tab" id="h-tab-summary" href="./summary">Summary</a><a class="tab" id="h-tab-reports" href="./reports">Reports</a></nav>
       <span class="h-live">LIVE</span>
       <span class="h-alerts" id="h-alerts"></span>

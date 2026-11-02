@@ -5,17 +5,20 @@ import html
 
 TABS = (("board", "Board", "/"), ("hud", "HUD", "/hud"), ("summary", "Summary", "/summary"), ("reports", "Reports", "/reports"))
 
-LOGO = ('<svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="1.5" y="2" width="3.5" height="12" rx="1.2" fill="currentColor" opacity=".35"/>'
+LOGO = ('<svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="1.5" y="2" width="3.5" height="12" rx="1.2" fill="currentColor" opacity=".35"/>'
         '<rect x="6.25" y="2" width="3.5" height="8" rx="1.2" fill="currentColor"/><rect x="11" y="2" width="3.5" height="5" rx="1.2" fill="currentColor" opacity=".6"/></svg>')
 
 # the same look on the summary and report pages (their tokens: --bg --fg --mut --line --card --ac), 44px targets, wraps on a phone
-CSS = (".ab-top{display:flex;align-items:center;gap:6px 14px;flex-wrap:wrap;padding:10px 16px;border-bottom:1px solid var(--line);background:var(--bg)}"
-       ".ab-brand{display:inline-flex;align-items:center;gap:8px;font-weight:600;font-size:15px;color:var(--fg);text-decoration:none;letter-spacing:-.01em;margin-right:4px}"
-       ".ab-tabs{display:inline-flex;gap:2px;padding:3px;border:1px solid var(--line);border-radius:10px;background:var(--card)}"
-       ".ab-tabs .tab{display:inline-flex;align-items:center;min-height:30px;padding:0 12px;border-radius:7px;font-size:14px;color:var(--mut);text-decoration:none;white-space:nowrap}"
-       ".ab-tabs .tab:hover{color:var(--fg);background:var(--bg)}.ab-tabs .tab.on{color:var(--fg);background:var(--bg);font-weight:600;box-shadow:inset 0 0 0 1px var(--line)}"
+# One geometry on all four pages (the board's header and the HUD bar use the same numbers in index.html): the bar is 28px in from the
+# left and 21px down to a 44px row, the brand takes a fixed 106px slot, so the tab row starts at 148px across and 24px down, the same size
+# and the same widths whichever tab is lit (the lit one changes colour and ring, never weight).
+CSS = (".ab-top{display:flex;align-items:center;gap:8px 14px;flex-wrap:wrap;padding:21px 28px 14px;min-height:44px;box-sizing:content-box;border-bottom:1px solid var(--line);background:var(--bg)}"
+       ".ab-brand{display:inline-flex;align-items:center;gap:9px;flex:0 0 106px;font-weight:600;font-size:15px;line-height:1.5;color:var(--fg);text-decoration:none;letter-spacing:-.015em}"
+       ".ab-tabs{display:inline-flex;gap:2px;margin:3px 0;padding:3px;border:1px solid var(--line);border-radius:10px;background:var(--card)}"
+       ".ab-tabs .tab{display:inline-flex;align-items:center;min-height:30px;padding:0 12px;border-radius:7px;font-size:14px;font-weight:400;color:var(--mut);text-decoration:none;white-space:nowrap}"
+       ".ab-tabs .tab:hover{color:var(--fg);background:var(--bg)}.ab-tabs .tab.on{color:var(--fg);background:var(--bg);box-shadow:inset 0 0 0 1px var(--line)}"
        ".ab-tabs .tab:focus-visible{outline:2px solid var(--ac);outline-offset:1px}.ab-ctx{color:var(--mut);font-size:13px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}"
-       "@media(max-width:600px){.ab-top{padding:8px 12px}.ab-tabs .tab{padding:0 9px;font-size:13px}}@media print{.ab-top{display:none}}")
+       "@media(max-width:600px){.ab-top{padding:21px 16px 14px}.ab-tabs .tab{padding:0 9px;font-size:13px}}@media print{.ab-top{display:none}}")
 
 
 def tabs(base="", active=""):

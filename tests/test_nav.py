@@ -1,6 +1,8 @@
 """One top bar: the same tabs on the summary page, the reports list and every card report, with the board's base path on each link."""
+import re
 import unittest
 from datetime import date
+from pathlib import Path
 
 from agentboard import nav, reports, summary
 from tests.test_reports import Base as _ReportsBase
@@ -25,6 +27,39 @@ class TabsTests(unittest.TestCase):
         self.assertIn("Report: &lt;b&gt;bold&lt;/b&gt;", h)
         self.assertNotIn("<b>bold</b>", h)
         self.assertNotIn("http", h)   # same-origin only
+
+
+STATIC = Path(nav.__file__).parent / "static" / "index.html"
+
+
+class SameRowTests(unittest.TestCase):
+    """The tab row must not move when a tab is clicked: the same order, one brand slot width, and no weight change on the lit tab, in the
+    server-rendered bar (nav.py) and in the board's and the HUD's bars (index.html). The positions themselves are checked in a browser."""
+    def setUp(self):
+        self.html = STATIC.read_text()
+
+    def test_board_and_hud_bars_list_the_four_tabs_in_the_same_order(self):
+        rows = re.findall(r'<nav class="ab-tabs" aria-label="Pages">(.*?)</nav>', self.html)
+        self.assertEqual(len(rows), 2)   # the board's header and the HUD bar
+        for row in rows:
+            self.assertEqual(re.findall(r'class="tab[^"]*"[^>]*>([^<]+)</a>', row), ["Board", "HUD", "Summary", "Reports"])
+        self.assertEqual(re.findall(r">([^<]+)</a>", nav.tabs("", "board")), ["Board", "HUD", "Summary", "Reports"])
+
+    def test_every_bar_gives_the_brand_the_same_slot(self):
+        slot = "flex: 0 0 106px"
+        self.assertIn("flex:0 0 106px", nav.CSS)
+        self.assertEqual(self.html.count(slot), 2)   # h1 on the board, .h-brand on the HUD
+
+    def test_the_lit_tab_never_changes_weight(self):
+        self.assertNotIn("font-weight:600", nav.CSS.split(".ab-tabs .tab.on")[1].split("}")[0])
+        on = re.search(r"\.ab-tabs \.tab\.on \{([^}]*)\}", self.html).group(1)
+        self.assertNotIn("font-weight", on)
+
+    def test_the_hud_tabs_keep_only_colours_and_the_shared_size(self):
+        hud = re.search(r"\.hud \.ab-tabs \.tab \{([^}]*)\}", self.html).group(1)
+        self.assertIn("font-size: 14px", hud)
+        self.assertNotIn("min-height", hud)
+        self.assertNotIn("padding", hud)
 
 
 class PagesTests(_ReportsBase):
