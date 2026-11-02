@@ -225,7 +225,7 @@
   .card.done .who { color: color-mix(in srgb, var(--text) 82%, var(--muted)); }
   /* the holder's name is the card's first thing to find (Troy, 2026-11-01): 14px/650 in full text colour (the title is 15px),
      the same on every status; it was 12px/500, the smallest text on the card, level with the timestamp */
-  .top .who { min-width: 0; font-size: var(--fs-base); font-weight: 650; letter-spacing: .02em; }
+  .top .who, .p-who .agent-pill { min-width: 0; font-size: var(--fs-base); font-weight: 650; letter-spacing: .02em; }
   .top .who .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   /* less noise (Troy, 2026-10-28): a card reads as one row, agent + title + its mark. The description, status line,
      result and Details are still in the DOM and in the detail panel (tap the card); a doing card keeps its bar and % */
@@ -262,10 +262,10 @@
   .av { transition: transform .15s ease; }
   /* Scheme B on the card's top row: the name sits in a pill tinted with the agent's colour, the avatar is a solid disc.
      margin keeps the disc where the ring avatar was (left edge) and the row at its old height */
-  .top .who { margin: -2px 0 -2px -2px; padding: 2px 10px 2px 2px; border-radius: 999px;
+  .top .who, .p-who .agent-pill { margin: -2px 0 -2px -2px; padding: 2px 10px 2px 2px; border-radius: 999px;
     background: color-mix(in srgb, var(--c, var(--neutral)) 17%, var(--chip)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c, var(--neutral)) 55%, var(--line)); }
-  .top .who .av { background: var(--c, var(--neutral)); box-shadow: none; color: var(--on-agent); }
-  .top .who .av.live { animation: avglow 3s ease-in-out infinite; }
+  .top .who .av, .p-who .agent-pill .av { background: var(--c, var(--neutral)); box-shadow: none; color: var(--on-agent); }
+  .top .who .av.live, .p-who .agent-pill .av.live { animation: avglow 3s ease-in-out infinite; }
   @keyframes avglow { 50% { box-shadow: 0 0 10px 1px color-mix(in srgb, var(--c, var(--neutral)) 55%, transparent); } }
   /* Doing header: one quiet dot per agent working right now */
   .pres { display: inline-flex; gap: 4px; margin-left: 2px; }
@@ -839,6 +839,10 @@
   .p-sec > h3 { font-size: var(--fs-md); font-weight: 500; color: var(--muted); margin-bottom: 9px; }
   .p-who { display: flex; align-items: center; gap: 8px; margin-top: 12px; color: var(--muted); font-size: var(--fs-base); }
   .p-who .name { color: var(--text); font-weight: 500; }
+  /* the panel's holder is the card's pill (see .top .who): disc in a tinted pill, the same weight, the disc on the left edge */
+  .p-who .agent-pill { display: inline-flex; align-items: center; gap: 8px; color: var(--text); line-height: 1.5; }
+  .p-who .agent-pill .name { font-weight: inherit; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .p-who .p-when { flex: none; white-space: nowrap; }   /* a long name shrinks the pill, not the time beside it */
   .callout { position: relative; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; overflow-wrap: anywhere;
     box-shadow: inset 0 1px 0 var(--card-hi), var(--shadow); }
   /* ask/review callouts carry the same glowing state bar as the card that raised them */
@@ -2037,7 +2041,7 @@ let panelEdit = null, panelDraft = '';   // 'title' | 'description' while one of
 function panelHtml(t) {
   const doing = t.status === 'doing', stale = doing && ago(t.updated).min >= STALE_MIN;
   const abandoned = doing && ago(t.updated).min >= (cfg.stale_minutes || DEFAULT_STALE_MIN);
-  const who = t.agent ? `<div class="p-who"><span class="av ${doing && !stale ? 'live' : ''}" style="--c:${colorOf(t)}" aria-hidden="true">${esc(nodeGlyph(t.agent))}</span><span class="name">${esc(t.agent)}</span><span>${t.status === 'done' ? 'finished' : 'working'} ${ago(t.updated).text}</span></div>` : '';
+  const who = t.agent ? `<div class="p-who"><span class="agent-pill" style="--c:${colorOf(t)}"><span class="av ${doing && !stale ? 'live' : ''}" aria-hidden="true">${esc(nodeGlyph(t.agent))}</span><span class="name">${esc(t.agent)}</span></span><span class="p-when">${t.status === 'done' ? 'finished' : 'working'} ${ago(t.updated).text}</span></div>` : '';
   const prog = doing ? `<div class="p-sec"><div class="bar" style="margin:0" role="progressbar" aria-valuenow="${t.progress || 0}" aria-valuemin="0" aria-valuemax="100" aria-label="Progress"><b style="width:${t.progress || 0}%;background:${colorOf(t)}"></b></div><div class="p-pct"><span>${t.review || t.needs_input ? '' : esc(t.status_text || '')}</span><b>${(kidsMap.get(t.id) || []).length ? 'Σ ' : ''}${t.progress || 0}%</b></div>${abandoned ? `<div class="p-pct"><span style="color:var(--err)">⚠ No update for ${ago(t.updated).text.replace(' ago', '')} — possibly abandoned</span></div>` : stale ? `<div class="p-pct"><span style="color:var(--warn)">No update for ${ago(t.updated).text.replace(' ago', '')}</span></div>` : ''}</div>` : '';
   const bodyHtml = t.body_html ? `<div class="rich-body">${t.body_html}</div>` : '';   // server-rendered + sanitized; safe to insert as-is
   const rv = !t.needs_input && t.review && t.status === 'doing';
