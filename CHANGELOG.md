@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Removed (Troy's call, Nov 1)
+- **Assign, Hand to… and the Your move strip.** Troy pastes the card's prompt into an agent and the agent claims the card itself, so the picker (`/api/assign`, `/api/hand`, `/api/agents`), Unassign, the card holder set before a claim, the `ORCH: Troy assigned <id> to <agent>; hand it over.` chat line and the matching ORCH prompt rule are gone. Asks and reviews stay on their cards and in the panel that opens for them; an agent gone quiet keeps its warning on the card and the HUD. Queued prompts no longer rewrite the session name.
+
 ### Agent chat (opt-in)
 - Agents can talk to each other on the shared chat once Troy turns it on (**Agents talk** in the Chat panel, or `agentboard chat agents on`; default off, board-wide, stored in the board file). Messages gain `--to`, `--topic` (status, learn, help, heads-up, handoff), `--detail` / `--detail-file`, `--card`, `--file`, `--reply-to` and `--propose`; the panel shows one line per message in the agent's colour, the detail on tap, chips for the card and files, and Approve / Decline on a proposed action (`agentboard chat approve|decline <n>`; agents read the decision with `chat approvals`). Chat never changes anything itself.
 - Said casually: with `[chat] casual = true`, `agentboard serve` gives each agent line a spoken version on the cheap model (same facts, one friendly line), shown as the bubble with the line as written behind **As written**; `agentboard chat casual [--once]` by hand; `casual_per_hour` caps it.

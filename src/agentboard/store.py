@@ -312,35 +312,6 @@ class Store:
             _recompute(tasks, t)
             return t
 
-    def assign(self, task_id, name, color=None, by="Troy"):
-        """Troy hands a queued card to an agent from the board: the card keeps its column (Todo or Later) and shows the
-        agent as its holder until that agent claims it. name=None takes the assignment off again.
-
-        The hook: ORCH follows the shared chat (`agentboard chat tail --follow`), so one line goes there naming the card
-        and the agent, which is how ORCH knows to hand the card over. Nothing else is called."""
-        name = (name or "").strip() or None
-        with self.transaction() as tasks:
-            t = self.get(tasks, task_id)
-            if t["status"] not in ("todo", "backlog"):
-                raise BoardError(f"{task_id} is in {t['status']}; only a queued card (Todo or Later) can be assigned")
-            if t.get("parent_id"):
-                raise BoardError("assign the parent card; its subtasks follow it")
-            was = t.get("agent")
-            if name == was and (not color or color == t.get("color")):
-                return t
-            if name:
-                t["agent"] = name
-                if color:
-                    t["color"] = color
-                _log(t, f"Assigned to {name}", by=by)
-            else:
-                t.pop("agent", None)
-                _log(t, "Assignment removed", by=by)
-            t["updated"] = _now()
-        self.chat_send(by, f"ORCH: {by} assigned {task_id} to {name}; hand it over." if name
-                       else f"ORCH: {by} took {task_id} back from {was or 'its agent'}; it is unassigned.", "user")
-        return t
-
     def edit(self, task_id, title=None, description=None, blocked_by=None, by="Troy"):
         """Change a card's words and shape from the board: its title, its description, the cards it is blocked by. One log line
         per thing changed, marked as Troy's. Never its holder or its column (claim/assign/move do those)."""
@@ -381,40 +352,6 @@ class Store:
             if changed:
                 t["updated"] = _now()
             return t
-
-    def hand_to(self, task_id, name, color=None, by="Troy"):
-        """Troy gives a live card to another agent from the board: it goes back to the top of Todo under the new agent (who
-        claims it as usual), its ask/review state clears, the old agent is released, and its open subtasks follow. A queued
-        card is simply assigned. The same hook as assign(): one line in the shared chat tells ORCH."""
-        name = (name or "").strip()
-        if not name:
-            raise BoardError("say who to hand it to")
-        if self.get(self.load(), task_id)["status"] in ("todo", "backlog"):
-            return self.assign(task_id, name, color, by)
-        with self.transaction() as tasks:
-            t = self.get(tasks, task_id)
-            if t.get("parent_id"):
-                raise BoardError("hand over the parent card; its subtasks follow it")
-            if t["status"] == "done":
-                raise BoardError(f"{task_id} is done; reopen it first")
-            was = t.get("agent")
-            if was == name:
-                raise BoardError(f"{task_id} is already with {name}")
-            tasks.remove(t)
-            _set_status(tasks, t, "todo")   # releases the old holder, takes the open subtasks along
-            for f in ("needs_input", "question", "ask_child", "review", "reply", "body_md"):
-                t.pop(f, None)
-            t["agent"] = name
-            if color:
-                t["color"] = color
-            t["progress"] = min(int(t.get("progress", 0)), 95)
-            t["status_text"] = f"Handed to {name}"
-            _log(t, f"Handed from {was or 'nobody'} to {name}", by=by)
-            t["updated"] = _now()
-            top = next((i for i, x in enumerate(tasks) if x["status"] == "todo"), len(tasks))   # the top of Todo, like a new card
-            tasks.insert(top, t)
-        self.chat_send(by, f"ORCH: {by} handed {task_id} from {was or 'nobody'} to {name}; hand it over.", "user")
-        return t
 
     def ask(self, task_id, question, body_md=None):
         """Agent flags that it is blocked on the user. Cleared by the next update.

@@ -232,20 +232,10 @@ def build_prompt(task, board_dir, public=False, tasks=None):
     # one pass over the template, so a placeholder that appears inside a substituted value
     # (a description mentioning "{ab}", say) is left as written rather than expanded again
     out = re.sub(r"\{(" + "|".join(values) + r")\}", lambda m: values[m.group(1)], template)
-    if task.get("agent") and task.get("status") in ("todo", "backlog"):   # assigned from the board: the prompt names its agent
-        out = _name_agent(out, task["agent"], task.get("color"))
     from . import agentchat
     if agentchat.is_on(board_dir):   # the agent chat protocol rides along only while Troy has the switch on
-        out = out.rstrip("\n") + "\n\n" + agentchat.protocol(board_dir, task["agent"] if task.get("agent") and task.get("status") in ("todo", "backlog") else "<your session name>")
+        out = out.rstrip("\n") + "\n\n" + agentchat.protocol(board_dir)
     return out, warnings
-
-
-def _name_agent(text, agent, color=None):
-    """A queued card with a holder (Assign / Hand to… on the board) gets a prompt that already says who claims it, so the paste
-    into that agent's terminal needs no edit: the placeholder name becomes the agent's, with its colour when the card has one."""
-    name = '"' + agent.replace('"', "") + '"'
-    text = text.replace('--name "<your session name>"', f"--name {name}" + (f" --color {color}" if color and re.fullmatch(r"[\w#-]{1,32}", color) else ""))
-    return text.replace("<your session name>", agent)
 
 
 DEFAULT_PEERS = (("AGENT-1", "green"), ("AGENT-2", "green"), ("AGENT-3", "green"),
@@ -263,7 +253,6 @@ Rename this session to ORCH (`/rename ORCH`). You are a fresh or /clear'ed Claud
 - Agents report to Troy directly, on their cards. Close reviewed cards, run gates, migrations and restarts, log decisions.
 - Speak to Troy only when he must act.
 - Daytime: Troy assigns cards. Declared sleep or nap: you assign idle agents.
-- When the chat says Troy assigned a card to an agent (the board posts that line), hand that card to that agent.
 - Agents finish with `review`; Troy signs off. Run `done` only on his explicit say-so.
 - When an agent tells you its session name, tell the board: `{ab} me --name <name> --session <its CLAUDE_CODE_SESSION_ID>` if it gave its id; if not, ask it to run `{ab} me --name <name>` in its own shell. Session ids are not the `[ref]` ListAgents shows.
 

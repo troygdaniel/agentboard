@@ -123,14 +123,10 @@ does the same by hand. The board also stays out of an awake agent's way: an agen
 date and the age of every card, treat done cards and day-old asks as closed, never post a bare acknowledgement, and end an answer
 with one real question back when there is one.
 
-### Assign from the board
+### Handing a card to an agent
 
-Every Todo card has an **Assign** button: a picker lists the agents, idle ones first (the ones the HUD knows plus any named under
-`[orch] agents` in `config.toml`), then the busy ones with the card they hold. One click hands the card to that agent: it stays in Todo
-showing that holder until the agent claims it (`agentboard claim <id> --name <agent>`), and **Unassign** takes it back. The hook that
-tells ORCH is one line in the shared chat, `ORCH: Troy assigned <id> to <agent>; hand it over.`, which ORCH already follows with
-`agentboard chat tail --follow`; nothing else is called. Also on the board: a **Your move** strip under the header lists every card that
-needs you (asks, reviews, agents gone quiet) with its action right there, and the Done column shows a 7-day ribbon of what was finished.
+There is no Assign button. Press **Copy prompt** on the card, paste it into the agent's terminal, and the agent claims the card itself
+(`agentboard claim <id> --name <agent>`); its name lands on the card. The Done column shows a 7-day ribbon of what was finished.
 
 ### Reports: action first
 
@@ -365,7 +361,7 @@ straight into a standup or a daily log:
 **From the board tab:** the bell in the top bar turns on desktop notifications through the browser's own Notification API (local, no
 service, no new dependency). While the tab is in the background you get one when a card needs an answer (and again every 15 minutes
 while it waits), once when a card is ready for sign-off, and once when an agent goes quiet; clicking it brings the tab back and
-opens the card. In front, the Your move strip and the sounds already say it.
+opens the card. In front, the cards and the sounds already say it.
 
 **From the terminal, on macOS:** off by default. Turn on native macOS banners for **needs input** and **ready for review** so you don't have to
 keep the board or HUD open to notice a blocked or finished agent:
