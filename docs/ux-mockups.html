@@ -1,0 +1,475 @@
+<title>Agentboard UX Mockups</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+  /* Layout: five ranked proposals, one per section. Each is a short problem line, a live-styled mock on the board's own
+     tokens (copied from docs/subtasks-mockup.html), and a before/after score. All numbers in the mocks are sample data. */
+  :root {
+    --bg: #fafaf9; --surface: #ffffff; --line: #e7e5e4;
+    --text: #1c1917; --muted: #6b6560; --accent: #1c1917;
+    --warn: #b45309; --ok: #15803d; --err: #b42318; --neutral: #a8a29e;
+    --chip: #f2f0ee; --well: rgba(28,25,23,.1); --card-hi: rgba(255,255,255,.8);
+    --glow1: rgba(99,102,241,.08); --glow2: rgba(251,146,60,.09); --dot: rgba(28,25,23,.07); --sheen: rgba(28,25,23,.22);
+    --panel: linear-gradient(180deg, rgba(255,255,255,.72), rgba(255,255,255,.4));
+    --panel-hi: rgba(255,255,255,.95); --panel-sh: 0 18px 40px -28px rgba(28,25,23,.35);
+    --shadow: 0 1px 2px rgba(28,25,23,.05), 0 1px 1px rgba(28,25,23,.03);
+    --warn-bg: rgba(180,83,9,.09); --ok-bg: rgba(21,128,61,.09); --err-bg: rgba(180,35,24,.08);
+    --fs-xs: 11px; --fs-sm: 12px; --fs-md: 13px; --fs-base: 14px; --fs-lg: 15px; --fs-xl: 20px;
+    --tr-label: .16em; --tr-tight: .06em;
+    --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #070b12; --surface: #0f1722; --line: #1c2a3a;
+      --text: #d6e9ff; --muted: #7f95ad; --accent: #d6e9ff;
+      --warn: #ffc857; --ok: #5dffb0; --err: #ff6b6b; --neutral: #4b5f75;
+      --chip: #15202e; --well: rgba(0,0,0,.45); --card-hi: rgba(255,255,255,.05);
+      --glow1: rgba(94,231,255,.12); --glow2: rgba(93,255,176,.06); --dot: rgba(110,190,255,.05); --sheen: rgba(255,255,255,.5);
+      --panel: linear-gradient(180deg, rgba(14,25,38,.74), rgba(8,15,24,.66));
+      --panel-hi: rgba(255,255,255,.045); --panel-sh: 0 18px 40px -26px rgba(0,0,0,.9);
+      --shadow: inset 0 1px 0 rgba(255,255,255,.03);
+      --warn-bg: rgba(255,200,87,.1); --ok-bg: rgba(93,255,176,.09); --err-bg: rgba(255,107,107,.1);
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #070b12; --surface: #0f1722; --line: #1c2a3a;
+    --text: #d6e9ff; --muted: #7f95ad; --accent: #d6e9ff;
+    --warn: #ffc857; --ok: #5dffb0; --err: #ff6b6b; --neutral: #4b5f75;
+    --chip: #15202e; --well: rgba(0,0,0,.45); --card-hi: rgba(255,255,255,.05);
+    --glow1: rgba(94,231,255,.12); --glow2: rgba(93,255,176,.06); --dot: rgba(110,190,255,.05); --sheen: rgba(255,255,255,.5);
+    --panel: linear-gradient(180deg, rgba(14,25,38,.74), rgba(8,15,24,.66));
+    --panel-hi: rgba(255,255,255,.045); --panel-sh: 0 18px 40px -26px rgba(0,0,0,.9);
+    --shadow: inset 0 1px 0 rgba(255,255,255,.03);
+    --warn-bg: rgba(255,200,87,.1); --ok-bg: rgba(93,255,176,.09); --err-bg: rgba(255,107,107,.1);
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body {
+    background:
+      radial-gradient(1000px 460px at 10% -8%, var(--glow1), transparent 70%) no-repeat,
+      radial-gradient(760px 420px at 96% -6%, var(--glow2), transparent 70%) no-repeat,
+      radial-gradient(var(--dot) 1px, transparent 1px) 0 0 / 22px 22px,
+      var(--bg);
+    min-height: 100vh; color: var(--text);
+    font: var(--fs-base)/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased; letter-spacing: -.003em;
+    padding-block: 22px 40px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  }
+  .wrap { width: min(100%, 1180px); margin: 0 auto; display: flex; flex-direction: column; gap: 44px; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  svg { flex: none; }
+
+  /* ---------- page head ---------- */
+  .head h1 { font-size: var(--fs-xl); font-weight: 600; letter-spacing: -.02em; text-wrap: balance; }
+  .head p { color: var(--muted); font-size: var(--fs-md); margin-top: 4px; max-width: 68ch; }
+  .rank { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; margin-top: 18px; }
+  .rank a { display: flex; gap: 10px; align-items: baseline; text-decoration: none; color: var(--text); background: var(--surface);
+    border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; box-shadow: inset 0 1px 0 var(--card-hi), var(--shadow); }
+  .rank a:hover { border-color: var(--neutral); }
+  .rank b { font-variant-numeric: tabular-nums; font-size: var(--fs-lg); color: var(--muted); font-weight: 600; }
+  .rank span { font-size: var(--fs-md); font-weight: 550; line-height: 1.3; }
+
+  /* ---------- proposal frame ---------- */
+  .prop { display: flex; flex-direction: column; gap: 14px; scroll-margin-top: 18px; }
+  .prop-h { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .prop-h .n { font-variant-numeric: tabular-nums; font-size: var(--fs-xl); font-weight: 600; color: var(--muted); letter-spacing: -.02em; }
+  .prop-h h2 { font-size: var(--fs-xl); font-weight: 600; letter-spacing: -.02em; text-wrap: balance; }
+  .now { color: var(--muted); font-size: var(--fs-md); max-width: 78ch; }
+  .now b { font-size: var(--fs-xs); letter-spacing: var(--tr-label); text-transform: uppercase; color: var(--text); font-weight: 600; margin-right: 8px; }
+  .stage { border: 1px solid var(--line); border-radius: 16px; padding: 16px; background: var(--panel);
+    box-shadow: inset 0 1px 0 var(--panel-hi), var(--panel-sh); display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+  .lab { font-size: var(--fs-xs); font-weight: 600; letter-spacing: var(--tr-label); text-transform: uppercase; color: var(--muted); }
+  .two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; }
+  .two > div { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+  @media (max-width: 760px) { .two { grid-template-columns: 1fr; } }
+
+  .score { display: flex; flex-wrap: wrap; gap: 8px; }
+  .score span { font-size: var(--fs-sm); color: var(--muted); background: var(--chip); border-radius: 999px; padding: 2px 10px; box-shadow: inset 0 0 0 1px var(--line); font-variant-numeric: tabular-nums; }
+  .score b { color: var(--text); font-weight: 600; }
+  .score .up { color: var(--ok); font-weight: 600; }
+
+  /* ---------- shared board pieces ---------- */
+  .btn { display: inline-flex; align-items: center; gap: 6px; background: none; border: 1px solid var(--line); border-radius: 8px; padding: 4px 11px; color: var(--text);
+    min-height: 28px; font: inherit; font-size: var(--fs-sm); font-weight: 500; cursor: pointer; white-space: nowrap; }
+  .btn:hover { background: var(--surface); border-color: var(--neutral); }
+  .btn.ok { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 55%, var(--line)); }
+  .btn.pri { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+  .btn.warn { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 55%, var(--line)); }
+  .av { width: 22px; height: 22px; border-radius: 50%; flex: none; display: grid; place-items: center; font-size: var(--fs-xs); font-weight: 600; color: var(--text);
+    background: color-mix(in srgb, var(--c, var(--neutral)) 16%, var(--chip)); box-shadow: inset 0 0 0 1.5px var(--c, var(--neutral)); }
+  .who { display: inline-flex; align-items: center; gap: 8px; font-size: var(--fs-sm); font-weight: 500; white-space: nowrap; }
+  .proj { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-xs); font-weight: 500; color: var(--muted); background: var(--chip); border-radius: 999px; padding: 2px 9px 2px 7px;
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--pc, var(--neutral)) 35%, var(--line)); white-space: nowrap; }
+  .proj::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--pc, var(--neutral)); }
+  .check { color: var(--ok); }
+  .grow { flex: 1; min-width: 0; }
+  .ell { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cnt { background: var(--chip); border-radius: 999px; padding: 0 7px; font-size: var(--fs-xs); line-height: 18px; letter-spacing: 0; font-variant-numeric: tabular-nums; box-shadow: inset 0 0 0 1px var(--line); color: var(--text); }
+
+  /* top bar (used in 1 and 4) */
+  .tb { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 8px 12px; box-shadow: inset 0 1px 0 var(--card-hi), var(--shadow); }
+  .tb .logo { font-weight: 600; font-size: var(--fs-md); letter-spacing: -.01em; display: inline-flex; align-items: center; gap: 8px; }
+  .live { font-size: var(--fs-xs); color: var(--ok); display: inline-flex; align-items: center; gap: 5px; }
+  .live::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--ok); }
+  .tabs { display: inline-flex; gap: 2px; background: var(--chip); border-radius: 9px; padding: 2px; box-shadow: inset 0 0 0 1px var(--line); }
+  .tabs a { font-size: var(--fs-sm); font-weight: 500; color: var(--muted); padding: 3px 11px; border-radius: 7px; text-decoration: none; display: inline-flex; gap: 6px; align-items: center; }
+  .tabs a.on { background: var(--surface); color: var(--text); box-shadow: 0 1px 2px var(--well); }
+  .tabs .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--warn); }
+  .tb .sp { flex: 1; }
+  .field { font-size: var(--fs-sm); color: var(--muted); border: 1px solid var(--line); border-radius: 8px; padding: 3px 10px; min-height: 28px; display: inline-flex; align-items: center; background: var(--bg); }
+
+  /* ---------- 1 your move ---------- */
+  .move { border: 1px solid color-mix(in srgb, var(--warn) 40%, var(--line)); border-radius: 12px; background: linear-gradient(180deg, var(--warn-bg), transparent 90%), var(--surface); padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; }
+  .move-h { display: flex; align-items: center; gap: 8px; }
+  .mv { display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 6px 0; border-top: 1px solid var(--line); font-size: var(--fs-md); }
+  .mv:first-of-type { border-top: 0; }
+  .kind { font-size: var(--fs-xs); font-weight: 600; letter-spacing: var(--tr-tight); text-transform: uppercase; border-radius: 6px; padding: 1px 7px; }
+  .kind.ask { color: var(--warn); background: var(--warn-bg); }
+  .kind.rev { color: var(--ok); background: var(--ok-bg); }
+  .acts { display: inline-flex; gap: 6px; }
+  .calm { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); padding: 9px 12px; font-size: var(--fs-md); color: var(--muted); }
+  .calm .check { display: inline-flex; }
+  .calm b { color: var(--text); font-weight: 600; }
+  @media (max-width: 640px) { .mv { grid-template-columns: auto minmax(0, 1fr); } .mv .kind { display: none; } .mv .acts { grid-column: 1 / -1; } }
+
+  /* ---------- 2 HUD ---------- */
+  .hud { border: 1px solid var(--line); border-radius: 14px; background: var(--surface); padding: 6px 14px 10px; font-family: var(--mono); box-shadow: inset 0 1px 0 var(--card-hi), var(--shadow); min-width: 0; }
+  .hud-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 8px 0 10px; border-bottom: 1px solid var(--line); }
+  .hud-top .ttl { font-size: var(--fs-sm); letter-spacing: var(--tr-label); text-transform: uppercase; color: var(--muted); }
+  .hud-top .ttl b { color: var(--text); font-weight: 600; }
+  .pill { font-size: var(--fs-xs); border-radius: 999px; padding: 1px 9px; box-shadow: inset 0 0 0 1px var(--line); color: var(--muted); white-space: nowrap; }
+  .pill.warn { color: var(--warn); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--warn) 45%, var(--line)); }
+  .pill.ok { color: var(--ok); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ok) 45%, var(--line)); }
+  .hrow { display: grid; grid-template-columns: 36px minmax(0, 1fr) minmax(200px, 34%); gap: 14px; align-items: center; padding: 11px 0; border-bottom: 1px solid var(--line); }
+  .hrow .av { width: 32px; height: 32px; font-size: var(--fs-md); }
+  .hrow .nm { font-size: var(--fs-base); font-weight: 600; font-family: var(--mono); }
+  .st { font-size: var(--fs-xs); font-weight: 700; letter-spacing: var(--tr-tight); text-transform: uppercase; margin-left: 8px; }
+  .st.work { color: var(--c); } .st.ask { color: var(--warn); } .st.rev { color: var(--ok); }
+  .hrow .say { font-size: var(--fs-md); color: var(--text); margin-top: 2px; }
+  .hrow .age { font-size: var(--fs-xs); color: var(--muted); margin-left: 8px; }
+  .hrow.needs { background: linear-gradient(90deg, var(--warn-bg), transparent 70%); margin-inline: -14px; padding-inline: 14px; border-left: 3px solid var(--warn); padding-left: 11px; }
+  /* one chart per agent: last-60-min activity sits on its progress baseline */
+  .trk { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+  .trk .t { font-size: var(--fs-xs); color: var(--muted); }
+  .spark { display: flex; align-items: flex-end; gap: 2px; height: 22px; }
+  .spark i { flex: 1; height: var(--h); min-height: 2px; border-radius: 1px; background: color-mix(in srgb, var(--c) 38%, var(--chip)); }
+  .spark i:last-child { background: var(--c); }
+  .base { display: flex; align-items: center; gap: 8px; }
+  .base .rail { flex: 1; height: 5px; border-radius: 3px; background: var(--chip); box-shadow: inset 0 1px 2px var(--well); overflow: hidden; }
+  .base .rail b { display: block; height: 100%; width: var(--p); background: var(--c); border-radius: 3px; box-shadow: 0 0 8px -1px var(--c); }
+  .base .pc { font-size: var(--fs-xs); font-variant-numeric: tabular-nums; min-width: 30px; text-align: right; }
+  .idle { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 10px 0; border-bottom: 1px solid var(--line); font-size: var(--fs-sm); color: var(--muted); }
+  .idle .who { color: var(--muted); }
+  .idle .av { width: 20px; height: 20px; opacity: .6; }
+  .queue { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 14px; align-items: center; padding: 10px 0 0; font-size: var(--fs-xs); letter-spacing: var(--tr-label); text-transform: uppercase; color: var(--muted); }
+  .queue .q { display: flex; gap: 3px; height: 14px; max-width: 320px; }
+  .queue .q i { flex: 1; border-radius: 2px; background: color-mix(in srgb, var(--accent) 45%, var(--chip)); }
+  .axis { display: flex; justify-content: space-between; font-size: var(--fs-xs); color: var(--muted); padding-top: 8px; }
+  .hud-wrap { overflow-x: auto; }
+  @media (max-width: 640px) { .hrow { grid-template-columns: 36px minmax(0, 1fr); } .hrow .trk { grid-column: 1 / -1; } }
+
+  /* ---------- 3 todo card ---------- */
+  .card { background: linear-gradient(180deg, color-mix(in srgb, var(--glow1) 70%, var(--surface)), var(--surface) 65%); border: 1px solid var(--line); border-radius: 12px; padding: 13px 14px 11px;
+    box-shadow: inset 0 1px 0 var(--card-hi), var(--shadow); display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+  .card .title { font-weight: 550; font-size: var(--fs-lg); line-height: 1.4; letter-spacing: -.01em; }
+  .card .foot { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: var(--fs-sm); }
+  .card .foot .sp { flex: 1; }
+  .more { width: 28px; padding: 0; justify-content: center; color: var(--muted); }
+  .picker { border-top: 1px solid var(--line); padding-top: 8px; display: flex; flex-direction: column; gap: 6px; }
+  .pick { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 5px 8px; border-radius: 8px; border: 1px solid transparent; font-size: var(--fs-md); }
+  .pick.free { background: var(--ok-bg); border-color: color-mix(in srgb, var(--ok) 35%, var(--line)); }
+  .pick .s { font-size: var(--fs-sm); color: var(--muted); font-variant-numeric: tabular-nums; }
+  .pick.free .s { color: var(--ok); font-weight: 600; }
+  .pick.busy { opacity: .72; }
+  .help { font-size: var(--fs-xs); color: var(--muted); }
+
+  /* ---------- 4 one bar ---------- */
+  .surfaces { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
+  .surf { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .thumb { border: 1px solid var(--line); border-radius: 10px; background: var(--surface); overflow: hidden; height: 132px; display: flex; flex-direction: column; box-shadow: var(--shadow); }
+  .tbm { display: flex; align-items: center; gap: 5px; padding: 5px 8px; border-bottom: 1px solid var(--line); background: color-mix(in srgb, var(--chip) 60%, var(--surface)); }
+  .tbm .lg { width: 28px; height: 5px; border-radius: 3px; background: var(--text); opacity: .75; margin-right: 4px; }
+  .tbm i { width: 16px; height: 5px; border-radius: 3px; background: var(--line); }
+  .tbm i.on { background: var(--accent); }
+  .tbm .sp { flex: 1; }
+  .thumb .body { flex: 1; padding: 8px; display: grid; gap: 6px; min-height: 0; }
+  .body.cols { grid-template-columns: repeat(3, 1fr); }
+  .body.cols i { border-radius: 6px; background: var(--chip); box-shadow: inset 0 0 0 1px var(--line); display: block; }
+  .body.cols i.mid { background: color-mix(in srgb, var(--accent) 10%, var(--chip)); }
+  .body.rows { grid-template-rows: repeat(3, 1fr); }
+  .body.rows i { border-radius: 6px; background: var(--chip); border-left: 3px solid var(--c); display: block; }
+  .body.sum { grid-template-rows: auto auto 1fr; align-content: start; }
+  .body.sum .big { font-size: 22px; font-weight: 700; color: var(--ok); line-height: 1; font-variant-numeric: tabular-nums; }
+  .body.sum .stk { display: flex; gap: 2px; height: 8px; } .body.sum .stk i { border-radius: 2px; }
+  .body.sum .tm { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 3px; } .body.sum .tm i { background: var(--chip); border-radius: 4px; box-shadow: inset 0 0 0 1px var(--line); display: block; }
+  .body.rep { align-content: start; }
+  .body.rep .h { height: 8px; width: 80%; border-radius: 3px; background: var(--text); opacity: .7; }
+  .body.rep .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; } .body.rep .tiles i { height: 22px; border-radius: 5px; background: var(--chip); box-shadow: inset 0 0 0 1px var(--line); display: block; }
+  .body.rep .l { height: 4px; border-radius: 2px; background: var(--line); }
+  .surf .cap { font-size: var(--fs-md); font-weight: 550; display: flex; gap: 8px; align-items: center; }
+  .surf .cap small { font-size: var(--fs-xs); font-weight: 500; color: var(--muted); }
+  .surf .cap small.bad { color: var(--warn); }
+
+  /* ---------- 5 done ribbon ---------- */
+  .done { border: 1px solid var(--line); border-radius: 14px; background: var(--surface); box-shadow: inset 0 1px 0 var(--card-hi), var(--shadow); padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+  .done-h { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .done-h h3 { font-size: var(--fs-xs); font-weight: 600; letter-spacing: var(--tr-label); text-transform: uppercase; color: var(--muted); display: flex; gap: 8px; align-items: center; }
+  .done-h .sp { flex: 1; }
+  .linkish { font-size: var(--fs-sm); color: var(--muted); text-decoration: none; }
+  .linkish:hover { color: var(--text); }
+  .week { display: flex; align-items: flex-end; gap: 6px; height: 54px; padding-top: 4px; }
+  .week .d { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 3px; height: 100%; min-width: 0; }
+  .week .d i { width: 100%; max-width: 36px; height: var(--h); min-height: 3px; border-radius: 3px 3px 1px 1px; background: color-mix(in srgb, var(--ok) 40%, var(--chip)); }
+  .week .d.today i { background: var(--ok); }
+  .week .d span { font-size: var(--fs-xs); color: var(--muted); line-height: 1; font-variant-numeric: tabular-nums; }
+  .week .d.today span { color: var(--text); font-weight: 600; }
+  .day { border-top: 1px solid var(--line); }
+  .day > summary { list-style: none; display: flex; align-items: center; gap: 10px; padding: 9px 0; cursor: pointer; font-size: var(--fs-md); }
+  .day > summary::-webkit-details-marker { display: none; }
+  .day > summary .chev { transition: transform .18s ease; color: var(--muted); }
+  .day[open] > summary .chev { transform: rotate(90deg); }
+  .day > summary .dn { font-weight: 600; min-width: 74px; }
+  .day > summary .stack { display: inline-flex; margin-left: auto; }
+  .day > summary .stack .av { width: 18px; height: 18px; margin-left: -5px; box-shadow: inset 0 0 0 1.5px var(--c), 0 0 0 2px var(--surface); }
+  .drow { display: grid; grid-template-columns: 16px minmax(0, 1fr) auto auto; gap: 10px; align-items: center; padding: 5px 0 5px 4px; font-size: var(--fs-md); }
+  .drow .t { color: var(--muted); font-size: var(--fs-xs); font-variant-numeric: tabular-nums; min-width: 40px; text-align: right; }
+  .drow .rep { color: var(--muted); display: inline-flex; padding: 2px; border-radius: 6px; }
+  .drow .rep:hover { color: var(--text); background: var(--chip); }
+  .drow .nm { color: var(--muted); font-size: var(--fs-sm); display: inline-flex; gap: 6px; align-items: center; }
+  .drow .nm i { width: 7px; height: 7px; border-radius: 50%; background: var(--c); }
+  @media (max-width: 560px) { .drow { grid-template-columns: 16px minmax(0, 1fr) auto; } .drow .nm { display: none; } }
+
+  /* ---------- footer ---------- */
+  .more-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px 28px; }
+  .more-list div { font-size: var(--fs-md); color: var(--muted); }
+  .more-list b { display: block; font-size: var(--fs-xs); letter-spacing: var(--tr-tight); text-transform: uppercase; color: var(--text); font-weight: 600; margin-bottom: 2px; }
+  .foot-note { font-size: var(--fs-sm); color: var(--muted); }
+</style>
+
+<div class="wrap">
+
+  <header class="head">
+    <h1>Agentboard UX mockups</h1>
+    <p>Five ranked ideas, drawn on the board's own look. The data in each mock is sample data. Nothing here is built: pick the ones you want and say go.</p>
+    <nav class="rank" aria-label="Proposals in rank order">
+      <a href="#p1"><b>1</b><span>Your move: what needs Troy, at the top</span></a>
+      <a href="#p2"><b>2</b><span>HUD: one chart per agent, idle agents folded</span></a>
+      <a href="#p3"><b>3</b><span>Todo cards: assign in one tap</span></a>
+      <a href="#p4"><b>4</b><span>One top bar on every screen</span></a>
+      <a href="#p5"><b>5</b><span>Done: a week ribbon and day groups</span></a>
+    </nav>
+  </header>
+
+  <!-- 1 ============================================================ -->
+  <section class="prop" id="p1">
+    <div class="prop-h"><span class="n">1</span><h2>Your move</h2></div>
+    <p class="now"><b>Now</b>The header shows only a count ("1 needs input · 1 to review · 3 working"). To find which cards, you scan three columns.</p>
+    <div class="stage">
+      <div class="lab">Something needs you</div>
+      <div class="tb">
+        <span class="logo">agentboard</span><span class="live">Live</span>
+        <span class="tabs"><a class="on" href="#p1">Board</a><a href="#p1">HUD <span class="dot"></span></a><a href="#p1">Done</a><a href="#p1">Chat</a></span>
+        <span class="sp"></span>
+        <span class="field">All projects ▾</span><span class="field">Filter /</span>
+      </div>
+      <div class="move" role="region" aria-label="Needs you">
+        <div class="move-h"><span class="lab" style="color:var(--warn)">Your move</span><span class="cnt">2</span></div>
+        <div class="mv">
+          <span class="kind ask">Question</span>
+          <span class="who" style="--c:#f59e0b"><span class="av">4</span>AGENT-4</span>
+          <span class="ell">Open the staging link on your phone, tap Pay, tell me if the receipt arrives.</span>
+          <span class="acts"><button class="btn warn" type="button">Answer</button></span>
+        </div>
+        <div class="mv">
+          <span class="kind rev">Review</span>
+          <span class="who" style="--c:#16a34a"><span class="av">2</span>AGENT-2</span>
+          <span class="ell">Mockups are on the card for your reaction.</span>
+          <span class="acts"><button class="btn" type="button">Report</button><button class="btn ok" type="button">Mark done</button></span>
+        </div>
+      </div>
+      <div class="lab" style="margin-top:6px">All quiet</div>
+      <div class="calm">
+        <svg class="check" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8.5l3.5 3.5 6.5-7" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+        <span><b>Nothing needs you</b></span><span>3 working</span><span>5 waiting in Todo</span><span>avg 2h01 to ship</span>
+      </div>
+    </div>
+    <div class="score" aria-label="Score, before to after">
+      <span>Clarity <b>5</b> → <b class="up">9</b></span><span>Simplicity <b>6</b> → <b class="up">8</b></span><span>Trust <b>6</b> → <b class="up">8</b></span><span title="lower is better">Cognitive load <b>7</b> → <b class="up">3</b></span>
+    </div>
+  </section>
+
+  <!-- 2 ============================================================ -->
+  <section class="prop" id="p2">
+    <div class="prop-h"><span class="n">2</span><h2>HUD: one chart per agent</h2></div>
+    <p class="now"><b>Now</b>Each agent has two bars (a last-hour strip and a progress bar), and the two idle agents take a third of the screen. The strip and the bar say different things in the same shape.</p>
+    <div class="stage">
+      <div class="hud-wrap"><div class="hud">
+        <div class="hud-top">
+          <span class="ttl"><b>Agentboard</b> // HUD</span><span class="live">Live</span>
+          <span class="pill warn">1 needs input</span><span class="pill ok">1 to review</span><span class="pill">avg 2h01 to ship</span>
+        </div>
+
+        <div class="hrow needs" style="--c:#f59e0b">
+          <span class="av">4</span>
+          <div class="grow"><span class="nm">AGENT-4</span><span class="st ask">Waiting on you</span><span class="age">just now</span>
+            <div class="say">Open the staging link on your phone and tap Pay.</div></div>
+          <div class="trk"><span class="t ell">Checkout: Apple Pay on the order page</span>
+            <div class="spark" aria-hidden="true"><i style="--h:30%"></i><i style="--h:55%"></i><i style="--h:80%"></i><i style="--h:60%"></i><i style="--h:90%"></i><i style="--h:40%"></i><i style="--h:70%"></i><i style="--h:20%"></i><i style="--h:10%"></i><i style="--h:6%"></i></div>
+            <div class="base"><span class="rail"><b style="--p:60%"></b></span><span class="pc">60%</span></div></div>
+        </div>
+
+        <div class="hrow" style="--c:#16a34a">
+          <span class="av">2</span>
+          <div class="grow"><span class="nm">AGENT-2</span><span class="st work">Working</span><span class="age">just now</span>
+            <div class="say">Drawing the five mockups on the board's own look.</div></div>
+          <div class="trk"><span class="t ell">agentboard: UX and UI improvements</span>
+            <div class="spark" aria-hidden="true"><i style="--h:4%"></i><i style="--h:4%"></i><i style="--h:4%"></i><i style="--h:4%"></i><i style="--h:4%"></i><i style="--h:4%"></i><i style="--h:20%"></i><i style="--h:60%"></i><i style="--h:85%"></i><i style="--h:100%"></i></div>
+            <div class="base"><span class="rail"><b style="--p:40%"></b></span><span class="pc">40%</span></div></div>
+        </div>
+
+        <div class="hrow" style="--c:#6366f1">
+          <span class="av">1</span>
+          <div class="grow"><span class="nm">AGENT-1</span><span class="st work">Working</span><span class="age">just now</span>
+            <div class="say">Dry run passed; main deployed to Railway, waiting for the smoke test.</div></div>
+          <div class="trk"><span class="t ell">Deploy current main to Railway</span>
+            <div class="spark" aria-hidden="true"><i style="--h:40%"></i><i style="--h:70%"></i><i style="--h:50%"></i><i style="--h:90%"></i><i style="--h:100%"></i><i style="--h:80%"></i><i style="--h:60%"></i><i style="--h:75%"></i><i style="--h:95%"></i><i style="--h:85%"></i></div>
+            <div class="base"><span class="rail"><b style="--p:45%"></b></span><span class="pc">45%</span></div></div>
+        </div>
+
+        <div class="idle">
+          <span class="lab">Idle</span>
+          <span class="who" style="--c:#f59e0b"><span class="av">4</span>AGENT-4 <span>21h</span></span>
+          <span class="who" style="--c:#ef4444"><span class="av">G</span>GENERAL <span>1d</span></span>
+        </div>
+        <div class="queue"><span>Queue · 5 waiting</span><span class="q" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span></div>
+        <div class="axis"><span>Bars: activity in the last 60 min over progress</span><span>−60m &nbsp; −30m &nbsp; now</span></div>
+      </div></div>
+    </div>
+    <div class="score">
+      <span>Clarity <b>5</b> → <b class="up">8</b></span><span>Simplicity <b>4</b> → <b class="up">8</b></span><span>Trust <b>6</b> → <b class="up">8</b></span><span title="lower is better">Cognitive load <b>7</b> → <b class="up">4</b></span>
+    </div>
+  </section>
+
+  <!-- 3 ============================================================ -->
+  <section class="prop" id="p3">
+    <div class="prop-h"><span class="n">3</span><h2>Todo cards: assign in one tap</h2></div>
+    <p class="now"><b>Now</b>Every Todo card says "Unassigned" (always true in Todo), plus Copy prompt, Later and a queue time. Assigning means pasting a prompt into another window.</p>
+    <div class="stage">
+      <div class="two">
+        <div>
+          <div class="lab">At rest</div>
+          <div class="card">
+            <span><span class="proj" style="--pc:#3b82f6">Personal</span></span>
+            <div class="title">Submit the insurance claim for the October receipt</div>
+            <div class="foot"><span>queued 23h ago</span><span class="sp"></span><button class="btn more" type="button" aria-label="More: Later, Copy prompt">⋯</button><button class="btn pri" type="button">Assign ▾</button></div>
+          </div>
+        </div>
+        <div>
+          <div class="lab">After tapping Assign</div>
+          <div class="card">
+            <span><span class="proj" style="--pc:#3b82f6">Personal</span></span>
+            <div class="title">Submit the insurance claim for the October receipt</div>
+            <div class="picker" role="menu" aria-label="Assign to">
+              <div class="pick free" style="--c:#f59e0b"><span class="av">4</span><span>AGENT-4</span><span class="s">idle</span></div>
+              <div class="pick free" style="--c:#ef4444"><span class="av">G</span><span>GENERAL</span><span class="s">idle</span></div>
+              <div class="pick busy" style="--c:#16a34a"><span class="av">2</span><span>AGENT-2</span><span class="s">40%</span></div>
+              <div class="pick busy" style="--c:#6366f1"><span class="av">1</span><span>AGENT-1</span><span class="s">45%</span></div>
+              <div class="help">Idle agents first. One tap assigns the card and tells ORCH.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="score">
+      <span>Clarity <b>6</b> → <b class="up">8</b></span><span>Simplicity <b>6</b> → <b class="up">8</b></span><span>Trust <b>7</b> → <b class="up">8</b></span><span title="lower is better">Cognitive load <b>6</b> → <b class="up">4</b></span>
+    </div>
+  </section>
+
+  <!-- 4 ============================================================ -->
+  <section class="prop" id="p4">
+    <div class="prop-h"><span class="n">4</span><h2>One top bar on every screen</h2></div>
+    <p class="now"><b>Now</b>The board and the HUD each have their own header, the Done summary has a third in a different look, and a card report has no header or link back to the board.</p>
+    <div class="stage">
+      <div class="tb">
+        <span class="logo">agentboard</span><span class="live">Live</span>
+        <span class="tabs"><a class="on" href="#p4">Board</a><a href="#p4">HUD</a><a href="#p4">Done</a><a href="#p4">Chat</a></span>
+        <span class="sp"></span>
+        <span class="field">All projects ▾</span><span class="field">Filter /</span>
+        <button class="btn" type="button">Later 5</button><button class="btn more" type="button" aria-label="More: ORCH prompt, sound, theme">⋯</button>
+      </div>
+      <div class="surfaces">
+        <div class="surf"><div class="thumb"><div class="tbm"><span class="lg"></span><i class="on"></i><i></i><i></i><i></i><span class="sp"></span></div>
+          <div class="body cols" style="--c:#6366f1"><i></i><i class="mid"></i><i></i></div></div>
+          <div class="cap">Board <small>same bar</small></div></div>
+        <div class="surf"><div class="thumb"><div class="tbm"><span class="lg"></span><i></i><i class="on"></i><i></i><i></i><span class="sp"></span></div>
+          <div class="body rows"><i style="--c:#6366f1"></i><i style="--c:#16a34a"></i><i style="--c:#f59e0b"></i></div></div>
+          <div class="cap">HUD <small>same bar</small></div></div>
+        <div class="surf"><div class="thumb"><div class="tbm"><span class="lg"></span><i></i><i></i><i class="on"></i><i></i><span class="sp"></span></div>
+          <div class="body sum"><span class="big">29</span><span class="stk"><i style="flex:5;background:#3b82f6"></i><i style="flex:4;background:#d97706"></i><i style="flex:3;background:#db2777"></i><i style="flex:6;background:var(--neutral)"></i></span><span class="tm"><i></i><i></i><i></i></span></div></div>
+          <div class="cap">Done summary <small class="bad">now a different look</small></div></div>
+        <div class="surf"><div class="thumb"><div class="tbm"><span class="lg"></span><i class="on"></i><i></i><i></i><i></i><span class="sp"></span></div>
+          <div class="body rep"><span class="h"></span><span class="tiles"><i></i><i></i></span><span class="l"></span><span class="l" style="width:70%"></span></div></div>
+          <div class="cap">Card report <small class="bad">now no header</small></div></div>
+      </div>
+      <div class="foot-note">The bar keeps the same tabs and the same place for project and filter. "Later", ORCH prompt, sound and theme move into the one menu.</div>
+    </div>
+    <div class="score">
+      <span>Clarity <b>6</b> → <b class="up">8</b></span><span>Simplicity <b>5</b> → <b class="up">8</b></span><span>Trust <b>5</b> → <b class="up">8</b></span><span title="lower is better">Cognitive load <b>6</b> → <b class="up">4</b></span>
+    </div>
+  </section>
+
+  <!-- 5 ============================================================ -->
+  <section class="prop" id="p5">
+    <div class="prop-h"><span class="n">5</span><h2>Done: a week ribbon and day groups</h2></div>
+    <p class="now"><b>Now</b>Done is a long list of tall cards with "Show 24 more" at the end. You cannot see how the week went, or find Tuesday, without scrolling.</p>
+    <div class="stage">
+      <div class="done">
+        <div class="done-h"><h3>Done <span class="cnt">29</span></h3><span class="pill">avg 2h01 to ship</span><span class="sp"></span><a class="linkish" href="#p5">Summary</a><a class="linkish" href="#p5">Clear</a></div>
+        <div class="week" role="img" aria-label="Cards finished per day, Friday 23 to Thursday 29 October: 3, 2, 8, 3, 5, 6, 2">
+          <div class="d"><span>3</span><i style="--h:30%"></i><span>F</span></div>
+          <div class="d"><span>2</span><i style="--h:20%"></i><span>S</span></div>
+          <div class="d"><span>8</span><i style="--h:80%"></i><span>S</span></div>
+          <div class="d"><span>3</span><i style="--h:30%"></i><span>M</span></div>
+          <div class="d"><span>5</span><i style="--h:50%"></i><span>T</span></div>
+          <div class="d"><span>6</span><i style="--h:60%"></i><span>W</span></div>
+          <div class="d today"><span>2</span><i style="--h:20%"></i><span>T</span></div>
+        </div>
+
+        <details class="day" open>
+          <summary><svg class="chev" width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M3 1l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6"/></svg><span class="dn">Today</span><span class="cnt">2</span></summary>
+          <div class="drow"><svg class="check" width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M2.5 7.5l3 3 6-6.5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg><span class="ell">New app: Soundtrack, a live score for your life</span><span class="nm" style="--c:var(--neutral)"><i></i>Unassigned</span><span class="t">7h</span></div>
+          <div class="drow"><svg class="check" width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M2.5 7.5l3 3 6-6.5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg><span class="ell">Check in with the accountant about the quarterly filing</span><span class="nm" style="--c:var(--neutral)"><i></i>Unassigned</span><span class="t">7h</span></div>
+        </details>
+        <details class="day">
+          <summary><svg class="chev" width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M3 1l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6"/></svg><span class="dn">Yesterday</span><span class="cnt">6</span>
+            <span class="ell" style="color:var(--muted);font-size:var(--fs-sm)">driving soundscape, Done summary, less noise…</span>
+            <span class="stack"><span class="av" style="--c:#6366f1">1</span><span class="av" style="--c:#f59e0b">4</span><span class="av" style="--c:#16a34a">2</span></span></summary>
+          <div class="drow"><svg class="check" width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M2.5 7.5l3 3 6-6.5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg><span class="ell">New app: a driving soundscape for car drives</span><span class="nm" style="--c:#6366f1"><i></i>AGENT-1</span><span class="t">21h</span></div>
+        </details>
+        <details class="day">
+          <summary><svg class="chev" width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M3 1l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6"/></svg><span class="dn">Tue 27</span><span class="cnt">5</span>
+            <span class="stack"><span class="av" style="--c:#6366f1">1</span><span class="av" style="--c:#16a34a">2</span></span></summary>
+        </details>
+        <details class="day">
+          <summary><svg class="chev" width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M3 1l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6"/></svg><span class="dn">Earlier</span><span class="cnt">16</span>
+            <span class="stack"><span class="av" style="--c:#6366f1">1</span><span class="av" style="--c:#0ea5e9">3</span><span class="av" style="--c:#f59e0b">4</span></span></summary>
+        </details>
+      </div>
+    </div>
+    <div class="score">
+      <span>Clarity <b>5</b> → <b class="up">8</b></span><span>Simplicity <b>6</b> → <b class="up">8</b></span><span>Trust <b>7</b> → <b class="up">8</b></span><span title="lower is better">Cognitive load <b>7</b> → <b class="up">4</b></span>
+    </div>
+  </section>
+
+  <!-- also noticed ================================================== -->
+  <section class="prop">
+    <div class="lab">Also noticed, not mocked</div>
+    <div class="more-list">
+      <div><b>Card report</b>Opens with a full "For you" box even when it says "Nothing was written for Troy." Hide it when empty so the result comes first.</div>
+      <div><b>Done summary</b>The two biggest blocks in "Where the work went" are grey "Other" (126 and 106). Fold "Other" into a single row so the named areas read.</div>
+    </div>
+    <p class="foot-note">Scores are my estimates against the UX Constitution (Clarity, Simplicity, Trust: higher is better; Cognitive load: lower is better).</p>
+  </section>
+
+</div>
