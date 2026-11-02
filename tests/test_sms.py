@@ -20,7 +20,7 @@ from agentboard.store import BoardError, Store
 
 TOKEN = "test-auth-token"
 URL = "https://example.trycloudflare.com/sms"
-MOBILE = "+14165550123"
+MOBILE = "+12125550123"
 
 
 def sign(params, token=TOKEN, url=URL):
@@ -34,7 +34,7 @@ class Base(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         self.store = Store(Path(self.tmp.name) / ".agentboard")
-        self.conf = {"allowed": [MOBILE], "public_url": URL, "token": TOKEN, "rate_per_hour": 30, "name": "Troy"}
+        self.conf = {"allowed": [MOBILE], "public_url": URL, "token": TOKEN, "rate_per_hour": 30, "name": "Alex"}
         self.n = 0
 
     def params(self, body, sender=MOBILE, sid=None):
@@ -82,10 +82,10 @@ class RefusalTests(Base):
         self.assertEqual(self.store.load(), [])
 
     def test_the_sender_may_be_written_any_way_in_the_allowlist(self):
-        self.assertEqual(sms.e164("416-555-0123"), MOBILE)
-        self.assertEqual(sms.e164("(416) 555 0123"), MOBILE)
-        self.assertEqual(sms.e164("1 416 555 0123"), MOBILE)
-        self.assertEqual(sms.e164("+14165550123"), MOBILE)
+        self.assertEqual(sms.e164("212-555-0123"), MOBILE)
+        self.assertEqual(sms.e164("(212) 555 0123"), MOBILE)
+        self.assertEqual(sms.e164("1 212 555 0123"), MOBILE)
+        self.assertEqual(sms.e164("+12125550123"), MOBILE)
         self.assertNotIn(sms.e164("hello"), [MOBILE])
 
     def test_a_replayed_request_is_not_applied_twice(self):
@@ -147,7 +147,7 @@ class CommandTests(Base):
         self.assertIn("idea: later", self.say("later idea"))
         self.assertEqual(self.titles("backlog"), ["idea"])
 
-    def test_status_is_one_short_line_that_names_what_needs_troy(self):
+    def test_status_is_one_short_line_that_names_what_needs_you(self):
         self.store.add("A", status="todo")
         self.store.start("B", "alice")
         self.store.ask("b", "which port?")
@@ -209,7 +209,7 @@ class CommandTests(Base):
         self.assertIn("pick-limit asks: Retry limit: 3 or 5?", self.say("what needs me?"))
         self.assertIn("Sent to alice on pick-limit.", self.say("reply 5"))
         self.assertEqual(self.store.answer("pick-limit")["text"], "5")
-        self.assertEqual(self.store.answer("pick-limit")["by"], "Troy (text)")
+        self.assertEqual(self.store.answer("pick-limit")["by"], "you (text)")
 
     def test_a_bare_yes_answers_the_only_open_ask_but_is_a_normal_word_otherwise(self):
         self.say("yes")
@@ -260,14 +260,14 @@ class SettingsTests(Base):
     def test_it_is_off_until_enabled_allowlisted_and_given_a_token(self):
         conf, problems = sms.settings(self.store.dir)
         self.assertGreaterEqual(len(problems), 4)
-        self.write_conf('[sms]\nenabled = true\nallowed = ["416-555-0123"]\npublic_url = "https://t.example/sms"\n')
+        self.write_conf('[sms]\nenabled = true\nallowed = ["212-555-0123"]\npublic_url = "https://t.example/sms"\n')
         with mock.patch.dict(os.environ, {sms.DEFAULT_TOKEN_ENV: "tok"}):
             conf, problems = sms.settings(self.store.dir)
         self.assertEqual(problems, [])
         self.assertEqual((conf["allowed"], conf["token"]), ([MOBILE], "tok"))
 
     def test_the_machine_lock_stops_it_even_when_everything_else_is_set(self):
-        self.write_conf('[sms]\nenabled = true\nallowed = ["416-555-0123"]\npublic_url = "https://t.example/sms"\n')
+        self.write_conf('[sms]\nenabled = true\nallowed = ["212-555-0123"]\npublic_url = "https://t.example/sms"\n')
         with mock.patch.dict(os.environ, {sms.DEFAULT_TOKEN_ENV: "tok", "AGENTBOARD_NO_SMS": "1"}):
             _conf, problems = sms.settings(self.store.dir)
             self.assertTrue(any("locked off on this machine" in p for p in problems))
@@ -277,7 +277,7 @@ class SettingsTests(Base):
             self.assertEqual(sms.settings(self.store.dir)[1], [])
 
     def test_a_plain_http_url_is_refused_and_the_token_is_never_read_from_the_board(self):
-        self.write_conf('[sms]\nenabled = true\nallowed = ["+14165550123"]\npublic_url = "http://insecure/sms"\ntoken = "from-a-file"\n')
+        self.write_conf('[sms]\nenabled = true\nallowed = ["+12125550123"]\npublic_url = "http://insecure/sms"\ntoken = "from-a-file"\n')
         with mock.patch.dict(os.environ, {}, clear=False):
             os.environ.pop(sms.DEFAULT_TOKEN_ENV, None)
             conf, problems = sms.settings(self.store.dir)
@@ -316,7 +316,7 @@ class HttpTests(Base):
             e.close()
             return e.code, ""
 
-    def test_a_signed_text_from_troy_adds_a_card_and_gets_one_line_back(self):
+    def test_a_signed_text_from_the_owner_adds_a_card_and_gets_one_line_back(self):
         code, xml = self.twilio("add: renew passports")
         self.assertEqual(code, 200)
         self.assertIn("<Message>Added to Todo: renew-passports</Message>", xml)

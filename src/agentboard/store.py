@@ -5,6 +5,7 @@ import json
 import os
 import re
 import time
+import tomllib
 from pathlib import Path
 
 from . import backup
@@ -20,10 +21,22 @@ DIR_NAME = ".agentboard"
 CHAT_TOPICS = ("status", "learn", "help", "heads-up", "handoff")
 CHAT_LINE_MAX, CHAT_DETAIL_MAX, CHAT_FILES_MAX = 300, 4000, 20
 CHAT_DECISIONS = ("approved", "declined")
+DEFAULT_OWNER = "you"   # what the board calls the human until [board] owner in config.toml says otherwise
 
 
 class BoardError(Exception):
     pass
+
+
+def owner_name(board_dir):
+    """The human's name on this board: [board] owner in config.toml, else "you". Read fresh each time, so an edit shows up without a restart."""
+    try:
+        conf = tomllib.loads((Path(board_dir) / "config.toml").read_text())
+    except (OSError, ValueError):
+        return DEFAULT_OWNER
+    board = conf.get("board")
+    name = board.get("owner") if isinstance(board, dict) else None
+    return name.strip()[:40] if isinstance(name, str) and name.strip() else DEFAULT_OWNER
 
 
 def find_dir(start=None):
@@ -62,7 +75,7 @@ def _reports_after(arg_is_list=False):
 
 def split_report(text, body=None):
     """One sentence first, the rest as details: a multi-line `text` keeps its first line and the remainder
-    goes ahead of any explicit body (Keep it simple: the first line is what Troy reads)."""
+    goes ahead of any explicit body (Keep it simple: the first line is what the owner reads)."""
     text = text or ""
     first, _, rest = text.strip().partition("\n")
     rest = rest.strip()
@@ -76,6 +89,10 @@ class Store:
         self.dir = Path(board_dir)
         self.path = self.dir / "tasks.json"
         self.lock_path = self.dir / ".lock"
+
+    @property
+    def owner(self):
+        return owner_name(self.dir)
 
     @contextlib.contextmanager
     def _lock(self):
@@ -100,7 +117,7 @@ class Store:
         data.setdefault("projects", [])
         data.setdefault("chat", [])
         data.setdefault("chat_seq", 0)
-        data.setdefault("chat_agents", False)   # the board-wide switch for agents talking to each other; off until Troy turns it on
+        data.setdefault("chat_agents", False)   # the board-wide switch for agents talking to each other; off until the owner turns it on
         return data
 
     def _write(self, data):
@@ -305,9 +322,10 @@ class Store:
             _recompute(tasks, t)
             return t
 
-    def edit(self, task_id, title=None, description=None, blocked_by=None, by="Troy"):
+    def edit(self, task_id, title=None, description=None, blocked_by=None, by=None):
         """Change a card's words and shape from the board: its title, its description, the cards it is blocked by. One log line
-        per thing changed, marked as Troy's. Never its holder or its column (claim/assign/move do those)."""
+        per thing changed, marked as the owner's. Never its holder or its column (claim/assign/move do those)."""
+        by = by or self.owner
         if title is not None:
             title = _clean_title(title)
         if description is not None and not isinstance(description, str):
@@ -419,9 +437,10 @@ class Store:
             t["updated"] = _now()
             return t
 
-    def reply(self, task_id, text, by="Troy"):
+    def reply(self, task_id, text, by=None):
         """The user answers a card from the board: one log entry, no state change (the agent clears
         its own ask/review). Read by agents through `agentboard prompt`/the card log."""
+        by = by or self.owner
         text = (text or "").strip()
         if not text:
             raise BoardError("reply is empty")
@@ -440,7 +459,7 @@ class Store:
             self.get(tasks, task_id)["report"] = rec
 
     def send_back(self, task_id, text):
-        """Troy sends a reviewed card back with a note: the review flag clears, the card stays in Doing with its agent, and the note is the reply
+        """The owner sends a reviewed card back with a note: the review flag clears, the card stays in Doing with its agent, and the note is the reply
         the agent reads with `agentboard answer`."""
         text = (text or "").strip()
         if not text:
@@ -458,8 +477,8 @@ class Store:
                 t.pop(f, None)
             t["progress"] = min(int(t.get("progress", 0)), 95)
             t["status_text"] = f"Sent back: {text}"[:300]
-            t["reply"] = {"text": text, "at": _now(), "by": "Troy"}
-            _log(t, f"Sent back: {text}", by="Troy")
+            t["reply"] = {"text": text, "at": _now(), "by": self.owner}
+            _log(t, f"Sent back: {text}", by=self.owner)
             t["updated"] = _now()
             return t
 
@@ -737,10 +756,11 @@ class Store:
         with self._lock():
             return bool(self._read().get("chat_agents", False))
 
-    def set_chat_agents(self, on, by="Troy"):
-        """The board-wide switch (Troy's): with it off, agents may still post status lines, but not talk to each other.
+    def set_chat_agents(self, on, by=None):
+        """The board-wide switch (the owner's): with it off, agents may still post status lines, but not talk to each other.
         A change posts one line to the chat, so ORCH and the agents already running (who follow the chat) learn what to do;
         setting it to what it already is posts nothing."""
+        by = by or self.owner
         with self._lock():
             data = self._read()
             changed = bool(data.get("chat_agents", False)) != bool(on)
@@ -758,7 +778,7 @@ class Store:
 
         The one line is what the panel shows; everything else is optional and shown on tap: `to` (an agent, ORCH or all),
         `topic` (status, learn, help, heads-up, handoff), `detail` (the technical part), `card` (a card id it is about),
-        `files` (paths other agents should know are being touched), `propose` (an action for Troy to approve; chat never does
+        `files` (paths other agents should know are being touched), `propose` (an action for the owner to approve; chat never does
         it), `reply_to` (the seq it answers). A multi-line text keeps its first line and the rest becomes the detail. Anything
         beyond a plain line is agent-to-agent talk and needs the board-wide switch on."""
         if kind not in ("agent", "user"):
@@ -798,7 +818,7 @@ class Store:
         with self._lock():
             data = self._read()
             if talk and kind == "agent" and not data.get("chat_agents"):
-                raise BoardError("agent chat is off for this board; Troy turns it on with `agentboard chat agents on` (a plain line still posts)")
+                raise BoardError("agent chat is off for this board; its owner turns it on with `agentboard chat agents on` (a plain line still posts)")
             if card:
                 if not any(t["id"] == card for t in data["tasks"]):
                     raise BoardError(f"no such task: {card}")
@@ -832,11 +852,12 @@ class Store:
             self._write(data)
             return m
 
-    def chat_decide(self, seq, decision, by="Troy"):
-        """Troy approves or declines an action an agent proposed in the chat. The decision is recorded on the message; the agent
+    def chat_decide(self, seq, decision, by=None):
+        """The owner approves or declines an action an agent proposed in the chat. The decision is recorded on the message; the agent
         reads it with `agentboard chat approvals`. Nothing else happens here: the agent does the work, after approval."""
         if decision not in CHAT_DECISIONS:
             raise BoardError(f"decision must be one of {', '.join(CHAT_DECISIONS)}")
+        by = by or self.owner
         with self._lock():
             data = self._read()
             m = next((m for m in data["chat"] if m["seq"] == int(seq)), None)

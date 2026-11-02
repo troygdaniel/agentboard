@@ -6,7 +6,7 @@ updates and their history (every agent's, archived ones too) and the chat, so an
 instead of asking. The idle drafter: `draft_reply` turns an inbox and that memory into one short reply through the local
 `claude` binary on a cheaper model, for an agent with nothing to do; it prints a draft, and only posts with --send.
 All of it is local: the board file and, for the drafter only, the claude binary already on the machine (the same opt-in
-exception SECURITY.md lists for one-shot runs). Chat never changes a card, spends, deploys or dials; Troy approves actions."""
+exception SECURITY.md lists for one-shot runs). Chat never changes a card, spends, deploys or dials; the owner approves actions."""
 import json
 import re
 import subprocess
@@ -17,7 +17,7 @@ from .store import CHAT_TOPICS, BoardError
 PROTOCOL = """\
 ## Talking to other agents (agent chat is on)
 
-The shared chat is yours to use, with Troy watching. One plain line per message; the technical part goes in --detail and shows
+The shared chat is yours to use, with {owner} watching. One plain line per message; the technical part goes in --detail and shows
 on tap. Say who it is for; "all" when it is for everyone. Use your own name.
 
     {ab} chat send "<one line>" --name {name} --to AGENT-2 --topic help          # help: a question for a peer
@@ -27,7 +27,7 @@ on tap. Say who it is for; "all" when it is for everyone. Use your own name.
     ... --detail "<the technical part>"   or   --detail-file <path>              # any of them: the detail behind the line
     ... --reply-to <n>                                                           # answering message n
 
-A message you send another session (SendMessage) is mirrored to this chat by a hook, so Troy sees the real conversation: run
+A message you send another session (SendMessage) is mirrored to this chat by a hook, so {owner} sees the real conversation: run
 `{ab} hooks install` once per project if `{ab} hooks status` says it is not there, and say who you are once (`{ab} me --name {name}`
 or any claim/start/chat with --name) so the mirror carries your name.
 
@@ -44,7 +44,7 @@ Lost the thread on something you or a peer did earlier? The board is the shared 
     ... or ask: {ab} chat send "<question>" --name {name} --to ORCH --topic help
 
 Chat never does anything. An action that is not your card's own work (spend, deploy, dial, a change outside your card) is a
-proposal: Troy approves it on the board, and you do it only after that.
+proposal: {owner} approves it on the board, and you do it only after that.
 
     {ab} chat send "<one line>" --name {name} --propose "<the action, one line>"
     {ab} chat approvals --name {name}              # proposed / approved / declined, each with its number
@@ -61,11 +61,11 @@ Agents talk to each other on the shared chat: learnings, help, heads-ups on shar
       {ab} chat inbox --name ORCH --wait 300
 - A handoff with no taker: name who takes the card, in one line (--to that agent, --topic handoff, --card <id>).
 - A help question for you: answer from the board (`{ab} recall "<words>"`) in one line, detail in --detail.
-- When Troy flips the switch on with agents already running, tell each one to run `{ab} instructions` and follow its
+- When {owner} flips the switch on with agents already running, tell each one to run `{ab} instructions` and follow its
   "Talking to other agents" section with its own name.
 - Your messages to agents (SendMessage) are mirrored to the chat by a hook: run `{ab} hooks install` once per project
   (`{ab} hooks status` says whether it is there) and `{ab} me --name ORCH` once, so the mirror carries your name.
-- Proposals (`{ab} chat approvals`) wait for Troy's approval on the board. Never act on one yourself, and never let an
+- Proposals (`{ab} chat approvals`) wait for {owner}'s approval on the board. Never act on one yourself, and never let an
   agent act on one; approval shows there, not in the chat.
 """
 
@@ -74,7 +74,7 @@ TOPIC_WORD = {"status": "status", "learn": "learned", "help": "help", "heads-up"
 
 def protocol(board_dir, name="<your session name>"):
     from . import prompt as promptlib
-    return PROTOCOL.format(ab=promptlib.agentboard_cmd(board_dir), name=name)
+    return PROTOCOL.format(ab=promptlib.agentboard_cmd(board_dir), name=name, owner=promptlib.owner_ref(board_dir))
 
 
 def is_on(board_dir):
@@ -207,7 +207,7 @@ From {sender}{to}:
 
 
 def casual_eligible(m):
-    """Agents' lines and mirrored messages get a spoken version; Troy's own lines, the board's notices and the drafter's
+    """Agents' lines and mirrored messages get a spoken version; the owner's own lines, the board's notices and the drafter's
     (already in the voice) do not. A line that has one, or was looked at and left, is done."""
     return (m.get("kind") == "agent" and m.get("via") in (None, "mirror") and "said" not in m
             and len(m.get("text", "")) >= CASUAL_MIN_CHARS)
@@ -278,10 +278,10 @@ VOICE = """\
 How to write: like two colleagues at a desk, not a report. Short sentences. Contractions. Say the other person's name. No lists,
 no headings, no quotes around words. No code, paths or flags in the line; those go after DETAIL:. The line must read aloud as
 speech. One idea per message. Never propose spending, deploying, dialling or changing anything outside a card; if asked to, say
-Troy must approve it first."""
+{owner} must approve it first."""
 
 DRAFT_PROMPT = """\
-You are {name}, one of several coding agents sharing a board with Troy (the human) and ORCH (the orchestrator). You have no
+You are {name}, one of several coding agents sharing a board with {owner} (the human) and ORCH (the orchestrator). You have no
 card right now. Today is {today}. Below are the chat messages waiting for you and what the board remembers about recent work.
 Write ONE reply to the message that most needs you.
 
@@ -303,7 +303,7 @@ What the board remembers (cards, updates, history; the age is since the last cha
 """
 
 SHARE_PROMPT = """\
-You are {name}, one of several coding agents sharing a board with Troy (the human) and ORCH (the orchestrator). You have no
+You are {name}, one of several coding agents sharing a board with {owner} (the human) and ORCH (the orchestrator). You have no
 card right now and nothing to answer. Today is {today}. Offer ONE thing from your own work that bears on what a colleague is
 doing right now: a gotcha you hit, how something is actually wired, what a tool or service turned out to need. It must come
 from your own history below, it must tie to one of the cards in progress below (say whose, and end with a short question to
@@ -495,7 +495,9 @@ def draft_reply(store, name, claude, model=None, budget=None, inbox=None, limit=
     tasks = store.load()
     words = " ".join(m["text"] for m in inbox)
     mem = recall(tasks, [], words, limit=4, log_lines=3) + recall(tasks, [], "", agent=name, limit=3, log_lines=3)
-    prompt = DRAFT_PROMPT.format(name=name, voice=VOICE, today=datetime.now().strftime("%A %d %B %Y, %H:%M"),
+    from . import prompt as promptlib
+    owner = promptlib.owner_ref(store.dir)
+    prompt = DRAFT_PROMPT.format(name=name, owner=owner, voice=VOICE.format(owner=owner), today=datetime.now().strftime("%A %d %B %Y, %H:%M"),
                                  inbox="\n".join(chat_line(m) for m in inbox) or "(none)",
                                  memory="\n".join(recall_lines(mem)) or "(nothing yet)")
     return _ask_model(claude, model, budget, prompt)
@@ -534,7 +536,9 @@ def draft_share(store, name, claude, model=None, budget=None, recent_chat=12, mi
     doing = doing_now(store.load(), chat, name) if doing is None else doing
     if not doing:   # nobody is on anything: nothing to tie a share to
         return None
-    prompt = SHARE_PROMPT.format(name=name, voice=VOICE, today=datetime.now().strftime("%A %d %B %Y, %H:%M"), memory="\n".join(recall_lines(mine)),
+    from . import prompt as promptlib
+    owner = promptlib.owner_ref(store.dir)
+    prompt = SHARE_PROMPT.format(name=name, owner=owner, voice=VOICE.format(owner=owner), today=datetime.now().strftime("%A %d %B %Y, %H:%M"), memory="\n".join(recall_lines(mine)),
                                  doing="\n".join(doing), chat="\n".join(chat_line(m).splitlines()[0] for m in chat[-recent_chat:]) or "(nothing yet)")
     d = _ask_model(claude, model, budget, prompt)
     if d:

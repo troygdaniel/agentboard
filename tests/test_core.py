@@ -56,7 +56,7 @@ class StoreTests(unittest.TestCase):
         self.s.ask("a", "Which port?")
         t = self.s.reply("a", "  use 8766  ")
         self.assertEqual(t["log"][-1]["text"], "use 8766")
-        self.assertEqual(t["log"][-1]["by"], "Troy")
+        self.assertEqual(t["log"][-1]["by"], "you")
         self.assertTrue(t["needs_input"])
         with self.assertRaises(BoardError):
             self.s.reply("a", "   ")

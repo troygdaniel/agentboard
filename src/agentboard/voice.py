@@ -16,7 +16,7 @@ import tempfile
 from pathlib import Path
 
 from . import prompt as promptlib
-from .store import BoardError
+from .store import DEFAULT_OWNER, BoardError, owner_name
 
 HOME = Path.home()
 KNOWN_MODELS = [   # best speed/accuracy first; other apps' copies are only read, never changed
@@ -24,7 +24,7 @@ KNOWN_MODELS = [   # best speed/accuracy first; other apps' copies are only read
     HOME / "Library/Application Support/com.prakashjoshipax.VoiceInk/WhisperModels/ggml-large-v3-turbo-q5_0.bin",
     Path("/Applications/Rewind.app/Contents/Resources/RWTranscription_RWTranscription.bundle/Contents/Resources/Models/ggml-base.bin"),
 ]
-VOCAB = "ORCH, AGENT-1, AGENT-2, AGENT-3, AGENT-4, agentboard, Claude, Troy, QuietDesk, BuildJamaica, pakled"   # nudges the spelling of names we use
+VOCAB = "ORCH, AGENT-1, AGENT-2, AGENT-3, AGENT-4, agentboard, Claude"   # nudges the spelling of names we use; the owner and [voice] words in config.toml add theirs
 MAX_AUDIO_BYTES = 8_000_000
 MAX_SECONDS = 120
 TIMEOUT_S = 90
@@ -71,6 +71,21 @@ def status(board_dir=None):
         return {"ready": False, "model": "", "error": str(e)}
 
 
+def vocab(board_dir=None):
+    """VOCAB plus the owner's name and any [voice] words = ["Acme", ...] in config.toml."""
+    words = [VOCAB]
+    if board_dir:
+        owner = owner_name(board_dir)
+        if owner != DEFAULT_OWNER:
+            words.append(owner)
+        try:
+            extra = promptlib.load_config(board_dir).get("voice", {}).get("words", [])
+        except (BoardError, AttributeError):
+            extra = []
+        words += [w for w in extra if isinstance(w, str)] if isinstance(extra, list) else []
+    return ", ".join(words)
+
+
 def clean(text):
     t = NOISE.sub(" ", text or "")
     return re.sub(r"\s+", " ", t).strip()
@@ -85,7 +100,7 @@ def transcribe_file(path, board_dir=None):
         try:
             subprocess.run([ffmpeg, "-loglevel", "error", "-y", "-i", str(path), "-t", str(MAX_SECONDS), "-ar", "16000", "-ac", "1", str(wav)],
                            check=True, capture_output=True, timeout=TIMEOUT_S)
-            out = subprocess.run([whisper, "-m", str(model), "-f", str(wav), "-nt", "-np", "--prompt", VOCAB],
+            out = subprocess.run([whisper, "-m", str(model), "-f", str(wav), "-nt", "-np", "--prompt", vocab(board_dir)],
                                  check=True, capture_output=True, text=True, timeout=TIMEOUT_S).stdout
         except subprocess.CalledProcessError as e:
             raise BoardError("could not read that audio") from e

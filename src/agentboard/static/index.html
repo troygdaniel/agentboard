@@ -20,7 +20,7 @@
     --panel: linear-gradient(180deg, rgba(255,255,255,.72), rgba(255,255,255,.4));
     --panel-hi: rgba(255,255,255,.95); --panel-sh: 0 18px 40px -28px rgba(28,25,23,.35);
     --card-hi: rgba(255,255,255,.8); --well: rgba(28,25,23,.1);
-    /* Agent palette (Troy picked scheme B, 2026-11-01): one hue per agent name, set once and inherited by every card.
+    /* Agent palette (scheme B, picked 2026-11-01): one hue per agent name, set once and inherited by every card.
        Kept out of the status hues (orange running, green review, red ask); agentColor() below picks the slot. */
     --a1: #2563eb; --a2: #7c3aed; --a3: #db2777; --a4: #0e7490; --a5: #475569; --a6: #a21caf; --on-agent: #ffffff;
     /* HUD palette, shared: the dark board theme maps its state colors onto these */
@@ -219,17 +219,17 @@
   .who { display: inline-flex; align-items: center; gap: 8px; background: none; border: 0; padding: 0; cursor: pointer; color: var(--text); font-weight: 500; font-size: var(--fs-sm); border-radius: 6px; }
   .who:hover .nm { text-decoration: underline; text-underline-offset: 3px; }
   .card.done .who { color: color-mix(in srgb, var(--text) 82%, var(--muted)); }
-  /* the holder's name is the card's first thing to find (Troy, 2026-11-01): 14px/650 in full text colour (the title is 15px),
+  /* the holder's name is the card's first thing to find (2026-11-01): 14px/650 in full text colour (the title is 15px),
      the same on every status; it was 12px/500, the smallest text on the card, level with the timestamp */
   .top .who, .p-who .agent-pill { min-width: 0; font-size: var(--fs-base); font-weight: 650; letter-spacing: .02em; }
   .top .who .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  /* less noise (Troy, 2026-10-28): a card reads as one row, agent + title + its mark. The description, status line,
+  /* less noise (2026-10-28): a card reads as one row, agent + title + its mark. The description, status line,
      result and Details are still in the DOM and in the detail panel (tap the card); a doing card keeps its bar and % */
   .card .desc, .card .fold, .card .proj-row, .card .note > span:first-child, .card.done .note { display: none; }
   .card .note { justify-content: flex-end; margin-top: 4px; }
   .card .said { font-size: var(--fs-md); margin: 2px 0 8px; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
   .top .pdot { width: 7px; height: 7px; border-radius: 50%; background: var(--c); flex: none; }
-  #later .unas { display: none; }   /* every row in the drawer is unassigned: the title leads (Troy, Nov 2) */
+  #later .unas { display: none; }   /* every row in the drawer is unassigned: the title leads (Nov 2) */
   .top .unas { color: var(--muted); font-size: var(--fs-base); font-weight: 650; letter-spacing: .02em; }   /* same type as a name, no opacity: .7 dropped it to 3.0-3.5:1 */
   .card[data-status="todo"] .unas { padding-left: 28px; }   /* clear of the queue-number badge; lines up with where a name starts (20px avatar + 8px gap) */
   /* hovering a name lights every card that agent holds; the rest step back */
@@ -423,7 +423,7 @@
   .subs-toggle { display: flex; align-items: center; gap: 10px; width: 100%; margin-top: 10px; padding: 0; background: none; border: 0;
     font: inherit; font-size: var(--fs-sm); color: var(--muted); cursor: pointer; text-align: left; border-radius: 6px; }
   .subs-toggle:hover { color: var(--text); }
-  /* hit areas (Troy, Nov 2): the visible controls stay small; the clickable area grows to about 30px, with no change to the layout */
+  /* hit areas (Nov 2): the visible controls stay small; the clickable area grows to about 30px, with no change to the layout */
   .subs-toggle, .clear-done, .report-link { position: relative; }
   .subs-toggle::after { content: ''; position: absolute; inset: -6px 0; }
   .clear-done::after, .report-link::after { content: ''; position: absolute; inset: -4px -2px; }
@@ -484,7 +484,7 @@
     /* Type scale + tracking. Pick from these rather than inventing a 12.5px — the HUD had grown
        14 distinct font sizes across separate passes, which is what made it read as a collection
        of separately-styled pieces rather than one instrument panel. */
-    --fs-xs: 12px; --fs-sm: 13.5px; --fs-md: 16.5px; --fs-lg: 20px; --fs-xl: 22px;   /* one step up (Troy, 2026-10-24): read from a chair */
+    --fs-xs: 12px; --fs-sm: 13.5px; --fs-md: 16.5px; --fs-lg: 20px; --fs-xl: 22px;   /* one step up (2026-10-24): read from a chair */
     --tr-wide: .24em; --tr-label: .16em; --tr-tight: .06em;
     position: relative; height: 100%; max-width: none; margin: 0; overflow: hidden;   /* fills the viewport on first open */
     border: 0; border-radius: 0; color: var(--htext);
@@ -507,7 +507,7 @@
      broke onto two lines, the ticker collapsed to 0 and (half-screen) the clock/buttons clipped off-screen */
   .h-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding: 0 10px; min-height: 32px; box-sizing: content-box; }   /* Load's own controls, under the board's nav; its left edge lines up with the brand above (see the 900px rule) */
   @media (max-width: 600px) { .h-bar { padding: 0 6px; } }   /* .hud has 10px of its own here: 16px in */
-  /* Load has no top bar of its own (Troy, Nov 2: nothing may shift between Board, By agent and Load): the board's header stays on screen and the
+  /* Load has no top bar of its own (Nov 2: nothing may shift between Board, By agent and Load): the board's header stays on screen and the
      overlay starts under it (--hdr-b, set by placeHud). Its own controls sit in .h-bar, lined up with the brand: the board goes to 16px in at 900px. */
   @media (max-width: 900px) { .hud { padding-left: 10px; padding-right: 10px; } .h-bar { padding-left: 6px; padding-right: 6px; } }
   .h-live, .h-btn { white-space: nowrap; }
@@ -529,7 +529,7 @@
   .h-chip.err { color: var(--hbad); border-color: rgba(255,107,107,.45); background: rgba(255,107,107,.1); animation: hqblink 2.6s ease-in-out infinite; }
   .h-chip.today small { color: var(--hdim); font-size: var(--fs-xs); margin-left: 6px; }
   .h-chip.today { font-size: var(--fs-md); padding: 2px 14px; color: var(--hcy); border-color: rgba(94,231,255,.35); background: rgba(94,231,255,.06); }
-  /* ONE grid (Troy, 2026-10-24: "the division between left and right is too jarring; more like a grid").
+  /* ONE grid (2026-10-24: "the division between left and right is too jarring; more like a grid").
      Every agent is one full-width row: badge, name + state, task, open/done, progress, age, and the
      60-minute load bar as the last, widest column. Header, rows, the queue row and the time-axis
      footer all use the same column template, so every bar lines up with every other and the row
@@ -538,14 +538,14 @@
      an empty box. Narrow screens stack the bar under the text of its own row. */
   .h-grid { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); min-height: 0; }
   .h-one { --cols: 40px minmax(0, 2.3fr) 100px minmax(200px, 1fr); --gap: 16px; align-self: stretch; width: 100%; max-width: 100%; }   /* text gets the room; the hour bar reads at 1fr */
-  /* Troy (2026-10-24): "the board has more vertical space; use it to show more text". The panel
+  /* (2026-10-24) "the board has more vertical space; use it to show more text". The panel
      fills the HUD, rows share the spare height, and the task / status lines may run to three
      lines before truncating. Idle rows show their last status line too. */
   .h-one .h-head, .h-one .h-row, .h-one .h-foot { display: grid; grid-template-columns: var(--cols); gap: 0 var(--gap);
     grid-template-areas: "av who since load"; }
   .h-av { grid-area: av; } .h-who { grid-area: who; min-width: 0; }
   .h-since { grid-area: since; } .h-load { grid-area: load; min-width: 0; align-self: center; }
-  /* progress is part of the agent's own text block (Troy, 2026-10-24: the separate bar + % column
+  /* progress is part of the agent's own text block (2026-10-24: the separate bar + % column
      "looks odd"): a 4px line under the task/status lines, the % at its end. Idle rows have none. */
   .h-one .h-prgw { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
   .h-one .h-prog { flex: 1; height: 4px; border-radius: 2px; }
@@ -603,7 +603,7 @@
   .h-one .h-row { flex: 1 0 auto; min-height: 126px; }   /* room for title + chart + load track on the right */
   .h-one .h-row:first-child { border-top: 0; }
   .h-load .ln-track { height: clamp(30px, 26%, 56px); min-height: 0; flex: none; width: 100%; }   /* grows a little with a tall row */
-  /* Troy (2026-10-24): tall rows left empty space around the text. Each row now carries its last
+  /* (2026-10-24) tall rows left empty space around the text. Each row now carries its last
      few notes (time + text), the detail you would otherwise open the card for. Hidden on short
      screens, where the rows have no spare height to give. */
   .h-recent { list-style: none; margin: 6px 0 0; padding: 0; color: var(--hdim); font-size: var(--fs-xs); line-height: 1.5; opacity: .85; }
@@ -613,7 +613,7 @@
   .h-row.idle .h-load .ln-track { opacity: .45; }
   /* the queue is the last row of the same grid: label where the names are, bars where the bars are */
   .h-row.h-q { flex: none; min-height: 56px; max-height: 64px; border-top: 1px solid rgba(110,190,255,.14);
-    position: sticky; bottom: 0; z-index: 2; background: var(--hbg); }   /* stays in view when the open idle rows push it below the fold (Troy, Nov 2) */
+    position: sticky; bottom: 0; z-index: 2; background: var(--hbg); }   /* stays in view when the open idle rows push it below the fold (Nov 2) */
   .h-row.h-q .h-who { color: var(--hcy); font-size: var(--fs-sm); letter-spacing: var(--tr-label); align-self: center; }
   .h-row.h-q .h-load .ln-track { display: flex; align-items: flex-end; gap: 2px; padding: 0 1px; height: 30px; }
   .h-row.h-q .h-load .ln-track i { flex: 1; min-height: 0; background: linear-gradient(180deg, var(--hcy), rgba(94,231,255,.25)); border-radius: 2px 2px 0 0; opacity: .8; }
@@ -629,7 +629,7 @@
     .h-head .h-h2 { justify-content: flex-start; }
     .h-load { margin-top: 8px; }
   }
-  /* ----- attention rows (Troy, 2026-10-24: "highlight the agent that is asking, make it look like the
+  /* ----- attention rows (2026-10-24: "highlight the agent that is asking, make it look like the
      top panel did; my name doesn't need to be mentioned"). A row whose card needs a person is tinted
      and outlined in the urgency colour, its state word blinks, and the ask itself is printed in full
      under the task where the status line normally is. Red = needs an answer or a sign-off (yours),
@@ -669,7 +669,7 @@
     background: color-mix(in srgb, var(--c) 14%, transparent);
     box-shadow: inset 0 0 0 1.5px var(--c), 0 0 12px -2px var(--c); }
   /* idle rows are quieter by colour (dim names and text, a faint lane, desaturated), not by opacity: stacking .55 on .55 left the status at 30%,
-     unreadable once the fold opened by default (Troy, Nov 2). Their text now holds 4.5:1 or better. */
+     unreadable once the fold opened by default (Nov 2). Their text now holds 4.5:1 or better. */
   .h-row.idle { opacity: .92; filter: saturate(.4); }
   .h-row.idle:hover { opacity: 1; filter: none; }
   .h-row.idle .h-name { color: var(--hdim); }
@@ -683,7 +683,7 @@
      read one line per row; the exceptional states that actually need a look get the detail. */
   /* ...now that Telemetry is the wide panel there is room for it on every row; it is the one line
      that says what the agent is doing right now, so it is dim for a working agent, lit when the row needs a look */
-  /* Troy (2026-10-24): "remove noise like the card name so the attention text is clearer". The
+  /* (2026-10-24) "remove noise like the card name so the attention text is clearer". The
      card title and the progress line live on the right with the bar; the left column is the agent,
      its state, and the one text that matters: the ask, or the agent's own status line. */
   .h-status { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; color: var(--htext); opacity: .85; margin-top: 4px; font-size: var(--fs-md); line-height: 1.35; overflow-wrap: anywhere; }
@@ -925,7 +925,7 @@
   .arw { margin: 0 0 12px; border-radius: 8px; padding: 10px 14px; display: flex; gap: 12px; align-items: baseline; font-weight: 500;
     background: color-mix(in srgb, var(--tone) 12%, var(--surface)); border-left: 4px solid var(--tone); }
   .arw .who { flex: none; font-size: var(--fs-sm); text-transform: uppercase; letter-spacing: var(--tr-label); color: var(--tone); font-weight: 700; }
-  .arw.troy { --tone: var(--err); } .arw.orch { --tone: var(--warn); } .arw.agent { --tone: var(--info); } .arw.none { --tone: var(--neutral); }
+  .arw.owner { --tone: var(--err); } .arw.orch { --tone: var(--warn); } .arw.agent { --tone: var(--info); } .arw.none { --tone: var(--neutral); }
   .arw.none { font-weight: 400; color: var(--muted); }
   .arw.sm { padding: 5px 10px; font-size: var(--fs-md); margin-bottom: 6px; }
   .arw-row { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 10px; }
@@ -956,7 +956,7 @@
   #later .empty { flex: none; }
   #later .card[data-status="backlog"], #later .card[data-status="todo"] { cursor: pointer; }
 
-  /* ----- shared agent chat: a self-organize channel Troy can see and join ----- */
+  /* ----- shared agent chat: a self-organize channel the owner can see and join ----- */
   #chat { width: min(420px, 94vw); }
   #chat-body { padding: 16px 20px; display: flex; flex-direction: column; gap: 14px; }
   .cmsg { max-width: 94%; }
@@ -971,7 +971,7 @@
   .cmsg.user .cmsg-txt { background: color-mix(in srgb, var(--accent) 10%, var(--surface));
     border-color: color-mix(in srgb, var(--accent) 30%, var(--line)); }
   /* agent chat: a bubble is one line in the agent's colour; the detail, the card, the files and a proposed action sit under it,
-     shown on tap. Troy's Approve / Decline live on the proposal itself. The switch is in the drawer's head. */
+     shown on tap. The owner's Approve / Decline live on the proposal itself. The switch is in the drawer's head. */
   .cmsg.agent .cmsg-txt { border-left: 3px solid var(--c, var(--neutral)); }
   .cmsg-head .to { color: var(--muted); }
   .cmsg-head .topic { font-size: var(--fs-xs); font-weight: 600; letter-spacing: var(--tr-tight); text-transform: uppercase; color: color-mix(in srgb, var(--tc, var(--muted)) 78%, var(--text)); }   /* mixed toward the text colour: 4.5:1 in both themes */
@@ -1312,7 +1312,7 @@ let selected = new Set(), selectAnchor = null;   // multi-select: shift-click/sh
 
 const $ = id => document.getElementById(id);
 const esc = s => { const d = document.createElement('div'); d.textContent = s ?? ''; return d.innerHTML; };
-// One colour per agent NAME, never per card (Troy, 2026-11-01): AGENT-1 to AGENT-5 were all "green" because each card carried its own,
+// One colour per agent NAME, never per card (2026-11-01): AGENT-1 to AGENT-5 were all "green" because each card carried its own,
 // and a card's own colour is now neither stored nor read. [agent_colors] in config.toml overrides a name; otherwise a palette slot
 // (--a1..--a6, clear of the status hues). The slots are mirrored in agent_slot() in cli.py, which colours `agentboard spawn` terminals.
 const COLOR_OK = /^[#\w(),.% -]{1,32}$/;
@@ -1441,7 +1441,7 @@ function card(t) {
   const pdot = proj ? `<i class="pdot" style="--c:${projColor(proj)}" title="Project: ${esc(proj.name)}"></i>` : '';
   const top = who ? `<div class="top">${who}${pdot}${runChip}${reportLink}${when}</div>` : `<div class="top"><span class="unas">Unassigned</span>${pdot}</div>`;   // the holder is always the first row, same place on every card
   const askFlag = asking ? `<div class="ask-flag"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 2a4 4 0 0 0-4 4v3L2.8 11h10.4L12 9V6a4 4 0 0 0-4-4z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M6.5 13a1.5 1.5 0 0 0 3 0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Needs your input</div>` : reviewing ? `<div class="ask-flag rev"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>Ready for review</div>` : '';
-  // ask / review: the agent's one sentence is the card's first line, large, with a reply box Troy can answer in (stored on the card; the agent reads it with `agentboard answer`)
+  // ask / review: the agent's one sentence is the card's first line, large, with a reply box the owner can answer in (stored on the card; the agent reads it with `agentboard answer`)
   const said = (asking || reviewing) ? (t.question || t.result || t.status_text || '') : '';
   const saidRow = said ? `<div class="said" title="${esc(said)}">${esc(said)}</div>` : '';
   // everything past the one sentence waits behind a collapsed Details fold
@@ -1732,7 +1732,7 @@ async function load() {
   loadChat();
 }
 
-// --- shared agent chat: a self-organize channel Troy can see and join ---
+// --- shared agent chat: a self-organize channel the owner can see and join ---
 let chatMsgs = [], chatMaxSeq = 0, chatSeenSeq = 0, chatUnread = 0, chatFirstLoad = true;
 const chatExpanded = new Set();   // seqs of unusually long messages a reader chose to expand
 async function loadChat() {
@@ -1810,7 +1810,7 @@ function chatBubble(m) {
     const a = m.action, st = a.status || 'proposed';
     act = `<div class="cmsg-act ${esc(st)}"><span class="lab">${st === 'proposed' ? 'Proposes · needs your OK' : st === 'approved' ? 'Approved' : 'Declined'}</span>${esc(a.text)}`
       + (st === 'proposed' ? `<div class="acts"><button class="btn go" data-decide="approved" data-seq="${m.seq}">Approve</button><button class="btn" data-decide="declined" data-seq="${m.seq}">Decline</button></div>`
-        : `<div class="decided">${esc(a.by || 'Troy')} · ${ago(a.decided_at).text}</div>`) + '</div>';
+        : `<div class="decided">${esc(a.by || OWNER)} · ${ago(a.decided_at).text}</div>`) + '</div>';
   }
   const fresh = !chatShown.has(m.seq) && !chatFirstLoad; chatShown.add(m.seq);
   return `<div class="cmsg ${m.kind} ${fresh ? 'enter' : ''}" style="--c:${hudColor(m.kind === 'agent' ? agentColor(m.sender) : '')}"><div class="cmsg-head"><b>${esc(m.sender)}</b>${to}${topic}<span>${ago(m.at).text}</span></div>`
@@ -1976,6 +1976,8 @@ $('theme').onclick = () => {
 // --- detail panel ---
 const LABELS = { backlog: 'Later', todo: 'Todo', doing: 'Doing', done: 'Done' };
 let cfg = { dispatch: false, stale_minutes: DEFAULT_STALE_MIN };
+let OWNER = 'you';   // the human's name on this board: [board] owner in config.toml, delivered by /api/config and /api/hud
+const isOwner = who => { const w = String(who || '').trim().toLowerCase(); return w === 'you' || w === OWNER.toLowerCase(); };
 const ACT_SHOWN = 5;
 let descOpen = false, actAll = false, lastDetail = null;
 let openId = null, detailRaw = '', lastFocus = null, promptOpen = false, promptText = '', delTimer = null;
@@ -1998,7 +2000,7 @@ function inlineFmt(src) {
   return h.replace(/\u0000(\d+)\u0000/g, (_, i) => keep[i]);
 }
 // Numbered steps written in one breath — "(1) do x; (2) do y" or "1. x 2. y" — become a list,
-// one step per line (Troy, 2026-10-24: "(1) .. then (2) should be on new lines"). Only a run that
+// one step per line (2026-10-24: "(1) .. then (2) should be on new lines"). Only a run that
 // counts 1, 2, 3… in order counts as steps, so "Oct 24. Next" or "avg 3.5" never split.
 function splitSteps(text) {
   const t = String(text || '').replace(/\r/g, '');
@@ -2010,7 +2012,7 @@ function splitSteps(text) {
   const items = run.map((k, i) => k.mark + ' ' + t.slice(k.end, i + 1 < run.length ? run[i + 1].at : t.length).replace(/[\s;,]+$/, '').trim());
   return { lead, items };
 }
-// one step per line, the agent's own markers kept ("(1) …" stays "(1) …"; Troy: no list numbering)
+// one step per line, the agent's own markers kept ("(1) …" stays "(1) …"; no list numbering)
 function stepsHtml(text, inline) {
   const st = splitSteps(text);
   if (!st) return inline(text);
@@ -2023,7 +2025,7 @@ function fmt(text) {
     return '<p>' + lines.map(l => stepsHtml(l, inlineFmt)).join('<br>') + '</p>';
   }).join('');
 }
-// "ACTION Troy: do x / STATUS card done-ready / WHY because" -> {action, status[], why, rest}
+// "ACTION <owner>: do x / STATUS card done-ready / WHY because" -> {action, status[], why, rest}
 function parseArw(text) {
   const t = String(text || '').replace(/^(Ready for review|Needs input):\s*/, '');
   const m = { ACTION: [], STATUS: [], WHY: [] }, rest = []; let last = null;
@@ -2036,7 +2038,7 @@ function parseArw(text) {
   return { has: m.ACTION.length > 0, action: m.ACTION.join(' '), status: m.STATUS, why: m.WHY.join(' '), rest: rest.join('\n').trim() };
 }
 function arwHtml(p, small) {
-  const a = p.action, tone = /^<?none/i.test(a) ? 'none' : /^troy\b/i.test(a) ? 'troy' : /^orch\b/i.test(a) ? 'orch' : 'agent';
+  const a = p.action, tone = /^<?none/i.test(a) ? 'none' : isOwner((a.match(/^([^:|]{1,40}):/) || [])[1]) ? 'owner' : /^orch\b/i.test(a) ? 'orch' : 'agent';
   const m = a.match(/^([^:|]{1,16}):\s*(.*)$/);
   const who = /^<?none/i.test(a) ? 'No action' : m ? m[1] : 'Action', what = /^<?none/i.test(a) ? '' : m ? m[2] : a;
   const chips = p.status.length ? `<div class="arw-row">${p.status.map(x => {
@@ -2064,7 +2066,7 @@ function panelHtml(t) {
     : rv ? `<b>Ready for review</b><span>${esc(t.agent || 'an agent')} finished ${since}</span>`
     : t.status === 'done' ? `<b>Result</b><span>${esc(t.agent || '')} ${since}</span>` : `<b>Latest</b><span>${since}</span>`;
   const btns = (t.needs_input ? quickHtml(t, false) : '') + (t.needs_input || rv ? `<div class="lat-btns">${rv ? '<button class="btn primary go" id="p-lat-done">Mark done</button>' : ''}<button class="btn" id="p-reply-toggle">${replyOpen ? 'Cancel reply' : 'Reply'}</button></div>
-    <div class="reply" ${replyOpen ? '' : 'hidden'}><textarea id="p-reply-text" placeholder="Reply as Troy — saved to this card's log (⌘↵ to send)">${esc(replyDraft)}</textarea><div class="lat-btns" style="margin:0"><button class="btn primary" id="p-reply-send">Send reply</button></div></div>` : '');
+    <div class="reply" ${replyOpen ? '' : 'hidden'}><textarea id="p-reply-text" placeholder="Reply${OWNER === 'you' ? '' : ' as ' + esc(OWNER)} — saved to this card's log (⌘↵ to send)">${esc(replyDraft)}</textarea><div class="lat-btns" style="margin:0"><button class="btn primary" id="p-reply-send">Send reply</button></div></div>` : '');
   const latest = sawText || bodyHtml ? `<div class="lat${t.needs_input ? ' ask' : rv ? ' rev' : ''}">${'<div class="lat-h">' + head + '</div>'}${parsed.has ? arwHtml(parsed) : `<div class="fmt">${fmt(sawText)}</div>`}${bodyHtml}${btns}</div>` : '';
   const askC = latest, revC = '', result = '';
   const projectSel = `<div class="p-sec"><h3>Project</h3><select class="btn" id="p-project" style="width:100%" aria-label="Project">
@@ -2736,10 +2738,11 @@ const byName = (a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 
 function hudRender(d) {
   d.agents = [...d.agents].sort(byName);
   lastHud = d;
+  OWNER = d.owner || OWNER;
   hudSounds(d);
   renderTiles(d.totals, d.backup);
   if (SOLO) {
-    const t0 = d.totals, mine = (d.actions || []).filter(a => a.who === 'Troy').length;
+    const t0 = d.totals, mine = (d.actions || []).filter(a => isOwner(a.who)).length;
     document.title = (mine ? `● ${mine} for you · ` : '') + (t0.abandoned ? `⚠ ${t0.abandoned} abandoned · ` : '') + (t0.waiting ? `⚠ ${t0.waiting} input · ` : '') + (t0.review ? `✓ ${t0.review} review · ` : '') + `Load · ${t0.working} working`;
   }
   renderGrid(d);
@@ -2836,7 +2839,7 @@ function progChart(a) {
   return `<svg class="h-chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true"><path class="ar" d="${area}"/><g class="ev">${ticks}</g>`
     + `<path class="ln" d="${line}" vector-effect="non-scaling-stroke"/><path class="dot" d="M${W} ${yEnd} l0 .01" vector-effect="non-scaling-stroke"/></svg>`;
 }
-let idleOpen = true, lastHud = null;   // the idle fold: open by default (Troy, Nov 2), so the idle agents show without a click; collapsing it is remembered in this browser
+let idleOpen = true, lastHud = null;   // the idle fold: open by default (Nov 2), so the idle agents show without a click; collapsing it is remembered in this browser
 try { idleOpen = localStorage.getItem('agentboard-idle') !== 'closed'; } catch (e) {}
 function renderGrid(d) {
   const box = $('h-tele'); if (!box) return;
@@ -2873,7 +2876,7 @@ function renderGrid(d) {
   agents.forEach(a => {
     const r = box.querySelector(`[data-agent="${CSS.escape(a.name)}"]`); if (!r) return;
     const c = hudColor(agentColor(a.name)), ask = asks.get(a.name);
-    r.className = `h-row ${a.state}` + (ask ? ` attn ${ask.kind === 'stale' ? 'stale' : (ask.who === 'Troy' || ask.who === 'none') ? '' : 'other'}` : '');
+    r.className = `h-row ${a.state}` + (ask ? ` attn ${ask.kind === 'stale' ? 'stale' : (isOwner(ask.who) || ask.who === 'none') ? '' : 'other'}` : '');
     r.style.setProperty('--c', c);
     r.dataset.id = ask ? ask.id : a.task_id || '';
     // the row's last few notes (time + text), newest first; the current status line is not repeated
@@ -2883,13 +2886,13 @@ function renderGrid(d) {
     const recEl = r.querySelector('.h-recent');
     if (recEl.dataset.k !== recHtml) { recEl.dataset.k = recHtml; recEl.innerHTML = recHtml; }
     const askEl = r.querySelector('.h-ask');
-    const askHtml = ask ? stepsHtml(ask.what, hh) + `<i>${hh(KIND_WORD[ask.kind] || ask.kind)}${ask.who && ask.who !== 'Troy' && ask.who !== 'none' ? ' · for ' + hh(ask.who) : ''}${ask.age_min == null ? '' : ' · ' + (ask.age_min < 1 ? 'just now' : dur(ask.age_min))}</i>` : '';
+    const askHtml = ask ? stepsHtml(ask.what, hh) + `<i>${hh(KIND_WORD[ask.kind] || ask.kind)}${ask.who && !isOwner(ask.who) && ask.who !== 'none' ? ' · for ' + hh(ask.who) : ''}${ask.age_min == null ? '' : ' · ' + (ask.age_min < 1 ? 'just now' : dur(ask.age_min))}</i>` : '';
     if (askEl.dataset.k !== askHtml) { askEl.dataset.k = askHtml; askEl.innerHTML = askHtml; }
     r.querySelector('em').textContent = a.state.toUpperCase();
     r.querySelector('.h-card').textContent = a.state === 'idle' ? (a.task ? 'last: ' + a.task : 'no activity yet') : a.task;
     r.querySelector('.h-card').title = (a.open_titles || []).join('\n') || a.task || '';
     r.querySelector('.h-status').textContent = a.status_text || (a.state === 'idle' ? '' : 'no status yet');
-    r.querySelector('.h-name').title = `${a.open || 0} open · ${a.done_today || 0} signed off today`;   // on hover only; Troy does not read it
+    r.querySelector('.h-name').title = `${a.open || 0} open · ${a.done_today || 0} signed off today`;   // on hover only; it is not part of the reading
     const ch = progChart(a), cw = r.querySelector('.h-chw');
     if (cw.dataset.k !== ch) { cw.dataset.k = ch; cw.innerHTML = ch; }   // only when the chart actually changed, so the dot keeps breathing
     r.querySelector('.h-pct').textContent = (a.progress || 0) + '%';
@@ -3336,7 +3339,7 @@ fetch('/api/boards').then(r => r.json()).then(d => {   // the board switcher: hi
   sw.hidden = false;
   sw.onchange = () => { location.href = sw.value; };
 }).catch(() => {});
-fetch('/api/config').then(r => r.json()).then(c => { cfg = c; $('orch-btn').hidden = !c.dispatch; raw = ''; detailRaw = ''; load(); }).catch(() => {});
+fetch('/api/config').then(r => r.json()).then(c => { cfg = c; OWNER = c.owner || OWNER; $('orch-btn').hidden = !c.dispatch; raw = ''; detailRaw = ''; load(); }).catch(() => {});
 load(); setInterval(load, 1000);
 if (SOLO) {
   document.body.classList.add('solo');

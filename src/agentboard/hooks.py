@@ -13,7 +13,7 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-from .store import BoardError
+from .store import BoardError, owner_name
 
 HOOK_COMMAND = "agentboard hook send-message"
 SESSION_ENV = "CLAUDE_CODE_SESSION_ID"
@@ -35,7 +35,7 @@ def read_sessions(board_dir):
 def remember_session(board_dir, name, session_id=None):
     """Keep this session's name against its id, so the hook can post as it. Silent when there is no id or the dir is missing."""
     sid = session_id or os.environ.get(SESSION_ENV)
-    if not sid or not name or name == "Troy":
+    if not sid or not name or name == owner_name(board_dir):
         return None
     d = read_sessions(board_dir)
     d[sid] = {"name": name, "at": datetime.now().strftime("%Y-%m-%dT%H:%M:%S")}

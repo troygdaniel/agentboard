@@ -6,13 +6,14 @@ outcome in one line; it opens to what was asked, the full result, the timeline a
 One stacked bar per project shows the mix of kinds; a search box and a kind filter scope the whole page. Colours come from a
 validated categorical palette (light and dark) and every colour sits beside its word. Everything an agent wrote is escaped.
 Read-only: it never writes to the board. Served at /summary (?since=1d|7d|30d|all&project=<id>) and printed by `agentboard summary`."""
+import functools
 import html
 import json
 import re
 from datetime import date, timedelta
 
 from . import hud, nav
-from .store import BoardError
+from .store import DEFAULT_OWNER, BoardError
 
 DEFAULT_SINCE = "7d"
 LINE_MAX = 150
@@ -40,7 +41,7 @@ STOP = set("""a an the and or but if so as at by be is are was were has have had
 her my we i you they he she this that these those there here than then too very from into onto over under after before out off about like same
 still again back up down in on to of for with without within through during between across around via per vs not no yes now when where which who
 what why how all any each every some more less most least own new old first last next only just also one two also card cards todo doing done review
-agent agents orch troy claude session sessions pass passes plan phase part bug bugs ui ux idea ideas thing things stuff way bit lot fix fixed fixes
+agent agents orch claude session sessions pass passes plan phase part bug bugs ui ux idea ideas thing things stuff way bit lot fix fixed fixes
 add added adds make makes made show shows give gives move moves run runs push pushes rename rewrite propose let keep put get set use open close look
 find cut write draft check stop start tighten clean polish turn bring hide group list instead real small big little live main page pages work
 today yesterday week ready needs need should must dont don't doesnt doesn't isnt isn't wont won't cant can't got go goes going gone take takes took
@@ -59,7 +60,7 @@ def parse_since(text, today=None):
     return today - timedelta(days=int(m.group(1)) - 1)
 
 
-def one_line(result, title=""):
+def one_line(result, title="", owner=DEFAULT_OWNER):
     """The agent's one sentence for a card: the STATUS part of an ACTION/STATUS/WHY report, else its first sentence, never long."""
     r = re.sub(r"\s+", " ", str(result or "")).strip()
     m = re.search(r"\bSTATUS\b[:\s]*(.*?)(?=\s\bWHY\b|$)", r)
@@ -67,7 +68,7 @@ def one_line(result, title=""):
         r = m.group(1).strip()
     else:
         r = re.sub(r"^ACTION\b[:\s]*(none\b[.:\s]*)?", "", r, flags=re.I).strip()
-        r = re.sub(r"^(Troy|ORCH|AGENT-\d+):\s*", "", r)
+        r = re.sub(rf"^({re.escape(owner)}|ORCH|AGENT-\d+):\s*", "", r)
     r = re.sub(r"^[a-z0-9][a-z0-9-]*\s+(?:done-ready|blocked|\d+%)\s*[:.,;\-]?\s*", "", r)   # "card-id done-ready," prefix
     first = re.split(r"(?<=[.!?])\s+(?=[A-Z])", r, maxsplit=1)[0]
     first = first.strip()
@@ -101,7 +102,7 @@ def asked(description, title):
     return first if len(first) <= LINE_MAX else first[:LINE_MAX - 1].rstrip() + "…"
 
 
-def _card(t, at):
+def _card(t, at, owner=DEFAULT_OWNER):
     log = []
     for entry in (t.get("log") or []):
         if not isinstance(entry, dict):
@@ -117,7 +118,7 @@ def _card(t, at):
     kind = kind_of(title)
     if kind == CHANGED:     # the title did not say; the first line of what was asked usually does
         kind = kind_of(ask)
-    return {"id": t["id"], "title": title, "line": one_line(t.get("result") or t.get("status_text"), title), "kind": kind,
+    return {"id": t["id"], "title": title, "line": one_line(t.get("result") or t.get("status_text"), title, owner), "kind": kind,
             "asked": ask, "agent": t.get("agent") or "", "at": at,
             "result": str(t.get("result") or t.get("status_text") or "").strip(), "description": desc, "log": log[-LOG_MAX:],
             "report": str(report.get("file") or "")}
@@ -138,10 +139,10 @@ def _tokens(title):
     return out
 
 
-def themes(cards, project_name=""):
+def themes(cards, project_name="", owner=DEFAULT_OWNER):
     """Split a project's cards into work areas: a word that several titles share names an area; the rest is 'Other'."""
     n = len(cards)
-    skip = {k for k, _w in _tokens(project_name)} | {re.sub(r"[^a-z0-9]", "", project_name.lower())}
+    skip = {k for k, _w in _tokens(project_name)} | {re.sub(r"[^a-z0-9]", "", project_name.lower()), owner.lower()}
     toks = [[kw for kw in _tokens(c["title"]) if kw[0] not in skip] for c in cards]
     df, casing = {}, {}
     for ts in toks:
@@ -168,7 +169,7 @@ def themes(cards, project_name=""):
     return out
 
 
-def collect(tasks, projects, since="7d", project=None, today=None):
+def collect(tasks, projects, since="7d", project=None, today=None, owner=DEFAULT_OWNER):
     """{'projects': [{id, name, count, cards, themes: [{name, cards}], kinds: {kind: n}}], 'kinds': {kind: n}, 'total',
     'prev' (the same-length window before this one, or None), 'facts': [str], 'first', 'today', 'n_days'}"""
     today = today or date.today()
@@ -192,7 +193,7 @@ def collect(tasks, projects, since="7d", project=None, today=None):
             if prev_lo and at.date() >= prev_lo:
                 prev += 1
             continue
-        by_proj.setdefault(pid, []).append(_card(t, at))
+        by_proj.setdefault(pid, []).append(_card(t, at, owner))
     out, kinds = [], {}
     for pid, cards in by_proj.items():
         cards.sort(key=lambda c: c["at"], reverse=True)
@@ -201,10 +202,10 @@ def collect(tasks, projects, since="7d", project=None, today=None):
             pk[c["kind"]] = pk.get(c["kind"], 0) + 1
             kinds[c["kind"]] = kinds.get(c["kind"], 0) + 1
         name = names.get(pid) or ("No project" if not pid else pid)
-        out.append({"id": pid, "name": name, "cards": cards, "count": len(cards), "themes": themes(cards, name), "kinds": pk})
+        out.append({"id": pid, "name": name, "cards": cards, "count": len(cards), "themes": themes(cards, name, owner), "kinds": pk})
     out.sort(key=lambda p: (-p["count"], p["name"].lower()))
     data = {"since": since, "first": first, "today": today, "n_days": n_days, "projects": out, "kinds": kinds,
-            "total": sum(p["count"] for p in out), "prev": prev if first else None}
+            "total": sum(p["count"] for p in out), "prev": prev if first else None, "owner": owner}
     data["facts"] = facts(data)
     return data
 
@@ -501,7 +502,13 @@ def _slot(kind):
 
 # -- readable text: a blob becomes steps, bands or one sentence per line, with the code-ish bits and numbers marked ----------------
 CODE = re.compile(r"(?<![\w/`])((?:~?/)?(?:[\w.-]+/){1,}[\w.-]+|[\w-]+\.(?:py|js|ts|md|html|json|toml|yml|yaml|sh|css|txt|csv|svg|sql)\b|--[\w-]+|[A-Z][A-Z0-9_]{2,}=[^\s,;)]+|/api/[\w/-]+|`[^`]+`)")
-WHO = re.compile(r"^(Troy|ORCH|AGENT-\d+|GENERAL)(:\s*)")
+
+
+@functools.lru_cache(maxsize=16)
+def _who_chip(owner):
+    return re.compile(rf"^({re.escape(owner)}|ORCH|AGENT-\d+|GENERAL)(:\s*)")
+
+
 ASIDE = re.compile(r"\((?:[^()]|\([^()]*\)){14,}\)")
 QUOTE = re.compile(r"(?<![\w])'([^'\n]{2,80})'(?![\w])|\"([^\"\n]{2,80})\"")
 ENUM = re.compile(r"(?:(?<=\s)|^)\(?(\d{1,2})[).:]\s+(?=\S)")
@@ -509,7 +516,7 @@ SENT = re.compile(r"(?<=[.!?])\s+(?=[A-Z(\"'])")
 STATUS_SLOT = {"todo": "sg", "backlog": "sg", "later": "sg", "doing": "ac", "needs_input": "s1", "review": "s6", "done": "ok"}
 
 
-def _inline(text):
+def _inline(text, owner=DEFAULT_OWNER):
     """HTML for one line of agent text: escaped, then numbers bold, paths/flags/files as code, quotes in italics, asides muted, a leading name as a chip."""
     t = html.escape(text, quote=False)     # text nodes only, so quotes may stay (the quote regex needs them)
 
@@ -522,7 +529,7 @@ def _inline(text):
     t = NUM.sub(r"<b>\1</b>", t)
     t = QUOTE.sub(lambda m: "<em>" + (m.group(1) or m.group(2)) + "</em>", t)
     t = ASIDE.sub(lambda m: '<span class="aside">' + m.group(0) + "</span>", t)
-    return WHO.sub(lambda m: f'<span class="who-chip">{m.group(1)}</span> ', t, count=1)
+    return _who_chip(owner).sub(lambda m: f'<span class="who-chip">{m.group(1)}</span> ', t, count=1)
 
 
 def _short(item, words=6):
@@ -562,24 +569,24 @@ def blocks(text):
     return [("p", t)]
 
 
-def _render(text):
+def _render(text, owner=DEFAULT_OWNER):
     """The HTML for a blob: steps as a numbered chain plus the full items, bands as labelled rows, else one sentence per line."""
     out = []
     for b in blocks(text):
         if b[0] == "bands":
-            out.append('<div class="bands">' + "".join(f'<div class="band band-{lab.lower()}"><span>{lab}</span><div>{_inline(txt)}</div></div>' for lab, txt in b[1] if txt) + "</div>")
+            out.append('<div class="bands">' + "".join(f'<div class="band band-{lab.lower()}"><span>{lab}</span><div>{_inline(txt, owner)}</div></div>' for lab, txt in b[1] if txt) + "</div>")
         elif b[0] == "steps":
             _k, pre, items, tail = b
             if pre:
-                out.append(f'<p>{_inline(pre)}</p>')
+                out.append(f'<p>{_inline(pre, owner)}</p>')
             out.append('<ol class="chain">' + "".join(f'<li><b>{i + 1}</b><span>{html.escape(_short(it))}</span></li>' for i, it in enumerate(items)) + "</ol>")
-            out.append('<ol class="items">' + "".join(f"<li><div>{_inline(it)}</div></li>" for it in items) + "</ol>")
+            out.append('<ol class="items">' + "".join(f"<li><div>{_inline(it, owner)}</div></li>" for it in items) + "</ol>")
             if tail:
-                out.append(f'<p class="tail">{_inline(tail)}</p>')
+                out.append(f'<p class="tail">{_inline(tail, owner)}</p>')
         elif b[0] == "lines":
-            out.append('<ul class="lines">' + "".join(f"<li>{_inline(s)}</li>" for s in b[1]) + "</ul>")
+            out.append('<ul class="lines">' + "".join(f"<li>{_inline(s, owner)}</li>" for s in b[1]) + "</ul>")
         else:
-            out.append(f"<p>{_inline(b[1])}</p>")
+            out.append(f"<p>{_inline(b[1], owner)}</p>")
     return "".join(out)
 
 
@@ -636,14 +643,14 @@ def _pid(pid):
     return "proj-" + (re.sub(r"[^A-Za-z0-9_-]", "-", pid) or "none")
 
 
-def _row(c, base):
+def _row(c, base, owner=DEFAULT_OWNER):
     e = html.escape
     q = e((c["title"] + " " + c["line"] + " " + c["asked"] + " " + c["agent"]).lower(), quote=True)
     body = []
     if c["asked"] or c["description"]:
-        body.append(f'<h4>Asked</h4><div class="desc">{_render(c["description"] or c["asked"])}</div>')
+        body.append(f'<h4>Asked</h4><div class="desc">{_render(c["description"] or c["asked"], owner)}</div>')
     if c["result"]:
-        body.append(f'<h4>Result</h4>{_render(c["result"])}')
+        body.append(f'<h4>Result</h4>{_render(c["result"], owner)}')
     if c["log"]:
         items = "".join(f'<li><b>{e(l["at"].strftime("%d %b %H:%M")) if l["at"] else ""}</b><span><i class="{STATUS_SLOT.get(l["status"], "sg")}"></i>{e(l["status"].replace("_", " "))}{"" if l["progress"] is None else " " + str(l["progress"]) + "%"}</span><span>{_inline(l["text"])}</span></li>'
                         for l in c["log"])
@@ -655,7 +662,7 @@ def _row(c, base):
             f'<div class="body">{"".join(body)}<div class="links">{links}</div></div></details>')
 
 
-def _project(p, base):
+def _project(p, base, owner=DEFAULT_OWNER):
     e = html.escape
     parts = [f'<section class="proj" id="{_pid(p["id"])}"><header><h3>{e(p["name"])}<span class="n">{p["count"]}</span></h3>'
              f'<div class="mix">{_kbar(p["kinds"], p["count"], "Kinds of change in " + p["name"])}</div></header>']
@@ -665,9 +672,9 @@ def _project(p, base):
         name = th["name"] or "Cards"
         parts.append(f'<details class="theme" id="{_aid(p["id"], i)}"><summary><span class="an">{e(name)}</span><span class="n">{len(cards)}</span>'
                      f'<span class="tb" style="width:{max(6, round(100 * len(cards) / p["count"]))}%"></span>{_kbar(kinds, len(cards), name + ": kinds of change")}</summary>')
-        parts.append("".join(_row(c, base) for c in cards[:shown]))
+        parts.append("".join(_row(c, base, owner) for c in cards[:shown]))
         if len(cards) > shown:
-            parts.append(f'<details class="more"><summary>{len(cards) - shown} more</summary>{"".join(_row(c, base) for c in cards[shown:])}</details>')
+            parts.append(f'<details class="more"><summary>{len(cards) - shown} more</summary>{"".join(_row(c, base, owner) for c in cards[shown:])}</details>')
         parts.append("</details>")
     return "".join(parts) + "</section>"
 
@@ -697,12 +704,12 @@ def build_html(data, base=""):
         m = _map(data)
         if m:
             parts.append(f'<div class="box"><h2>Where the work went<small>bigger is more; the colour is the main kind of change; click an area for its cards</small></h2><div class="mapwrap">{m}</div></div>')
-        parts += [_project(p, base) for p in data["projects"]]
+        parts += [_project(p, base, data.get("owner", DEFAULT_OWNER)) for p in data["projects"]]
     parts.append(f'<template id="txt">{e(to_text(data))}</template><template id="mmd">{e(to_mermaid(data))}</template><script>{JS}</script></main></body></html>')
     return "".join(parts)
 
 
 def build(store, since=DEFAULT_SINCE, project=None, today=None):
-    data = collect(store.load(), store.load_projects(), since, project, today)
+    data = collect(store.load(), store.load_projects(), since, project, today, store.owner)
     data["project"] = project or ""
     return data

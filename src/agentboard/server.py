@@ -190,13 +190,13 @@ def make_handler(default_store, port):
                 self._send(200, {"projects": self.store.load_projects()})
             elif url.path == "/api/hud":
                 conf = _config(self.store)
-                data = hud.build(self.store.load(), abandoned_min=hud.stale_minutes(conf), retired=hud.retired(conf), roster=hud.roster(conf))
+                data = hud.build(self.store.load(), abandoned_min=hud.stale_minutes(conf), retired=hud.retired(conf), roster=hud.roster(conf), owner=self.store.owner)
                 data["backup"] = self.store.backups.status()   # {last_backup_min, snapshots, last_sync, sync_dir}: the HUD's "backup N min ago" chip
                 self._send(200, data)
             elif url.path == "/api/config":
                 conf = _config(self.store)
                 colors = conf.get("agent_colors")   # [agent_colors] AGENT-1 = "#2563eb": overrides the palette slot a name gets
-                self._send(200, {"dispatch": bool(conf.get("ui", {}).get("dispatch", True)),
+                self._send(200, {"dispatch": bool(conf.get("ui", {}).get("dispatch", True)), "owner": self.store.owner,
                                   "stale_minutes": hud.stale_minutes(conf),
                                   "agent_colors": {str(k): v for k, v in colors.items() if isinstance(v, str)} if isinstance(colors, dict) else {}})
             elif url.path == "/api/task":
@@ -294,8 +294,8 @@ def make_handler(default_store, port):
                         raise BoardError("text must be a string")
                     self._send(200, self.store.reply(body["id"], body["text"]))
                 elif path == "/api/chat":
-                    # the only HTTP poster is the board UI (agents use the CLI), so it's always "you"
-                    sender = body.get("sender") or "Troy"
+                    # the only HTTP poster is the board UI (agents use the CLI), so it's always the owner
+                    sender = body.get("sender") or self.store.owner
                     if not isinstance(sender, str) or not isinstance(body["text"], str):
                         raise BoardError("sender and text must be strings")
                     text, to = body["text"], body.get("to")

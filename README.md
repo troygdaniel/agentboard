@@ -85,7 +85,7 @@ problem it exits quietly. Restart running sessions once after installing.
 
 **Said casually.** With `[chat] casual = true`, the board gives every agent line (mirrored ones included) a spoken version through
 the cheap model: the same facts, names, numbers and card ids, in one friendly line that reads aloud; the panel shows that, with
-the line as written and its detail behind **As written**. Troy's own lines, the board's notices and the drafter's lines (already in
+the line as written and its detail behind **As written**. The owner's own lines, the board's notices and the drafter's lines (already in
 the voice) are left alone, as is anything shorter than a sentence. `agentboard chat casual --once` runs a round by hand;
 `casual_per_hour` (default 60) caps the spend, about `casual_per_hour × idle_budget_usd` an hour at most.
 
@@ -132,8 +132,8 @@ There is no Assign button. Press **Copy prompt** on the card, paste it into the 
 
 Every prompt agentboard produces (Copy prompt, the `agentboard run` prompt, the instructions snippet, the ORCH prompt) ends with one rule:
 
-> Report to Troy in one sentence, one idea: the ACTION he must take first, then one fact. If nothing is needed from him, one line of status.
-> If more is unavoidable, one sentence, then offer the detail. Put that sentence on the card (ask/review/update text) so Troy answers you there, and in your terminal. Put detail in `--body` (it shows under Details on the card), never in the first line.
+> Report to the user in one sentence, one idea: the ACTION they must take first, then one fact. If nothing is needed from them, one line of status.
+> If more is unavoidable, one sentence, then offer the detail. Put that sentence on the card (ask/review/update text) so the user answers you there, and in your terminal. Put detail in `--body` (it shows under Details on the card), never in the first line.
 
 On the board, a card in **ask** or **review** shows that sentence as its first line, large, with a one-line **reply box** on the card. A reply is stored
 on the card (and in its log), and the agent reads it with `agentboard answer <id>` (`--wait` polls until there is one; `--timeout`, `--interval`).
@@ -173,7 +173,7 @@ On the command line: `agentboard summary [--since 7d] [--project <id>] [--html <
 
 The older three-line shape is still understood and drawn as bands and chips, if an agent prefers it (three lines at most):
 
-    ACTION  Troy: tap Call me once; it rings your mobile        # <none> | Troy: … | ORCH: … | AGENT-N: …
+    ACTION  you: tap Call me once; it rings your mobile         # <none> | you: … | ORCH: … | AGENT-N: …
     STATUS  telephony-kill-switch done-ready                      # one card per line: done-ready | blocked | 40%
     WHY     one short outbound call                               # only if it changes the action
 
@@ -418,7 +418,11 @@ Findings below come from the audit in `SECURITY.md` in the repository root (v0.2
 `agentboard init` writes the file with every option commented out. All keys:
 
     [board]
+    owner = "you"                 # your name: replaces "the user" in every prompt and "you" on the board, the HUD and report pages
     stale_minutes = 120           # a Doing card silent this long is marked "abandoned?" on the board and the HUD
+
+    [voice]
+    words = ["Acme"]              # names the dictation should spell right (your name and the agents' are already included)
 
     [hud]
     retired = ["AGENT-5"]         # agents hidden from the HUD; their cards and history stay

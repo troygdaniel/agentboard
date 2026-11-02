@@ -26,12 +26,12 @@ def task(tid, title, done_on, agent="AGENT-1", project="p1", result="", descript
     return t
 
 
-PROJECTS = [{"id": "p1", "name": "Pakled"}, {"id": "p2", "name": "Tangen"}]
+PROJECTS = [{"id": "p1", "name": "Atlas"}, {"id": "p2", "name": "Quartz"}]
 TASKS = [
-    task("a", "Fix the relay", "2026-10-28", result="ACTION Troy: reinstall. STATUS a done-ready, pushed. WHY nothing.", report="a-1.html"),
+    task("a", "Fix the relay", "2026-10-28", result="ACTION you: reinstall. STATUS a done-ready, pushed. WHY nothing.", report="a-1.html"),
     task("b", "Add a relay health check", "2026-10-27", agent="AGENT-2", result="Pushed; 12 tests pass. More words here.", description="(your worktree), relay slice. Make the relay report its own health every minute."),
     task("c", "Old card", "2026-10-01"),
-    task("d", "Tangen books", "2026-10-28", project="p2", result="Troy: try ./tb add", description="Keep the books for Tangen in one file."),
+    task("d", "Quartz books", "2026-10-28", project="p2", result="you: try ./tb add", description="Keep the books for Quartz in one file."),
     task("e", "A subtask", "2026-10-28", parent="a"),
     task("f", "No project", "2026-10-27", project=None, agent="GENERAL"),
     task("g", "Relay: the live call screen", "2026-10-26", result="pushed (checked)."),
@@ -51,7 +51,7 @@ class Collect(unittest.TestCase):
     def test_groups_by_project_and_area_and_skips_subtasks_and_open_cards(self):
         d = summary.collect(TASKS, PROJECTS, "7d", today=TODAY)
         self.assertEqual(d["total"], 5)
-        self.assertEqual([p["name"] for p in d["projects"]], ["Pakled", "No project", "Tangen"])
+        self.assertEqual([p["name"] for p in d["projects"]], ["Atlas", "No project", "Quartz"])
         pak = d["projects"][0]
         self.assertEqual([c["id"] for c in pak["cards"]], ["a", "b", "g"])
         self.assertEqual([(th["name"], len(th["cards"])) for th in pak["themes"]], [("Relay", 3)])
@@ -67,9 +67,9 @@ class Collect(unittest.TestCase):
             summary.collect(TASKS, PROJECTS, "7d", project="nope", today=TODAY)
 
     def test_one_line_prefers_status_and_first_sentence(self):
-        self.assertEqual(summary.one_line("ACTION Troy: reinstall. STATUS a done-ready, pushed. WHY nothing."), "pushed.")
+        self.assertEqual(summary.one_line("ACTION you: reinstall. STATUS a done-ready, pushed. WHY nothing."), "pushed.")
         self.assertEqual(summary.one_line("Pushed; 12 tests pass. More words here."), "Pushed; 12 tests pass.")
-        self.assertEqual(summary.one_line("ACTION none. Troy: try ./tb add"), "try ./tb add")
+        self.assertEqual(summary.one_line("ACTION none. you: try ./tb add"), "try ./tb add")
         self.assertEqual(summary.one_line(""), "")
         self.assertTrue(summary.one_line("x" * 400).endswith("…"))
 
@@ -99,7 +99,7 @@ class Collect(unittest.TestCase):
         self.assertNotIn("Old card", txt)
         mm = summary.to_mermaid(d)
         self.assertTrue(mm.startswith("mindmap\n  root(("))
-        self.assertIn("    Pakled 3\n      Relay 3", mm)
+        self.assertIn("    Atlas 3\n      Relay 3", mm)
         page = summary.build_html(d, "/b/x")
         for s in ("Done summary", "Fix the relay", "What kind of work", "Where the work went", 'class="map"', 'id="copy"', 'id="copymm"', 'id="save"',
                   "/b/x/summary?since=30d", "data-theme", "/b/x/#a", "/b/x/reports/a-1.html", "<h4>Asked</h4>", "<h4>How it went</h4>", "doing 30 min", "<summary>Timeline</summary>", "halfway"):
@@ -113,7 +113,7 @@ class Collect(unittest.TestCase):
         self.assertNotIn("<script>alert", page)
         self.assertNotIn("<img onerror", page)
         self.assertIn("&lt;script&gt;", page)
-        self.assertNotIn("(", summary.to_mermaid(summary.collect([task("y", "Tangen (books) [x]", "2026-10-28", project="p2")], PROJECTS, "1d", today=TODAY)).split("\n")[2])
+        self.assertNotIn("(", summary.to_mermaid(summary.collect([task("y", "Quartz (books) [x]", "2026-10-28", project="p2")], PROJECTS, "1d", today=TODAY)).split("\n")[2])
 
     def test_more_fold_past_the_shown_cards(self):
         many = [task(f"m{i}", f"Card {i}", "2026-10-28") for i in range(9)]
@@ -122,18 +122,25 @@ class Collect(unittest.TestCase):
         txt = summary.to_text(summary.collect([task(f"m{i}", f"Card {i}", "2026-10-28") for i in range(15)], [], "1d", today=TODAY))
         self.assertIn("...and 3 more.", txt)
 
+    def test_the_owner_name_is_the_boards_not_a_fixed_one(self):
+        self.assertEqual(summary.one_line("ACTION none. Alex: try ./tb add", owner="Alex"), "try ./tb add")
+        self.assertEqual(summary.one_line("Alex: try ./tb add"), "Alex: try ./tb add")   # a name that is not the owner's stays text
+        self.assertIn('<span class="who-chip">Alex</span>', summary._inline("Alex: edit it", "Alex"))
+        self.assertNotIn("who-chip", summary._inline("Alex: edit it"))
+        self.assertEqual(summary.collect(TASKS, PROJECTS, "7d", today=TODAY, owner="Alex")["owner"], "Alex")
+
     def test_blobs_become_steps_bands_or_lines(self):
-        steps = summary.blocks("Let Troy speak: 1) a mic button on the board (local only); 2) dictate into a terminal; 3) keep replies short. Nothing bought without Troy's words.")
+        steps = summary.blocks("Let Alex speak: 1) a mic button on the board (local only); 2) dictate into a terminal; 3) keep replies short. Nothing bought without Alex's words.")
         self.assertEqual(steps[0][0], "steps")
-        self.assertEqual(steps[0][1], "Let Troy speak")
+        self.assertEqual(steps[0][1], "Let Alex speak")
         self.assertEqual([summary._short(i) for i in steps[0][2]], ["mic button on the board", "dictate into a terminal", "keep replies short"])
-        self.assertEqual(steps[0][3], "Nothing bought without Troy's words.")
-        self.assertEqual(summary.blocks("ACTION Troy: reinstall. STATUS x done-ready, pushed. WHY nothing."), [("bands", [("Action", "Troy: reinstall."), ("Status", "x done-ready, pushed."), ("Why", "nothing.")])])
+        self.assertEqual(steps[0][3], "Nothing bought without Alex's words.")
+        self.assertEqual(summary.blocks("ACTION you: reinstall. STATUS x done-ready, pushed. WHY nothing."), [("bands", [("Action", "you: reinstall."), ("Status", "x done-ready, pushed."), ("Why", "nothing.")])])
         self.assertEqual(summary.blocks("Pushed; 12 tests pass. Verified live. ORCH to restart."), [("lines", ["Pushed; 12 tests pass.", "Verified live.", "ORCH to restart."])])
         self.assertEqual(summary.blocks("one short thing"), [("p", "one short thing")])
         self.assertEqual(summary.blocks(""), [])
-        line = summary._inline("Troy: edit src/agentboard/voice.py, run --paste in 2 min <b>")
-        self.assertIn('<span class="who-chip">Troy</span>', line)
+        line = summary._inline("you: edit src/agentboard/voice.py, run --paste in 2 min <b>")
+        self.assertIn('<span class="who-chip">you</span>', line)
         self.assertIn("<code>src/agentboard/voice.py</code>", line)
         self.assertIn("<code>--paste</code>", line)
         self.assertIn("<b>2 min</b>", line)

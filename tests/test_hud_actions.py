@@ -7,11 +7,13 @@ from pathlib import Path
 from agentboard import hud
 from agentboard.store import Store
 
+OWNER = "Alex"   # the board's owner name: nothing here may assume a particular one
+
 
 class ParseActionTests(unittest.TestCase):
     def test_three_line_shape_on_separate_lines(self):
-        a = hud.parse_action("ACTION Troy: tap Call me once\nSTATUS card-x done-ready\nWHY it costs one call")
-        self.assertEqual((a["who"], a["what"]), ("Troy", "tap Call me once"))
+        a = hud.parse_action("ACTION Alex: tap Call me once\nSTATUS card-x done-ready\nWHY it costs one call", OWNER)
+        self.assertEqual((a["who"], a["what"]), (OWNER, "tap Call me once"))
         self.assertEqual(a["status"], "card-x done-ready")
         self.assertEqual(a["why"], "it costs one call")
 
@@ -22,10 +24,15 @@ class ParseActionTests(unittest.TestCase):
         self.assertEqual(hud.parse_action("ACTION none")["who"], "none")
 
     def test_status_and_why_run_on_in_one_line(self):
-        a = hud.parse_action("ACTION Troy: register quietdesk.co; point URLs at it. STATUS rename done-ready WHY DNS")
-        self.assertEqual(a["who"], "Troy")
-        self.assertEqual(a["what"], "register quietdesk.co; point URLs at it.")
+        a = hud.parse_action("ACTION Alex: register example.co; point URLs at it. STATUS rename done-ready WHY DNS", OWNER)
+        self.assertEqual(a["who"], OWNER)
+        self.assertEqual(a["what"], "register example.co; point URLs at it.")
         self.assertEqual((a["status"], a["why"]), ("rename done-ready", "DNS"))
+
+    def test_you_and_the_default_owner_mean_the_same_person(self):
+        self.assertEqual(hud.parse_action("ACTION you: tap it")["who"], "you")
+        self.assertEqual(hud.parse_action("ACTION You: tap it", OWNER)["who"], OWNER)   # "you" always means the owner, whatever their name
+        self.assertEqual(hud.parse_action("ACTION alex: tap it", OWNER)["who"], OWNER)
 
     def test_plain_text_is_not_an_action_line(self):
         a = hud.parse_action("Which port should the server use?")
@@ -40,9 +47,9 @@ class ActionRowTests(unittest.TestCase):
     def tearDown(self):
         self.tmp.cleanup()
 
-    def test_asks_for_troy_come_first_then_reviews_then_stale(self):
+    def test_asks_for_the_owner_come_first_then_reviews_then_stale(self):
         self.s.start("Review me", "atlas", "blue")
-        self.s.review("review-me", "ACTION Troy: open /hud and look | STATUS review-me done-ready")
+        self.s.review("review-me", "ACTION Alex: open /hud and look | STATUS review-me done-ready")
         self.s.start("Ask me", "bolt")
         self.s.ask("ask-me", "Which port?")
         self.s.start("Quiet one", "cass")
@@ -51,24 +58,24 @@ class ActionRowTests(unittest.TestCase):
         tasks = self.s.load()
         quiet = next(t for t in tasks if t["id"] == "quiet-one")
         quiet["updated"] = (datetime.now() - timedelta(hours=3)).strftime(hud.FMT)
-        rows = hud.actions(tasks)
+        rows = hud.actions(tasks, owner=OWNER)
         self.assertEqual([r["kind"] for r in rows], ["ask", "review", "stale"])
         ask, rev, stale = rows
-        self.assertEqual((ask["who"], ask["what"], ask["agent"]), ("Troy", "Which port?", "bolt"))
-        self.assertEqual((rev["who"], rev["what"]), ("Troy", "open /hud and look"))
+        self.assertEqual((ask["who"], ask["what"], ask["agent"]), (OWNER, "Which port?", "bolt"))
+        self.assertEqual((rev["who"], rev["what"]), (OWNER, "open /hud and look"))
         self.assertEqual(rev["status"], "review-me done-ready")
         self.assertEqual((stale["who"], stale["agent"]), ("ORCH", "cass"))
         self.assertIn("no update for", stale["what"])
         self.assertGreaterEqual(stale["age_min"], 179)
         self.assertTrue(all(r["id"] != "busy-one" for r in rows))
 
-    def test_action_named_for_another_agent_sorts_after_troy(self):
+    def test_action_named_for_another_agent_sorts_after_the_owner(self):
         self.s.start("A", "atlas")
         self.s.review("a", "ACTION AGENT-2: add the field to openapi | STATUS a done-ready")
         self.s.start("B", "bolt")
         self.s.review("b", "all done")
-        rows = hud.actions(self.s.load())
-        self.assertEqual([(r["who"], r["id"]) for r in rows], [("Troy", "b"), ("AGENT-2", "a")])
+        rows = hud.actions(self.s.load(), owner=OWNER)
+        self.assertEqual([(r["who"], r["id"]) for r in rows], [(OWNER, "b"), ("AGENT-2", "a")])
         self.assertEqual(rows[0]["what"], "all done")   # no ACTION line: the summary is the ask
 
     def test_build_carries_actions_and_open_counts(self):

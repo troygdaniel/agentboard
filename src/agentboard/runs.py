@@ -40,8 +40,8 @@ Your work is judged from the card, so keep it current: `{ab} update {task_id} <p
 - Never place calls or send texts, emails or messages to anyone, never buy or subscribe to anything, never deploy, and never
   touch production data or accounts. If the card needs one of those, ask instead.
 - Do not try to widen your own permissions or work around a refused tool: say so in your review or ask.
-- Report to Troy in one sentence, one idea: the ACTION he must take first, then one fact. If nothing is needed from him, one line of status. If
-  more is unavoidable, one sentence, then offer the detail. Put that sentence on the card (ask/review/update text); he answers you there.
+- Report to {owner} in one sentence, one idea: the ACTION they must take first, then one fact. If nothing is needed from them, one line of status. If
+  more is unavoidable, one sentence, then offer the detail. Put that sentence on the card (ask/review/update text); they answer you there.
   Put detail in `--body` (it shows under Details on the card), never in the first line.
 - Hard limits: {minutes:g} minutes and ${budget:g}. The run is stopped when either is reached.
 """
@@ -168,7 +168,7 @@ def cleanup_worktree(info):
 
 def build_run_prompt(task, board_dir, tasks, name, budget, minutes):
     text, _warnings = promptlib.build_prompt(task, board_dir, public=False, tasks=tasks)
-    return text.rstrip() + "\n" + RULES.format(name=name, ab=promptlib.agentboard_cmd(board_dir), task_id=task["id"], budget=budget, minutes=minutes)
+    return text.rstrip() + "\n" + RULES.format(name=name, ab=promptlib.agentboard_cmd(board_dir), task_id=task["id"], budget=budget, minutes=minutes, owner=promptlib.owner_ref(board_dir))
 
 
 def parse_result(stdout_text):

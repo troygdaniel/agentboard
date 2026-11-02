@@ -1,6 +1,9 @@
 """Aggregate board data for the HUD view: agents, activity feed, totals, timeline, actions."""
+import functools
 import re
 from datetime import datetime, timedelta
+
+from .store import DEFAULT_OWNER
 
 FMT = "%Y-%m-%dT%H:%M:%S"
 STALE_MIN = 10
@@ -174,23 +177,27 @@ def segments(t, now):
 
 # ---- what needs a human: the ACTION strip -----------------------------------------------------
 _ACTION_RE = re.compile(r"^\s*ACTION\b\s*:?\s*(?P<rest>.*)$", re.I)
-_WHO_RE = re.compile(r"^(?P<who>Troy|ORCH|[A-Z][A-Z0-9-]*|none)\s*:\s*(?P<what>.+)$", re.I)
 
 
-def parse_action(text):
+@functools.lru_cache(maxsize=16)
+def _who_re(owner):
+    return re.compile(rf"^(?P<who>{re.escape(owner)}|ORCH|[A-Z][A-Z0-9-]*|none)\s*:\s*(?P<what>.+)$", re.I)
+
+
+def parse_action(text, owner=DEFAULT_OWNER):
     """Pull 'who: what' out of the three-line report shape agents write (ACTION / STATUS / WHY,
     on separate lines or joined with '|'). Returns {"who", "what", "status", "why"}; who is
-    'Troy', 'ORCH', an agent name, 'none', or '' when the text is not in that shape."""
+    the owner's name (also when the text says "you"), 'ORCH', an agent name, 'none', or '' when the text is not in that shape."""
     out = {"who": "", "what": "", "status": "", "why": ""}
     if not text:
         return out
-    # lines, ' | ', or the words STATUS / WHY run on inside one line ("ACTION Troy: x. STATUS y")
+    # lines, ' | ', or the words STATUS / WHY run on inside one line ("ACTION <owner>: x. STATUS y")
     parts = [x.strip() for x in re.split(r"\n|\s\|\s|\s(?=(?:STATUS|WHY)\b\s*:?\s)", str(text)) if x.strip()]
     for part in parts:
         m = _ACTION_RE.match(part)
         if m:
             rest = m.group("rest").strip()
-            w = _WHO_RE.match(rest)
+            w = _who_re(owner).match(rest)
             if w:
                 out["who"], out["what"] = w.group("who"), w.group("what").strip()
             elif rest.lower().startswith("none"):
@@ -202,8 +209,8 @@ def parse_action(text):
             m2 = re.match(rf"^\s*{key}\b\s*:?\s*(.*)$", part, re.I)
             if m2 and not out[key]:
                 out[key] = m2.group(1).strip()
-    if out["who"].lower() == "troy":
-        out["who"] = "Troy"
+    if out["who"].lower() in (owner.lower(), "you"):
+        out["who"] = owner
     elif out["who"].lower() == "orch":
         out["who"] = "ORCH"
     elif out["who"].lower() == "none":
@@ -222,11 +229,11 @@ def _since(t, prefix):
     return at or _t(t.get("updated"))
 
 
-def actions(tasks, now=None, abandoned_min=None):
+def actions(tasks, now=None, abandoned_min=None, owner=DEFAULT_OWNER):
     """Every card that needs a person, one row each, most urgent first: asks (someone is blocked
     on an answer), then reviews (work waiting for sign-off), then abandoned cards (an agent went
     quiet). who/what come from the ACTION line when the agent wrote one, else a sensible default
-    (asks and reviews are for Troy unless the text names someone else)."""
+    (asks and reviews are for the owner unless the text names someone else)."""
     now = now or datetime.now()
     abandoned_min = ABANDONED_MIN if abandoned_min is None else abandoned_min
     by_id = {t["id"]: t for t in tasks}
@@ -244,10 +251,10 @@ def actions(tasks, now=None, abandoned_min=None):
             if idle is None or idle < abandoned_min:
                 continue
             kind, text, since = "stale", t.get("status_text") or "", _t(t.get("updated"))
-        parsed = parse_action(text)
-        who = parsed["who"] or ("ORCH" if kind == "stale" else "Troy")
+        parsed = parse_action(text, owner)
+        who = parsed["who"] or ("ORCH" if kind == "stale" else owner)
         if who == "none" and kind != "stale":
-            who = "Troy"   # an ask or a review always needs a person, whatever the text says
+            who = owner   # an ask or a review always needs a person, whatever the text says
         if kind == "stale":
             what = parsed["what"] or f"check on {agent}: no update for {dur(idle)}"
         else:
@@ -260,7 +267,7 @@ def actions(tasks, now=None, abandoned_min=None):
             "since": since.strftime(FMT) if since else None, "age_min": age,
         })
     rank = {"ask": 0, "review": 1, "stale": 2}
-    out.sort(key=lambda a: (0 if a["who"] == "Troy" else 1, rank[a["kind"]], -(a["age_min"] or 0)))
+    out.sort(key=lambda a: (0 if a["who"] == owner else 1, rank[a["kind"]], -(a["age_min"] or 0)))
     return out
 
 
@@ -269,10 +276,11 @@ def dur(minutes):
     return f"{m}m" if m < 60 else f"{m // 60}h{m % 60:02d}"
 
 
-def build(tasks, now=None, feed_limit=60, abandoned_min=None, retired=(), roster=()):
+def build(tasks, now=None, feed_limit=60, abandoned_min=None, retired=(), roster=(), owner=DEFAULT_OWNER):
     """retired: agent names to leave out of agents/lanes/actions (see retired()); their cards still
     count in the totals, feed and timeline, so history is untouched. roster: agent names that belong on
-    the HUD even with no card yet (they show as idle, folded with the other idle agents)."""
+    the HUD even with no card yet (they show as idle, folded with the other idle agents). owner: the human's name, as the board's
+    config sets it; the actions that wait on a person are theirs."""
     now = now or datetime.now()
     abandoned_min = ABANDONED_MIN if abandoned_min is None else abandoned_min
     retired = set(retired or ())
@@ -390,7 +398,8 @@ def build(tasks, now=None, feed_limit=60, abandoned_min=None, retired=(), roster
         # the idle agents folded into one line: who, how many, and the one fact that matters for each (what they last did, when)
         "idle": {"n": len(idle), "done_today": sum(a["done_today"] for a in idle),
                  "agents": [{"name": a["name"], "task": a["task"], "updated": a["updated"], "done_today": a["done_today"]} for a in idle]},
-        "actions": actions([t for t in top if t.get("agent") not in retired], now, abandoned_min),
+        "actions": actions([t for t in top if t.get("agent") not in retired], now, abandoned_min, owner),
+        "owner": owner,
         "events": events[:feed_limit],
         "totals": {
             "working": sum(1 for t in top if t["status"] == "doing"),

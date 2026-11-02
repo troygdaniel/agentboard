@@ -16,7 +16,7 @@ class SlotTests(unittest.TestCase):
         self.assertEqual((cli.agent_slot("GENERAL"), cli.agent_slot("ORCH")), (5, 6))
 
     def test_other_names_get_a_stable_slot_inside_the_palette(self):
-        for name in ("AGENT-5", "AGENT-0", "AGENT-12", "atlas", "BuildJamaica-ORCH"):
+        for name in ("AGENT-5", "AGENT-0", "AGENT-12", "atlas", "Acme-ORCH"):
             slot = cli.agent_slot(name)
             self.assertIn(slot, range(1, len(cli.AGENT_PALETTE) + 1), name)
             self.assertEqual(slot, cli.agent_slot(name))

@@ -1,6 +1,6 @@
-"""Card reports: when a card enters review or done, one self-contained HTML page for Troy, in .agentboard/reports/<card>-<YYYYMMDD-HHMMSS>.html.
+"""Card reports: when a card enters review or done, one self-contained HTML page for the board's owner, in .agentboard/reports/<card>-<YYYYMMDD-HHMMSS>.html.
 
-Scannable, not prose: the one-sentence ACTION for Troy, number tiles (commits, tests, files), a few built points, a timeline, commits, bars of where it changed, numbered steps to try it, and Mark done / Send back.
+Scannable, not prose: the one-sentence ACTION for the owner, number tiles (commits, tests, files), a few built points, a timeline, commits, bars of where it changed, numbered steps to try it, and Mark done / Send back.
 Everything the agent wrote is escaped (the markdown renderer never passes raw HTML). Reports age out: `sweep` deletes the ones older than
 [reports] keep_hours (default 24), always keeps the newest per card, and only ever touches files of this exact shape inside reports/.
 Optional: the agent can add sections by writing .agentboard/reports/<card>.md (it is never swept)."""
@@ -14,7 +14,7 @@ from . import markdown as mdlib
 from . import nav
 from . import prompt as promptlib
 from . import runs
-from .store import BoardError
+from .store import BoardError, owner_name
 
 DEFAULT_KEEP_HOURS = 24.0
 NAME_RE = re.compile(r"^([a-z0-9][a-z0-9-]*)-(\d{8}-\d{6})\.html$")   # <card id>-<timestamp>.html; nothing else is ever deleted
@@ -272,7 +272,7 @@ def build_html(task, board_dir, run=None, git=None, extras="", now=None, base=""
     tid, title = task["id"], task["title"]
     state = "done" if task.get("status") == "done" else "review"
     asking = bool(task.get("needs_input"))
-    sentence = (task.get("question") if asking else task.get("result")) or task.get("status_text") or "Nothing was written for Troy."
+    sentence = (task.get("question") if asking else task.get("result")) or task.get("status_text") or f"Nothing was written for {owner_name(board_dir)}."
     text_blob = "\n".join([task.get("result") or "", task.get("body_md") or "", *[str(x.get("text", "")) for x in task.get("log", [])]])
     git = git or {}
     base = git.get("base", "")

@@ -277,7 +277,7 @@
   <!-- 2 -->
   <article class="idea" id="i2">
     <header><h2><span class="rk">2</span>Hand to… on quiet cards</h2><span class="spacer"></span><span class="where">static/index.html · store.py (one method, same hook as Assign)</span></header>
-    <div class="what">A card whose agent went quiet needs a new pair of hands, not a trip through Todo. <b>Hand to…</b> on the Your move row and in the panel opens the same picker as Assign, idle agents first. One pick: the card goes back to Todo under the new agent, the old agent is released, the card log says so, and the chat line tells ORCH: <code>ORCH: Troy handed &lt;id&gt; from AGENT-4 to AGENT-5; hand it over.</code> Also on any Doing card in the panel, for the times you just want it elsewhere.</div>
+    <div class="what">A card whose agent went quiet needs a new pair of hands, not a trip through Todo. <b>Hand to…</b> on the Your move row and in the panel opens the same picker as Assign, idle agents first. One pick: the card goes back to Todo under the new agent, the old agent is released, the card log says so, and the chat line tells ORCH: <code>ORCH: you handed &lt;id&gt; from AGENT-4 to AGENT-5; hand it over.</code> Also on any Doing card in the panel, for the times you just want it elsewhere.</div>
     <div class="stage">
       <div class="stage-l">Your move row, an agent gone quiet</div>
       <div class="mv stale" style="--c:#c2570c">
@@ -294,7 +294,7 @@
             <div class="ap-row working"><span class="av" style="--c:#7c3aed">3</span><span class="nm">AGENT-3</span><span class="tag">working</span><span class="st">Tune cache eviction</span></div>
             <div class="ap-row working"><span class="av" style="--c:#2563eb">2</span><span class="nm">AGENT-2</span><span class="tag">in review</span><span class="st">Ship the export pipeline</span></div>
           </div>
-          <div class="chatline"><div class="cmsg"><div class="cmsg-head"><b>Troy</b><span>just now</span></div><div class="cmsg-txt">ORCH: Troy handed backfill-audit-log from AGENT-4 to AGENT-5; hand it over.</div></div></div>
+          <div class="chatline"><div class="cmsg"><div class="cmsg-head"><b>you</b><span>just now</span></div><div class="cmsg-txt">ORCH: you handed backfill-audit-log from AGENT-4 to AGENT-5; hand it over.</div></div></div>
         </div>
       </div>
     </div>
@@ -317,7 +317,7 @@
         <div class="ghost" aria-label="The board, filtered to Relay">
           <div class="col"><h4>Todo <span class="cnt">1</span></h4><div class="card" style="--c:var(--neutral)"><i class="pd" style="--pc:#6366f1"></i>Rate-limit the inbound SMS</div><div class="card dim"><i class="pd" style="--pc:#f59e0b"></i>Add screenshots to README</div></div>
           <div class="col"><h4>Doing <span class="cnt">3</span></h4><div class="card" style="--c:#15803d"><i class="pd" style="--pc:#6366f1"></i>Harden webhook retries</div><div class="card" style="--c:#2563eb"><i class="pd" style="--pc:#6366f1"></i>Ship the export pipeline</div><div class="card dim" style="--c:#7c3aed"><i class="pd" style="--pc:#f59e0b"></i>Tune cache eviction</div></div>
-          <div class="col"><h4>Done <span class="cnt">4</span></h4><div class="card" style="--c:#15803d"><i class="pd" style="--pc:#6366f1"></i>Fix the relay</div><div class="card" style="--c:#2563eb"><i class="pd" style="--pc:#6366f1"></i>Add a relay health check</div><div class="card dim" style="--c:#7c3aed"><i class="pd" style="--pc:#f59e0b"></i>Tangen books</div></div>
+          <div class="col"><h4>Done <span class="cnt">4</span></h4><div class="card" style="--c:#15803d"><i class="pd" style="--pc:#6366f1"></i>Fix the relay</div><div class="card" style="--c:#2563eb"><i class="pd" style="--pc:#6366f1"></i>Add a relay health check</div><div class="card dim" style="--c:#7c3aed"><i class="pd" style="--pc:#f59e0b"></i>Ledger books</div></div>
         </div>
       </div>
     </div>

@@ -120,7 +120,7 @@ class WritingTests(Base):
     def test_commits_files_and_links_come_from_the_repo_the_card_was_open_in(self):
         git = lambda *a: subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@t", *a], cwd=self.proj, check=True, capture_output=True)
         git("init", "-q")
-        git("remote", "add", "origin", "git@github.com:troygdaniel/example.git")
+        git("remote", "add", "origin", "git@github.com:someone/example.git")
         (self.proj / "before.txt").write_text("x")
         git("add", ".")
         git("commit", "-qm", "before the card")
@@ -131,7 +131,7 @@ class WritingTests(Base):
         self.s.review("built", "ready")
         page = self.page()
         self.assertIn("add the feature", page)
-        self.assertIn("https://github.com/troygdaniel/example/commit/", page)
+        self.assertIn("https://github.com/someone/example/commit/", page)
         self.assertIn("feature.py", page)
 
     def test_without_a_repo_it_says_so_and_still_writes(self):

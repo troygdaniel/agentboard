@@ -83,6 +83,7 @@ SAMPLE_CONFIG = '''\
 # repo = "~/dev/myproject"    # the git repo whose commits the reports list (default: the folder above .agentboard)
 
 # [board]
+# owner = "you"               # your name: what the board, the HUD and every prompt call the human ("the user" in prompts until you set it)
 # stale_minutes = 120         # flag a Doing task as stale/abandoned after this many idle minutes
 #                              # (default 120; much longer than the board's 10-min "quiet" warning).
 #                              # Surfaced by `agentboard list --stale`, a red card marker, and the HUD.
@@ -349,7 +350,7 @@ _chat_line = agentchat.chat_line
 
 
 def _chat_name(a):
-    name = a.name or os.environ.get("AGENTBOARD_NAME") or ("Troy" if getattr(a, "user", False) else None)
+    name = a.name or os.environ.get("AGENTBOARD_NAME") or (_store().owner if getattr(a, "user", False) else None)
     if not name:
         raise BoardError("give --name (or set AGENTBOARD_NAME) so the board can show who's talking")
     hookslib.remember_session(_store().dir, name)   # so the SendMessage hook can post as this session
@@ -480,7 +481,7 @@ def cmd_chat_agents(a):
     if a.state in ("on", "off"):
         s.set_chat_agents(a.state == "on")
     on = s.chat_agents()
-    print("agent chat is " + ("on: agents may talk to each other on the shared chat (Troy still approves any action)" if on
+    print("agent chat is " + ("on: agents may talk to each other on the shared chat (any action still needs your approval)" if on
                               else "off: agents post plain status lines only (turn on with: agentboard chat agents on)"))
 
 
@@ -759,16 +760,16 @@ it current. Call `update` again whenever your estimate changes, not just at fixe
 walk it back if you discover more work than you thought; don't leave it sitting at a stale number.
 
 Add `--body "<markdown>"` (or `--body-file <path>` for multi-line content) to `update`/`review`/`ask`
-for the details behind your sentence: a recap, diff, or report. The first line of the text is what Troy
+for the details behind your sentence: a recap, diff, or report. The first line of the text is what {owner}
 reads; the body sits under "Details" on the card and in the detail panel. A multi-line text splits the
 same way: its first line is the sentence, the rest becomes the body.
 
 NEVER mark your own task done. Finish with `review` and stop. Run
 `agentboard done "$ID"` only if the user explicitly tells you to.
 
-Report to Troy in one sentence, one idea: the ACTION he must take first, then one fact. If nothing is
-needed from him, one line of status. If more is unavoidable, one sentence, then offer the detail. Put that
-sentence on the card (ask/review/update text) so Troy answers you there, and in your terminal. He replies
+Report to {owner} in one sentence, one idea: the ACTION they must take first, then one fact. If nothing is
+needed from them, one line of status. If more is unavoidable, one sentence, then offer the detail. Put that
+sentence on the card (ask/review/update text) so {owner} answers you there, and in your terminal. They reply
 on the card: read it with `agentboard answer "$ID" --wait`.
 
 If you are handed a task id instead, run `agentboard claim <id> --name "<your session name>"`.
@@ -795,7 +796,7 @@ Group related tasks under a project so they show up together on the board:
 
 A big card can be split into subtasks (one level deep). A subtask is a normal task with a parent:
 
-    agentboard add "<title>" --parent <parent_id>              # Troy/ORCH at planning time; follows the parent's column
+    agentboard add "<title>" --parent <parent_id>              # the owner/ORCH at planning time; follows the parent's column
     agentboard start "<title>" --name "<you>" --parent <id>    # an agent adding one mid-flight
 
 When you claim a parent that has no subtasks yet, break it down first (same command). `claim <parent>`
@@ -856,11 +857,11 @@ for, since both mean progress is stalled on a human, not on more waiting.
 
 
 def cmd_instructions(a):
-    text = INSTRUCTIONS
     try:
         board_dir = find_dir()
     except BoardError:
         board_dir = None
+    text = promptlib.say(INSTRUCTIONS, board_dir)
     if board_dir and agentchat.is_on(board_dir):
         text = text.rstrip("\n") + "\n\n" + agentchat.protocol(board_dir)
     print(text.replace("agentboard ", f"{promptlib.agentboard_cmd(board_dir)} ") if a.absolute and board_dir else text)
@@ -1394,7 +1395,7 @@ def main(argv=None):
     sp = add("reports", cmd_reports, "list card reports (written when a card enters review or done); --purge removes the old ones")
     sp.add_argument("--purge", action="store_true", help="run the ageing sweep now: delete reports older than keep_hours, keeping the newest per card")
     sp.add_argument("--hours", type=float, help="with --purge: the age limit (default [reports] keep_hours, else 24)")
-    sp = add("answer", cmd_answer, "print Troy's reply on a card (he answers on the card); --wait polls until there is one")
+    sp = add("answer", cmd_answer, "print the owner's reply on a card (they answer on the card); --wait polls until there is one")
     sp.add_argument("id")
     sp.add_argument("--wait", action="store_true")
     sp.add_argument("--timeout", type=float, default=600.0, help="seconds to wait with --wait (default 600)")
@@ -1469,14 +1470,14 @@ def main(argv=None):
     csp = cadd("send", cmd_chat_send, "post a message (who's on what, asking for a hand, handing off work)")
     csp.add_argument("text", help="one line; a multi-line text keeps its first line and the rest becomes the detail")
     csp.add_argument("--name", help="your session name (or $AGENTBOARD_NAME)")
-    csp.add_argument("--user", action="store_true", help="post as the human (Troy), not an agent")
+    csp.add_argument("--user", action="store_true", help="post as the human (the board's owner), not an agent")
     csp.add_argument("--to", help="who it is for: an agent name, ORCH, or all (agent chat must be on)")
     csp.add_argument("--topic", choices=list(CHAT_TOPICS), help="status (default), learn, help, heads-up or handoff")
     csp.add_argument("--detail", help="the technical part, shown on tap under the line")
     csp.add_argument("--detail-file", dest="detail_file", metavar="PATH", help="read the detail from a file")
     csp.add_argument("--card", metavar="ID", help="the card this is about")
     csp.add_argument("--file", action="append", metavar="PATH", help="a shared file you are about to touch; repeat for more")
-    csp.add_argument("--propose", metavar="ACTION", help="an action for Troy to approve first (chat never does it)")
+    csp.add_argument("--propose", metavar="ACTION", help="an action for the owner to approve first (chat never does it)")
     csp.add_argument("--reply-to", dest="reply_to", type=int, metavar="N", help="the message number this answers")
     csp.add_argument("--color", help="ignored: the board colours an agent by name")
     csp = cadd("tail", cmd_chat_tail, "read recent messages, optionally following live")
@@ -1492,12 +1493,12 @@ def main(argv=None):
     csp.add_argument("--wait", type=float, metavar="SECONDS", help="block up to SECONDS for the next message (exit 1 if none)")
     csp.add_argument("--interval", type=float, default=2.0)
     csp.add_argument("--limit", type=int, default=50)
-    csp = cadd("approvals", cmd_chat_approvals, "proposed actions and what Troy decided (--name: only yours)")
+    csp = cadd("approvals", cmd_chat_approvals, "proposed actions and what the owner decided (--name: only yours)")
     csp.add_argument("--name", help="only this agent's proposals (or $AGENTBOARD_NAME)")
-    csp = cadd("approve", cmd_chat_decide, "approve a proposed action (Troy)")
+    csp = cadd("approve", cmd_chat_decide, "approve a proposed action (the owner)")
     csp.add_argument("seq", type=int, metavar="N")
     csp.set_defaults(decision="approved")
-    csp = cadd("decline", cmd_chat_decide, "decline a proposed action (Troy)")
+    csp = cadd("decline", cmd_chat_decide, "decline a proposed action (the owner)")
     csp.add_argument("seq", type=int, metavar="N")
     csp.set_defaults(decision="declined")
     csp = cadd("agents", cmd_chat_agents, "the board-wide switch: on, off, or status (default off)")

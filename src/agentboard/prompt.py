@@ -7,25 +7,37 @@ import tomllib
 from pathlib import Path
 
 from . import providers
-from .store import BoardError
+from .store import DEFAULT_OWNER, BoardError, owner_name
 
-# The one reporting rule every prompt agentboard produces ends with (Troy, 2026-10-27).
+def owner_ref(board_dir=None):
+    """How a prompt names the human: the board's [board] owner, else "the user" (also when there is no board)."""
+    name = owner_name(board_dir) if board_dir else DEFAULT_OWNER
+    return "the user" if name == DEFAULT_OWNER else name
+
+
+def say(text, board_dir=None):
+    """Fill {owner} (the human's name) and {Owner} (the same, ready to start a sentence) in a prompt; other braces stay as written."""
+    who = owner_ref(board_dir)
+    return text.replace("{owner}", who).replace("{Owner}", who[:1].upper() + who[1:])
+
+
+# The one reporting rule every prompt agentboard produces ends with. {owner} is the board's owner (see owner_ref).
 REPORT_RULE = """\
-## Reporting to Troy
+## Reporting to {owner}
 
-Report to Troy in one sentence, one idea: the ACTION he must take first, then one fact. If nothing is needed from him, one line of
+Report to {owner} in one sentence, one idea: the ACTION they must take first, then one fact. If nothing is needed from them, one line of
 status. If more is unavoidable, one sentence, then offer the detail. Put that sentence on the card (agentboard ask/review/update text)
-so Troy answers you there, and in your terminal. Put detail in `--body` (it shows under Details on the card), never in the first line.
+so {owner} answers you there, and in your terminal. Put detail in `--body` (it shows under Details on the card), never in the first line.
 """
 
-# The block ORCH copies into every card description and assignment it writes (Troy, 2026-10-27).
+# The block ORCH copies into every card description and assignment it writes.
 KEEP_SIMPLE = """\
 ## Keep it simple
 
-- One sentence, one idea: what Troy should do or reply.
+- One sentence, one idea: what {owner} should do or reply.
 - That sentence is the first line of every ask, review and update.
 - Detail goes in `--body`, under Details on the card, never in the first line.
-- Extra context is there if Troy asks for it.
+- Extra context is there if {owner} asks for it.
 """
 
 DEFAULT_TEMPLATE = """\
@@ -66,8 +78,8 @@ If you are blocked on the user mid-task, flag it (and keep going once they answe
 
     {ab} ask {task_id} "<one-line question>"
 
-Troy answers on the card, not through anyone else. Read his answer with `{ab} answer {task_id} --wait`
-(it prints his reply as soon as there is one), then carry on.
+{Owner} answers on the card, not through anyone else. Read their answer with `{ab} answer {task_id} --wait`
+(it prints their reply as soon as there is one), then carry on.
 
 These are not optional.
 {context}
@@ -240,7 +252,9 @@ def build_prompt(task, board_dir, public=False, tasks=None):
         "color_hint": ptconf.get("color_hint", ""),   # was " and color if you know it": the board colours an agent by name now
         "parent_id": parent["id"] if parent else "",
         "parent_title": parent["title"] if parent else "",
-        "report_rule": REPORT_RULE.rstrip("\n"),
+        "report_rule": say(REPORT_RULE.rstrip("\n"), board_dir),
+        "owner": owner_ref(board_dir),
+        "Owner": say("{Owner}", board_dir),
         "subtasks": "\n".join(f"- {k['id']}: {k['title']}" + (" (done)" if k.get("status") == "done" else "")
                               for k in kids),
     }
@@ -248,7 +262,7 @@ def build_prompt(task, board_dir, public=False, tasks=None):
     # (a description mentioning "{ab}", say) is left as written rather than expanded again
     out = re.sub(r"\{(" + "|".join(values) + r")\}", lambda m: values[m.group(1)], template)
     from . import agentchat
-    if agentchat.is_on(board_dir):   # the agent chat protocol rides along only while Troy has the switch on
+    if agentchat.is_on(board_dir):   # the agent chat protocol rides along only while the owner has the switch on
         out = out.rstrip("\n") + "\n\n" + agentchat.protocol(board_dir)
     return out, warnings
 
@@ -262,18 +276,18 @@ Rename this session to ORCH (`/rename ORCH`). You are a fresh or /clear'ed Claud
 
 ## Role
 
-- Add and split cards, assign them to idle agents, and mark cards done once Troy has signed off.
+- Add and split cards, assign them to idle agents, and mark cards done once {owner} has signed off.
 - Never do an agent's work yourself: no coding or file edits for a card. If work has no owner, make a card.
-- Agents report to Troy directly, on their cards. Close reviewed cards, run gates, migrations and restarts, log decisions.
-- Speak to Troy only when he must act.
-- Daytime: Troy assigns cards. Declared sleep or nap: you assign idle agents.
-- Agents finish with `review`; Troy signs off. Run `done` only on his explicit say-so.
+- Agents report to {owner} directly, on their cards. Close reviewed cards, run gates, migrations and restarts, log decisions.
+- Speak to {owner} only when they must act.
+- Daytime: {owner} assigns cards. Declared sleep or nap: you assign idle agents.
+- Agents finish with `review`; {owner} signs off. Run `done` only on their explicit say-so.
 - When an agent tells you its session name, tell the board: `{ab} me --name <name> --session <its CLAUDE_CODE_SESSION_ID>` if it gave its id; if not, ask it to run `{ab} me --name <name>` in its own shell. Session ids are not the `[ref]` ListAgents shows.
 
-## Never without Troy's own words
+## Never without {owner}'s own words
 
 - Buy anything, deploy to production, create accounts or keys, run railway commands.
-- Dial or text any number but Troy's mobile.
+- Dial or text any number but {owner}'s own mobile.
 
 ## Board
 
@@ -285,7 +299,7 @@ Rename this session to ORCH (`/rename ORCH`). You are a fresh or /clear'ed Claud
     {ab} add "<title>" -d "<description>" --status todo     # new card (--parent <id> splits a card)
     {ab} claim <id> --name "<session>"
     {ab} update <id> <percent> "<status line>"
-    {ab} done <id>                                          # only when Troy says so
+    {ab} done <id>                                          # only when {owner} says so
     {ab} list                                               # all open cards (--status doing, --stale)
 
 ## Peers
@@ -293,13 +307,13 @@ Rename this session to ORCH (`/rename ORCH`). You are a fresh or /clear'ed Claud
 {peers}
 
 {keep_simple}
-Copy only the "Keep it simple" block above (its heading and four lines, nothing else from this prompt), word for word, into every card description and every assignment you write. Never paste the rest of this prompt into a card. You speak to Troy the same way.
+Copy only the "Keep it simple" block above (its heading and four lines, nothing else from this prompt), word for word, into every card description and every assignment you write. Never paste the rest of this prompt into a card. You speak to {owner} the same way.
 
-## Reporting to Troy
+## Reporting to {owner}
 
-Report to Troy in one sentence, one idea: the ACTION he must take first, then one fact. If nothing is needed from him, one line of
+Report to {owner} in one sentence, one idea: the ACTION they must take first, then one fact. If nothing is needed from them, one line of
 status. If more is unavoidable, one sentence, then offer the detail. Put that sentence on the card (agentboard ask/review/update text)
-so Troy answers you there, and in your terminal. Agents do the same on their own cards: you are not the only place he answers.
+so {owner} answers you there, and in your terminal. Agents do the same on their own cards: you are not the only place they answer.
 
 ## Board snapshot ({now})
 
@@ -344,7 +358,7 @@ def build_orch_prompt(tasks, board_dir, port=8765):
     peers = "\n".join(f"- {n}" for n in roster)
     from . import agentchat
     if agentchat.is_on(board_dir):
-        sections.append(agentchat.ORCH_PROTOCOL.format(ab=agentboard_cmd(board_dir)).rstrip("\n"))
+        sections.append(agentchat.ORCH_PROTOCOL.format(ab=agentboard_cmd(board_dir), owner=owner_ref(board_dir)).rstrip("\n"))
     return ORCH_TEMPLATE.format(
         url=f"http://localhost:{port}", board_dir=board_dir, ab=agentboard_cmd(board_dir), peers=peers,
-        keep_simple=KEEP_SIMPLE.rstrip("\n"), now=datetime.now().strftime("%Y-%m-%d %H:%M"), snapshot="\n\n".join(sections))
+        keep_simple=say(KEEP_SIMPLE.rstrip("\n"), board_dir), owner=owner_ref(board_dir), now=datetime.now().strftime("%Y-%m-%d %H:%M"), snapshot="\n\n".join(sections))

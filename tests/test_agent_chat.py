@@ -55,7 +55,7 @@ class SwitchTests(Base):
         for kw in ({"to": "AGENT-2"}, {"topic": "learn"}, {"detail": "x"}, {"files": ["a.py"]}, {"propose": "deploy"}):
             with self.assertRaises(BoardError):
                 self.s.chat_send("AGENT-1", "hi", **kw)
-        self.s.chat_send("Troy", "@AGENT-2 look at this", kind="user", to="AGENT-2")   # Troy is never gated
+        self.s.chat_send("you", "@AGENT-2 look at this", kind="user", to="AGENT-2")   # the owner is never gated
         self.assertTrue(self.s.set_chat_agents(True))
         m = self.s.chat_send("AGENT-1", "fcntl locks are per process, use flock on the fd", to="all", topic="learn", detail="see store.py _lock")
         self.assertEqual((m["to"], m["topic"], m["detail"]), ("all", "learn", "see store.py _lock"))
@@ -74,7 +74,7 @@ class SwitchTests(Base):
         self.s.set_chat_agents(True)        # already on: nothing more is said
         msgs = self.s.chat_list()
         self.assertEqual(len(msgs), 1)
-        self.assertEqual((msgs[0]["sender"], msgs[0]["kind"], msgs[0]["to"]), ("Troy", "user", "all"))
+        self.assertEqual((msgs[0]["sender"], msgs[0]["kind"], msgs[0]["to"]), ("you", "user", "all"))
         self.assertIn("agent chat is on", msgs[0]["text"])
         self.assertEqual(msgs[0]["via"], "board")
         self.assertIn("chat inbox --name <you> --wait 300", msgs[0]["text"])
@@ -112,14 +112,14 @@ class MessageTests(Base):
         self.assertEqual(r["reply_to"], m["seq"])
         self.assertNotIn("color", r)   # an explicit colour is ignored too
 
-    def test_proposals_are_decided_by_troy_and_change_nothing_else(self):
+    def test_proposals_are_decided_by_the_owner_and_change_nothing_else(self):
         m = self.s.chat_send("AGENT-1", "need the staging deploy to test the webhook", to="ORCH", propose="deploy the retries branch to staging")
         self.assertEqual(m["action"], {"text": "deploy the retries branch to staging", "status": "proposed"})
         with self.assertRaises(BoardError):
             self.s.chat_decide(m["seq"], "maybe")
         before = json.dumps(self.s.load())
         d = self.s.chat_decide(m["seq"], "approved")
-        self.assertEqual((d["action"]["status"], d["action"]["by"]), ("approved", "Troy"))
+        self.assertEqual((d["action"]["status"], d["action"]["by"]), ("approved", "you"))
         self.assertEqual(json.dumps(self.s.load()), before)   # no card moved, nothing ran
         with self.assertRaises(BoardError):
             self.s.chat_decide(m["seq"], "declined")           # decided once
@@ -136,7 +136,7 @@ class MessageTests(Base):
         b = self.s.chat_send("AGENT-1", "for two only", to="AGENT-2", topic="help")
         c = self.s.chat_send("AGENT-1", "for three only", to="agent-3", topic="help")
         d = self.s.chat_send("AGENT-2", "plain line from two")
-        e = self.s.chat_send("Troy", "@AGENT-2 ship it", kind="user", to="AGENT-2")
+        e = self.s.chat_send("you", "@AGENT-2 ship it", kind="user", to="AGENT-2")
         two = [m["seq"] for m in self.s.chat_inbox("AGENT-2", after=1)]
         self.assertEqual(two, [a["seq"], b["seq"], e["seq"]])         # not its own line, not three's (after the switch's line)
         three = [m["seq"] for m in self.s.chat_inbox("AGENT-3", after=1)]
@@ -168,7 +168,7 @@ class MessageTests(Base):
         code, out = self.run_cli("chat", "tail", "--for", "AGENT-3")
         self.assertNotIn("need a hand with the lock", out)   # addressed to AGENT-2
         self.assertIn("may I deploy?", out)                  # to no one: everyone reads it
-        self.assertIn("proposes: deploy to staging  [approved by Troy", out)
+        self.assertIn("proposes: deploy to staging  [approved by you", out)
 
     def test_cli_send_is_refused_while_off(self):
         self.s.set_chat_agents(False)
@@ -238,7 +238,7 @@ class RoutesTests(_Http):
         self.assertTrue(self.post("/api/chat-agents", {"on": True})["agents"])
         self.assertTrue(json.loads(self.get("/api/chat")[1])["agents"])
         m = self.post("/api/chat", {"text": "@AGENT-2 can you take the lock card?"})
-        self.assertEqual((m["sender"], m["kind"], m["to"], m["text"]), ("Troy", "user", "AGENT-2", "can you take the lock card?"))
+        self.assertEqual((m["sender"], m["kind"], m["to"], m["text"]), ("you", "user", "AGENT-2", "can you take the lock card?"))
         self.s.start("Lock", "AGENT-2", "blue")
         p = self.s.chat_send("AGENT-2", "can I buy a domain?", propose="buy lock.example")
         d = self.post("/api/chat-decide", {"seq": p["seq"], "decision": "declined"})
@@ -367,10 +367,10 @@ class AutopilotTests(_FakeClaude):
         self.s.chat_send("AGENT-2", "ghost to three", to="AGENT-3", via="idle")
         agentchat.write_cursor(self.s, "AGENT-3", 3)   # AGENT-3 has read the real lines; only ghost lines are left
         self.assertEqual(agentchat.autopilot_once(self.s, str(self.fake), self.roster), [])
-        self.s.chat_send("Troy", "@AGENT-3 are you free?", kind="user", to="AGENT-3")
-        self.s.chat_send("Troy", "@AGENT-2 are you free?", kind="user", to="AGENT-2")
+        self.s.chat_send("you", "@AGENT-3 are you free?", kind="user", to="AGENT-3")
+        self.s.chat_send("you", "@AGENT-2 are you free?", kind="user", to="AGENT-2")
         self.s.update("harden-webhook-retries", 100, "done", status="done")   # AGENT-1 is idle now too
-        self.s.chat_send("Troy", "@AGENT-1 are you free?", kind="user", to="AGENT-1")
+        self.s.chat_send("you", "@AGENT-1 are you free?", kind="user", to="AGENT-1")
         posted = agentchat.autopilot_once(self.s, str(self.fake), self.roster, share_every_min=0, live_min=0)   # replies only, everyone asleep, in this test
         self.assertEqual(len(posted), 2)                      # [chat] autopilot_per_hour = 2: the third waits for the next hour
         self.assertEqual(agentchat.autopilot_once(self.s, str(self.fake), self.roster, share_every_min=0, live_min=0), [])
@@ -405,11 +405,11 @@ class AutopilotTests(_FakeClaude):
         self.assertEqual(agentchat.autopilot_once(self.s, str(self.fake), ["AGENT-1"], now=datetime.now() + timedelta(hours=3), share_every_min=0, live_min=0), [])   # 0 = never
 
     def test_the_board_stays_out_of_an_awake_agents_way(self):
-        self.s.chat_send("Troy", "@AGENT-3 are you free?", kind="user", to="AGENT-3")
-        self.s.chat_send("AGENT-3", "yes, just finishing up", to="Troy")        # a real line, just now: AGENT-3 is awake
+        self.s.chat_send("you", "@AGENT-3 are you free?", kind="user", to="AGENT-3")
+        self.s.chat_send("AGENT-3", "yes, just finishing up", to="you")        # a real line, just now: AGENT-3 is awake
         self.assertEqual(agentchat.autopilot_once(self.s, str(self.fake), ["AGENT-3"]), [])
         self.assertEqual(len(agentchat.autopilot_once(self.s, str(self.fake), ["AGENT-3"], live_min=0)), 1)   # with the window off it would have answered
-        self.s.chat_send("Troy", "@AGENT-2 are you free?", kind="user", to="AGENT-2")
+        self.s.chat_send("you", "@AGENT-2 are you free?", kind="user", to="AGENT-2")
         self.s.chat_send("AGENT-2", "ghost line", to="all", via="idle")         # an auto line does not make it awake
         from datetime import datetime, timedelta
         self.assertEqual(len(agentchat.autopilot_once(self.s, str(self.fake), ["AGENT-2"], now=datetime.now() + timedelta(minutes=25))), 1)   # its real question was 25 min ago
@@ -464,7 +464,7 @@ class CasualTests(_FakeClaude):
         self.assertEqual(agentchat.casual_once(self.s, str(self.fake)), [])      # done once
 
     def test_who_is_left_as_written(self):
-        self.s.chat_send("Troy", "@AGENT-2 ship it when the tests pass", kind="user", to="AGENT-2")
+        self.s.chat_send("you", "@AGENT-2 ship it when the tests pass", kind="user", to="AGENT-2")
         self.s.chat_send("AGENT-3", "ok", to="all")                             # too short to be anything but a line
         self.s.chat_send("AGENT-3", "by the way, lockf only locks per process on a Mac", to="all", topic="learn", via="idle")   # already in the voice
         done = agentchat.casual_once(self.s, str(self.fake))

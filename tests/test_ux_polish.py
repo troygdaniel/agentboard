@@ -1,4 +1,4 @@
-"""Troy's picks from the UX pass (Nov 2): readable idle rows, a pinned Queue row, bigger click areas, no repeated Unassigned, 4.5:1 small labels, "overall" not a sigma."""
+"""The picks from the UX pass (Nov 2): readable idle rows, a pinned Queue row, bigger click areas, no repeated Unassigned, 4.5:1 small labels, "overall" not a sigma."""
 import unittest
 from pathlib import Path
 

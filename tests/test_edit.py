@@ -1,4 +1,4 @@
-"""Edit in place: a card's title, description and blockers change from the board, each logged as Troy's."""
+"""Edit in place: a card's title, description and blockers change from the board, each logged as the owner's."""
 import json
 import tempfile
 import unittest
@@ -21,7 +21,7 @@ class EditTests(unittest.TestCase):
         t = self.s.edit("rate-limit-the-sms", title="Rate-limit inbound SMS", description="One hour cap, then 403.")
         self.assertEqual((t["id"], t["title"], t["description"]), ("rate-limit-the-sms", "Rate-limit inbound SMS", "One hour cap, then 403."))
         texts = [(e["text"], e.get("by")) for e in t["log"][-2:]]
-        self.assertEqual(texts, [("Title changed from “Rate-limit the SMS”", "Troy"), ("Description changed", "Troy")])
+        self.assertEqual(texts, [("Title changed from “Rate-limit the SMS”", "you"), ("Description changed", "you")])
         same = self.s.edit("rate-limit-the-sms", title="Rate-limit inbound SMS")   # nothing new: no log line, no clock bump
         self.assertEqual(len(same["log"]), len(t["log"]))
         self.assertEqual(same["updated"], t["updated"])

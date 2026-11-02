@@ -1,4 +1,4 @@
-"""Troy's reporting rule (one sentence, action first) in every prompt, and answering an agent on its card."""
+"""The reporting rule (one sentence, action first) in every prompt, and answering an agent on its card."""
 import contextlib
 import io
 import os
@@ -12,7 +12,7 @@ from unittest import mock
 from agentboard import cli, prompt, runs
 from agentboard.store import BoardError, Store
 
-RULE = "Report to Troy in one sentence, one idea: the ACTION he must take first, then one fact."
+RULE = "Report to the user in one sentence, one idea: the ACTION they must take first, then one fact."
 OFFER = "If more is unavoidable, one sentence, then offer the detail."
 
 
@@ -48,12 +48,12 @@ class PromptTests(Base):
             text = self.prompt_for(card)
             self.assertIn(RULE, text, card)
             self.assertIn(OFFER, text, card)
-            self.assertIn("so Troy answers you there", text, card)
+            self.assertIn("so the user answers you there", text, card)
             tail = text.rstrip().splitlines()[-4:]
-            self.assertTrue(any("Reporting to Troy" in t for t in text.splitlines()[-9:]), card)   # the rule closes the prompt
+            self.assertTrue(any("Reporting to the user" in t for t in text.splitlines()[-9:]), card)   # the rule closes the prompt
             self.assertNotIn("3 lines", " ".join(tail))
 
-    def test_the_prompt_says_how_to_read_troys_answer(self):
+    def test_the_prompt_says_how_to_read_the_owners_answer(self):
         self.s.add("Plain card", status="todo")
         text = self.prompt_for("plain-card")
         self.assertIn("answer plain-card --wait", text)
@@ -65,16 +65,17 @@ class PromptTests(Base):
         self.assertNotIn("ACTION (who must do what next)", text)
 
     def test_the_instructions_snippet_carries_it(self):
-        self.assertIn("Report to Troy in one sentence, one idea: the ACTION he must take first, then one fact.", cli.INSTRUCTIONS)
+        self.assertIn(RULE, prompt.say(cli.INSTRUCTIONS))
+        self.assertNotIn("{owner}", prompt.say(cli.INSTRUCTIONS))
         self.assertIn("agentboard answer", cli.INSTRUCTIONS)
 
     def test_the_orch_prompt_starts_a_new_orch_right(self):
         text = prompt.build_orch_prompt(self.s.load(), self.s.dir, port=8765)
-        for want in ("Agents report to Troy directly", "Speak to Troy only when he must act", "Daytime: Troy assigns", "sleep or nap", "Never without Troy's own words",
-                     "deploy to production", "any number but Troy's mobile", "railway"):
+        for want in ("Agents report to the user directly", "Speak to the user only when they must act", "Daytime: the user assigns", "sleep or nap", "Never without the user's own words",
+                     "deploy to production", "any number but the user's own mobile", "railway"):
             self.assertIn(want, text)
         self.assertIn(RULE, text)
-        self.assertNotIn("Report to Troy in 3 lines", text)
+        self.assertNotIn("Report to the user in 3 lines", text)
 
     def test_a_custom_template_is_left_alone(self):
         self.s.dir.mkdir(parents=True, exist_ok=True)
@@ -90,7 +91,7 @@ class ReplyTests(Base):
         self.assertIsNone(self.s.answer("ask-me"))
         self.s.reply("ask-me", "  five  ")
         self.assertEqual(self.s.answer("ask-me")["text"], "five")
-        self.assertEqual(self.s.answer("ask-me")["by"], "Troy")
+        self.assertEqual(self.s.answer("ask-me")["by"], "you")
         self.assertTrue(Store.get(self.s.load(), "ask-me")["needs_input"])       # replying changes no state
         self.assertEqual(self.cli("answer", "ask-me").strip(), "five")
 
@@ -113,7 +114,7 @@ class ReplyTests(Base):
         with self.assertRaises(SystemExit):
             self.cli("answer", "quiet", "--wait", "--timeout", "0.3", "--interval", "0.1")
 
-    def test_answer_wait_returns_as_soon_as_troy_replies(self):
+    def test_answer_wait_returns_as_soon_as_the_owner_replies(self):
         self.s.start("Waiting", "alice")
         self.s.ask("waiting", "which one?")
         threading.Timer(0.4, lambda: self.s.reply("waiting", "the second")).start()
@@ -142,9 +143,9 @@ class KeepItSimpleTests(Base):
     def test_orch_prompt_has_the_named_block_and_copy_order(self):
         text = prompt.build_orch_prompt(self.s.load(), self.s.dir)
         self.assertIn("## Keep it simple", text)
-        self.assertIn("One sentence, one idea: what Troy should do or reply.", text)
+        self.assertIn("One sentence, one idea: what the user should do or reply.", text)
         self.assertIn("into every card description and every assignment you write", text)
-        self.assertIn("You speak to Troy the same way.", text)
+        self.assertIn("You speak to the user the same way.", text)
 
     def test_every_prompt_says_detail_goes_in_body(self):
         tid = self.card()

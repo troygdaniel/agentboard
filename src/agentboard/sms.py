@@ -22,7 +22,7 @@ from xml.sax.saxutils import escape
 
 from . import backup
 from . import prompt as promptlib
-from .store import BoardError
+from .store import BoardError, owner_name
 
 MAX_BODY = 16_000
 SEEN_TTL_S = 7 * 24 * 3600
@@ -72,7 +72,7 @@ def settings(board_dir):
     token = os.environ.get(c.get("token_env") or DEFAULT_TOKEN_ENV, "")
     if not token:
         problems.append(f"the Twilio auth token is not in ${c.get('token_env') or DEFAULT_TOKEN_ENV}")
-    return {"allowed": allowed, "public_url": url, "token": token, "rate_per_hour": int(c.get("rate_per_hour", 30)), "name": c.get("name", "Troy")}, problems
+    return {"allowed": allowed, "public_url": url, "token": token, "rate_per_hour": int(c.get("rate_per_hour", 30)), "name": c.get("name") or owner_name(board_dir)}, problems
 
 
 # -- the signature ------------------------------------------------------------------------------------------------------------
@@ -258,7 +258,7 @@ def what_today(store):
 
 
 def answer_ask(store, ref, text):
-    """Send Troy's words to an ask card: the agent reads them with `agentboard answer`."""
+    """Send the owner's words to an ask card: the agent reads them with `agentboard answer`."""
     asks = _asks(store)
     if ref:
         hits = [t for t in asks if t["id"] == ref.lower() or t["id"].startswith(ref.lower())]
@@ -268,7 +268,7 @@ def answer_ask(store, ref, text):
         raise BoardError("nothing is asking you" if not ref else f"no ask matches '{ref}'")
     if len(hits) > 1:
         raise BoardError("which one? " + ", ".join(t["id"] for t in hits[:3]) + ": text 'reply <id> <answer>'")
-    store.reply(hits[0]["id"], text, by="Troy (text)")
+    store.reply(hits[0]["id"], text, by=f"{store.owner} (text)")
     return f"Sent to {hits[0].get('agent') or 'the agent'} on {hits[0]['id']}."
 
 

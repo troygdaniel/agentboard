@@ -41,9 +41,9 @@ class OrchLeakTests(unittest.TestCase):
             self.assertNotIn(MARK, self.prompt_for(card), card)
 
     def test_a_description_with_the_whole_orch_prompt_pasted_in_is_cut_back(self):
-        keep = prompt.KEEP_SIMPLE.rstrip("\n")
+        keep = prompt.say(prompt.KEEP_SIMPLE.rstrip("\n"), self.s.dir)
         pasted_prompts = (self.orch_text(),                                   # today's prompt, snapshot and all
-                          prompt.ORCH_TEMPLATE.split("## Peers")[0] + keep,    # an older one that ended at Keep it simple
+                          prompt.say(prompt.ORCH_TEMPLATE.split("## Peers")[0], self.s.dir) + keep,    # an older one that ended at Keep it simple
                           "# You are ORCH, the orchestrator for this board\n\n## Role\n\n- Add and split cards.\n\n" + keep)
         for n, pasted in enumerate(pasted_prompts):
             with self.subTest(n):
@@ -51,10 +51,10 @@ class OrchLeakTests(unittest.TestCase):
                 text = self.prompt_for(f"fix-it-{n}")
                 self.assertNotIn(MARK, text)
                 self.assertNotIn("Rename this session to ORCH", text)
-                self.assertNotIn("Never without Troy's own words", text)
+                self.assertNotIn("Never without the user's own words", text)
                 self.assertNotIn("Board snapshot", text)
                 self.assertIn("Do the thing.", text)
-                self.assertIn("One sentence, one idea: what Troy should do or reply.", text)
+                self.assertIn("One sentence, one idea: what the user should do or reply.", text)
 
     def test_a_card_about_the_leak_keeps_its_quoted_mention(self):
         quoted = "The prompt continues with '# You are ORCH, the orchestrator' after Task details."
