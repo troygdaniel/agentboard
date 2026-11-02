@@ -229,6 +229,7 @@
   .card .note { justify-content: flex-end; margin-top: 4px; }
   .card .said { font-size: var(--fs-md); margin: 2px 0 8px; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
   .top .pdot { width: 7px; height: 7px; border-radius: 50%; background: var(--c); flex: none; }
+  #later .unas { display: none; }   /* every row in the drawer is unassigned: the title leads (Troy, Nov 2) */
   .top .unas { color: var(--muted); font-size: var(--fs-base); font-weight: 650; letter-spacing: .02em; }   /* same type as a name, no opacity: .7 dropped it to 3.0-3.5:1 */
   .card[data-status="todo"] .unas { padding-left: 28px; }   /* clear of the queue-number badge; lines up with where a name starts (20px avatar + 8px gap) */
   /* hovering a name lights every card that agent holds; the rest step back */
@@ -385,7 +386,7 @@
   /* Done column day dividers (Today / Yesterday / Earlier) — a flex child like any card,
      so the column's existing gap spaces it the same as everything else */
   .day-div { font-size: var(--fs-xs); font-weight: 600; letter-spacing: var(--tr-tight); text-transform: uppercase; color: var(--muted); padding: 0 2px; display: flex; align-items: center; gap: 6px; }
-  .day-div .n { font-weight: 500; letter-spacing: 0; color: var(--muted); opacity: .8; font-variant-numeric: tabular-nums; }
+  .day-div .n { font-weight: 500; letter-spacing: 0; color: var(--muted); font-variant-numeric: tabular-nums; }
   /* the 7-day ribbon: one bar per day (today at the right), as tall as that day's finished cards, the count on top and the
      weekday under it; click a day to see only its cards, click again for all. A glance says how the week went. */
   .ribbon { display: flex; align-items: flex-end; gap: 3px; padding: 0 8px 10px; flex: none; }
@@ -422,13 +423,17 @@
   .subs-toggle { display: flex; align-items: center; gap: 10px; width: 100%; margin-top: 10px; padding: 0; background: none; border: 0;
     font: inherit; font-size: var(--fs-sm); color: var(--muted); cursor: pointer; text-align: left; border-radius: 6px; }
   .subs-toggle:hover { color: var(--text); }
+  /* hit areas (Troy, Nov 2): the visible controls stay small; the clickable area grows to about 30px, with no change to the layout */
+  .subs-toggle, .clear-done, .report-link { position: relative; }
+  .subs-toggle::after { content: ''; position: absolute; inset: -6px 0; }
+  .clear-done::after, .report-link::after { content: ''; position: absolute; inset: -4px -2px; }
   /* the parent's one bar is the same total bar a plain card has (the computed mean), inside the expand toggle */
   .subs-toggle .bar { margin: 0; flex: 1; min-width: 0; }
   .subs-count { font-variant-numeric: tabular-nums; font-weight: 600; flex: none; }
   .subs-count.all { color: var(--ok); }
   .chev { flex: none; transition: transform .18s ease; }
   .subs-toggle[aria-expanded="true"] .chev { transform: rotate(90deg); }
-  .pct.computed::before { content: '\03A3 '; opacity: .55; font-weight: 600; }
+  .pct.computed::after { content: ' overall'; color: var(--muted); font-weight: 400; }   /* a parent's % is the mean of its subtasks: said in words, not with a sigma */
   .subs { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--line); display: flex; flex-direction: column; }
   .subs[hidden] { display: none; }
   .sub { display: grid; grid-template-columns: 16px 1fr auto; gap: 10px; align-items: center; padding: 6px 0; font-size: var(--fs-md); color: var(--text); min-width: 0; cursor: pointer; }
@@ -560,7 +565,7 @@
   .h-row.h-fold { flex: none; min-height: 0; padding: 9px 12px 9px 16px; cursor: pointer; opacity: .85; align-items: center; }
   .h-row.h-fold:hover { opacity: 1; background: rgba(110,190,255,.04); }
   .h-row.h-fold::before { background: var(--hdim); box-shadow: none; opacity: .45; }
-  .h-row.h-fold .h-av { color: var(--hdim); --c: var(--hdim); box-shadow: inset 0 0 0 1.5px rgba(127,149,173,.6); }
+  .h-row.h-fold .h-av { color: color-mix(in srgb, var(--hdim) 65%, var(--htext)); --c: var(--hdim); box-shadow: inset 0 0 0 1.5px rgba(127,149,173,.6); }
   .h-fold .h-name { font-size: var(--fs-sm); letter-spacing: var(--tr-label); color: var(--hdim); align-items: center; }
   .h-fold .h-name em { color: var(--hdim); }
   .h-fold .chev { flex: none; color: var(--hdim); transition: transform .18s ease; margin-left: 2px; }
@@ -604,11 +609,11 @@
   .h-recent { list-style: none; margin: 6px 0 0; padding: 0; color: var(--hdim); font-size: var(--fs-xs); line-height: 1.5; opacity: .85; }
   .h-recent li { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .h-recent time { color: var(--hcy); opacity: .8; margin-right: 8px; letter-spacing: var(--tr-tight); }
-  .h-row.idle .h-recent { opacity: .6; }
   @media (max-height: 820px) { .h-recent { display: none; } }
   .h-row.idle .h-load .ln-track { opacity: .45; }
   /* the queue is the last row of the same grid: label where the names are, bars where the bars are */
-  .h-row.h-q { flex: none; min-height: 56px; max-height: 64px; border-top: 1px solid rgba(110,190,255,.14); }
+  .h-row.h-q { flex: none; min-height: 56px; max-height: 64px; border-top: 1px solid rgba(110,190,255,.14);
+    position: sticky; bottom: 0; z-index: 2; background: var(--hbg); }   /* stays in view when the open idle rows push it below the fold (Troy, Nov 2) */
   .h-row.h-q .h-who { color: var(--hcy); font-size: var(--fs-sm); letter-spacing: var(--tr-label); align-self: center; }
   .h-row.h-q .h-load .ln-track { display: flex; align-items: flex-end; gap: 2px; padding: 0 1px; height: 30px; }
   .h-row.h-q .h-load .ln-track i { flex: 1; min-height: 0; background: linear-gradient(180deg, var(--hcy), rgba(94,231,255,.25)); border-radius: 2px 2px 0 0; opacity: .8; }
@@ -663,8 +668,12 @@
   .h-av { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; font-size: var(--fs-md); color: var(--htext);
     background: color-mix(in srgb, var(--c) 14%, transparent);
     box-shadow: inset 0 0 0 1.5px var(--c), 0 0 12px -2px var(--c); }
-  .h-row.idle { opacity: .55; filter: saturate(.4); }
-  .h-row.idle:hover { opacity: .9; filter: none; }
+  /* idle rows are quieter by colour (dim names and text, a faint lane, desaturated), not by opacity: stacking .55 on .55 left the status at 30%,
+     unreadable once the fold opened by default (Troy, Nov 2). Their text now holds 4.5:1 or better. */
+  .h-row.idle { opacity: .92; filter: saturate(.4); }
+  .h-row.idle:hover { opacity: 1; filter: none; }
+  .h-row.idle .h-name { color: var(--hdim); }
+  .h-row.idle .h-recent { opacity: 1; }
   .h-name { color: var(--htext); display: flex; gap: 8px; align-items: baseline; font-size: var(--fs-lg); font-weight: 500; } .h-name em { font-style: normal; font-weight: 600; font-size: var(--fs-sm); letter-spacing: var(--tr-label); color: var(--c0); }
   .h-row.quiet .h-name em { color: var(--hwarn); } .h-row.idle .h-name em { color: var(--hdim); }
   .h-row.abandoned .h-name em { color: var(--hbad); }
@@ -678,10 +687,8 @@
      card title and the progress line live on the right with the bar; the left column is the agent,
      its state, and the one text that matters: the ask, or the agent's own status line. */
   .h-status { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; color: var(--htext); opacity: .85; margin-top: 4px; font-size: var(--fs-md); line-height: 1.35; overflow-wrap: anywhere; }
-  .h-row.idle .h-status { opacity: .55; color: var(--hdim); }
+  .h-row.idle .h-status { opacity: 1; color: var(--hdim); }
   .h-card { display: block; color: var(--hdim); font-size: var(--fs-xs); letter-spacing: var(--tr-tight); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .h-row.idle .h-card { opacity: .7; }
-  .h-row.idle .h-task { opacity: .8; }
   .h-prog { height: 7px; border-radius: 3.5px; background: rgba(110,190,255,.12); overflow: hidden; position: relative; }
   .h-prog::after { content: ''; position: absolute; inset: 0; transform: translateX(-100%);
     background: linear-gradient(90deg, transparent, rgba(255,255,255,.4), transparent); animation: hsheen 3.2s ease-in-out infinite; }
@@ -870,6 +877,7 @@
   .p-more { background: none; border: 0; padding: 4px 0 0; font: inherit; font-size: var(--fs-md); color: var(--text); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
   .p-more:hover { color: var(--muted); }
   .p-sec > h3 .n { color: var(--muted); font-weight: 400; margin-left: 4px; }
+  .p-pct b small { color: var(--muted); font-weight: 400; font-size: inherit; }
   /* rich markdown body on an ask/review callout — agent text, rendered server-side */
   .rich-body { margin-top: 10px; font-size: var(--fs-lg); line-height: 1.65; }
   .rich-body > :first-child { margin-top: 0; }
@@ -966,7 +974,7 @@
      shown on tap. Troy's Approve / Decline live on the proposal itself. The switch is in the drawer's head. */
   .cmsg.agent .cmsg-txt { border-left: 3px solid var(--c, var(--neutral)); }
   .cmsg-head .to { color: var(--muted); }
-  .cmsg-head .topic { font-size: var(--fs-xs); font-weight: 600; letter-spacing: var(--tr-tight); text-transform: uppercase; color: var(--tc, var(--muted)); }
+  .cmsg-head .topic { font-size: var(--fs-xs); font-weight: 600; letter-spacing: var(--tr-tight); text-transform: uppercase; color: color-mix(in srgb, var(--tc, var(--muted)) 78%, var(--text)); }   /* mixed toward the text colour: 4.5:1 in both themes */
   .topic.learn { --tc: var(--info); } .topic.help { --tc: var(--warn); } .topic.heads-up { --tc: var(--run); } .topic.handoff { --tc: var(--ok); }
   .cmsg-meta { display: flex; flex-wrap: wrap; gap: 4px 6px; margin-top: 4px; align-items: center; }
   .cmsg-meta .chip { font-size: var(--fs-xs); padding: 1px 8px; background: var(--chip); color: var(--muted); border-radius: 999px; white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
@@ -1093,7 +1101,7 @@
   .col.acol { border-top: 2px solid var(--c, var(--neutral)); }
   .col.acol h2 { color: var(--text); letter-spacing: 0; text-transform: none; font-size: var(--fs-md); gap: 7px; }
   .col.acol h2 .av { width: 20px; height: 20px; font-size: var(--fs-xs); }
-  .col.acol h2 em { font-style: normal; font-weight: 600; font-size: var(--fs-xs); letter-spacing: var(--tr-tight); text-transform: uppercase; color: var(--st, var(--muted)); margin-left: auto; }
+  .col.acol h2 em { font-style: normal; font-weight: 600; font-size: var(--fs-xs); letter-spacing: var(--tr-tight); text-transform: uppercase; color: color-mix(in srgb, var(--st, var(--muted)) 78%, var(--text)); margin-left: auto; }
   .col.acol h2 em.ask { --st: var(--err); } .col.acol h2 em.review { --st: var(--ok); } .col.acol h2 em.quiet, .col.acol h2 em.abandoned { --st: var(--warn); } .col.acol h2 em.working { --st: var(--run); }
   .nextup { position: relative; opacity: .6; }
   .nextup::before { content: 'next up'; position: absolute; top: -7px; left: 12px; z-index: 1; font-size: 9px; font-weight: 700; letter-spacing: var(--tr-tight); text-transform: uppercase; color: var(--muted); background: var(--bg); padding: 0 5px; border-radius: 4px; }
@@ -1411,7 +1419,7 @@ function card(t) {
   const toTodoBtn = backlog ? `<button class="card-act" data-to-todo="${esc(t.id)}" title="Move to Todo"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 13V6m0 0L5 9m3-3l3 3M3 3h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Move to Todo</button>` : '';
   const queued = todo ? `<span class="when"><svg width="11" height="11" viewBox="0 0 16 16" fill="none" aria-hidden="true" style="vertical-align:-1px;margin-right:4px"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5"/><path d="M8 5v3l2 1.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>queued ${a.text}</span>` : when;
   const meta = (todo || backlog || !who) && (queued || laterBtn || toTodoBtn) ? `<div class="meta">${laterBtn}${toTodoBtn}${who ? '' : queued}</div>` : '';
-  const nSubs = t.subs_total || 0;   // a parent's % is the computed mean of its subtasks (Σ), and its one bar is the segmented toggle
+  const nSubs = t.subs_total || 0;   // a parent's % is the computed mean of its subtasks (shown as "overall"), and its one bar is the segmented toggle
   const line = doing && nSubs && !t.needs_input && !t.review ? parentLine(t) : t.status_text;   // a question or review request is never replaced by a subtask's note
   const note = doing ? `<div class="note"><span title="${esc(line)}">${esc(line)}</span><span class="pct ${nSubs ? 'computed' : ''}">${t.progress || 0}%</span></div>`
     : (done && t.result ? `<div class="note"><span title="${esc(t.result)}">${esc(t.result)}</span></div>` : '');
@@ -2045,7 +2053,7 @@ function panelHtml(t) {
   const doing = t.status === 'doing', stale = doing && ago(t.updated).min >= STALE_MIN;
   const abandoned = doing && ago(t.updated).min >= (cfg.stale_minutes || DEFAULT_STALE_MIN);
   const who = t.agent ? `<div class="p-who"><span class="agent-pill" style="--c:${colorOf(t)}"><span class="av ${doing && !stale ? 'live' : ''}" aria-hidden="true">${esc(nodeGlyph(t.agent))}</span><span class="name">${esc(t.agent)}</span></span><span class="p-when">${t.status === 'done' ? 'finished' : 'working'} ${ago(t.updated).text}</span></div>` : '';
-  const prog = doing ? `<div class="p-sec"><div class="bar" style="margin:0" role="progressbar" aria-valuenow="${t.progress || 0}" aria-valuemin="0" aria-valuemax="100" aria-label="Progress"><b style="width:${t.progress || 0}%;background:${colorOf(t)}"></b></div><div class="p-pct"><span>${t.review || t.needs_input ? '' : esc(t.status_text || '')}</span><b>${(kidsMap.get(t.id) || []).length ? 'Σ ' : ''}${t.progress || 0}%</b></div>${abandoned ? `<div class="p-pct"><span style="color:var(--err)">⚠ No update for ${ago(t.updated).text.replace(' ago', '')} — possibly abandoned</span></div>` : stale ? `<div class="p-pct"><span style="color:var(--warn)">No update for ${ago(t.updated).text.replace(' ago', '')}</span></div>` : ''}</div>` : '';
+  const prog = doing ? `<div class="p-sec"><div class="bar" style="margin:0" role="progressbar" aria-valuenow="${t.progress || 0}" aria-valuemin="0" aria-valuemax="100" aria-label="Progress"><b style="width:${t.progress || 0}%;background:${colorOf(t)}"></b></div><div class="p-pct"><span>${t.review || t.needs_input ? '' : esc(t.status_text || '')}</span><b>${t.progress || 0}%${(kidsMap.get(t.id) || []).length ? '<small> overall</small>' : ''}</b></div>${abandoned ? `<div class="p-pct"><span style="color:var(--err)">⚠ No update for ${ago(t.updated).text.replace(' ago', '')} — possibly abandoned</span></div>` : stale ? `<div class="p-pct"><span style="color:var(--warn)">No update for ${ago(t.updated).text.replace(' ago', '')}</span></div>` : ''}</div>` : '';
   const bodyHtml = t.body_html ? `<div class="rich-body">${t.body_html}</div>` : '';   // server-rendered + sanitized; safe to insert as-is
   const rv = !t.needs_input && t.review && t.status === 'doing';
   const logAll = (t.log || []).slice().reverse();
