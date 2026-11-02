@@ -1,0 +1,368 @@
+<meta charset="utf-8">
+<title>Doing by agent, three ways</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+  /* Layout: three options for seeing Doing with one column per agent, each as a drawn mock at desktop width (five agents) and
+     at phone width, with the same six questions answered under it, then one recommendation. Board tokens from
+     docs/ux-mockups.html; every card title is sample text. Nothing here is live. */
+  :root {
+    --bg: #fafaf9; --surface: #ffffff; --line: #e7e5e4;
+    --text: #1c1917; --muted: #6b6560; --accent: #1c1917;
+    --run: #c2570c; --warn: #b45309; --ok: #15803d; --err: #b42318; --neutral: #a8a29e; --info: #1d4ed8;
+    --chip: #f2f0ee; --well: rgba(28,25,23,.1); --card-hi: rgba(255,255,255,.8);
+    --glow1: rgba(99,102,241,.08); --glow2: rgba(251,146,60,.09); --dot: rgba(28,25,23,.07);
+    --panel: linear-gradient(180deg, rgba(255,255,255,.72), rgba(255,255,255,.4));
+    --panel-hi: rgba(255,255,255,.95); --panel-sh: 0 18px 40px -28px rgba(28,25,23,.35);
+    --shadow: 0 1px 2px rgba(28,25,23,.05), 0 1px 1px rgba(28,25,23,.03);
+    --fs-xs: 11px; --fs-sm: 12px; --fs-md: 13px; --fs-base: 14px; --fs-lg: 15px; --fs-xl: 20px;
+    --tr-label: .16em; --tr-tight: .06em;
+    --font: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+    --a1: #15803d; --a2: #2563eb; --a3: #7c3aed; --a4: #c2570c; --a5: #b42318; --a6: #0d9488;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #070b12; --surface: #0f1722; --line: #1c2a3a;
+      --text: #d6e9ff; --muted: #7f95ad; --accent: #d6e9ff;
+      --run: #ff9a3c; --warn: #ffc857; --ok: #5dffb0; --err: #ff6b6b; --neutral: #4b5f75; --info: #5ee7ff;
+      --chip: #15202e; --well: rgba(0,0,0,.45); --card-hi: rgba(255,255,255,.05);
+      --glow1: rgba(94,231,255,.12); --glow2: rgba(93,255,176,.06); --dot: rgba(110,190,255,.05);
+      --panel: linear-gradient(180deg, rgba(14,25,38,.74), rgba(8,15,24,.66));
+      --panel-hi: rgba(255,255,255,.045); --panel-sh: 0 18px 40px -26px rgba(0,0,0,.9);
+      --shadow: inset 0 1px 0 rgba(255,255,255,.03);
+      --a1: #4ade80; --a2: #60a5fa; --a3: #a78bfa; --a4: #fb923c; --a5: #f87171; --a6: #2dd4bf;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #070b12; --surface: #0f1722; --line: #1c2a3a;
+    --text: #d6e9ff; --muted: #7f95ad; --accent: #d6e9ff;
+    --run: #ff9a3c; --warn: #ffc857; --ok: #5dffb0; --err: #ff6b6b; --neutral: #4b5f75; --info: #5ee7ff;
+    --chip: #15202e; --well: rgba(0,0,0,.45); --card-hi: rgba(255,255,255,.05);
+    --glow1: rgba(94,231,255,.12); --glow2: rgba(93,255,176,.06); --dot: rgba(110,190,255,.05);
+    --panel: linear-gradient(180deg, rgba(14,25,38,.74), rgba(8,15,24,.66));
+    --panel-hi: rgba(255,255,255,.045); --panel-sh: 0 18px 40px -26px rgba(0,0,0,.9);
+    --shadow: inset 0 1px 0 rgba(255,255,255,.03);
+    --a1: #4ade80; --a2: #60a5fa; --a3: #a78bfa; --a4: #fb923c; --a5: #f87171; --a6: #2dd4bf;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body {
+    background: radial-gradient(1000px 460px at 10% -8%, var(--glow1), transparent 70%) no-repeat,
+      radial-gradient(760px 420px at 96% -6%, var(--glow2), transparent 70%) no-repeat,
+      radial-gradient(var(--dot) 1px, transparent 1px) 0 0 / 22px 22px, var(--bg);
+    min-height: 100vh; color: var(--text); font: var(--fs-base)/1.5 var(--font); -webkit-font-smoothing: antialiased; letter-spacing: -.003em;
+    padding-block: 22px 44px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  }
+  .wrap { width: min(100%, 1180px); margin: 0 auto; display: flex; flex-direction: column; gap: 36px; }
+  header.top { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding-bottom: 14px; border-bottom: 1px solid var(--line); }
+  h1 { font-size: var(--fs-lg); font-weight: 600; letter-spacing: -.015em; display: flex; align-items: center; gap: 10px; }
+  .mock { font-size: var(--fs-xs); font-weight: 600; letter-spacing: var(--tr-label); text-transform: uppercase; color: var(--muted); }
+  .lede { color: var(--muted); font-size: var(--fs-md); max-width: 72ch; }
+  .lede b { color: var(--text); font-weight: 500; }
+  .spacer { flex: 1; }
+  .jump { display: flex; gap: 6px; flex-wrap: wrap; }
+  .jump a { font-size: var(--fs-sm); color: var(--text); text-decoration: none; border: 1px solid var(--line); border-radius: 999px; padding: 3px 11px; background: var(--surface); }
+  .jump a:hover { border-color: var(--neutral); }
+
+  /* ---- an option ---- */
+  .opt { border: 1px solid var(--line); border-radius: 16px; background: var(--panel); box-shadow: inset 0 1px 0 var(--panel-hi), var(--panel-sh); overflow: hidden; scroll-margin-top: 12px; }
+  .opt > header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 14px 18px 12px; border-bottom: 1px solid var(--line); }
+  .opt h2 { font-size: var(--fs-lg); font-weight: 600; display: flex; align-items: center; gap: 10px; letter-spacing: -.01em; }
+  .ltr { width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center; font-size: var(--fs-sm); font-weight: 700; background: var(--chip); box-shadow: inset 0 0 0 1px var(--line); }
+  .opt .one { color: var(--muted); font-size: var(--fs-md); }
+  .opt .pick { margin-left: auto; font-size: var(--fs-xs); font-weight: 600; letter-spacing: var(--tr-tight); text-transform: uppercase; color: var(--ok); border: 1px solid color-mix(in srgb, var(--ok) 50%, var(--line)); border-radius: 999px; padding: 2px 10px; }
+  .stage { padding: 14px 18px 4px; }
+  .stage-l { font-size: var(--fs-xs); font-weight: 600; letter-spacing: var(--tr-label); text-transform: uppercase; color: var(--muted); margin: 0 0 8px; display: flex; gap: 10px; align-items: baseline; }
+  .stage-l small { font-weight: 400; letter-spacing: 0; text-transform: none; }
+  .two { display: grid; grid-template-columns: minmax(0, 1fr) 236px; gap: 18px; align-items: start; }
+  @media (max-width: 860px) { .two { grid-template-columns: 1fr; } .two > div:first-child { overflow-x: auto; padding-bottom: 6px; } .two > div:first-child .frame { min-width: 820px; } }   /* a desktop drawing stays a desktop drawing: scroll it sideways on a phone */
+  .facts { display: grid; grid-template-columns: 9.5em 1fr; gap: 6px 14px; padding: 12px 18px 18px; font-size: var(--fs-md); color: var(--muted); border-top: 1px solid var(--line); }
+  .facts b { color: var(--text); font-weight: 600; font-size: var(--fs-xs); letter-spacing: var(--tr-tight); text-transform: uppercase; padding-top: 3px; }
+  .facts span { max-width: 78ch; }
+  @media (max-width: 600px) { .facts { grid-template-columns: 1fr; gap: 2px 0; } .facts b { margin-top: 8px; } }
+
+  /* ---- a drawn board ---- */
+  .frame { border: 1px solid var(--line); border-radius: 12px; background: var(--bg); padding: 10px; overflow: hidden; min-width: 0; }
+  .bar { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; font-size: var(--fs-xs); color: var(--muted); flex-wrap: wrap; }
+  .bar .brand { font-weight: 600; color: var(--text); display: flex; align-items: center; gap: 6px; font-size: var(--fs-sm); }
+  .tabs { display: inline-flex; gap: 2px; padding: 2px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+  .tabs span { padding: 0 8px; min-height: 20px; display: inline-flex; align-items: center; border-radius: 6px; color: var(--muted); }
+  .tabs span.on { color: var(--text); background: var(--chip); font-weight: 600; box-shadow: inset 0 0 0 1px var(--line); }
+  .btn { display: inline-flex; align-items: center; gap: 4px; border: 1px solid var(--line); border-radius: 6px; padding: 1px 8px; min-height: 20px; background: var(--surface); color: var(--text); font-size: var(--fs-xs); white-space: nowrap; }
+  .btn.on { background: var(--chip); font-weight: 600; box-shadow: inset 0 0 0 1px var(--line); }
+  .cols { display: grid; gap: 8px; align-items: stretch; min-width: 0; }
+  .col { border: 1px solid var(--line); border-radius: 10px; padding: 8px 6px 6px; background: var(--panel); min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+  .col h4 { font-size: 10px; font-weight: 600; letter-spacing: var(--tr-label); text-transform: uppercase; color: var(--muted); display: flex; align-items: center; gap: 6px; padding: 0 4px; min-height: 16px; }
+  .col h4 .cnt { background: var(--chip); border-radius: 999px; padding: 0 5px; letter-spacing: 0; line-height: 14px; box-shadow: inset 0 0 0 1px var(--line); font-variant-numeric: tabular-nums; }
+  .col.doing { border-color: color-mix(in srgb, var(--accent) 14%, var(--line)); }
+  .col.doing h4 { color: var(--text); }
+  .col.dim { opacity: .55; }
+  .card { position: relative; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); padding: 6px 8px 6px 10px; font-size: var(--fs-xs); line-height: 1.35; color: var(--text); min-width: 0; }
+  .card::after { content: ''; position: absolute; left: 1px; top: 6px; bottom: 6px; width: 2px; border-radius: 0 1px 1px 0; background: var(--c, var(--neutral)); }
+  .card.todo::after, .card.done::after { opacity: .35; }
+  .card .who { display: flex; align-items: center; gap: 5px; color: var(--muted); font-size: 10px; margin-bottom: 2px; }
+  .card .who b { color: var(--text); font-weight: 650; }
+  .card .t { font-weight: 550; overflow-wrap: anywhere; }
+  .card .t.done { color: var(--muted); font-weight: 400; }
+  .card .pb { height: 3px; border-radius: 2px; background: var(--chip); margin-top: 5px; overflow: hidden; }
+  .card .pb i { display: block; height: 100%; width: var(--p); background: var(--c, var(--neutral)); }
+  .card.ask { border-color: var(--err); } .card.review { border-color: var(--ok); } .card.quiet { border-color: var(--warn); }
+  .card .flag { font-size: 9px; font-weight: 700; letter-spacing: var(--tr-tight); text-transform: uppercase; margin-bottom: 2px; }
+  .card.ask .flag { color: var(--err); } .card.review .flag { color: var(--ok); } .card.quiet .flag { color: var(--warn); }
+  .card.ghost { opacity: .55; border-style: dashed; }
+  .av { width: 16px; height: 16px; border-radius: 50%; display: inline-grid; place-items: center; font-size: 9px; font-weight: 700; color: var(--text); background: color-mix(in srgb, var(--c, var(--neutral)) 16%, var(--chip)); box-shadow: inset 0 0 0 1.5px var(--c, var(--neutral)); flex: none; }
+  .av.ring { background: transparent; }
+  /* per-agent columns */
+  .agent-h { display: flex; align-items: center; gap: 5px; padding: 0 2px; font-size: 10px; font-weight: 650; color: var(--text); letter-spacing: 0; text-transform: none; }
+  .agent-h em { font-style: normal; font-weight: 600; font-size: 9px; letter-spacing: var(--tr-tight); text-transform: uppercase; color: var(--st, var(--muted)); margin-left: auto; }
+  .agent-h em.ask { --st: var(--err); } .agent-h em.review { --st: var(--ok); } .agent-h em.quiet { --st: var(--warn); } .agent-h em.working { --st: var(--run); }
+  .acol { border-top: 2px solid var(--c, var(--neutral)); }
+  .acol.idle { opacity: .55; border-top-style: dashed; }
+  /* the collapsed rails of option A */
+  .rail { writing-mode: vertical-rl; transform: rotate(180deg); display: flex; align-items: center; justify-content: flex-start; gap: 8px; padding: 10px 4px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); font-size: 10px; font-weight: 600; letter-spacing: var(--tr-label); text-transform: uppercase; color: var(--muted); cursor: pointer; min-width: 0; }
+  .rail .cnt { writing-mode: horizontal-tb; transform: rotate(0); background: var(--chip); border-radius: 999px; padding: 0 5px; letter-spacing: 0; line-height: 14px; box-shadow: inset 0 0 0 1px var(--line); }
+  .rail .dots { display: flex; gap: 3px; } .rail .dots i { width: 5px; height: 5px; border-radius: 50%; background: var(--neutral); opacity: .6; }
+  /* the idle strip */
+  .idle-strip { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 6px 8px; border: 1px dashed var(--line); border-radius: 8px; font-size: 10px; color: var(--muted); }
+  .idle-strip b { font-weight: 600; letter-spacing: var(--tr-label); text-transform: uppercase; }
+  .ichip { display: inline-flex; align-items: center; gap: 5px; }
+  /* phone frame */
+  .phone { width: 236px; border: 1px solid var(--line); border-radius: 22px; padding: 10px 8px; background: var(--bg); box-shadow: var(--panel-sh); margin: 0 auto; }
+  .phone .frame { border: 0; padding: 0; background: none; }
+  .phone .cols { grid-template-columns: 1fr; }
+  .phone .bar { gap: 6px; }
+  .snap { display: flex; gap: 8px; overflow: hidden; }
+  .snap .col { flex: 0 0 82%; }
+  .snap-dots { display: flex; justify-content: center; gap: 4px; margin-top: 6px; } .snap-dots i { width: 5px; height: 5px; border-radius: 50%; background: var(--line); } .snap-dots i.on { background: var(--text); }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+  .chips span { font-size: 10px; border: 1px solid var(--line); border-radius: 999px; padding: 1px 8px; background: var(--surface); color: var(--muted); }
+  .sticky { position: sticky; top: 0; background: var(--bg); }
+  /* option C overlay */
+  .overlay { position: relative; }
+  .overlay .behind { opacity: .45; filter: saturate(.6); }
+  .drawer { position: absolute; top: 0; right: 0; bottom: 0; width: 58%; border-left: 1px solid var(--line); background: var(--panel), var(--bg); box-shadow: -12px 0 30px rgba(0,0,0,.18); padding: 10px; display: flex; flex-direction: column; gap: 6px; overflow: hidden; }
+  .drawer h4 { font-size: 10px; font-weight: 600; letter-spacing: var(--tr-label); text-transform: uppercase; color: var(--text); display: flex; gap: 8px; align-items: center; }
+  .drawer h4 .x { margin-left: auto; color: var(--muted); font-weight: 400; }
+  .arow { display: grid; grid-template-columns: 74px minmax(0, 1fr); gap: 8px; align-items: start; padding: 6px 0; border-top: 1px solid var(--line); }
+  .arow .nm { display: flex; flex-direction: column; gap: 2px; font-size: 10px; font-weight: 650; }
+  .arow .nm em { font-style: normal; font-weight: 600; font-size: 9px; letter-spacing: var(--tr-tight); text-transform: uppercase; color: var(--st, var(--muted)); }
+  .arow .cards { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .arow.idle { opacity: .55; }
+  .phone .drawer { position: static; width: auto; border-left: 0; box-shadow: none; padding: 0; }
+
+  /* ---- the recommendation ---- */
+  .rec { padding: 16px 18px 18px; }
+  .rec h2 { font-size: var(--fs-lg); font-weight: 600; margin-bottom: 8px; }
+  .rec p { color: var(--muted); font-size: var(--fs-md); max-width: 78ch; margin: 0 0 8px; }
+  .rec p b { color: var(--text); font-weight: 600; }
+  table.cmp { border-collapse: collapse; width: 100%; font-size: var(--fs-md); margin-top: 10px; }
+  .cmp th, .cmp td { text-align: left; padding: 6px 10px; border-top: 1px solid var(--line); vertical-align: top; }
+  .cmp th { font-size: var(--fs-xs); letter-spacing: var(--tr-tight); text-transform: uppercase; color: var(--muted); font-weight: 600; border-top: 0; }
+  .cmp td:first-child { font-weight: 600; white-space: nowrap; }
+  .cmp .y { color: var(--ok); font-weight: 600; } .cmp .n { color: var(--err); } .cmp .m { color: var(--warn); }
+  .cmp-wrap { overflow-x: auto; }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; } }
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <h1><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="1.5" y="2" width="3.5" height="12" rx="1.2" fill="currentColor" opacity=".35"/><rect x="6.25" y="2" width="3.5" height="8" rx="1.2" fill="currentColor"/><rect x="11" y="2" width="3.5" height="5" rx="1.2" fill="currentColor" opacity=".6"/></svg>agentboard <span class="mock">doing by agent, three ways</span></h1>
+    <span class="spacer"></span>
+    <span class="lede">Every agent gets its own column in Doing. Three ways to get there, each drawn at desktop width with <b>five agents</b> and at phone width, with the same six questions answered: open, close, what Todo and Done do, five agents, phone, idle agents. <b>Nothing is built</b>; pick one.</span>
+  </header>
+  <nav class="jump" aria-label="Options"><a href="#a">A · Doing expands in place</a><a href="#b">B · By-agent view</a><a href="#c">C · Agents drawer</a><a href="#rec">Recommendation</a></nav>
+
+  <!-- ================= A ================= -->
+  <section class="opt" id="a">
+    <header><h2><span class="ltr">A</span>Doing expands in place</h2><span class="one">One toggle in the Doing header; Todo and Done fold to rails at the edges.</span><span class="pick">recommended</span></header>
+    <div class="stage">
+      <div class="two">
+        <div>
+          <div class="stage-l">Desktop, five agents <small>Todo and Done are the two rails; click a rail to bring the board back</small></div>
+          <div class="frame">
+            <div class="bar"><span class="brand">agentboard</span><span class="tabs"><span class="on">Board</span><span>HUD</span><span>Summary</span><span>Reports</span></span><span class="spacer"></span><span>⚠ 1 needs input · ✓ 1 to review · 5 working</span></div>
+            <div class="cols" style="grid-template-columns: 34px minmax(0, 1fr) 34px">
+              <div class="rail" title="Todo: click to bring the board back">Todo <span class="cnt">3</span><span class="dots"><i></i><i></i><i></i></span></div>
+              <div class="col doing">
+                <h4>Doing <span class="cnt">5</span> <span class="spacer"></span><span class="btn on">⤡ by agent</span></h4>
+                <div class="cols" style="grid-template-columns: repeat(5, minmax(0, 1fr))">
+                  <div class="col acol" style="--c:var(--a1)"><div class="agent-h"><span class="av" style="--c:var(--a1)">1</span>AGENT-1<em class="ask">ask</em></div>
+                    <div class="card ask" style="--c:var(--a1)"><div class="flag">needs input</div><div class="t">Retry limit: 3 or 5?</div><div class="pb"><i style="--p:60%"></i></div></div>
+                    <div class="card" style="--c:var(--a1)"><div class="t">Webhook retries</div><div class="pb"><i style="--p:60%"></i></div></div></div>
+                  <div class="col acol" style="--c:var(--a2)"><div class="agent-h"><span class="av" style="--c:var(--a2)">2</span>AGENT-2<em class="review">review</em></div>
+                    <div class="card review" style="--c:var(--a2)"><div class="flag">ready for review</div><div class="t">Export pipeline</div><div class="pb"><i style="--p:100%"></i></div></div></div>
+                  <div class="col acol" style="--c:var(--a3)"><div class="agent-h"><span class="av" style="--c:var(--a3)">3</span>AGENT-3<em class="working">working</em></div>
+                    <div class="card" style="--c:var(--a3)"><div class="t">Cache eviction</div><div class="pb"><i style="--p:55%"></i></div></div>
+                    <div class="card" style="--c:var(--a3)"><div class="t">Hit-rate test</div><div class="pb"><i style="--p:20%"></i></div></div></div>
+                  <div class="col acol" style="--c:var(--a4)"><div class="agent-h"><span class="av" style="--c:var(--a4)">4</span>AGENT-4<em class="quiet">quiet</em></div>
+                    <div class="card quiet" style="--c:var(--a4)"><div class="flag">no update 3h</div><div class="t">Audit log backfill</div><div class="pb"><i style="--p:70%"></i></div></div></div>
+                  <div class="col acol" style="--c:var(--a5)"><div class="agent-h"><span class="av" style="--c:var(--a5)">G</span>GENERAL<em class="working">working</em></div>
+                    <div class="card" style="--c:var(--a5)"><div class="t">Payments worker split</div><div class="pb"><i style="--p:20%"></i></div></div></div>
+                </div>
+                <div class="idle-strip"><b>Idle</b><span class="ichip"><span class="av ring" style="--c:var(--a6)">5</span>AGENT-5 · no card</span><span class="ichip"><span class="av ring" style="--c:var(--a6)">S</span>SCOUT · finished 5h ago</span><span class="spacer"></span><span>click a name to assign</span></div>
+              </div>
+              <div class="rail" title="Done: click to bring the board back">Done <span class="cnt">12</span><span class="dots"><i></i><i></i><i></i><i></i></span></div>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="stage-l">Phone</div>
+          <div class="phone"><div class="frame">
+            <div class="bar"><span class="brand">agentboard</span><span class="spacer"></span><span class="btn on">⤡ by agent</span></div>
+            <div class="chips"><span>Todo 3</span><span>Done 12</span><span>Idle 2</span></div>
+            <div class="cols">
+              <div class="col acol" style="--c:var(--a1)"><div class="agent-h sticky"><span class="av" style="--c:var(--a1)">1</span>AGENT-1<em class="ask">ask</em></div>
+                <div class="card ask" style="--c:var(--a1)"><div class="flag">needs input</div><div class="t">Retry limit: 3 or 5?</div></div>
+                <div class="card" style="--c:var(--a1)"><div class="t">Webhook retries</div><div class="pb"><i style="--p:60%"></i></div></div></div>
+              <div class="col acol" style="--c:var(--a2)"><div class="agent-h"><span class="av" style="--c:var(--a2)">2</span>AGENT-2<em class="review">review</em></div>
+                <div class="card review" style="--c:var(--a2)"><div class="flag">ready for review</div><div class="t">Export pipeline</div></div></div>
+              <div class="col acol" style="--c:var(--a3)"><div class="agent-h"><span class="av" style="--c:var(--a3)">3</span>AGENT-3<em class="working">working</em></div>
+                <div class="card" style="--c:var(--a3)"><div class="t">Cache eviction</div><div class="pb"><i style="--p:55%"></i></div></div></div>
+              <div class="idle-strip"><b>Idle</b><span>AGENT-5, SCOUT</span></div>
+            </div>
+          </div></div>
+        </div>
+      </div>
+    </div>
+    <div class="facts">
+      <b>Open</b><span>The <em>⤡ by agent</em> button in the Doing header, or the key <code>a</code>. Doing widens to the whole row and splits into one column per agent with a card in Doing; the header keeps the count and the working dots.</span>
+      <b>Close</b><span>The same button, <code>a</code> again, Esc, or a click on either rail. The board returns to three columns in place, columns keep their scroll.</span>
+      <b>Todo and Done</b><span>They do not leave. Each folds to a 34px rail at its edge with its name, its count and a few dots for the cards, so the queue and the week are still in view; drag a card onto a rail to move it there, click a rail to bring the board back.</span>
+      <b>Five agents</b><span>Five equal columns inside Doing at 1440px, about 240px each: one short title, a flag and a bar per card. Six or more: the row scrolls sideways inside Doing, two cards wide per screen on a laptop.</span>
+      <b>Phone</b><span>One stacked list, grouped by agent, each agent's header sticky while you scroll its cards; the rails become three chips at the top (Todo, Done, Idle) that bring the board back.</span>
+      <b>Idle agents</b><span>One strip under the columns: name, glyph and "no card" or "finished 5h ago", from the same roster the HUD uses. Click a name to assign it a Todo card. Idle agents never take a column, so the columns are always the agents that matter now.</span>
+    </div>
+  </section>
+
+  <!-- ================= B ================= -->
+  <section class="opt" id="b">
+    <header><h2><span class="ltr">B</span>By-agent view</h2><span class="one">A fifth tab in the top bar; the whole page becomes swimlane columns, one per agent.</span></header>
+    <div class="stage">
+      <div class="two">
+        <div>
+          <div class="stage-l">Desktop, five agents <small>Todo and Done are counts in the bar; an agent's assigned Todo cards wait at the foot of its column</small></div>
+          <div class="frame">
+            <div class="bar"><span class="brand">agentboard</span><span class="tabs"><span>Board</span><span class="on">By agent</span><span>HUD</span><span>Summary</span><span>Reports</span></span><span class="spacer"></span><span class="btn">Todo 3</span><span class="btn">Done 12</span></div>
+            <div class="cols" style="grid-template-columns: repeat(7, minmax(0, 1fr))">
+              <div class="col dim"><h4>Queue <span class="cnt">2</span></h4>
+                <div class="card todo"><div class="t">Write the changelog</div></div>
+                <div class="card todo"><div class="t">Rate-limit the SMS</div></div></div>
+              <div class="col acol" style="--c:var(--a1)"><div class="agent-h"><span class="av" style="--c:var(--a1)">1</span>AGENT-1<em class="ask">ask</em></div>
+                <div class="card ask" style="--c:var(--a1)"><div class="flag">needs input</div><div class="t">Retry limit: 3 or 5?</div><div class="pb"><i style="--p:60%"></i></div></div>
+                <div class="card" style="--c:var(--a1)"><div class="t">Webhook retries</div><div class="pb"><i style="--p:60%"></i></div></div></div>
+              <div class="col acol" style="--c:var(--a2)"><div class="agent-h"><span class="av" style="--c:var(--a2)">2</span>AGENT-2<em class="review">review</em></div>
+                <div class="card review" style="--c:var(--a2)"><div class="flag">ready for review</div><div class="t">Export pipeline</div><div class="pb"><i style="--p:100%"></i></div></div></div>
+              <div class="col acol" style="--c:var(--a3)"><div class="agent-h"><span class="av" style="--c:var(--a3)">3</span>AGENT-3<em class="working">working</em></div>
+                <div class="card" style="--c:var(--a3)"><div class="t">Cache eviction</div><div class="pb"><i style="--p:55%"></i></div></div>
+                <div class="card ghost todo" style="--c:var(--a3)"><div class="who">next up</div><div class="t">README screenshots</div></div></div>
+              <div class="col acol" style="--c:var(--a4)"><div class="agent-h"><span class="av" style="--c:var(--a4)">4</span>AGENT-4<em class="quiet">quiet</em></div>
+                <div class="card quiet" style="--c:var(--a4)"><div class="flag">no update 3h</div><div class="t">Audit log backfill</div><div class="pb"><i style="--p:70%"></i></div></div></div>
+              <div class="col acol" style="--c:var(--a5)"><div class="agent-h"><span class="av" style="--c:var(--a5)">G</span>GENERAL<em class="working">working</em></div>
+                <div class="card" style="--c:var(--a5)"><div class="t">Payments worker split</div><div class="pb"><i style="--p:20%"></i></div></div></div>
+              <div class="col acol idle" style="--c:var(--a6)"><div class="agent-h"><span class="av ring" style="--c:var(--a6)">5</span>AGENT-5<em>idle</em></div>
+                <div class="card ghost todo" style="--c:var(--a6)"><div class="who">assign…</div><div class="t">nothing yet</div></div>
+                <div class="agent-h" style="margin-top:6px"><span class="av ring" style="--c:var(--a6)">S</span>SCOUT<em>idle</em></div>
+                <div class="card done" style="--c:var(--a6)"><div class="t done">✓ Scout the old relay · 5h</div></div></div>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="stage-l">Phone</div>
+          <div class="phone"><div class="frame">
+            <div class="bar"><span class="tabs"><span>Board</span><span class="on">By agent</span><span>HUD</span></span></div>
+            <div class="snap">
+              <div class="col acol" style="--c:var(--a1)"><div class="agent-h"><span class="av" style="--c:var(--a1)">1</span>AGENT-1<em class="ask">ask</em></div>
+                <div class="card ask" style="--c:var(--a1)"><div class="flag">needs input</div><div class="t">Retry limit: 3 or 5?</div></div>
+                <div class="card" style="--c:var(--a1)"><div class="t">Webhook retries</div><div class="pb"><i style="--p:60%"></i></div></div></div>
+              <div class="col acol" style="--c:var(--a2)"><div class="agent-h"><span class="av" style="--c:var(--a2)">2</span>AGENT-2</div>
+                <div class="card review" style="--c:var(--a2)"><div class="flag">review</div><div class="t">Export pipeline</div></div></div>
+            </div>
+            <div class="snap-dots"><i class="on"></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+            <div class="chips" style="margin-top:8px"><span>Todo 3</span><span>Done 12</span></div>
+          </div></div>
+        </div>
+      </div>
+    </div>
+    <div class="facts">
+      <b>Open</b><span>The <em>By agent</em> tab, in the shared top bar on every page, or the key <code>a</code>. It is a page of its own, with a URL, so it can live on a second screen or the wall next to the HUD.</span>
+      <b>Close</b><span>The <em>Board</em> tab. Nothing to undo: the board was never changed.</span>
+      <b>Todo and Done</b><span>Gone from the page. Their counts sit in the bar as links back to the board. Unassigned Todo cards show in a dim <em>Queue</em> column at the left; a Todo card assigned to an agent waits at the foot of that agent's column as a ghost, "next up".</span>
+      <b>Five agents</b><span>Queue + five agents + one idle column = seven columns at 1440px, about 185px each: tight. Titles clip to two lines; the status line goes. Eight agents scroll sideways.</span>
+      <b>Phone</b><span>One agent per screen, swipe sideways between them, dots underneath. The ask and review flags stay visible on each card.</span>
+      <b>Idle agents</b><span>One shared column at the right end, dim, with each idle agent's name, its "next up" card if one is assigned, and its last finished card. Nothing is hidden, nothing takes a full column.</span>
+    </div>
+  </section>
+
+  <!-- ================= C ================= -->
+  <section class="opt" id="c">
+    <header><h2><span class="ltr">C</span>Agents drawer</h2><span class="one">A side panel over the normal board, like Chat; the board stays where it is.</span></header>
+    <div class="stage">
+      <div class="two">
+        <div>
+          <div class="stage-l">Desktop, five agents <small>the board dims behind the drawer and keeps updating</small></div>
+          <div class="frame overlay">
+            <div class="behind">
+              <div class="bar"><span class="brand">agentboard</span><span class="tabs"><span class="on">Board</span><span>HUD</span></span><span class="spacer"></span><span class="btn on">Agents</span><span class="btn">Chat</span></div>
+              <div class="cols" style="grid-template-columns: 1fr 1.4fr 1fr">
+                <div class="col"><h4>Todo <span class="cnt">3</span></h4><div class="card todo"><div class="t">Write the changelog</div></div><div class="card todo"><div class="t">Rate-limit the SMS</div></div></div>
+                <div class="col doing"><h4>Doing <span class="cnt">5</span></h4><div class="card ask" style="--c:var(--a1)"><div class="who"><b>AGENT-1</b></div><div class="t">Retry limit: 3 or 5?</div></div><div class="card review" style="--c:var(--a2)"><div class="who"><b>AGENT-2</b></div><div class="t">Export pipeline</div></div><div class="card" style="--c:var(--a3)"><div class="who"><b>AGENT-3</b></div><div class="t">Cache eviction</div></div></div>
+                <div class="col"><h4>Done <span class="cnt">12</span></h4><div class="card done"><div class="t done">✓ Fix the relay</div></div><div class="card done"><div class="t done">✓ Relay health check</div></div></div>
+              </div>
+            </div>
+            <div class="drawer">
+              <h4>Agents <span class="cnt" style="background:var(--chip);border-radius:999px;padding:0 5px;box-shadow:inset 0 0 0 1px var(--line)">5 working · 2 idle</span><span class="x">✕</span></h4>
+              <div class="arow"><div class="nm"><span class="av" style="--c:var(--a1)">1</span>AGENT-1<em style="--st:var(--err)">ask · 42m</em></div><div class="cards"><div class="card ask" style="--c:var(--a1)"><div class="t">Retry limit: 3 or 5?</div></div><div class="card" style="--c:var(--a1)"><div class="t">Webhook retries · 60%</div></div></div></div>
+              <div class="arow"><div class="nm"><span class="av" style="--c:var(--a2)">2</span>AGENT-2<em style="--st:var(--ok)">review · 8m</em></div><div class="cards"><div class="card review" style="--c:var(--a2)"><div class="t">Export pipeline · 100%</div></div></div></div>
+              <div class="arow"><div class="nm"><span class="av" style="--c:var(--a3)">3</span>AGENT-3<em style="--st:var(--run)">working</em></div><div class="cards"><div class="card" style="--c:var(--a3)"><div class="t">Cache eviction · 55%</div></div><div class="card" style="--c:var(--a3)"><div class="t">Hit-rate test · 20%</div></div></div></div>
+              <div class="arow"><div class="nm"><span class="av" style="--c:var(--a4)">4</span>AGENT-4<em style="--st:var(--warn)">quiet · 3h</em></div><div class="cards"><div class="card quiet" style="--c:var(--a4)"><div class="t">Audit log backfill · 70%</div></div></div></div>
+              <div class="arow"><div class="nm"><span class="av" style="--c:var(--a5)">G</span>GENERAL<em style="--st:var(--run)">working</em></div><div class="cards"><div class="card" style="--c:var(--a5)"><div class="t">Payments worker split · 20%</div></div></div></div>
+              <div class="arow idle"><div class="nm"><span class="av ring" style="--c:var(--a6)">5</span>AGENT-5<em>idle</em></div><div class="cards"><div class="card ghost"><div class="t">no card · assign…</div></div></div></div>
+              <div class="arow idle"><div class="nm"><span class="av ring" style="--c:var(--a6)">S</span>SCOUT<em>idle · 5h</em></div><div class="cards"><div class="card ghost"><div class="t">finished: Scout the old relay</div></div></div></div>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="stage-l">Phone</div>
+          <div class="phone"><div class="frame">
+            <div class="bar"><span class="brand">Agents</span><span class="spacer"></span><span class="btn">✕</span></div>
+            <div class="drawer">
+              <div class="arow"><div class="nm"><span class="av" style="--c:var(--a1)">1</span>AGENT-1<em style="--st:var(--err)">ask</em></div><div class="cards"><div class="card ask" style="--c:var(--a1)"><div class="t">Retry limit: 3 or 5?</div></div></div></div>
+              <div class="arow"><div class="nm"><span class="av" style="--c:var(--a2)">2</span>AGENT-2<em style="--st:var(--ok)">review</em></div><div class="cards"><div class="card review" style="--c:var(--a2)"><div class="t">Export pipeline</div></div></div></div>
+              <div class="arow"><div class="nm"><span class="av" style="--c:var(--a3)">3</span>AGENT-3<em style="--st:var(--run)">working</em></div><div class="cards"><div class="card" style="--c:var(--a3)"><div class="t">Cache eviction · 55%</div></div></div></div>
+              <div class="arow idle"><div class="nm"><span class="av ring" style="--c:var(--a6)">5</span>AGENT-5<em>idle</em></div><div class="cards"><div class="card ghost"><div class="t">no card</div></div></div></div>
+            </div>
+          </div></div>
+        </div>
+      </div>
+    </div>
+    <div class="facts">
+      <b>Open</b><span>An <em>Agents</em> button in the header beside Chat, or the key <code>a</code>. A drawer slides in from the right, 640px like the card panel; the board dims behind it and keeps updating.</span>
+      <b>Close</b><span>✕, Esc, or a click on the board. One surface at a time, as today: opening a card's panel or Chat closes it.</span>
+      <b>Todo and Done</b><span>Untouched, visible behind the drawer on a wide screen, covered on a laptop. Nothing moves; the drawer is a second way of reading the same Doing cards.</span>
+      <b>Five agents</b><span>Rows, not columns: name and state at the left, that agent's cards stacked small at the right. Seven rows fit a laptop height; more scroll inside the drawer. It is a list, so Review and Ask read as a scan down the state words, not as a glance across columns.</span>
+      <b>Phone</b><span>A full-screen sheet with the same rows.</span>
+      <b>Idle agents</b><span>The last rows, dim, with "no card, assign…" or their last finished card.</span>
+    </div>
+  </section>
+
+  <!-- ================= recommendation ================= -->
+  <section class="opt rec" id="rec">
+    <h2>Recommendation: A, Doing expands in place</h2>
+    <p><b>It answers the question in one tap without leaving the board.</b> The thing you want to see is "who is on what, and who needs me", and that is Doing split by agent; Todo and Done still sit at the edges as rails, so the queue and the week never vanish and dragging still works. Five agents get real columns at desktop width; the idle agents are one strip, never a column, so the view is always the agents that matter right now. On a phone it degrades to a grouped list with sticky agent headers, which is what a phone does best.</p>
+    <p><b>B is the wall-display answer, and the HUD already is that.</b> A page of its own is right for a second screen, but seven columns at 1440px are cramped, Todo and Done leave the page, and the HUD's per-agent rows already show who is on what with a chart each. If you want B, the honest version is "the HUD with cards instead of charts".</p>
+    <p><b>C is the weakest.</b> A drawer makes the five agents a list, so ask and review stop being a glance across the top and become a read down the state words; it also covers Doing on a laptop, the one column it is about.</p>
+    <div class="cmp-wrap"><table class="cmp">
+      <tr><th></th><th>A · in place</th><th>B · own view</th><th>C · drawer</th></tr>
+      <tr><td>Taps to see it</td><td class="y">1</td><td class="y">1</td><td class="y">1</td></tr>
+      <tr><td>Board stays in view</td><td class="y">yes, rails</td><td class="n">no</td><td class="m">dimmed, partly covered</td></tr>
+      <tr><td>Five agents at 1440</td><td class="y">5 × ~240px</td><td class="m">7 × ~185px</td><td class="m">rows</td></tr>
+      <tr><td>Ask and review at a glance</td><td class="y">across the top</td><td class="y">across the top</td><td class="n">down a list</td></tr>
+      <tr><td>Drag between columns</td><td class="y">onto a rail</td><td class="n">no</td><td class="n">no</td></tr>
+      <tr><td>Phone</td><td class="y">grouped list</td><td class="m">swipe per agent</td><td class="y">sheet</td></tr>
+      <tr><td>Idle agents</td><td class="y">one strip</td><td class="y">one column</td><td class="y">last rows</td></tr>
+      <tr><td>Build size</td><td class="y">small: a render mode in index.html</td><td class="m">medium: a page, a route, a tab</td><td class="y">small: a drawer like Chat</td></tr>
+    </table></div>
+    <p style="margin-top:12px">If A: the toggle remembers itself per browser, the key is <code>a</code>, and the HUD is untouched.</p>
+  </section>
+</div>
