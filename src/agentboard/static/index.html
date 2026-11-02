@@ -1061,6 +1061,49 @@
   .qr .replied { font-size: var(--fs-xs); color: var(--muted); } .qr .replied b { color: var(--ok); }
   .card .qr { margin: 0 0 8px; } .lat .qr { margin: 0 0 12px; }
   /* stacked on a phone: the page scrolls as one, columns size to their cards */
+  /* ----- By agent (/agents): the board's cards in swimlane columns, one per agent. Queue first (unassigned Todo), then every
+     agent with a card in Doing, then one column for the idle agents. An agent's assigned Todo cards wait at the foot of its
+     column as "next up". Todo and Done are counts in the bar. ----- */
+  .ba-counts { display: inline-flex; gap: 6px; align-items: center; font-size: var(--fs-sm); color: var(--muted); }
+  .ba-counts a { color: var(--text); text-decoration: none; border: 1px solid var(--line); border-radius: 8px; padding: 3px 9px; background: var(--surface); white-space: nowrap; }
+  .ba-counts a:hover { border-color: var(--neutral); }
+  .ba-counts[hidden] { display: none; }
+  body.byagent .board { grid-template-columns: var(--tracks); overflow-x: auto; scrollbar-gutter: stable; padding-bottom: 4px; }
+  body.byagent .col { min-width: 220px; }
+  .col.acol { border-top: 2px solid var(--c, var(--neutral)); }
+  .col.acol h2 { color: var(--text); letter-spacing: 0; text-transform: none; font-size: var(--fs-md); gap: 7px; }
+  .col.acol h2 .av { width: 20px; height: 20px; font-size: var(--fs-xs); }
+  .col.acol h2 em { font-style: normal; font-weight: 600; font-size: var(--fs-xs); letter-spacing: var(--tr-tight); text-transform: uppercase; color: var(--st, var(--muted)); margin-left: auto; }
+  .col.acol h2 em.ask { --st: var(--err); } .col.acol h2 em.review { --st: var(--ok); } .col.acol h2 em.quiet, .col.acol h2 em.abandoned { --st: var(--warn); } .col.acol h2 em.working { --st: var(--run); }
+  .col.queue { opacity: .8; } .col.queue h2 { color: var(--muted); }
+  .col.idle-col { opacity: .7; border-top-style: dashed; }
+  .col.idle-col .cards { gap: 14px; }
+  .ia { display: flex; flex-direction: column; gap: 6px; }
+  .ia .agent-h { display: flex; align-items: center; gap: 7px; font-size: var(--fs-md); font-weight: 600; padding: 0 2px; }
+  .ia .agent-h em { font-style: normal; font-weight: 600; font-size: var(--fs-xs); letter-spacing: var(--tr-tight); text-transform: uppercase; color: var(--muted); margin-left: auto; }
+  .ia .last { font-size: var(--fs-sm); color: var(--muted); padding: 0 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ia .last .check { vertical-align: -2px; margin-right: 4px; }
+  .nextup { position: relative; opacity: .6; }
+  .nextup::before { content: 'next up'; position: absolute; top: -7px; left: 12px; z-index: 1; font-size: 9px; font-weight: 700; letter-spacing: var(--tr-tight); text-transform: uppercase; color: var(--muted); background: var(--bg); padding: 0 5px; border-radius: 4px; }
+  .nextup .card { border-style: dashed; }
+  .nextup:hover { opacity: 1; }
+  body.byagent .card { cursor: pointer; }
+  /* narrow columns: the Copy button sits in the flow instead of padding the title away, the card's own agent chip is redundant
+     (the column is the agent), and the queue-number badge and its padding go */
+  body.byagent .card .copy { position: static; display: inline-flex; margin: 0 0 6px; opacity: .75; }
+  body.byagent .card[data-status="todo"]:has(.copy) .title, body.byagent .card[data-status="todo"]:has(.copy.copied) .title, body.byagent .card[data-status="todo"]:has(.copy.wide) .title { padding-right: 8px; }
+  body.byagent .card[data-status="todo"] .title, body.byagent .card[data-status="todo"] .desc, body.byagent .card[data-status="todo"] .proj-row, body.byagent .card[data-status="todo"] .blocked-row { padding-left: 0; }
+  body.byagent .card .qnum, body.byagent .card[data-status="todo"] .unas { display: none; }
+  body.byagent .card .who { display: none; }
+  body.byagent .card .top { min-height: 0; }
+  body.byagent .card .top:empty { display: none; }
+  .col.acol h2 { flex-wrap: nowrap; min-width: 0; }
+  .col.acol h2 .nm { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  @media (max-width: 900px) {   /* a phone: swipe sideways, one column per screen */
+    body.byagent .board { display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; }
+    body.byagent .col { flex: 0 0 86%; min-width: 0; scroll-snap-align: start; max-height: 70vh; }
+    body.byagent .cards { overflow-y: auto; flex: 1; }
+  }
   @media (max-width: 900px) {   /* below this three columns no longer fit (cards and the header overflowed at ~780px) */
     .wrap { height: auto; min-height: 100vh; padding: 18px 16px 40px; }   /* 18px down, as on desktop: the tab row sits where it does on the other pages */
     .board { grid-template-columns: minmax(0, 1fr); }
@@ -1075,7 +1118,8 @@
 <div class="wrap">
   <header>
     <h1><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="1.5" y="2" width="3.5" height="12" rx="1.2" fill="currentColor" opacity=".35"/><rect x="6.25" y="2" width="3.5" height="8" rx="1.2" fill="currentColor"/><rect x="11" y="2" width="3.5" height="5" rx="1.2" fill="currentColor" opacity=".6"/></svg>agentboard</h1>
-    <nav class="ab-tabs" aria-label="Pages"><a class="tab on" href="./" aria-current="page">Board</a><a class="tab" id="hud-btn" href="#/hud" role="button" aria-controls="hud">HUD</a><a class="tab" id="tab-summary" href="./summary">Summary</a><a class="tab" id="tab-reports" href="./reports">Reports</a></nav>
+    <nav class="ab-tabs" aria-label="Pages"><a class="tab on" id="tab-board" href="./" aria-current="page">Board</a><a class="tab" id="tab-agents" href="./agents">By agent</a><a class="tab" id="hud-btn" href="#/hud" role="button" aria-controls="hud">HUD</a><a class="tab" id="tab-summary" href="./summary">Summary</a><a class="tab" id="tab-reports" href="./reports">Reports</a></nav>
+    <span class="ba-counts" id="ba-counts" hidden></span>
     <div class="status" id="status" role="status"><i></i><span>Live</span></div>
     <button class="btn" id="later-btn" aria-controls="later">Later <span id="later-n"></span></button>
     <button class="btn" id="orch-btn" hidden title="Copy a prompt that boots a fresh session as ORCH, from the live board">ORCH</button>
@@ -1137,7 +1181,7 @@
   <div class="hud" id="hud-inner">
     <div class="h-bar">
       <span class="h-brand"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="1.5" y="2" width="3.5" height="12" rx="1.2" fill="currentColor" opacity=".35"/><rect x="6.25" y="2" width="3.5" height="8" rx="1.2" fill="currentColor"/><rect x="11" y="2" width="3.5" height="5" rx="1.2" fill="currentColor" opacity=".6"/></svg>agentboard</span>
-      <nav class="ab-tabs" aria-label="Pages"><a class="tab" id="h-tab-board" href="./">Board</a><a class="tab on" href="#/hud" aria-current="page">HUD</a><a class="tab" id="h-tab-summary" href="./summary">Summary</a><a class="tab" id="h-tab-reports" href="./reports">Reports</a></nav>
+      <nav class="ab-tabs" aria-label="Pages"><a class="tab" id="h-tab-board" href="./">Board</a><a class="tab" id="h-tab-agents" href="./agents">By agent</a><a class="tab on" href="#/hud" aria-current="page">HUD</a><a class="tab" id="h-tab-summary" href="./summary">Summary</a><a class="tab" id="h-tab-reports" href="./reports">Reports</a></nav>
       <span class="h-live">LIVE</span>
       <span class="h-alerts" id="h-alerts"></span>
       <button class="h-btn" id="h-snd" aria-pressed="true" aria-label="Toggle sound cues (s)">SND ON</button>
@@ -1165,6 +1209,7 @@
     <dt><kbd>l</kbd></dt><dd>Later list</dd>
     <dt><kbd>c</kbd></dt><dd>Chat</dd>
     <dt><kbd>h</kbd></dt><dd>HUD</dd>
+    <dt><kbd>a</kbd></dt><dd>By agent / back to the board</dd>
     <dt><kbd>/</kbd></dt><dd>Filter</dd>
     <dt><kbd>↑ ↓ ← →</kbd></dt><dd>Move between cards</dd>
     <dt><kbd>j</kbd> <kbd>k</kbd></dt><dd>Next / previous card</dd>
@@ -1214,6 +1259,7 @@ let APP = 'agentboard';   // the tab title's name: 'agentboard · work' on a nam
 const BASE = window.AB_BASE || '';   // '' for the default board, '/b/<name>' for another one (the server fills it in)
 { const nativeFetch = window.fetch.bind(window); window.fetch = (u, o) => nativeFetch(typeof u === 'string' && u.startsWith('/api/') ? BASE + u : u, o); }
 const SOLO = location.pathname.replace(/\/+$/, '').endsWith('/hud');
+const BYAGENT = location.pathname.replace(/\/+$/, '').endsWith('/agents');   // the by-agent view: same page, swimlane columns
 const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;   // HUD running in its own window
 const COLUMNS = [['backlog', 'Later'], ['todo', 'Todo'], ['doing', 'Doing'], ['done', 'Done']];
 const EMPTY = { backlog: '', todo: 'Nothing queued — agents claim work from here', doing: 'Nothing in progress', done: 'Nothing finished yet' };
@@ -1409,6 +1455,51 @@ function toggleSubs(btn) {
 }
 const FLAG_LABEL = { needs_input: 'needs input', review: 'to review' };
 
+// --- By agent: swimlane columns. Queue (unassigned Todo), one column per agent with a card in Doing, one for the idle agents.
+// The roster comes from /api/hud (every agent with a card plus [orch] agents), so an idle agent shows even with no card.
+let roster = [], rosterAt = 0;
+async function loadRoster() {
+  if (!BYAGENT || Date.now() - rosterAt < 5000) return;
+  rosterAt = Date.now();
+  try { const r = await fetch('/api/hud', { cache: 'no-store' }); if (r.ok) { roster = ((await r.json()).agents || []).map(a => ({ name: a.name, state: a.state, color: a.color })); render(); } } catch (e) {}   // the HUD's agents: every one with a card plus the [orch] roster
+}
+const STATE_WORD2 = { idle: 'idle', working: 'working', quiet: 'quiet', waiting: 'ask', review: 'review', abandoned: 'quiet' };
+function byAgentHtml(by, filtered) {
+  const limit = cfg.stale_minutes || DEFAULT_STALE_MIN;
+  const doingBy = new Map(), nextBy = new Map();
+  by.doing.forEach(t => { const k = t.agent || ''; if (!doingBy.has(k)) doingBy.set(k, []); doingBy.get(k).push(t); });
+  by.todo.forEach(t => { if (t.agent) { if (!nextBy.has(t.agent)) nextBy.set(t.agent, []); nextBy.get(t.agent).push(t); } });
+  const queue = by.todo.filter(t => !t.agent);
+  const names = new Set([...doingBy.keys()].filter(Boolean)); roster.forEach(a => names.add(a.name));
+  const sorted = [...names].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base', numeric: true }));
+  const active = sorted.filter(n => doingBy.has(n)), idle = sorted.filter(n => !doingBy.has(n));
+  const colorFor = n => { const t = (doingBy.get(n) || nextBy.get(n) || [])[0]; return t ? colorOf(t) : hudColor((roster.find(a => a.name === n) || {}).color || 'var(--neutral)'); };
+  const stateFor = n => {
+    const cards = doingBy.get(n) || [];
+    if (cards.some(t => t.needs_input)) return 'ask';
+    if (cards.some(t => t.review)) return 'review';
+    if (cards.some(t => ago(t.updated).min >= limit)) return 'abandoned';
+    if (cards.every(t => ago(t.updated).min >= STALE_MIN)) return 'quiet';
+    return 'working';
+  };
+  const lastDone = n => by.done.find(t => t.agent === n);
+  const agentCol = n => {
+    const st = stateFor(n), cards = doingBy.get(n) || [], next = nextBy.get(n) || [];
+    return `<section class="col acol" data-status="agent:${esc(n)}" style="--c:${colorFor(n)}"><h2><span class="av" style="--c:${colorFor(n)}" aria-hidden="true">${esc(nodeGlyph(n))}</span><span class="nm" title="${esc(n)}">${esc(n)}</span><span class="cnt">${cards.length}</span><em class="${st}">${esc(st)}</em></h2>`
+      + `<div class="cards">${cards.map(card).join('')}${next.map(t => `<div class="nextup">${card(t)}</div>`).join('')}</div></section>`;
+  };
+  const idleCol = idle.length ? `<section class="col acol idle-col" data-status="agent:idle" style="--c:var(--neutral)"><h2>Idle <span class="cnt">${idle.length}</span></h2><div class="cards">${idle.map(n => {
+    const next = nextBy.get(n) || [], last = lastDone(n), c = colorFor(n);
+    return `<div class="ia" style="--c:${c}"><div class="agent-h"><span class="av ring" style="--c:${c}" aria-hidden="true">${esc(nodeGlyph(n))}</span>${esc(n)}<em>idle</em></div>`
+      + (next.length ? next.map(t => `<div class="nextup">${card(t)}</div>`).join('') : '')
+      + (last ? `<div class="last" title="${esc(last.title)}"><svg class="check" width="11" height="11" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>${esc(last.title)} · ${ago(last.updated).text}</div>` : (next.length ? '' : `<div class="last">no card yet</div>`)) + `</div>`;
+  }).join('')}</div></section>` : '';
+  const queueCol = `<section class="col queue" data-status="queue"><h2>Queue <span class="cnt">${queue.length}</span></h2><div class="cards">${queue.length ? queue.map(card).join('') : `<div class="empty">${filtered ? 'No matches' : 'Nothing unassigned'}</div>`}</div></section>`;
+  const n = 1 + active.length + (idleCol ? 1 : 0);
+  $('board').style.setProperty('--tracks', `repeat(${n}, minmax(220px, 1fr))`);
+  return queueCol + active.map(agentCol).join('') + idleCol;
+}
+
 // --- quick replies: the options an ask names become one-tap chips ---
 const QUICK_ALWAYS = [['Go ahead', 'ok'], ['Hold', 'hold'], ['Your call', '']];
 const YESNO = /^(should|shall|can|could|do|does|did|is|are|was|will|would|may|want|ok|okay|ready|proceed|go|fine|happy|alright|mind)\b/i;
@@ -1523,7 +1614,7 @@ function render() {
   const scrolls = Object.fromEntries([...$('board').querySelectorAll('.col')].map(c => [c.dataset.status, c.querySelector('.cards')?.scrollTop || 0]));
   $('board').style.setProperty('--tracks', cols.map(([k]) => k === 'doing' ? 'minmax(0, 1.4fr)' : 'minmax(0, 1fr)').join(' '));
   $('board').classList.remove('hl');   // a re-render drops the hover highlight with the cards it lit
-  $('board').innerHTML = cols.map(([k, label]) => {
+  $('board').innerHTML = BYAGENT ? byAgentHtml(by, q || pf || flagFilter) : cols.map(([k, label]) => {
     let list = by[k], more = '', ribbon = '';
     if (k === 'done') {
       ribbon = ribbonHtml(list);
@@ -1554,6 +1645,10 @@ function render() {
     return `<section class="col ${k}" data-status="${k}"><h2>${label} <span class="cnt">${by[k].length}</span>${p}${clr}</h2>${ribbon}<div class="cards">${body}</div>${more}</section>`;
   }).join('');
   $('board').querySelectorAll('.col').forEach(c => { const k = c.querySelector('.cards'); if (k) k.scrollTop = scrolls[c.dataset.status] || 0; });
+  if (BYAGENT) {   // no drag here: a card's column is its agent, not a status
+    $('board').querySelectorAll('.card').forEach(c => { c.draggable = false; });
+    $('ba-counts').innerHTML = `<a href="${BASE}/" title="Todo on the board">Todo ${by.todo.length}</a><a href="${BASE}/" title="Done on the board">Done ${by.done.length}</a>`;
+  }
   // live counts: a brief tick when a column's count changes
   if (!firstRender) $('board').querySelectorAll('.col').forEach(col => {
     const k = col.dataset.status, n = by[k].length;
@@ -1582,7 +1677,7 @@ function render() {
     + (asks ? `<span class="warn sum-link ${flagFilter === 'needs_input' ? 'active' : ''}" data-flag="needs_input" role="button" tabindex="0" title="Show only ${asks} needs-input card${asks === 1 ? '' : 's'}">⚠ ${asks} needs input</span> · ` : '')
     + (revs ? `<span class="ok sum-link ${flagFilter === 'review' ? 'active' : ''}" data-flag="review" role="button" tabindex="0" title="Show only ${revs} card${revs === 1 ? '' : 's'} ready for review">✓ ${revs} to review</span> · ` : '')
     + (working.length ? `<b>${working.length}</b> working` + (quiet ? ` · <span class="warn">${quiet} quiet</span>` : '') : '');
-  document.title = (abandoned ? `⚠ ${abandoned} abandoned · ` : '') + (asks ? `⚠ ${asks} input · ` : '') + (revs ? `✓ ${revs} review · ` : '') + (working.length ? `${APP} · ${working.length} working${quiet ? ' · ' + quiet + ' quiet' : ''}` : APP);
+  document.title = (abandoned ? `⚠ ${abandoned} abandoned · ` : '') + (asks ? `⚠ ${asks} input · ` : '') + (revs ? `✓ ${revs} review · ` : '') + (working.length ? `${APP} · ${working.length} working${quiet ? ' · ' + quiet + ' quiet' : ''}` : APP) + (BYAGENT ? ' · by agent' : '');
   // restore focus after the innerHTML rebuild above — preventScroll because this runs on every
   // background poll tick, not a deliberate user navigation; a plain focus() would silently drag
   // the viewport to wherever this card now sits (the reported "page auto-scrolls" bug)
@@ -2402,6 +2497,15 @@ $('hud-btn').onclick = e => { e.preventDefault(); hudIsOpen() ? closeHud() : ope
 $('h-tab-board').onclick = e => { e.preventDefault(); if (SOLO) window.open(BASE + '/', 'agentboard-board'); else closeHud(); };
 // tab links are relative to the page, which is wrong for /hud (its folder is still the board): pin them to the board's base
 ['tab-summary', 'h-tab-summary'].forEach(id => { const a = $(id); if (a) a.href = BASE + '/summary'; });
+['tab-agents', 'h-tab-agents'].forEach(id => { const a = $(id); if (a) a.href = BASE + '/agents'; });
+if (BYAGENT) {
+  document.body.classList.add('byagent');
+  $('tab-board').classList.remove('on'); $('tab-board').removeAttribute('aria-current');
+  $('tab-agents').classList.add('on'); $('tab-agents').setAttribute('aria-current', 'page');
+  $('ba-counts').hidden = false;
+  document.title = APP + ' · by agent';
+  setInterval(loadRoster, 1000); loadRoster();
+}
 ['tab-reports', 'h-tab-reports'].forEach(id => { const a = $(id); if (a) a.href = BASE + '/reports'; });
 $('h-close').onclick = closeHud;
 $('h-full').onclick = toggleHudFull;
@@ -2757,6 +2861,7 @@ document.addEventListener('keydown', e => {
   if (e.key === 'l') { $('later-btn').click(); return; }
   if (e.key === 'c') { $('chat-btn').click(); return; }
   if (e.key === 'h') { $('hud-btn').click(); return; }
+  if (e.key === 'a') { location.href = BASE + (BYAGENT ? '/' : '/agents'); return; }
   if (e.shiftKey && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
     e.preventDefault(); extendSelectionVertical(e.key === 'ArrowDown' ? 'down' : 'up'); return;
   }
@@ -2962,7 +3067,7 @@ $('board').addEventListener('keydown', e => {
   if (c && e.target === c && (e.key === 'Enter' || e.key === ' ') && !e.altKey) { e.preventDefault(); openPanel(c.dataset.id); return; }
   const row = e.target.closest?.('[data-sub-id]');
   if (row && e.target === row && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openPanel(row.dataset.subId); return; }
-  if (!c || !e.altKey || !e.key.startsWith('Arrow')) return;
+  if (!c || !e.altKey || !e.key.startsWith('Arrow') || BYAGENT) return;
   e.preventDefault();
   const keys = [...$('board').querySelectorAll('.col')].map(x => x.dataset.status);
   const i = keys.indexOf(c.dataset.status), sibs = [...c.parentElement.children].filter(x => x.classList.contains('card'));   // not the Done column's day dividers

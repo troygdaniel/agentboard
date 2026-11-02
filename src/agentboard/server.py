@@ -141,7 +141,7 @@ def make_handler(default_store, port):
                 self._send(500, {"error": str(e)})
 
         def _route_get(self, url, q):
-            if url.path in ("/", "/index.html", "/hud"):
+            if url.path in ("/", "/index.html", "/hud", "/agents"):
                 html = (STATIC / "index.html").read_text()
                 inject = f"<script>window.AB_BASE = {json.dumps(self.base)};</script><script src=\"{self.base}/voice.js\" defer></script>"   # the page prefixes its /api calls with this
                 self._send(200, html.replace("</head>", inject + "</head>", 1).encode(), "text/html; charset=utf-8")

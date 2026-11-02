@@ -6,17 +6,18 @@ from pathlib import Path
 
 from agentboard import nav, reports, summary
 from tests.test_reports import Base as _ReportsBase
+from tests.test_reports import HttpTests as _Http
 
 
 class TabsTests(unittest.TestCase):
-    def test_four_tabs_under_the_base_with_the_active_one_marked(self):
+    def test_five_tabs_under_the_base_with_the_active_one_marked(self):
         h = nav.tabs("", "summary")
-        for href in ('href="/"', 'href="/hud"', 'href="/summary"', 'href="/reports"'):
+        for href in ('href="/"', 'href="/agents"', 'href="/hud"', 'href="/summary"', 'href="/reports"'):
             self.assertIn(href, h)
         self.assertIn('class="tab on" href="/summary" aria-current=page', h)
         self.assertEqual(h.count("tab on"), 1)
         hb = nav.tabs("/b/work", "reports")
-        for href in ('href="/b/work/"', 'href="/b/work/hud"', 'href="/b/work/summary"', 'href="/b/work/reports"'):
+        for href in ('href="/b/work/"', 'href="/b/work/agents"', 'href="/b/work/hud"', 'href="/b/work/summary"', 'href="/b/work/reports"'):
             self.assertIn(href, hb)
         self.assertIn('class="tab on" href="/b/work/reports"', hb)
 
@@ -42,8 +43,8 @@ class SameRowTests(unittest.TestCase):
         rows = re.findall(r'<nav class="ab-tabs" aria-label="Pages">(.*?)</nav>', self.html)
         self.assertEqual(len(rows), 2)   # the board's header and the HUD bar
         for row in rows:
-            self.assertEqual(re.findall(r'class="tab[^"]*"[^>]*>([^<]+)</a>', row), ["Board", "HUD", "Summary", "Reports"])
-        self.assertEqual(re.findall(r">([^<]+)</a>", nav.tabs("", "board")), ["Board", "HUD", "Summary", "Reports"])
+            self.assertEqual(re.findall(r'class="tab[^"]*"[^>]*>([^<]+)</a>', row), ["Board", "By agent", "HUD", "Summary", "Reports"])
+        self.assertEqual(re.findall(r">([^<]+)</a>", nav.tabs("", "board")), ["Board", "By agent", "HUD", "Summary", "Reports"])
 
     def test_every_bar_gives_the_brand_the_same_slot(self):
         slot = "flex: 0 0 106px"
@@ -60,6 +61,14 @@ class SameRowTests(unittest.TestCase):
         self.assertIn("font-size: 14px", hud)
         self.assertNotIn("min-height", hud)
         self.assertNotIn("padding", hud)
+
+
+class AgentsRouteTests(_Http):
+    def test_agents_serves_the_board_page(self):
+        status, body, _ = self.get("/agents")
+        self.assertEqual(status, 200)
+        self.assertIn(b"By agent", body)
+        self.assertIn(b'id="tab-agents"', body)
 
 
 class PagesTests(_ReportsBase):

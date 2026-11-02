@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### By agent
+- A fifth tab, **By agent** (`/agents`, key `a`): the board's cards as swimlane columns, Queue first, one per agent with a card in Doing (state in the header, assigned Todo cards as *next up* ghosts), then one Idle column from the HUD's roster. Todo and Done are counts in the bar. One agent per screen on a phone. Chosen from `docs/doing-by-agent-mockup.html` (option B).
+
 ### Removed (Troy's call, Nov 1)
 - **Assign, Hand to… and the Your move strip.** Troy pastes the card's prompt into an agent and the agent claims the card itself, so the picker (`/api/assign`, `/api/hand`, `/api/agents`), Unassign, the card holder set before a claim, the `ORCH: Troy assigned <id> to <agent>; hand it over.` chat line and the matching ORCH prompt rule are gone. Asks and reviews stay on their cards and in the panel that opens for them; an agent gone quiet keeps its warning on the card and the HUD. Queued prompts no longer rewrite the session name.
 

@@ -149,6 +149,14 @@ The model is any ggml file: `[voice] model = "~/path/ggml-small.en.bin"` in `con
 For a Claude Code terminal (ORCH or an agent): `agentboard dictate` (Enter, speak, Enter) prints the text and puts it on the clipboard; press Cmd+V in the session.
 `--paste` presses Cmd+V for you after 3 seconds in the window you click (needs Accessibility for the terminal); `--file clip.m4a` transcribes a recording; `--mic ":2"` picks an input.
 
+### By agent
+
+The **By agent** tab (or the key `a`) shows the same cards as swimlane columns, one per agent: **Queue** first (unassigned Todo),
+then every agent with a card in Doing (its ask, review or quiet state in the header, its cards stacked, its assigned Todo cards
+waiting at the foot as *next up*), then one **Idle** column for the agents with nothing in Doing (every agent the HUD knows plus
+`[orch] agents`), each with its next card or its last finished one. Todo and Done are counts in the bar that lead back to the board.
+A card opens its panel as usual; nothing drags here, a card's column is its agent. On a phone it is one agent per screen, swipe sideways.
+
 ### Done summary
 
 **Summary** on the Done column header (and `/summary?since=1d|7d|30d|all&project=<id>`) turns the finished cards into one page about the work
