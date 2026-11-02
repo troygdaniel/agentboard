@@ -172,6 +172,21 @@ def _family(task, tasks):
     return parent, kids
 
 
+_ORCH_HEAD = re.compile(r"^# You are ORCH\b", re.M)
+_KEEP_SIMPLE_BLOCK = re.compile(r"^## Keep it simple\n\n(?:- .*(?:\n|$))+", re.M)
+
+
+def _without_orch_block(text):
+    """The ORCH boot prompt belongs to the ORCH button only. A card description that has it pasted in (ORCH once copied the
+    whole prompt into cards instead of just Keep it simple) loses it here, so no agent prompt carries it; Keep it simple stays."""
+    text = text or ""
+    m = _ORCH_HEAD.search(text)
+    if not m:
+        return text
+    keep = _KEEP_SIMPLE_BLOCK.search(text, m.start())
+    return (text[:m.start()].rstrip() + ("\n\n" + keep.group().rstrip() if keep else "")).strip()
+
+
 def build_prompt(task, board_dir, public=False, tasks=None):
     """Return (prompt, warnings). public=True skips providers marked private.
 
@@ -219,7 +234,7 @@ def build_prompt(task, board_dir, public=False, tasks=None):
     values = {
         "title": task["title"],
         "task_id": task["id"],
-        "description": task.get("description") or task["title"],
+        "description": _without_orch_block(task.get("description")) or task["title"],
         "ab": agentboard_cmd(board_dir),
         "context": context,
         "color_hint": ptconf.get("color_hint", " and color if you know it (add --color <color>)"),
@@ -279,7 +294,7 @@ Rename this session to ORCH (`/rename ORCH`). You are a fresh or /clear'ed Claud
 {peers}
 
 {keep_simple}
-Copy the block above, word for word, into every card description and every assignment you write. You speak to Troy the same way.
+Copy only the "Keep it simple" block above (its heading and four lines, nothing else from this prompt), word for word, into every card description and every assignment you write. Never paste the rest of this prompt into a card. You speak to Troy the same way.
 
 ## Reporting to Troy
 
