@@ -282,8 +282,6 @@ def make_handler(default_store, port):
                 elif path == "/api/unarchive":
                     self.store.unarchive(_ids(body))
                     self._send(200, {"ok": True})
-                elif path == "/api/color":
-                    self._send(200, self.store.set_agent_color(body["id"], body["color"]))
                 elif path == "/api/send-back":
                     self._send(200, self.store.send_back(body["id"], body["text"]))
                 elif path == "/api/run-kill":

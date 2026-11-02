@@ -1234,18 +1234,19 @@ let selected = new Set(), selectAnchor = null;   // multi-select: shift-click/sh
 
 const $ = id => document.getElementById(id);
 const esc = s => { const d = document.createElement('div'); d.textContent = s ?? ''; return d.innerHTML; };
-// One colour per agent NAME, not per card (Troy picked scheme B, 2026-11-01): AGENT-1 to AGENT-5 were all "green" because each card carried
-// its own colour. [agent_colors] in config.toml overrides a name; otherwise a palette slot (--a1..--a6, clear of the status hues).
+// One colour per agent NAME, never per card (Troy, 2026-11-01): AGENT-1 to AGENT-5 were all "green" because each card carried its own,
+// and a card's own colour is now neither stored nor read. [agent_colors] in config.toml overrides a name; otherwise a palette slot
+// (--a1..--a6, clear of the status hues). The slots are mirrored in agent_slot() in cli.py, which colours `agentboard spawn` terminals.
 const COLOR_OK = /^[#\w(),.% -]{1,32}$/;
 const AGENT_SLOT = { GENERAL: 5, ORCH: 6 };
-const agentColor = (name, fallback) => {
+const agentColor = name => {
   const own = (cfg.agent_colors || {})[name];
   if (COLOR_OK.test(own || '')) return own;
-  if (!name) return fallback || 'var(--neutral)';
+  if (!name) return 'var(--neutral)';
   const m = /^AGENT-(\d+)$/.exec(name);
-  return `var(--a${AGENT_SLOT[name] || (m ? (m[1] - 1) % 4 + 1 : 1 + [...name].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) >>> 0, 7) % 6)})`;
+  return `var(--a${AGENT_SLOT[name] || (m ? (Math.max(m[1], 1) - 1) % 4 + 1 : 1 + [...name].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) >>> 0, 7) % 6)})`;
 };
-const colorOf = t => agentColor(t.agent, COLOR_OK.test(t.color || '') ? t.color : '');
+const colorOf = t => agentColor(t.agent);
 const projectOf = id => projects.find(p => p.id === id) || null;
 const projColor = p => /^[#\w(),.% -]{1,32}$/.test(p?.color || '') ? p.color : 'var(--neutral)';
 function renderProjectFilter() {
@@ -1702,7 +1703,7 @@ function chatBubble(m) {
         : `<div class="decided">${esc(a.by || 'Troy')} · ${ago(a.decided_at).text}</div>`) + '</div>';
   }
   const fresh = !chatShown.has(m.seq) && !chatFirstLoad; chatShown.add(m.seq);
-  return `<div class="cmsg ${m.kind} ${fresh ? 'enter' : ''}" style="--c:${hudColor(m.kind === 'agent' ? agentColor(m.sender, m.color) : m.color || '')}"><div class="cmsg-head"><b>${esc(m.sender)}</b>${to}${topic}<span>${ago(m.at).text}</span></div>`
+  return `<div class="cmsg ${m.kind} ${fresh ? 'enter' : ''}" style="--c:${hudColor(m.kind === 'agent' ? agentColor(m.sender) : '')}"><div class="cmsg-head"><b>${esc(m.sender)}</b>${to}${topic}<span>${ago(m.at).text}</span></div>`
     + `<div class="cmsg-txt ${long && !open ? 'clamp' : ''} ${spoken ? 'spoken' : ''}">${esc(body)}</div>${toggle}${meta}${detail}${act}</div>`;
 }
 function renderChat() {
@@ -2573,7 +2574,7 @@ function renderGrid(d) {
          <div class="h-load"><div class="ln-track" id="h-qtrack" title="unclaimed cards in Todo over the hour"></div></div></div>`;
   }
   if (idle.length) {   // the fold's chips: glyph, name, how long since they last spoke, signed off today
-    const chips = idle.map(a => `<span class="h-fchip" style="--c:${hudColor(agentColor(a.name, a.color))}"><i>${hh(nodeGlyph(a.name))}</i><b>${hh(a.name)}</b>${a.updated ? hh(ago(a.updated).text.replace(' ago', '')) : 'no card yet'}${a.done_today ? `<span class="ok">✓${a.done_today}</span>` : ''}</span>`).join('');
+    const chips = idle.map(a => `<span class="h-fchip" style="--c:${hudColor(agentColor(a.name))}"><i>${hh(nodeGlyph(a.name))}</i><b>${hh(a.name)}</b>${a.updated ? hh(ago(a.updated).text.replace(' ago', '')) : 'no card yet'}${a.done_today ? `<span class="ok">✓${a.done_today}</span>` : ''}</span>`).join('');
     const fl = $('h-fold-list'); if (fl && fl.dataset.k !== chips) { fl.dataset.k = chips; fl.innerHTML = chips; }
     const doneT = idle.reduce((n, a) => n + (a.done_today || 0), 0);
     const fc = $('h-fold-card'); if (fc) fc.textContent = doneT ? `${doneT} signed off today` : (idleOpen ? '' : 'nothing open');
@@ -2581,7 +2582,7 @@ function renderGrid(d) {
   const asks = new Map(); for (const x of d.actions || []) if (!asks.has(x.agent)) asks.set(x.agent, x);   // most urgent per agent
   agents.forEach(a => {
     const r = box.querySelector(`[data-agent="${CSS.escape(a.name)}"]`); if (!r) return;
-    const c = hudColor(agentColor(a.name, a.color)), ask = asks.get(a.name);
+    const c = hudColor(agentColor(a.name)), ask = asks.get(a.name);
     r.className = `h-row ${a.state}` + (ask ? ` attn ${ask.kind === 'stale' ? 'stale' : (ask.who === 'Troy' || ask.who === 'none') ? '' : 'other'}` : '');
     r.style.setProperty('--c', c);
     r.dataset.id = ask ? ask.id : a.task_id || '';

@@ -254,7 +254,7 @@ def actions(tasks, now=None, abandoned_min=None):
             what = parsed["what"] or text or ("answer the question" if kind == "ask" else "sign off")
         age = max(0, int((now - since).total_seconds() // 60)) if since else None
         out.append({
-            "id": t["id"], "title": t["title"], "agent": agent, "color": t.get("color"),
+            "id": t["id"], "title": t["title"], "agent": agent,
             "project_id": t.get("project_id"), "kind": kind, "who": who, "what": what,
             "status": parsed["status"], "why": parsed["why"], "text": text,
             "since": since.strftime(FMT) if since else None, "age_min": age,
@@ -301,7 +301,7 @@ def build(tasks, now=None, feed_limit=60, abandoned_min=None, retired=(), roster
             if not at:
                 continue
             events.append({"at": e["at"], "task": t["id"], "title": label(t), "agent": t.get("agent"),
-                           "color": t.get("color"), "text": e.get("text", ""), "progress": e.get("progress", 0),
+                           "text": e.get("text", ""), "progress": e.get("progress", 0),
                            "status": e.get("status"),
                            "label": f"{t['parent_id']} › {t['id']}" if is_sub else t["id"]})
             if at.date() == today:
@@ -353,7 +353,7 @@ def build(tasks, now=None, feed_limit=60, abandoned_min=None, retired=(), roster
         feed.sort(key=lambda x: x[0].get("at", ""))
         recent = [{"at": e["at"], "text": pre + e.get("text", "")} for e, pre in reversed(feed)][:3]   # newest first
         agents.append({
-            "name": name, "color": next((t.get("color") for t in ts if t.get("color")), None),
+            "name": name,
             "state": state, "chart": chart(cur, [k for k in tasks if k.get("parent_id") == cur["id"]], now),
             "question": cur.get("question", ""),
             "task": cur["title"], "task_id": cur["id"], "progress": cur.get("progress", 0),
@@ -366,7 +366,7 @@ def build(tasks, now=None, feed_limit=60, abandoned_min=None, retired=(), roster
         })
     for name in roster:   # a configured peer with no card yet is still an agent: idle, with nothing to say
         if name and name not in by_agent and name not in retired:
-            agents.append({"name": name, "color": None, "state": "idle", "chart": {"pct": [None] * TIMELINE_BUCKETS, "events": [0] * TIMELINE_BUCKETS},
+            agents.append({"name": name, "state": "idle", "chart": {"pct": [None] * TIMELINE_BUCKETS, "events": [0] * TIMELINE_BUCKETS},
                            "question": "", "task": "", "task_id": "", "progress": 0, "status_text": "", "updated": None, "started": None,
                            "recent": [], "done": 0, "done_today": 0, "open": 0, "open_titles": [], "spark": [0] * SPARK_BUCKETS})
     order = {"abandoned": 0, "waiting": 1, "review": 2, "working": 3, "quiet": 4, "idle": 5}
@@ -389,7 +389,7 @@ def build(tasks, now=None, feed_limit=60, abandoned_min=None, retired=(), roster
         "agents": agents,
         # the idle agents folded into one line: who, how many, and the one fact that matters for each (what they last did, when)
         "idle": {"n": len(idle), "done_today": sum(a["done_today"] for a in idle),
-                 "agents": [{"name": a["name"], "color": a["color"], "task": a["task"], "updated": a["updated"], "done_today": a["done_today"]} for a in idle]},
+                 "agents": [{"name": a["name"], "task": a["task"], "updated": a["updated"], "done_today": a["done_today"]} for a in idle]},
         "actions": actions([t for t in top if t.get("agent") not in retired], now, abandoned_min),
         "events": events[:feed_limit],
         "totals": {

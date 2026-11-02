@@ -52,7 +52,7 @@ Then give your agents the protocol. Paste the output of this into your project's
 
 ## The agent lifecycle
 
-    ID=$(agentboard start "Refactor billing" --name atlas --color blue)   # prints the task id, e.g. refactor-billing
+    ID=$(agentboard start "Refactor billing" --name atlas)   # prints the task id, e.g. refactor-billing
     agentboard update "$ID" 50 "Extracted BillingService"                 # prints: refactor-billing: 50%
     agentboard ask "$ID" "Deploy to staging or prod?"                     # blocked on the user
     agentboard review "$ID" "All call sites migrated"                     # work complete -> handed to the user
@@ -179,7 +179,7 @@ steps written as `(1) … (2) …` render one per line. Details that don't chang
   session a one-line question (e.g. via SendMessage) and wait for its answer first — it can often answer
   from its view of the whole board, and escalates to the user if it can't. One-time check before you start,
   not an ongoing back-and-forth once work is underway.
-- Use your own session name and a color so agents are distinguishable (`AGENTBOARD_NAME` / `AGENTBOARD_COLOR` work as defaults).
+- Use your own session name so agents are distinguishable (`AGENTBOARD_NAME` works as the default). The board gives each name its own colour; to pick one, set `[agent_colors]` in config.toml. `--color` is still accepted and ignored.
 - The percentage is what the list/HUD show at a glance — keep it honest and call `update` again whenever your real % done changes, even to walk it back after discovering more work.
 - `ask` and `review` clear automatically on the agent's next `update`. `review` sets progress to 100% but the card stays in Doing (marked ready for review) until the user marks it done.
 - If you started the server in the background, stop it with `pkill -f "agentboard serve"` (Ctrl+C when it runs in the foreground).
@@ -195,7 +195,7 @@ each a Claude Code / Codex / Devin terminal in the same repo.
 
 - **ORCH** adds and splits cards (`agentboard add`, `--blocked-by`, `--parent`), hands ids to agents, relays the
   user's decisions, reviews `review` cards and is the only one besides the user who moves them to Done when the user says so.
-- **Each agent** renames its session (`/rename AGENT-3`, a colour), claims its card with `--name AGENT-3 --color green`,
+- **Each agent** renames its session (`/rename AGENT-3`), claims its card with `--name AGENT-3`,
   keeps exactly one card open while it works, reports with `update`, finishes with `review`, and never marks done.
 - **Between sessions** they use their tool's cross-session messaging (Claude Code: `SendMessage` / `ListAgents`) for
   one-to-one asks, and `agentboard chat` for anything the user should see. Both carry the ACTION / STATUS / WHY shape.
@@ -428,7 +428,7 @@ Findings below come from the audit in `SECURITY.md` in the repository root (v0.2
     [providers.<name>]            # context providers for prompts: markdown | file-tail | http | command
     type = "markdown"             # see the commented examples init writes; off until a task lists one with --ctx
 
-Environment: `AGENTBOARD_DIR` (the board to use from anywhere), `AGENTBOARD_BOARD` (a registered board name), `AGENTBOARD_HOME` (where the registry lives), `AGENTBOARD_NAME` / `AGENTBOARD_COLOR` (defaults for `--name` / `--color`).
+Environment: `AGENTBOARD_DIR` (the board to use from anywhere), `AGENTBOARD_BOARD` (a registered board name), `AGENTBOARD_HOME` (where the registry lives), `AGENTBOARD_NAME` (the default for `--name`).
 
 ## One-shot agents
 
@@ -499,7 +499,7 @@ Providers run only when a task lists one with `--ctx` and a prompt is built.
 | `init` / `serve [--port N] [--no-open]` | create the board / run it |
 | `add "Title" [--status todo\|backlog] [-d TEXT] [--ctx NAME] [--project ID] [--blocked-by ID] [--parent ID]` , `list [--all] [--stale]`, `rm <id>` | manage tasks (`--parent` makes a subtask) |
 | `tail [-n LINES] [--interval SECS]` | watch activity live in the terminal — same feed as the HUD, for CLI-only sessions |
-| `run CARD [--name N] [--color C] [--cwd DIR] [--budget USD] [--max-minutes M] [--detach]`, `runs [--kill CARD]` | run a card with a one-shot `claude -p`; list and stop runs |
+| `run CARD [--name N] [--cwd DIR] [--budget USD] [--max-minutes M] [--detach]`, `runs [--kill CARD]` | run a card with a one-shot `claude -p`; list and stop runs |
 | `sms serve [--port N]`, `sms try TEXT` | the text-message endpoint (opt-in); run a command text locally |
 | `answer ID [--wait] [--timeout S]` | print the reply you left on a card (agents use it to read your answer) |
 | `reports [--purge] [--hours N]` | list card reports; remove the old ones now |
@@ -512,8 +512,8 @@ Providers run only when a task lists one with `--ctx` and a prompt is built.
 
 | For agents | |
 |---|---|
-| `start "Title" --name N [--color C] [--project ID] [--blocked-by ID] [--parent ID] [--force]` | create a task already in Doing; prints its id |
-| `claim <id> --name N [--color C] [--force]` | take an existing task and its subtasks (refuses while blocked, unless `--force`) |
+| `start "Title" --name N [--project ID] [--blocked-by ID] [--parent ID] [--force]` | create a task already in Doing; prints its id |
+| `claim <id> --name N [--force]` | take an existing task and its subtasks (refuses while blocked, unless `--force`) |
 | `update <id> <0-100> ["text"]` , `ask <id> "q" [--body MD]`, `review <id> "result" [--body MD]` | report |
 | `done <id>` | user-approved only |
 | `wait <id> [--status X] [--timeout SECS]` | block until a task reaches a status — sync without polling |

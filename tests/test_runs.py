@@ -79,7 +79,8 @@ class RunTests(Base):
         rec = self.run_it(name="RUN-1", color="green", budget=2.5, minutes=1)
         c = self.card()
         self.assertEqual(rec["status"], "finished")
-        self.assertEqual((c["status"], c["agent"], c["color"]), ("doing", "RUN-1", "green"))
+        self.assertEqual((c["status"], c["agent"]), ("doing", "RUN-1"))
+        self.assertNotIn("color", c)   # a run's colour is accepted and ignored
         self.assertTrue(c["review"])
         self.assertIn("Did the thing.", c["result"])
         self.assertEqual(c["run"]["status"], "finished")
@@ -119,7 +120,8 @@ class RunTests(Base):
         r = self.recorded()
         self.assertEqual(r["cwd"], str(self.work))
         self.assertEqual(r["env"]["AGENTBOARD_DIR"], str(self.store.dir))
-        self.assertEqual((r["env"]["AGENTBOARD_NAME"], r["env"]["AGENTBOARD_COLOR"]), ("RUN-1", "blue"))
+        self.assertEqual(r["env"]["AGENTBOARD_NAME"], "RUN-1")
+        self.assertNotIn("AGENTBOARD_COLOR", r["env"])
         self.assertNotIn("AGENTBOARD_BOARD", r["env"])
 
     def test_a_card_the_agent_already_reported_is_not_reported_twice(self):

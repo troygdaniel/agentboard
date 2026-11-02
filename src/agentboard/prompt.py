@@ -237,7 +237,7 @@ def build_prompt(task, board_dir, public=False, tasks=None):
         "description": _without_orch_block(task.get("description")) or task["title"],
         "ab": agentboard_cmd(board_dir),
         "context": context,
-        "color_hint": ptconf.get("color_hint", " and color if you know it (add --color <color>)"),
+        "color_hint": ptconf.get("color_hint", ""),   # was " and color if you know it": the board colours an agent by name now
         "parent_id": parent["id"] if parent else "",
         "parent_title": parent["title"] if parent else "",
         "report_rule": REPORT_RULE.rstrip("\n"),
@@ -253,8 +253,7 @@ def build_prompt(task, board_dir, public=False, tasks=None):
     return out, warnings
 
 
-DEFAULT_PEERS = (("AGENT-1", "green"), ("AGENT-2", "green"), ("AGENT-3", "green"),
-                 ("AGENT-4", "green"), ("GENERAL", "red"))
+DEFAULT_PEERS = ("AGENT-1", "AGENT-2", "AGENT-3", "AGENT-4", "GENERAL")   # names only: the board colours an agent by name
 
 ORCH_TEMPLATE = """\
 # You are ORCH, the orchestrator for this board
@@ -284,7 +283,7 @@ Rename this session to ORCH (`/rename ORCH`). You are a fresh or /clear'ed Claud
 ## CLI cheat-sheet
 
     {ab} add "<title>" -d "<description>" --status todo     # new card (--parent <id> splits a card)
-    {ab} claim <id> --name "<session>" --color <color>
+    {ab} claim <id> --name "<session>"
     {ab} update <id> <percent> "<status line>"
     {ab} done <id>                                          # only when Troy says so
     {ab} list                                               # all open cards (--status doing, --stale)
@@ -311,8 +310,7 @@ so Troy answers you there, and in your terminal. Agents do the same on their own
 def _peer_roster(conf):
     spec = conf.get("orch", {}).get("agents")
     if isinstance(spec, list) and spec:
-        return [(str(p.get("name")), str(p.get("color", ""))) for p in spec
-                if isinstance(p, dict) and p.get("name")]
+        return [str(p.get("name")) for p in spec if isinstance(p, dict) and p.get("name")]   # a roster colour is ignored
     return list(DEFAULT_PEERS)
 
 
@@ -337,13 +335,13 @@ def build_orch_prompt(tasks, board_dir, port=8765):
         cards = [t for t in open_cards if t["status"] == status]
         sections.append(f"{label} ({len(cards)}):\n" + ("\n".join(line(t) for t in cards) or "- none"))
     roster = _peer_roster(conf)
-    names = {n for n, _ in roster}
-    idle = [n for n, _ in roster if n not in held]
+    names = set(roster)
+    idle = [n for n in roster if n not in held]
     extra = [a for a in held if a not in names]
     sections.append("Holders: " + ("; ".join(f"{a}: {', '.join(t['id'] for t in ts)}" for a, ts in held.items()) or "none"))
     sections.append("Idle: " + (", ".join(idle) or "none") + (f"  (also working, not in roster: {', '.join(extra)})" if extra else ""))
 
-    peers = "\n".join(f"- {n}" + (f" ({c})" if c else "") for n, c in roster)
+    peers = "\n".join(f"- {n}" for n in roster)
     from . import agentchat
     if agentchat.is_on(board_dir):
         sections.append(agentchat.ORCH_PROTOCOL.format(ab=agentboard_cmd(board_dir)).rstrip("\n"))

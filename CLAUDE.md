@@ -2,7 +2,7 @@
 
 This project tracks agent work on a shared board (`agentboard`). When you begin a distinct piece of work:
 
-    ID=$(agentboard start "<short title>" --name "<your session name>" [--color <color>])
+    ID=$(agentboard start "<short title>" --name "<your session name>")
     agentboard update "$ID" <0-100> "<one-line status>"     # your REAL % done, updated every time it changes
     agentboard review "$ID" "<one-line result>"                # work complete -> the USER signs off and marks it done
     agentboard ask "$ID" "<one-line question>"                 # ONLY if blocked on the user; keep working after they answer
@@ -19,7 +19,7 @@ NEVER mark your own task done. Finish with `review` and stop. Run
 `agentboard done "$ID"` only if the user explicitly tells you to.
 
 If you are handed a task id instead, run `agentboard claim <id> --name "<your session name>"`.
-Use your own session name (and color, if you have one) so people can tell agents apart.
+Use your own session name so people can tell agents apart; the board gives each name its own colour.
 Create one task per deliverable, not per command. Keep titles short and status lines to one line.
 
 Before claiming or starting a card, if anything about it is ambiguous, ask your orchestrator/coordinating

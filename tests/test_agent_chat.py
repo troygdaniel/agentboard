@@ -47,7 +47,8 @@ class SwitchTests(Base):
     def test_off_by_default_and_plain_lines_still_post(self):
         self.assertFalse(self.s.chat_agents())
         m = self.s.chat_send("AGENT-1", "grabbing the retries card")
-        self.assertEqual((m["text"], m["kind"], m["color"]), ("grabbing the retries card", "agent", "green"))
+        self.assertEqual((m["text"], m["kind"]), ("grabbing the retries card", "agent"))
+        self.assertNotIn("color", m)   # the board colours the bubble by the sender's name
         self.assertNotIn("to", m)
 
     def test_talking_needs_the_switch(self):
@@ -108,7 +109,8 @@ class MessageTests(Base):
         m = self.s.chat_send("AGENT-1", "about the retries card", card="harden-webhook-retries", to="ORCH", topic="handoff")
         self.assertEqual(m["card"], "harden-webhook-retries")
         r = self.s.chat_send("AGENT-2", "got it", reply_to=m["seq"], color="blue")
-        self.assertEqual((r["reply_to"], r["color"]), (m["seq"], "blue"))
+        self.assertEqual(r["reply_to"], m["seq"])
+        self.assertNotIn("color", r)   # an explicit colour is ignored too
 
     def test_proposals_are_decided_by_troy_and_change_nothing_else(self):
         m = self.s.chat_send("AGENT-1", "need the staging deploy to test the webhook", to="ORCH", propose="deploy the retries branch to staging")

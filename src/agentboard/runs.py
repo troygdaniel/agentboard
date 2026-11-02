@@ -264,9 +264,8 @@ def run_card(store, card_id, *, name=None, color=None, cwd=None, budget=None, mi
                                 "budget_usd": budget, "max_minutes": minutes, "dir": str(rdir)}, f"One-shot run {run_id} started as {name} (limit {minutes:g} min, ${budget:g})")
         env = {**os.environ, "AGENTBOARD_DIR": str(store.dir), "AGENTBOARD_NAME": name, "AGENTBOARD_RUN": run_id}
         env.pop("AGENTBOARD_BOARD", None)
-        if color:
-            env["AGENTBOARD_COLOR"] = color
-        argv = [claude, "-p", "--output-format", "json", "--max-budget-usd", f"{budget:g}", "--name", name]
+        env.pop("AGENTBOARD_COLOR", None)   # `color` is accepted and ignored: the board colours an agent by name
+        argv =[claude, "-p", "--output-format", "json", "--max-budget-usd", f"{budget:g}", "--name", name]
         out_f, err_f = open(rdir / "stdout.json", "wb"), open(rdir / "stderr.log", "wb")
         t0 = time.time()
         proc = subprocess.Popen(argv, cwd=workdir, env=env, stdin=subprocess.PIPE, stdout=out_f, stderr=err_f, start_new_session=True)

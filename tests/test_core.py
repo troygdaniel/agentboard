@@ -127,8 +127,9 @@ class StartTests(unittest.TestCase):
     def test_start_is_idempotent_for_same_agent_only(self):
         with tempfile.TemporaryDirectory() as d:
             s = Store(Path(d) / ".agentboard")
-            t = s.start("Fix bug", "atlas", "blue")
-            self.assertEqual((t["status"], t["agent"], t["color"]), ("doing", "atlas", "blue"))
+            t = s.start("Fix bug", "atlas", "blue")   # the colour is accepted and ignored: the board colours an agent by name
+            self.assertEqual((t["status"], t["agent"]), ("doing", "atlas"))
+            self.assertNotIn("color", t)
             self.assertEqual(s.start("Fix bug", "atlas", task_id="fix-bug")["id"], "fix-bug")
             with self.assertRaises(BoardError):
                 s.start("Fix bug", "bolt", task_id="fix-bug")
@@ -670,7 +671,8 @@ class SubtaskTests(unittest.TestCase):
         self.s.claim("big", "atlas", "#123456")
         for sid in ("one", "two", "three", "four"):
             t = self.get(sid)
-            self.assertEqual((t["status"], t["agent"], t["color"]), ("doing", "atlas", "#123456"))
+            self.assertEqual((t["status"], t["agent"]), ("doing", "atlas"))
+            self.assertNotIn("color", t)   # claimed with a colour, which is ignored
         self.assertEqual(self.get("one")["progress"], 0)   # claimed, but not started: still "queued"
 
     def test_parent_progress_is_the_mean_and_update_on_parent_only_sets_text(self):

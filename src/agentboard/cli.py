@@ -2,6 +2,7 @@
 import argparse
 import json
 import os
+import re
 import shlex
 import subprocess
 import sys
@@ -392,7 +393,7 @@ def cmd_chat_send(a):
         except OSError as e:
             raise BoardError(f"--detail-file: {e}") from e
     m = _store().chat_send(name, a.text, kind="user" if a.user else "agent", to=a.to, topic=a.topic, detail=detail, card=a.card,
-                           files=a.file or None, propose=a.propose, reply_to=a.reply_to, color=a.color or os.environ.get("AGENTBOARD_COLOR"))
+                           files=a.file or None, propose=a.propose, reply_to=a.reply_to)
     print(_chat_line(m))
 
 
@@ -633,11 +634,26 @@ def _agent_name(a):
     return name
 
 
-# Kept out of the status-color families (--warn/--hwarn amber ~25-50°, --ok/--hok green ~145-165°,
-# --err/--hbad red near 0/360°): an agent's color shows up on its cards' avatar ring and progress bar
-# fill at all times, not just during ask/review/abandoned, so a palette hue in one of those bands
-# would make a normal in-progress card from that agent misread as needing attention at a glance.
-SPAWN_PALETTE = ["#22d3ee", "#6366f1", "#f472b6", "#3b82f6", "#d946ef", "#8b5cf6"]
+# The agent palette, kept out of the status-color families (--warn/--hwarn amber ~25-50°, --ok/--hok green ~145-165°,
+# --err/--hbad red near 0/360°): an agent's color shows up on its cards' avatar disc and progress bar at all times, so a
+# hue in one of those bands would make a normal in-progress card misread as needing attention at a glance.
+# Slot n is --a<n> in static/index.html (light-theme values, which carry white text, as a spawned terminal tab does), and
+# agent_slot() mirrors agentColor() there, so a spawned terminal and the agent's cards are the same colour.
+AGENT_PALETTE = ["#2563eb", "#7c3aed", "#db2777", "#0e7490", "#475569", "#a21caf"]
+AGENT_SLOTS = {"GENERAL": 5, "ORCH": 6}
+
+
+def agent_slot(name):
+    """The 1-based palette slot an agent name gets: AGENT-1..4 take 1..4 (AGENT-5 wraps to 1), GENERAL 5, ORCH 6, any other name a stable hash."""
+    if name in AGENT_SLOTS:
+        return AGENT_SLOTS[name]
+    m = re.fullmatch(r"AGENT-(\d+)", name)
+    if m:
+        return (max(int(m.group(1)), 1) - 1) % 4 + 1
+    h = 7
+    for ch in name:
+        h = (h * 31 + ord(ch)) & 0xFFFFFFFF
+    return 1 + h % 6
 
 
 def _as_escape(s):
@@ -690,8 +706,14 @@ def cmd_spawn(a):
         raise BoardError('give at least one name, e.g. agentboard spawn atlas,scribe,bolt')
     colors = [c.strip() for c in a.colors.split(",")] if a.colors else []
     cwd = os.getcwd()
+    try:
+        overrides = promptlib.load_config(_store().dir).get("agent_colors", {})   # [agent_colors] in config.toml, as on the board
+    except BoardError:
+        overrides = {}
+    if not isinstance(overrides, dict):
+        overrides = {}
     for i, name in enumerate(names):
-        color = colors[i] if i < len(colors) else SPAWN_PALETTE[i % len(SPAWN_PALETTE)]
+        color = colors[i] if i < len(colors) else overrides.get(name) or AGENT_PALETTE[agent_slot(name) - 1]
         cmdline = f"cd {shlex.quote(cwd)} && {a.cmd}"
         lines = ['tell application "Terminal"', "activate",
                  f'set newTab to do script "{_as_escape(cmdline)}"']
@@ -712,7 +734,7 @@ def cmd_spawn(a):
 
 def cmd_start(a):
     hookslib.remember_session(_store().dir, _agent_name(a))
-    t, created = _store().start_card(a.title, _agent_name(a), a.color or os.environ.get("AGENTBOARD_COLOR"),
+    t, created = _store().start_card(a.title, _agent_name(a), None,   # --color is accepted and ignored
                                      a.description or "", a.id, a.project, blocked_by=a.blocked_by, force=a.force,
                                      parent_id=a.parent)
     if not created:
@@ -727,7 +749,7 @@ INSTRUCTIONS = """\
 
 This project tracks agent work on a shared board (`agentboard`). When you begin a distinct piece of work:
 
-    ID=$(agentboard start "<short title>" --name "<your session name>" [--color <color>])
+    ID=$(agentboard start "<short title>" --name "<your session name>")
     agentboard update "$ID" <0-100> "<one-line status>"     # your REAL % done, updated every time it changes
     agentboard review "$ID" "<one-line result>"                # work complete -> the USER signs off and marks it done
     agentboard ask "$ID" "<one-line question>"                 # ONLY if blocked on the user; keep working after they answer
@@ -750,7 +772,7 @@ sentence on the card (ask/review/update text) so Troy answers you there, and in 
 on the card: read it with `agentboard answer "$ID" --wait`.
 
 If you are handed a task id instead, run `agentboard claim <id> --name "<your session name>"`.
-Use your own session name (and color, if you have one) so people can tell agents apart.
+Use your own session name so people can tell agents apart; the board gives each name its own colour.
 Create one task per deliverable, not per command. Keep titles short and status lines to one line.
 
 Before claiming or starting a card, if anything about it is ambiguous, ask your orchestrator/coordinating
@@ -941,7 +963,7 @@ def cmd_claim(a):
     name = _agent_name(a)
     s = _store()
     hookslib.remember_session(s.dir, name)
-    t = s.claim(a.id, name, a.color or os.environ.get("AGENTBOARD_COLOR"), a.force)
+    t = s.claim(a.id, name, force=a.force)   # --color is accepted and ignored
     print(f"claimed {t['id']} as {name}")
     _print_subtasks(s.load(), t["id"])
 
@@ -1301,7 +1323,7 @@ def main(argv=None):
     sp.add_argument("title")
     sp.add_argument("-d", "--description")
     sp.add_argument("--name", help="your session name (or $AGENTBOARD_NAME)")
-    sp.add_argument("--color", help="(or $AGENTBOARD_COLOR)")
+    sp.add_argument("--color", help="ignored: the board colours an agent by name")
     sp.add_argument("--id")
     sp.add_argument("--project", help="project id to tie this task to")
     sp.add_argument("--parent", metavar="ID", help="start it as a subtask of that task (one level deep)")
@@ -1319,7 +1341,7 @@ def main(argv=None):
     sp = add("claim", cmd_claim, "agent: take a task (moves it to doing)")
     sp.add_argument("id")
     sp.add_argument("--name", help="your session name (or $AGENTBOARD_NAME)")
-    sp.add_argument("--color")
+    sp.add_argument("--color", help="ignored: the board colours an agent by name")
     sp.add_argument("--force", action="store_true")
     sp = add("update", cmd_update, "agent: report progress")
     sp.add_argument("id")
@@ -1363,7 +1385,7 @@ def main(argv=None):
     sp = add("run", cmd_run, "run a card with a one-shot, non-interactive `claude -p`, then move it to review (or ask)")
     sp.add_argument("id")
     sp.add_argument("--name", help="the agent name the card is claimed under (default $AGENTBOARD_NAME or 'oneshot')")
-    sp.add_argument("--color")
+    sp.add_argument("--color", help="ignored: the board colours an agent by name")
     sp.add_argument("--cwd", help="work in this folder as it is (default: a fresh git worktree next to the current repo, removed afterwards if clean)")
     sp.add_argument("--budget", type=float, help="hard spend cap in USD passed to claude (default [run] budget_usd, else 5)")
     sp.add_argument("--max-minutes", type=float, help="hard wall-clock limit (default [run] max_minutes, else 45)")
@@ -1456,7 +1478,7 @@ def main(argv=None):
     csp.add_argument("--file", action="append", metavar="PATH", help="a shared file you are about to touch; repeat for more")
     csp.add_argument("--propose", metavar="ACTION", help="an action for Troy to approve first (chat never does it)")
     csp.add_argument("--reply-to", dest="reply_to", type=int, metavar="N", help="the message number this answers")
-    csp.add_argument("--color", help="your colour (or $AGENTBOARD_COLOR); default: the colour of your cards")
+    csp.add_argument("--color", help="ignored: the board colours an agent by name")
     csp = cadd("tail", cmd_chat_tail, "read recent messages, optionally following live")
     csp.add_argument("--limit", type=int, default=30)
     csp.add_argument("--follow", action="store_true", help="keep polling and print new messages (Ctrl+C stops)")

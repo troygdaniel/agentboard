@@ -185,8 +185,6 @@ class Store:
                 task["parent_id"] = parent["id"]
                 if parent.get("agent") and status == "doing":
                     task["agent"] = parent["agent"]
-                    if parent.get("color"):
-                        task["color"] = parent["color"]
             _log(task, f"Added to {status}")
             if parent or status not in ("todo", "backlog"):
                 tasks.append(task)
@@ -241,8 +239,7 @@ class Store:
                 "agent": name, "ctx": [], "prompt": "",
                 "created": _now(), "updated": _now(),
             }
-            if color:
-                task["color"] = color
+            # `color` is accepted and ignored: the board colours an agent by name, never a card (see agentColor in index.html)
             if project_id:
                 task["project_id"] = project_id
             if blocked_by:
@@ -284,9 +281,7 @@ class Store:
                 if unresolved:
                     raise BoardError(f"{task_id} is blocked by: {', '.join(unresolved)} (use --force)")
             t["status"] = "doing"
-            t["agent"] = name
-            if color:
-                t["color"] = color
+            t["agent"] = name   # `color` is accepted and ignored, as in start_card
             if t.get("progress", 0) == 0:
                 t["progress"] = 5
             t.pop("needs_input", None)
@@ -304,8 +299,6 @@ class Store:
             for k in _kids(tasks, t["id"]):
                 if k["status"] != "done":
                     k["status"], k["agent"] = "doing", name
-                    if color:
-                        k["color"] = color
                     for f in ("needs_input", "question", "review", "body_md"):
                         k.pop(f, None)
                     k["updated"] = t["updated"]
@@ -590,14 +583,6 @@ class Store:
                 if t["id"] in ids:
                     t.pop("archived", None)
 
-    def set_agent_color(self, task_id, color):
-        with self.transaction() as tasks:
-            t = self.get(tasks, task_id)
-            t["color"] = color
-            for k in _kids(tasks, task_id):
-                k["color"] = color
-            return t
-
     def delete(self, task_id):
         """Remove a task; a parent takes its subtasks with it, a subtask just leaves its parent."""
         with self.transaction() as tasks:
@@ -809,8 +794,6 @@ class Store:
                 reply_to = int(reply_to)
             except (TypeError, ValueError):
                 raise BoardError("reply-to must be a message number") from None
-        if color is not None and not re.fullmatch(r"[#\w(),.% -]{1,32}", str(color)):
-            color = None
         talk = bool(to or (topic and topic != "status") or detail or files or propose or reply_to)
         with self._lock():
             data = self._read()
@@ -821,14 +804,12 @@ class Store:
                     raise BoardError(f"no such task: {card}")
             if reply_to is not None and not any(m["seq"] == reply_to for m in data["chat"]):
                 raise BoardError(f"no chat message #{reply_to}")
-            if kind == "agent" and not color:   # the bubble takes the agent's colour from its cards
-                color = next((t.get("color") for t in reversed(data["tasks"]) if t.get("agent") == sender and t.get("color")), None)
             seq = data["chat_seq"] + 1
             data["chat_seq"] = seq
             msg = {"seq": seq, "at": _now(), "sender": sender, "text": text, "kind": kind}
             if via not in (None, "idle", "board", "mirror"):   # idle: drafted for an idle agent; board: the board's own notice; mirror: a session's private message, mirrored
                 raise BoardError("via must be 'idle', 'board', 'mirror' or left out")
-            for k, v in (("to", to), ("topic", topic), ("detail", detail), ("card", card), ("files", files), ("reply_to", reply_to), ("color", color), ("via", via)):
+            for k, v in (("to", to), ("topic", topic), ("detail", detail), ("card", card), ("files", files), ("reply_to", reply_to), ("via", via)):
                 if v:
                     msg[k] = v
             if propose:
@@ -1004,8 +985,6 @@ def _set_status(tasks, t, status):
             _apply_status(k, status)
             if status == "doing" and t.get("agent"):
                 k["agent"] = t["agent"]
-                if t.get("color"):
-                    k["color"] = t["color"]
     _recompute(tasks, t)
 
 
