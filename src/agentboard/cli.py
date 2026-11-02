@@ -903,7 +903,7 @@ def _demo_live(s, minutes):
     end = time.time() + minutes * 60
     n = max([int(t["id"].rsplit("-", 1)[-1]) for t in s.load()
              if t["id"].startswith("demo-live-") and t["id"].rsplit("-", 1)[-1].isdigit()] or [0])
-    print(f"live demo for {minutes:g} min — open the board, press h for the HUD, sound on. Ctrl+C stops.")
+    print(f"live demo for {minutes:g} min — open the board, press h for Load, sound on. Ctrl+C stops.")
     try:
         while time.time() < end:
             doing = [t for t in s.load() if t["status"] == "doing" and t["id"].startswith("demo-")]

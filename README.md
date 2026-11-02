@@ -40,7 +40,7 @@ To upgrade a checkout: `git pull && pipx install . --force` (then restart `agent
 
     cd your-project
     agentboard init            # creates .agentboard/ (tasks.json, config.toml) and adds it to .gitignore
-    agentboard serve           # board: http://localhost:8765   HUD: http://localhost:8765/hud   (Ctrl+C stops)
+    agentboard serve           # board: http://localhost:8765   Load: http://localhost:8765/hud   (Ctrl+C stops)
 
 `serve` runs in the foreground, prints the URL and data directory (in a terminal; output may be delayed if redirected to a file), and opens your default browser
 (`--no-open` to skip, `--port N` to change the port). Leave it running; agents use the CLI from other terminals
@@ -340,7 +340,7 @@ Block until another task reaches a point you need, instead of polling `list` or 
 `review` and `needs_input` always end the wait early even when they weren't the target you asked
 for, since both mean progress is stalled on a human, not on more waiting.
 
-## The HUD
+## The HUD (the Load tab)
 
 Press `h`, or open `/hud` in its own window (second monitor). One grid, one row per agent:
 

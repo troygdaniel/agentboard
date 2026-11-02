@@ -51,8 +51,8 @@ class SameRowTests(unittest.TestCase):
         rows = re.findall(r'<nav class="ab-tabs" aria-label="Pages">(.*?)</nav>', self.html)
         self.assertEqual(len(rows), 2)   # the board's header and the HUD bar
         for row in rows:
-            self.assertEqual(re.findall(r'class="tab[^"]*"[^>]*>([^<]+)</a>', row), ["Board", "By agent", "HUD"])
-        self.assertEqual(re.findall(r">([^<]+)</a>", nav.tabs("", "board")), ["Board", "By agent", "HUD"])
+            self.assertEqual(re.findall(r'class="tab[^"]*"[^>]*>([^<]+)</a>', row), ["Board", "By agent", "Load"])
+        self.assertEqual(re.findall(r">([^<]+)</a>", nav.tabs("", "board")), ["Board", "By agent", "Load"])
 
     def test_the_done_column_carries_summary_then_reports_then_clear(self):
         done = re.search(r"const clr = k === 'done' \? (.*?) : '';", self.html).group(1)
@@ -64,6 +64,13 @@ class SameRowTests(unittest.TestCase):
         slot = "flex: 0 0 106px"
         self.assertIn("flex:0 0 106px", nav.CSS)
         self.assertEqual(self.html.count(slot), 2)   # h1 on the board, .h-brand on the HUD
+
+    def test_the_load_bar_keeps_the_boards_geometry_at_every_width(self):
+        # the board's wrap goes to 16px in at 900px: the Load bar must too, and wrapping alert chips must not push the brand and tabs down
+        self.assertIn("@media (max-width: 900px) { .hud { padding-left: 10px; padding-right: 10px; } .h-bar { padding-left: 6px; padding-right: 6px; } }", self.html)
+        self.assertIn(".h-brand { height: 44.2px; align-self: flex-start; }", self.html)
+        self.assertIn(".h-bar .ab-tabs { align-self: flex-start; }", self.html)
+        self.assertNotIn("padding: 18px 24px 24px", self.html)   # fullscreen used to move the bar 6px right and 4px down
 
     def test_the_lit_tab_never_changes_weight(self):
         self.assertNotIn("font-weight:600", nav.CSS.split(".ab-tabs .tab.on")[1].split("}")[0])

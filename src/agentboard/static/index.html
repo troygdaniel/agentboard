@@ -500,12 +500,17 @@
   .hud::after { content: ''; position: absolute; inset: 0; pointer-events: none; opacity: .1;
     background: repeating-linear-gradient(transparent 0 2px, rgba(0,0,0,.22) 2px 3px); }
   #hud.full { padding: 0; }
-  #hud.full .hud { max-width: none; border-radius: 0; border: 0; padding: 18px 24px 24px; }
+  #hud.full .hud { max-width: none; border-radius: 0; border: 0; }   /* no padding of its own: the bar must stay where the board's is */
   /* wraps instead of overflowing: with several alert chips the bar outgrew 1440px and the title/buttons
      broke onto two lines, the ticker collapsed to 0 and (half-screen) the clock/buttons clipped off-screen */
   .h-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding: 7px 10px 0; min-height: 44px; box-sizing: content-box; }   /* with .hud's own padding: 28px in, 21px down, a 44px row, as on the other pages */
   .h-brand { display: flex; align-items: center; gap: 9px; flex: 0 0 106px; font: 600 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; letter-spacing: -.015em; color: var(--htext); white-space: nowrap; }
   @media (max-width: 600px) { .h-bar { padding: 11px 6px 0; } }   /* .hud has 10px of its own here: 16px in, 21px down */
+  /* Nothing may shift between Board, By agent and Load (Troy, Nov 2): the brand and the tabs sit where the board's do at every width.
+     The board goes to 16px in at 900px (the Load bar did at 600px), and the alert chips wrapping below 980px grew the row and pushed both down. */
+  .h-brand { height: 44.2px; align-self: flex-start; }   /* as tall as the tab row (38.2 + 3px margins), so the name centres the same and the row cannot move it */
+  .h-bar .ab-tabs { align-self: flex-start; }
+  @media (max-width: 900px) { .hud { padding-left: 10px; padding-right: 10px; } .h-bar { padding-left: 6px; padding-right: 6px; } }
   .h-brand, .h-live, .h-btn { white-space: nowrap; }
   .h-btn { background: none; border: 1px solid var(--hline); color: var(--hdim); border-radius: 6px; padding: 3px 10px; font: inherit; cursor: pointer; }
   .h-btn:hover { color: var(--hcy); border-color: rgba(94,231,255,.5); }
@@ -1119,7 +1124,7 @@
 <div class="wrap">
   <header>
     <h1><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="1.5" y="2" width="3.5" height="12" rx="1.2" fill="currentColor" opacity=".35"/><rect x="6.25" y="2" width="3.5" height="8" rx="1.2" fill="currentColor"/><rect x="11" y="2" width="3.5" height="5" rx="1.2" fill="currentColor" opacity=".6"/></svg>agentboard</h1>
-    <nav class="ab-tabs" aria-label="Pages"><a class="tab on" id="tab-board" href="./" aria-current="page">Board</a><a class="tab" id="tab-agents" href="./agents">By agent</a><a class="tab" id="hud-btn" href="#/hud" role="button" aria-controls="hud">HUD</a></nav>
+    <nav class="ab-tabs" aria-label="Pages"><a class="tab on" id="tab-board" href="./" aria-current="page">Board</a><a class="tab" id="tab-agents" href="./agents">By agent</a><a class="tab" id="hud-btn" href="#/hud" role="button" aria-controls="hud">Load</a></nav>
     <div class="status" id="status" role="status"><i></i><span>Live</span></div>
     <button class="btn" id="later-btn" aria-controls="later">Later <span id="later-n"></span></button>
     <button class="btn" id="orch-btn" hidden title="Copy a prompt that boots a fresh session as ORCH, from the live board">ORCH</button>
@@ -1179,18 +1184,18 @@
   <div class="toast-bar"><b id="toast-cd"></b></div>
 </div>
 
-<div id="hud" role="dialog" aria-label="Agent HUD">
+<div id="hud" role="dialog" aria-label="Load">
   <div class="hud" id="hud-inner">
     <div class="h-bar">
       <span class="h-brand"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="1.5" y="2" width="3.5" height="12" rx="1.2" fill="currentColor" opacity=".35"/><rect x="6.25" y="2" width="3.5" height="8" rx="1.2" fill="currentColor"/><rect x="11" y="2" width="3.5" height="5" rx="1.2" fill="currentColor" opacity=".6"/></svg>agentboard</span>
-      <nav class="ab-tabs" aria-label="Pages"><a class="tab" id="h-tab-board" href="./">Board</a><a class="tab" id="h-tab-agents" href="./agents">By agent</a><a class="tab on" href="#/hud" aria-current="page">HUD</a></nav>
+      <nav class="ab-tabs" aria-label="Pages"><a class="tab" id="h-tab-board" href="./">Board</a><a class="tab" id="h-tab-agents" href="./agents">By agent</a><a class="tab on" href="#/hud" aria-current="page">Load</a></nav>
       <span class="h-live">LIVE</span>
       <span class="h-alerts" id="h-alerts"></span>
       <button class="h-btn" id="h-snd" aria-pressed="true" aria-label="Toggle sound cues (s)">SND ON</button>
       <button class="h-btn" id="h-amb" aria-pressed="true" aria-label="Toggle ambient bed">AMB ON</button>
-      <button class="h-btn" id="h-pop" aria-label="Open HUD in its own window">Pop out</button>
+      <button class="h-btn" id="h-pop" aria-label="Open Load in its own window">Pop out</button>
       <button class="h-btn" id="h-full" aria-label="Toggle fullscreen (f)">Fullscreen</button>
-      <button class="h-btn" id="h-close" aria-label="Close HUD (Esc)">Close</button>
+      <button class="h-btn" id="h-close" aria-label="Close Load (Esc)">Close</button>
     </div>
     <div class="h-grid">
       <section class="hp h-one" aria-label="Telemetry and agent load">
@@ -1210,7 +1215,7 @@
     <dt><kbd>n</kbd></dt><dd>New task</dd>
     <dt><kbd>l</kbd></dt><dd>Later list</dd>
     <dt><kbd>c</kbd></dt><dd>Chat</dd>
-    <dt><kbd>h</kbd></dt><dd>HUD</dd>
+    <dt><kbd>h</kbd></dt><dd>Load</dd>
     <dt><kbd>a</kbd></dt><dd>By agent / back to the board</dd>
     <dt><kbd>[</kbd> <kbd>]</kbd></dt><dd>Previous / next view: Board, By agent, Load</dd>
     <dt><kbd>/</kbd></dt><dd>Filter</dd>
@@ -1218,7 +1223,7 @@
     <dt><kbd>j</kbd> <kbd>k</kbd></dt><dd>Next / previous card</dd>
     <dt><kbd>Enter</kbd></dt><dd>Open card</dd>
     <dt><kbd>e</kbd></dt><dd>Edit the open card's title</dd>
-    <dt><kbd>f</kbd> <kbd>s</kbd></dt><dd>HUD: fullscreen, sound</dd>
+    <dt><kbd>f</kbd> <kbd>s</kbd></dt><dd>Load: fullscreen, sound</dd>
     <dt><kbd>Alt</kbd> + arrows</dt><dd>Move the card</dd>
     <dt><kbd>Shift</kbd> + click</dt><dd>Select a range of cards</dd>
     <dt><kbd>⌘/Ctrl</kbd> + click</dt><dd>Add/remove one card from the selection</dd>
@@ -3126,7 +3131,7 @@ fetch('/api/config').then(r => r.json()).then(c => { cfg = c; $('orch-btn').hidd
 load(); setInterval(load, 1000);
 if (SOLO) {
   document.body.classList.add('solo');
-  document.title = APP + ' · HUD';
+  document.title = APP + ' · Load';
   openHud();
   // browsers block audio until a gesture in a fresh window: first click brings the sound online
   document.addEventListener('pointerdown', () => { if (sndOn) { ac(); startAmb(true); cue.open(); } }, { once: true });

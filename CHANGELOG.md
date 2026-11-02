@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Load
+- The **HUD** tab is now **Load** (its address is still `/hud`, key `h`). Its top bar keeps the board's geometry at every width: the brand and tabs sit exactly where they do on Board and By agent; before, they were 12px further in between 600 and 900px, and up to 24px lower below 980px when alert chips wrapped.
+
 ### By agent
 - A fifth tab, **By agent** (`/agents`, key `a`): the board's cards as swimlane columns, Queue first, one per agent with a card in Doing (state in the header, assigned Todo cards as *next up* ghosts), then one Idle column from the HUD's roster. Todo and Done are counts in the bar. One agent per screen on a phone. Chosen from `docs/doing-by-agent-mockup.html` (option B).
 
