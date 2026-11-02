@@ -1,0 +1,164 @@
+<meta charset="utf-8">
+<title>Card Colour Scheme Mockup</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  /* Mockup, not the real board: sample text in place of real card titles, the board's own tokens.
+     Three ways to show WHO holds a card, same four sample states each. Status keeps owning the card's colour. */
+  :root {
+    --bg: #fafaf9; --surface: #ffffff; --line: #e7e5e4; --text: #1c1917; --muted: #6b6560;
+    --run: #c2570c; --warn: #b45309; --ok: #15803d; --err: #b42318; --neutral: #a8a29e;
+    --chip: #f2f0ee; --card-hi: rgba(255,255,255,.8); --shadow: 0 1px 2px rgba(28,25,23,.05), 0 1px 1px rgba(28,25,23,.03);
+    --glow1: rgba(99,102,241,.08); --dot: rgba(28,25,23,.07);
+    --fs-xs: 11px; --fs-sm: 12px; --fs-md: 13px; --fs-base: 14px; --fs-lg: 15px; --tr-label: .16em;
+    /* agent palette: six hues that avoid the three status colours (orange running, green review, red ask) */
+    --a1: #2563eb; --a2: #9333ea; --a3: #db2777; --a4: #0891b2; --a5: #64748b;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #070b12; --surface: #0f1722; --line: #1c2a3a; --text: #d6e9ff; --muted: #7f95ad;
+      --run: #ff9f43; --warn: #ffc857; --ok: #5dffb0; --err: #ff6b6b; --neutral: #4b5f75;
+      --chip: #15202e; --card-hi: rgba(255,255,255,.05); --shadow: inset 0 1px 0 rgba(255,255,255,.03);
+      --glow1: rgba(94,231,255,.12); --dot: rgba(110,190,255,.05);
+      --a1: #60a5fa; --a2: #c084fc; --a3: #f472b6; --a4: #22d3ee; --a5: #94a3b8; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #070b12; --surface: #0f1722; --line: #1c2a3a; --text: #d6e9ff; --muted: #7f95ad;
+    --run: #ff9f43; --warn: #ffc857; --ok: #5dffb0; --err: #ff6b6b; --neutral: #4b5f75;
+    --chip: #15202e; --card-hi: rgba(255,255,255,.05); --shadow: inset 0 1px 0 rgba(255,255,255,.03);
+    --glow1: rgba(94,231,255,.12); --dot: rgba(110,190,255,.05);
+    --a1: #60a5fa; --a2: #c084fc; --a3: #f472b6; --a4: #22d3ee; --a5: #94a3b8; color-scheme: dark;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body { background: radial-gradient(1000px 460px at 10% -8%, var(--glow1), transparent 70%) no-repeat, radial-gradient(var(--dot) 1px, transparent 1px) 0 0 / 22px 22px, var(--bg);
+    min-height: 100vh; color: var(--text); font: var(--fs-base)/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+  .wrap { width: min(100%, 1400px); margin: 0 auto; padding: 18px 16px 32px; }
+  header { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding-bottom: 14px; margin-bottom: 18px; border-bottom: 1px solid var(--line); }
+  h1 { font-size: var(--fs-lg); font-weight: 600; letter-spacing: -.015em; }
+  .mock, h2 { font-size: var(--fs-xs); font-weight: 600; letter-spacing: var(--tr-label); text-transform: uppercase; color: var(--muted); }
+  .btn { margin-left: auto; font: inherit; font-size: var(--fs-sm); background: var(--surface); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 5px 12px; cursor: pointer; }
+  section { margin-bottom: 26px; }
+  h2 { margin-bottom: 10px; }
+
+  /* the finding: today's colour data, per agent */
+  .find { display: grid; gap: 8px; }
+  .row { display: flex; align-items: center; gap: 10px; font-size: var(--fs-md); flex-wrap: wrap; }
+  .row b { width: 74px; font-weight: 600; }
+  .sw { display: inline-block; width: 22px; height: 22px; border-radius: 6px; }
+  .arrow { color: var(--muted); padding: 0 4px; }
+  .note { font-size: var(--fs-md); color: var(--muted); margin-top: 10px; max-width: 70ch; }
+  .note b { color: var(--text); font-weight: 600; }
+
+  /* the scheme: one channel per fact */
+  .rules { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .rule { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; box-shadow: var(--shadow); }
+  .rule h3 { font-size: var(--fs-base); font-weight: 650; margin-bottom: 2px; }
+  .rule p { font-size: var(--fs-sm); color: var(--muted); }
+  .rule .eg { margin-top: 8px; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; font-size: var(--fs-sm); }
+
+  .variants { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; align-items: start; }
+  .col { background: color-mix(in srgb, var(--surface) 55%, transparent); border: 1px solid var(--line); border-radius: 14px; padding: 12px; }
+  .col.rec { border-color: var(--text); }
+  .col h3 { font-size: var(--fs-base); font-weight: 650; display: flex; align-items: center; gap: 8px; }
+  .col .tag { font-size: var(--fs-xs); font-weight: 600; letter-spacing: .08em; text-transform: uppercase; background: var(--text); color: var(--bg); border-radius: 999px; padding: 1px 8px; }
+  .col .why { font-size: var(--fs-sm); color: var(--muted); margin: 2px 0 12px; min-height: 36px; }
+  .cards { display: flex; flex-direction: column; gap: 10px; }
+
+  /* card: same anatomy as the board's */
+  .card { --st: var(--neutral); background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; position: relative; box-shadow: inset 0 1px 0 var(--card-hi), var(--shadow); }
+  .card.doing { --st: var(--run); background: linear-gradient(180deg, color-mix(in srgb, var(--st) 9%, var(--surface)), var(--surface) 75%); border-color: color-mix(in srgb, var(--st) 38%, var(--line)); }
+  .card.review { --st: var(--ok); border-color: var(--ok); }
+  .card.ask { --st: var(--err); border-color: var(--err); }
+  .card.done .title { color: var(--muted); font-weight: 400; }
+  .rail { position: absolute; left: 1px; top: 12px; bottom: 12px; width: 3px; border-radius: 0 2px 2px 0; background: var(--c); opacity: .9; }
+  .top { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; min-height: 22px; font-size: var(--fs-sm); color: var(--muted); }
+  .when { margin-left: auto; white-space: nowrap; }
+  .who { display: inline-flex; align-items: center; gap: 8px; font-size: var(--fs-base); font-weight: 650; letter-spacing: .02em; color: var(--text); min-width: 0; }
+  .av { width: 20px; height: 20px; border-radius: 50%; flex: none; display: grid; place-items: center; font-size: var(--fs-xs); font-weight: 600; background: color-mix(in srgb, var(--c) 16%, var(--chip)); box-shadow: inset 0 0 0 1.5px var(--c); }
+  .unas { color: var(--muted); font-size: var(--fs-base); font-weight: 650; letter-spacing: .02em; padding-left: 28px; }
+  .qnum { position: absolute; top: 14px; left: 16px; width: 20px; height: 20px; border-radius: 6px; display: grid; place-items: center; font-size: var(--fs-xs); font-weight: 600; color: var(--muted); background: var(--chip); box-shadow: inset 0 0 0 1px var(--line); }
+  .pdot { width: 7px; height: 7px; border-radius: 50%; background: #0ea5e9; flex: none; }
+  .title { font-weight: 550; font-size: var(--fs-lg); line-height: 1.4; letter-spacing: -.01em; }
+  .flag { font-size: var(--fs-xs); font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--st); margin-bottom: 4px; }
+  .bar { height: 4px; border-radius: 2px; background: var(--chip); margin-top: 10px; overflow: hidden; } .bar b { display: block; height: 100%; background: var(--c); }
+  .ico { display: inline-flex; align-items: center; gap: 4px; font-size: var(--fs-xs); border-radius: 999px; padding: 1px 8px; background: var(--chip); color: var(--muted); white-space: nowrap; }
+  .ico.warn { color: var(--warn); } .ico.run { color: var(--run); }
+
+  /* variant B: the name sits in a pill tinted with the agent's colour; the avatar is a solid disc */
+  .v-b .who { background: color-mix(in srgb, var(--c) 17%, var(--chip)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c) 55%, var(--line)); border-radius: 999px; padding: 2px 10px 2px 2px; }
+  .v-b .av { background: var(--c); box-shadow: none; color: #fff; }
+  .v-b .unas { padding-left: 28px; }
+  /* variant C: a wide rail in the agent colour, the name itself coloured (readable mix of agent and text) */
+  .v-c .rail { width: 6px; top: 0; bottom: 0; left: 0; border-radius: 12px 0 0 12px; opacity: 1; }
+  .v-c .who { color: color-mix(in srgb, var(--c) 62%, var(--text)); }
+  .v-c .card { padding-left: 20px; }
+  .v-c .qnum { left: 20px; }
+  .v-c .unas { padding-left: 28px; }
+  @media (max-width: 1000px) { .rules, .variants { grid-template-columns: 1fr; } }
+</style>
+<div class="wrap">
+<header>
+  <h1>Card colour scheme</h1><span class="mock">Mockup · sample text · nothing is built</span>
+  <button class="btn" id="theme" type="button">Light / Dark</button>
+</header>
+
+<section>
+  <h2>Why colour does not help today</h2>
+  <div class="find">
+    <div class="row"><b>Today</b>
+      <span class="sw" style="background:#22c55e" title="AGENT-1"></span><span class="sw" style="background:#22c55e" title="AGENT-2"></span><span class="sw" style="background:#22c55e" title="AGENT-3"></span><span class="sw" style="background:#22c55e" title="AGENT-4"></span><span class="sw" style="background:#22c55e" title="AGENT-5"></span>
+      <span>AGENT-1 to AGENT-5: one colour for five agents</span></div>
+    <div class="row"><b>Proposed</b>
+      <span class="sw" style="background:var(--a1)"></span><span class="sw" style="background:var(--a2)"></span><span class="sw" style="background:var(--a3)"></span><span class="sw" style="background:var(--a4)"></span><span class="sw" style="background:var(--a5)"></span>
+      <span>one hue each, none of them orange, green or red (those belong to status)</span></div>
+  </div>
+  <p class="note">Colour is set on each <b>card</b> when it is claimed, so an agent's cards drift: AGENT-1 has 113 cards as "green", 81 as "#22c55e" and 7 with none, and this card shows grey. Green is also the colour of "ready for review", so a green agent looks like a review card.</p>
+</section>
+
+<section>
+  <h2>The scheme: one channel per fact</h2>
+  <div class="rules">
+    <div class="rule"><h3>Agent → the name chip and left rail</h3><p>One colour per agent name, set once, inherited by every card it holds. Agents stop choosing colours; you change it by clicking the avatar.</p>
+      <div class="eg"><span class="ico" style="background:color-mix(in srgb,var(--a1) 17%,var(--chip));color:var(--text)">AGENT-1</span><span class="ico" style="background:color-mix(in srgb,var(--a2) 17%,var(--chip));color:var(--text)">AGENT-2</span></div></div>
+    <div class="rule"><h3>Status → border, tint, flag</h3><p>As today: orange running, green review, red needs you, grey done. Nothing else may use these three hues.</p>
+      <div class="eg"><span class="ico run">running</span><span class="ico" style="color:var(--ok)">review</span><span class="ico" style="color:var(--err)">ask</span></div></div>
+    <div class="rule"><h3>Project → small dot</h3><p>One dot beside the name, project name on hover. No tint, so it never competes with status.</p>
+      <div class="eg"><i class="pdot"></i><span>pakled</span></div></div>
+    <div class="rule"><h3>Attributes → icons, not colour</h3><p>Blocked, stale, running, report: a small grey icon each. Only stale and running take a colour, from status.</p>
+      <div class="eg"><span class="ico">🔒 blocked</span><span class="ico warn">no update 12m</span></div></div>
+  </div>
+</section>
+
+<section>
+  <h2>Three ways to show who holds the card</h2>
+  <div class="variants" id="variants"></div>
+</section>
+</div>
+<script>
+  // the same five sample cards in each variant
+  const CARDS = [
+    { s: 'doing',  a: 'AGENT-1', n: 1, c: 'var(--a1)', t: 'Sample: working card', p: 40, ex: '<span class="ico run">▶ run</span>', when: 'just now' },
+    { s: 'ask',    a: 'AGENT-2', n: 2, c: 'var(--a2)', t: 'Sample: card that needs an answer', flag: 'Needs your input', when: '2m ago' },
+    { s: 'review', a: 'AGENT-3', n: 3, c: 'var(--a3)', t: 'Sample: card ready for review', flag: 'Ready for review', ex: '<span class="ico">▤ Report</span>', when: '9m ago' },
+    { s: 'doing',  a: 'AGENT-4', n: 4, c: 'var(--a4)', t: 'Sample: card gone quiet', p: 70, ex: '', when: '<span style="color:var(--warn)">no update 12m</span>' },
+    { s: 'todo',   a: '', q: 1, t: 'Sample: next todo, blocked', ex: '<span class="ico">🔒 blocked</span>', when: 'queued 35m ago' },
+    { s: 'done',   a: 'AGENT-5', n: 5, c: 'var(--a5)', t: 'Sample: finished card', ex: '<span class="ico">▤ Report</span>', when: '1h ago' },
+  ];
+  const card = k => {
+    const who = k.a ? `<span class="who"><span class="av">${k.n}</span><span>${k.a}</span></span><i class="pdot"></i>${k.ex || ''}` : `<span class="unas">Unassigned</span><i class="pdot"></i>${k.ex || ''}`;
+    return `<div class="card ${k.s}" style="--c:${k.c || 'var(--neutral)'}">${k.a ? '<span class="rail"></span>' : `<span class="qnum">${k.q}</span>`}
+      <div class="top">${who}<span class="when">${k.when}</span></div>
+      ${k.flag ? `<div class="flag">${k.flag}</div>` : ''}<div class="title">${k.t}</div>${k.p ? `<div class="bar"><b style="width:${k.p}%"></b></div>` : ''}</div>`;
+  };
+  const V = [
+    ['v-a', 'A · Keep today, bigger name', '', 'Avatar ring + 3px rail, as now, with the larger name already committed. Smallest change.'],
+    ['v-b', 'B · Name chip', 'Recommended', 'The name sits in a pill tinted with the agent colour and a solid disc. The first thing the eye lands on, and the colour now tells agents apart.'],
+    ['v-c', 'C · Wide rail, coloured name', '', 'A 6px rail on the whole left edge and the name in the agent colour. Reads from far away, but coloured text is harder to keep legible across themes.'],
+  ];
+  document.getElementById('variants').innerHTML = V.map(([cls, h, tag, why]) =>
+    `<div class="col ${cls} ${tag ? 'rec' : ''}"><h3>${h}${tag ? `<span class="tag">${tag}</span>` : ''}</h3><p class="why">${why}</p><div class="cards">${CARDS.map(card).join('')}</div></div>`).join('');
+  document.getElementById('theme').onclick = () => {
+    const r = document.documentElement, dark = r.dataset.theme ? r.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+    r.dataset.theme = dark ? 'light' : 'dark';
+  };
+</script>
