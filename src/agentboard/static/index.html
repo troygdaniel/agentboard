@@ -951,7 +951,7 @@
   .later-add input { flex: 1; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 6px 12px; min-height: 32px; }
   #later .cards { gap: 10px; flex: none; overflow: visible; padding: 0; }   /* .p-body is the scroller here */
   #later .empty { flex: none; }
-  #later .card[data-status="backlog"] { cursor: pointer; }
+  #later .card[data-status="backlog"], #later .card[data-status="todo"] { cursor: pointer; }
 
   /* ----- shared agent chat: a self-organize channel Troy can see and join ----- */
   #chat { width: min(420px, 94vw); }
@@ -1213,7 +1213,7 @@
   <h2>Keyboard shortcuts</h2>
   <dl>
     <dt><kbd>n</kbd></dt><dd>New task</dd>
-    <dt><kbd>l</kbd></dt><dd>Later list</dd>
+    <dt><kbd>l</kbd></dt><dd id="key-later">Later list</dd>
     <dt><kbd>c</kbd></dt><dd>Chat</dd>
     <dt><kbd>h</kbd></dt><dd>Load</dd>
     <dt><kbd>a</kbd></dt><dd>By agent / back to the board</dd>
@@ -1268,6 +1268,9 @@ const BASE = window.AB_BASE || '';   // '' for the default board, '/b/<name>' fo
 { const nativeFetch = window.fetch.bind(window); window.fetch = (u, o) => nativeFetch(typeof u === 'string' && u.startsWith('/api/') ? BASE + u : u, o); }
 const SOLO = location.pathname.replace(/\/+$/, '').endsWith('/hud');
 const BYAGENT = location.pathname.replace(/\/+$/, '').endsWith('/agents');   // the by-agent view: same page, swimlane columns
+// the left drawer: Later (parked ideas) on the board; on the by-agent view the same drawer lists the Todo cards instead
+const DRAWER = BYAGENT ? { status: 'todo', label: 'Todo', empty: 'Nothing queued. Cards waiting for an agent to claim them live here.' }
+  : { status: 'backlog', label: 'Later', empty: 'Nothing parked. Ideas you are not ready to start live here, out of the way.' };
 const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;   // HUD running in its own window
 const COLUMNS = [['backlog', 'Later'], ['todo', 'Todo'], ['doing', 'Doing'], ['done', 'Done']];
 const EMPTY = { backlog: '', todo: 'Nothing queued — agents claim work from here', doing: 'Nothing in progress', done: 'Nothing finished yet' };
@@ -1642,8 +1645,8 @@ function render() {
   }
   // live counts: a brief tick when a column's count changes
   if (!firstRender) $('board').querySelectorAll('.col').forEach(col => {
-    const k = col.dataset.status, n = by[k].length;
-    if (lastCounts[k] !== undefined && lastCounts[k] !== n) col.querySelector('.cnt')?.classList.add('tick');
+    const k = col.dataset.status, n = by[k]?.length;   // the by-agent columns (agent:AGENT-1, idle) are not board columns: no count to tick
+    if (n !== undefined && lastCounts[k] !== undefined && lastCounts[k] !== n) col.querySelector('.cnt')?.classList.add('tick');
   });
   COLUMNS.forEach(([k]) => { lastCounts[k] = by[k].length; });
   // glide cards from their old position to the new one
@@ -1660,8 +1663,8 @@ function render() {
     $('board').querySelectorAll('.bar b[data-to]').forEach(b => { b.style.width = b.dataset.to + '%'; })));
   tasks.forEach(t => lastPct.set(t.id, t.progress || 0));
   firstRender = false;
-  $('later-n').textContent = by.backlog.length ? '(' + by.backlog.length + ')' : '';
-  renderLater(by.backlog);
+  $('later-n').textContent = by[DRAWER.status].length ? '(' + by[DRAWER.status].length + ')' : '';
+  renderLater(by[DRAWER.status]);
   const quiet = working.filter(t => ago(t.updated).min >= STALE_MIN && ago(t.updated).min < (cfg.stale_minutes || DEFAULT_STALE_MIN)).length;
   const abandoned = working.filter(t => ago(t.updated).min >= (cfg.stale_minutes || DEFAULT_STALE_MIN)).length;
   $('summary').innerHTML = (abandoned ? `<span class="err">⚠ ${abandoned} abandoned</span> · ` : '')
@@ -2493,6 +2496,8 @@ if (BYAGENT) {
   document.body.classList.add('byagent');
   $('tab-board').classList.remove('on'); $('tab-board').removeAttribute('aria-current');
   $('tab-agents').classList.add('on'); $('tab-agents').setAttribute('aria-current', 'page');
+  $('later-btn').firstChild.nodeValue = DRAWER.label + ' '; $('later').setAttribute('aria-label', DRAWER.label);   // the drawer is the Todo list here
+  $('later').querySelector('.p-head strong').textContent = DRAWER.label; $('key-later').textContent = DRAWER.label + ' list';
   document.title = APP + ' · by agent';
 }
 $('h-close').onclick = closeHud;
@@ -2714,18 +2719,18 @@ function renderLater(list) {
   if (!body || !$('later').classList.contains('open')) return;
   const typed = document.getElementById('later-input')?.value || '';
   const hadFocus = document.activeElement?.id === 'later-input', keepScroll = body.scrollTop;
-  body.innerHTML = `<form class="later-add" id="later-form"><input id="later-input" placeholder="Park an idea…" aria-label="Park an idea" required><button class="btn primary">Add</button></form>` +
-    (list.length ? `<div class="cards">${list.map(card).join('')}</div>`
-      : `<div class="empty">Nothing parked. Ideas you are not ready to start live here, out of the way.</div>`);
+  body.innerHTML = (BYAGENT ? '' : `<form class="later-add" id="later-form"><input id="later-input" placeholder="Park an idea…" aria-label="Park an idea" required><button class="btn primary">Add</button></form>`) +
+    (list.length ? `<div class="cards">${list.map(card).join('')}</div>` : `<div class="empty">${DRAWER.empty}</div>`);
+  if (BYAGENT) body.querySelectorAll('.card').forEach(c => { c.draggable = false; });   // a card's column is its agent: nothing drags here
   body.scrollTop = keepScroll;
-  const inp = $('later-input'); inp.value = typed; if (hadFocus) inp.focus();
+  const inp = $('later-input'); if (inp) { inp.value = typed; if (hadFocus) inp.focus(); }
 }
 function setSide(which) {            // one surface at a time
   if (which !== 'later') $('later').classList.remove('open');
   if (which !== 'panel' && openId) closePanel(true);
   if (which !== 'chat') $('chat').classList.remove('open');
 }
-function openLater() { setSide('later'); $('later').classList.add('open'); renderLater(tasks.filter(t => t.status === 'backlog' && !isKid(t))); $('later-input')?.focus(); }
+function openLater() { setSide('later'); $('later').classList.add('open'); renderLater(tasks.filter(t => t.status === DRAWER.status && !isKid(t))); $('later-input')?.focus(); }
 function closeLater() { $('later').classList.remove('open'); $('later-btn').focus(); }
 $('later-btn').onclick = () => $('later').classList.contains('open') ? closeLater() : openLater();
 $('later-close').onclick = closeLater;
@@ -2756,6 +2761,10 @@ $('later-body').addEventListener('submit', async e => {
 $('later-body').addEventListener('click', e => {
   const mv = e.target.closest('[data-to-todo]');
   if (mv) { move(mv.dataset.toTodo, 'todo'); return; }
+  const lb = e.target.closest('[data-later]');
+  if (lb) { move(lb.dataset.later, 'backlog'); return; }
+  const cb = e.target.closest('.copy');
+  if (cb) { copyPrompt(cb); return; }
   const bl = e.target.closest('[data-open-blocker]');
   if (bl) { $('later').classList.remove('open'); openPanel(bl.dataset.openBlocker); return; }
   const tg = e.target.closest('[data-toggle-subs]');
@@ -2992,6 +3001,20 @@ $('board').addEventListener('submit', async e => {
   catch (err) { showError('Could not send reply: ' + err.message); }
 });
 quickEvents($('board'));
+async function copyPrompt(btn) {   // the Copy prompt button on a Todo card, on the board or in the left drawer
+  const id = btn.closest('.card').dataset.id;
+  if (copied.has(id)) { copied.delete(id); return renderKeepingCardFocus(); }   // the copied state is a toggle: click/Enter/Space undoes it
+  try {
+    const r = await fetch('/api/prompt?id=' + encodeURIComponent(id));
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error);
+    await navigator.clipboard.writeText(d.prompt);
+    btn.textContent = d.warnings.length ? 'Copied, with warnings' : 'Copied';
+    if (d.warnings.length) showError(d.warnings.join(' · '));
+    if (byId.get(id)?.status === 'todo') { copied.set(id, d.warnings.length ? 'Copied, with warnings' : 'Copied'); renderKeepingCardFocus(); }   // only after the clipboard write actually succeeded
+  } catch (err) { btn.textContent = 'Failed'; showError('Copy failed: ' + err.message); }
+  setTimeout(() => { btn.textContent = 'Copy prompt'; }, 1800);
+}
 $('board').addEventListener('click', async e => {
   if (e.target.closest('.card-reply, a.report-link, .qr')) return;   // typing or sending a reply must not open the panel
   const selCard = e.target.closest('.card');
@@ -3032,18 +3055,7 @@ $('board').addEventListener('click', async e => {
     if (c) openPanel(c.dataset.id);
     return;
   }
-  const id = btn.closest('.card').dataset.id;
-  if (copied.has(id)) { copied.delete(id); return renderKeepingCardFocus(); }   // the copied state is a toggle: click/Enter/Space undoes it
-  try {
-    const r = await fetch('/api/prompt?id=' + encodeURIComponent(id));
-    const d = await r.json();
-    if (!r.ok) throw new Error(d.error);
-    await navigator.clipboard.writeText(d.prompt);
-    btn.textContent = d.warnings.length ? 'Copied, with warnings' : 'Copied';
-    if (d.warnings.length) showError(d.warnings.join(' · '));
-    if (byId.get(id)?.status === 'todo') { copied.set(id, d.warnings.length ? 'Copied, with warnings' : 'Copied'); renderKeepingCardFocus(); }   // only after the clipboard write actually succeeded
-  } catch (err) { btn.textContent = 'Failed'; showError('Copy failed: ' + err.message); }
-  setTimeout(() => { btn.textContent = 'Copy prompt'; }, 1800);
+  return copyPrompt(btn);
 });
 
 
