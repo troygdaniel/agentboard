@@ -214,15 +214,19 @@
   .top .when.stale { color: var(--warn); }
   .who { display: inline-flex; align-items: center; gap: 8px; background: none; border: 0; padding: 0; cursor: pointer; color: var(--text); font-weight: 500; font-size: var(--fs-sm); border-radius: 6px; }
   .who:hover .nm { text-decoration: underline; text-underline-offset: 3px; }
-  .card.done .who { color: var(--muted); }
+  .card.done .who { color: color-mix(in srgb, var(--text) 82%, var(--muted)); }
+  /* the holder's name is the card's first thing to find (Troy, 2026-11-01): 14px/650 in full text colour (the title is 15px),
+     the same on every status; it was 12px/500, the smallest text on the card, level with the timestamp */
+  .top .who { min-width: 0; font-size: var(--fs-base); font-weight: 650; letter-spacing: .02em; }
+  .top .who .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   /* less noise (Troy, 2026-10-28): a card reads as one row, agent + title + its mark. The description, status line,
      result and Details are still in the DOM and in the detail panel (tap the card); a doing card keeps its bar and % */
   .card .desc, .card .fold, .card .proj-row, .card .note > span:first-child, .card.done .note { display: none; }
   .card .note { justify-content: flex-end; margin-top: 4px; }
   .card .said { font-size: var(--fs-md); margin: 2px 0 8px; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
   .top .pdot { width: 7px; height: 7px; border-radius: 50%; background: var(--c); flex: none; }
-  .top .unas { color: var(--muted); opacity: .7; }
-  .card[data-status="todo"] .unas { padding-left: 26px; }   /* clear of the queue-number badge */
+  .top .unas { color: var(--muted); font-size: var(--fs-base); font-weight: 650; letter-spacing: .02em; }   /* same type as a name, no opacity: .7 dropped it to 3.0-3.5:1 */
+  .card[data-status="todo"] .unas { padding-left: 28px; }   /* clear of the queue-number badge; lines up with where a name starts (20px avatar + 8px gap) */
   /* hovering a name lights every card that agent holds; the rest step back */
   .board.hl .card { transition: opacity .15s ease; }
   .board.hl .card:not(.hl) { opacity: .4; }
