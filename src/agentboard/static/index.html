@@ -1061,9 +1061,9 @@
   .qr .replied { font-size: var(--fs-xs); color: var(--muted); } .qr .replied b { color: var(--ok); }
   .card .qr { margin: 0 0 8px; } .lat .qr { margin: 0 0 12px; }
   /* stacked on a phone: the page scrolls as one, columns size to their cards */
-  /* ----- By agent (/agents): the board's cards in swimlane columns, one per agent. Queue first (unassigned Todo), then every
-     agent with a card in Doing, then one column for the idle agents. An agent's assigned Todo cards wait at the foot of its
-     column as "next up". Todo and Done are counts in the bar. ----- */
+  /* ----- By agent (/agents): the board's cards in swimlane columns, one per agent: every agent with a card in Doing, then one
+     column for the idle agents. No Queue column (unassigned Todo stays on the Board), so the agents get the width. An agent's
+     assigned Todo cards wait at the foot of its column as "next up". Todo and Done are counts in the bar. ----- */
   .ba-counts { display: inline-flex; gap: 6px; align-items: center; font-size: var(--fs-sm); color: var(--muted); }
   .ba-counts a { color: var(--text); text-decoration: none; border: 1px solid var(--line); border-radius: 8px; padding: 3px 9px; background: var(--surface); white-space: nowrap; }
   .ba-counts a:hover { border-color: var(--neutral); }
@@ -1075,7 +1075,6 @@
   .col.acol h2 .av { width: 20px; height: 20px; font-size: var(--fs-xs); }
   .col.acol h2 em { font-style: normal; font-weight: 600; font-size: var(--fs-xs); letter-spacing: var(--tr-tight); text-transform: uppercase; color: var(--st, var(--muted)); margin-left: auto; }
   .col.acol h2 em.ask { --st: var(--err); } .col.acol h2 em.review { --st: var(--ok); } .col.acol h2 em.quiet, .col.acol h2 em.abandoned { --st: var(--warn); } .col.acol h2 em.working { --st: var(--run); }
-  .col.queue { opacity: .8; } .col.queue h2 { color: var(--muted); }
   .col.idle-col { opacity: .7; border-top-style: dashed; }
   .col.idle-col .cards { gap: 14px; }
   .ia { display: flex; flex-direction: column; gap: 6px; }
@@ -1455,7 +1454,7 @@ function toggleSubs(btn) {
 }
 const FLAG_LABEL = { needs_input: 'needs input', review: 'to review' };
 
-// --- By agent: swimlane columns. Queue (unassigned Todo), one column per agent with a card in Doing, one for the idle agents.
+// --- By agent: swimlane columns. One column per agent with a card in Doing, one for the idle agents; no Queue, the agents get the width.
 // The roster comes from /api/hud (every agent with a card plus [orch] agents), so an idle agent shows even with no card.
 let roster = [], rosterAt = 0;
 async function loadRoster() {
@@ -1469,7 +1468,6 @@ function byAgentHtml(by, filtered) {
   const doingBy = new Map(), nextBy = new Map();
   by.doing.forEach(t => { const k = t.agent || ''; if (!doingBy.has(k)) doingBy.set(k, []); doingBy.get(k).push(t); });
   by.todo.forEach(t => { if (t.agent) { if (!nextBy.has(t.agent)) nextBy.set(t.agent, []); nextBy.get(t.agent).push(t); } });
-  const queue = by.todo.filter(t => !t.agent);
   const names = new Set([...doingBy.keys()].filter(Boolean)); roster.forEach(a => names.add(a.name));
   const sorted = [...names].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base', numeric: true }));
   const active = sorted.filter(n => doingBy.has(n)), idle = sorted.filter(n => !doingBy.has(n));
@@ -1494,10 +1492,9 @@ function byAgentHtml(by, filtered) {
       + (next.length ? next.map(t => `<div class="nextup">${card(t)}</div>`).join('') : '')
       + (last ? `<div class="last" title="${esc(last.title)}"><svg class="check" width="11" height="11" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>${esc(last.title)} · ${ago(last.updated).text}</div>` : (next.length ? '' : `<div class="last">no card yet</div>`)) + `</div>`;
   }).join('')}</div></section>` : '';
-  const queueCol = `<section class="col queue" data-status="queue"><h2>Queue <span class="cnt">${queue.length}</span></h2><div class="cards">${queue.length ? queue.map(card).join('') : `<div class="empty">${filtered ? 'No matches' : 'Nothing unassigned'}</div>`}</div></section>`;
-  const n = 1 + active.length + (idleCol ? 1 : 0);
-  $('board').style.setProperty('--tracks', `repeat(${n}, minmax(220px, 1fr))`);
-  return queueCol + active.map(agentCol).join('') + idleCol;
+  const n = active.length + (idleCol ? 1 : 0);
+  $('board').style.setProperty('--tracks', `repeat(${Math.max(1, n)}, minmax(220px, 1fr))`);
+  return n ? active.map(agentCol).join('') + idleCol : `<div class="empty">${filtered ? 'No matches' : 'No agents yet'}</div>`;
 }
 
 // --- quick replies: the options an ask names become one-tap chips ---

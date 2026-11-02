@@ -151,10 +151,10 @@ For a Claude Code terminal (ORCH or an agent): `agentboard dictate` (Enter, spea
 
 ### By agent
 
-The **By agent** tab (or the key `a`) shows the same cards as swimlane columns, one per agent: **Queue** first (unassigned Todo),
-then every agent with a card in Doing (its ask, review or quiet state in the header, its cards stacked, its assigned Todo cards
-waiting at the foot as *next up*), then one **Idle** column for the agents with nothing in Doing (every agent the HUD knows plus
-`[orch] agents`), each with its next card or its last finished one. Todo and Done are counts in the bar that lead back to the board.
+The **By agent** tab (or the key `a`) shows the same cards as swimlane columns, one per agent: every agent with a card in Doing
+(its ask, review or quiet state in the header, its cards stacked, its assigned Todo cards waiting at the foot as *next up*),
+then one **Idle** column for the agents with nothing in Doing (every agent the HUD knows plus
+`[orch] agents`), each with its next card or its last finished one. There is no Queue column, so the agents get the width; Todo (unassigned cards included) and Done are counts in the bar that lead back to the board.
 A card opens its panel as usual; nothing drags here, a card's column is its agent. On a phone it is one agent per screen, swipe sideways.
 
 ### Done summary
