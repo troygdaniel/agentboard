@@ -43,15 +43,14 @@ STATIC = Path(nav.__file__).parent / "static" / "index.html"
 
 class SameRowTests(unittest.TestCase):
     """The tab row must not move when a tab is clicked: the same order, one brand slot width, and no weight change on the lit tab, in the
-    server-rendered bar (nav.py) and in the board's and the HUD's bars (index.html). The positions themselves are checked in a browser."""
+    server-rendered bar (nav.py) and in the board's header (index.html), which Load shows too. The positions themselves are checked in a browser."""
     def setUp(self):
         self.html = STATIC.read_text()
 
-    def test_board_and_hud_bars_list_the_three_tabs_in_the_same_order(self):
+    def test_the_page_has_one_tab_row_and_it_lists_the_three_tabs_in_order(self):
         rows = re.findall(r'<nav class="ab-tabs" aria-label="Pages">(.*?)</nav>', self.html)
-        self.assertEqual(len(rows), 2)   # the board's header and the HUD bar
-        for row in rows:
-            self.assertEqual(re.findall(r'class="tab[^"]*"[^>]*>([^<]+)</a>', row), ["Board", "By agent", "Load"])
+        self.assertEqual(len(rows), 1)   # the board's header only: Load has no bar of its own, so it cannot differ
+        self.assertEqual(re.findall(r'class="tab[^"]*"[^>]*>([^<]+)</a>', rows[0]), ["Board", "By agent", "Load"])
         self.assertEqual(re.findall(r">([^<]+)</a>", nav.tabs("", "board")), ["Board", "By agent", "Load"])
 
     def test_the_done_column_carries_summary_then_reports_then_clear(self):
@@ -63,25 +62,29 @@ class SameRowTests(unittest.TestCase):
     def test_every_bar_gives_the_brand_the_same_slot(self):
         slot = "flex: 0 0 106px"
         self.assertIn("flex:0 0 106px", nav.CSS)
-        self.assertEqual(self.html.count(slot), 2)   # h1 on the board, .h-brand on the HUD
+        self.assertEqual(self.html.count(slot), 1)   # h1 in the board's header; Load shows that header, not a copy
 
-    def test_the_load_bar_keeps_the_boards_geometry_at_every_width(self):
-        # the board's wrap goes to 16px in at 900px: the Load bar must too, and wrapping alert chips must not push the brand and tabs down
-        self.assertIn("@media (max-width: 900px) { .hud { padding-left: 10px; padding-right: 10px; } .h-bar { padding-left: 6px; padding-right: 6px; } }", self.html)
-        self.assertIn(".h-brand { height: 44.2px; align-self: flex-start; }", self.html)
-        self.assertIn(".h-bar .ab-tabs { align-self: flex-start; }", self.html)
-        self.assertNotIn("padding: 18px 24px 24px", self.html)   # fullscreen used to move the bar 6px right and 4px down
+    def test_load_shows_the_boards_own_header_instead_of_drawing_another(self):
+        hud = self.html[self.html.index('<div id="hud"'):]
+        hud = hud[:hud.index('<div class="h-grid">')]
+        self.assertNotIn("ab-tabs", hud)
+        self.assertNotIn("h-brand", hud)
+        self.assertIn("#hud { position: fixed; inset: 0; top: var(--hdr-b, 0px);", self.html)   # the overlay starts under the header
+        self.assertIn("document.querySelector('header').getBoundingClientRect().bottom", self.html)
+        self.assertIn("body.solo .wrap > :not(header)", self.html)   # the pop-out keeps the header too
+        self.assertIn("body:has(#hud.open) :is(#panel, #later, #chat) { z-index: 32; }", self.html)   # Later and Chat open over Load
+
+    def test_the_header_tab_lights_the_view_you_are_on(self):
+        self.assertIn("const on = hudIsOpen() ? 'hud-btn' : BYAGENT ? 'tab-agents' : 'tab-board';", self.html)
+        self.assertIn("goView(i)", self.html)
+
+    def test_the_later_and_todo_buttons_share_one_width(self):
+        self.assertIn("#later-btn { min-width: 96px; }", self.html)   # ORCH sits after it and must not move between Board and By agent
 
     def test_the_lit_tab_never_changes_weight(self):
         self.assertNotIn("font-weight:600", nav.CSS.split(".ab-tabs .tab.on")[1].split("}")[0])
         on = re.search(r"\.ab-tabs \.tab\.on \{([^}]*)\}", self.html).group(1)
         self.assertNotIn("font-weight", on)
-
-    def test_the_hud_tabs_keep_only_colours_and_the_shared_size(self):
-        hud = re.search(r"\.hud \.ab-tabs \.tab \{([^}]*)\}", self.html).group(1)
-        self.assertIn("font-size: 14px", hud)
-        self.assertNotIn("min-height", hud)
-        self.assertNotIn("padding", hud)
 
 
 class AgentsRouteTests(_Http):
