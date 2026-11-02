@@ -2543,7 +2543,7 @@ function hudRender(d) {
   renderTiles(d.totals, d.backup);
   if (SOLO) {
     const t0 = d.totals, mine = (d.actions || []).filter(a => a.who === 'Troy').length;
-    document.title = (mine ? `● ${mine} for you · ` : '') + (t0.abandoned ? `⚠ ${t0.abandoned} abandoned · ` : '') + (t0.waiting ? `⚠ ${t0.waiting} input · ` : '') + (t0.review ? `✓ ${t0.review} review · ` : '') + `HUD · ${t0.working} working`;
+    document.title = (mine ? `● ${mine} for you · ` : '') + (t0.abandoned ? `⚠ ${t0.abandoned} abandoned · ` : '') + (t0.waiting ? `⚠ ${t0.waiting} input · ` : '') + (t0.review ? `✓ ${t0.review} review · ` : '') + `Load · ${t0.working} working`;
   }
   renderGrid(d);
 }
