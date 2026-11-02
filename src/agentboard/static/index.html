@@ -1007,6 +1007,17 @@
   #keys .sheet { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 22px 26px; width: min(420px, calc(100vw - 32px)); box-shadow: 0 20px 60px rgba(0,0,0,.35); }
   #keys h2 { font-size: var(--fs-lg); margin-bottom: 14px; }
   #keys dl { grid-template-columns: 110px 1fr; gap: 8px 12px; }
+  /* Mix: the extra sound layers, the same sheet as the shortcuts. One row per layer: its switch, its level, a Hear button */
+  #mix { position: fixed; inset: 0; z-index: 40; display: none; place-items: center; background: rgba(0,0,0,.35); }
+  #mix.on { display: grid; }
+  #mix .sheet { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 22px 26px; width: min(480px, calc(100vw - 32px)); max-height: calc(100vh - 32px); overflow: auto; box-shadow: 0 20px 60px rgba(0,0,0,.35); }
+  #mix h2 { font-size: var(--fs-lg); margin-bottom: 4px; }
+  #mix .mix-note { color: var(--muted); font-size: var(--fs-sm); margin-bottom: 10px; }
+  #mix h3 { font-size: var(--fs-xs); letter-spacing: var(--tr-label); text-transform: uppercase; color: var(--muted); margin: 14px 0 4px; }
+  .mix-row { display: grid; grid-template-columns: auto 1fr 72px auto; align-items: center; gap: 2px 10px; padding: 7px 0; border-top: 1px solid var(--line); }
+  .mix-row label { font-weight: 600; cursor: pointer; }
+  .mix-row input[type=range] { width: 72px; margin: 0; }
+  .mix-row .mix-about { grid-column: 2 / -1; color: var(--muted); font-size: var(--fs-sm); }
   kbd { font: var(--fs-xs) ui-monospace, Menlo, monospace; background: var(--chip); border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; }
   #toast {
     position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 16px); opacity: 0; pointer-events: none;
@@ -1186,6 +1197,7 @@
       <span class="h-alerts" id="h-alerts"></span>
       <button class="h-btn" id="h-snd" aria-pressed="true" aria-label="Toggle sound cues (s)">SND ON</button>
       <button class="h-btn" id="h-amb" aria-pressed="true" aria-label="Toggle ambient bed">AMB ON</button>
+      <button class="h-btn" id="h-mix" aria-label="Mix: extra sound layers (m)">Mix</button>
       <button class="h-btn" id="h-pop" aria-label="Open Load in its own window">Pop out</button>
       <button class="h-btn" id="h-full" aria-label="Toggle fullscreen (f)">Fullscreen</button>
       <button class="h-btn" id="h-close" aria-label="Close Load (Esc)">Close</button>
@@ -1217,6 +1229,7 @@
     <dt><kbd>Enter</kbd></dt><dd>Open card</dd>
     <dt><kbd>e</kbd></dt><dd>Edit the open card's title</dd>
     <dt><kbd>f</kbd> <kbd>s</kbd></dt><dd>Load: fullscreen, sound</dd>
+    <dt><kbd>m</kbd></dt><dd>Mix: extra sound layers</dd>
     <dt><kbd>Alt</kbd> + arrows</dt><dd>Move the card</dd>
     <dt><kbd>Shift</kbd> + click</dt><dd>Select a range of cards</dd>
     <dt><kbd>⌘/Ctrl</kbd> + click</dt><dd>Add/remove one card from the selection</dd>
@@ -1224,6 +1237,13 @@
     <dt><kbd>Esc</kbd></dt><dd>Close / clear selection</dd>
     <dt><kbd>?</kbd></dt><dd>This list</dd>
   </dl>
+</div></div>
+
+<div id="mix" role="dialog" aria-label="Mix: extra sound layers"><div class="sheet">
+  <h2>Mix</h2>
+  <p class="mix-note">Extra layers on top of the usual sound, each off until you switch it on. Hear one first; the level is yours too.</p>
+  <h3>Ambience (plays with AMB in Load)</h3><div id="mix-amb"></div>
+  <h3>Effects (board and Load)</h3><div id="mix-fx"></div>
 </div></div>
 
 <aside id="later" aria-label="Later">
@@ -2322,10 +2342,10 @@ function impulse(ctx, secs, decay) {           // synthesized reverb tail
     for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, decay); }
   return buf;
 }
-function noiseBuf(ctx, secs) {                 // brown-ish noise for the rumble
+function noiseBuf(ctx, secs, white) {          // brown-ish noise for the rumble; white for the layers that want hiss
   const rate = ctx.sampleRate, len = rate * secs, buf = ctx.createBuffer(1, len, rate);
   const d = buf.getChannelData(0); let last = 0;
-  for (let i = 0; i < len; i++) { last = (last + .02 * (Math.random() * 2 - 1)) / 1.02; d[i] = last * 3.5; }
+  for (let i = 0; i < len; i++) { if (white) { d[i] = Math.random() * 2 - 1; continue; } last = (last + .02 * (Math.random() * 2 - 1)) / 1.02; d[i] = last * 3.5; }
   return buf;
 }
 function ac() {
@@ -2338,6 +2358,12 @@ function ac() {
     dry = audio.createGain(); dry.gain.value = .85; dry.connect(comp);
     const verb = audio.createConvolver(); verb.buffer = impulse(audio, 2.2, 3.2);
     send = audio.createGain(); send.gain.value = .5; send.connect(verb); verb.connect(comp);
+    // the Echo layer's bus: always wired, silent (gain 0) until that layer is switched on, so the default sound is untouched
+    const dl = audio.createDelay(1); dl.delayTime.value = .31;
+    const fb = audio.createGain(); fb.gain.value = .38; dl.connect(fb); fb.connect(dl);
+    const ep = audio.createStereoPanner ? audio.createStereoPanner() : audio.createGain(); if (ep.pan) ep.pan.value = .4;
+    echo = audio.createGain(); echo.gain.value = 0; echo.connect(dl); dl.connect(ep); ep.connect(comp);
+    LAYERS.forEach(L => L.apply && L.apply(layerOn(L.id) ? layerLvl(L.id) : 0));
   }
   if (audio.state === 'suspended') audio.resume().catch(() => {});
   return audio;
@@ -2355,6 +2381,7 @@ function tone(freq, t0, dur, { type = 'sine', vol = .05, glide, verb = .6, pan =
   if (pan && ctx.createStereoPanner) { const p = ctx.createStereoPanner(); p.pan.value = pan; g.connect(p); out = p; }
   out.connect(dry);
   const w = ctx.createGain(); w.gain.value = verb; out.connect(w); w.connect(send);
+  if (echo) out.connect(echo);
   o.connect(g); o.start(t0); o.stop(t0 + dur + .05);
 }
 const PITCHES = [880, 988, 1109, 1319, 1480];   // pentatonic-ish: each agent gets a voice
@@ -2392,10 +2419,11 @@ function startAmb(force) {
   const hg = ctx.createGain(); hg.gain.value = .008; h1.connect(hg); h2.connect(hg); hg.connect(g);
   [n, n2, lfo, h1, h2].forEach(x => x.start());
   ambNodes = { gain: g, stops: [n, n2, lfo, h1, h2] };
-  scheduleBlip();
+  scheduleBlip(); startLayers();
 }
 function stopAmb() {
   if (blipTimer) { clearTimeout(blipTimer); blipTimer = null; }
+  stopLayers();
   if (!ambNodes) return;
   const a = ambNodes; ambNodes = null;
   const t = audio.currentTime;
@@ -2441,15 +2469,167 @@ function hudSounds(d) {
   if (sndSeenAt === null) { sndSeenAt = d.events[0]?.at || ''; prevStates = agentStates(d); return; }
   const fresh = d.events.filter(e => e.at > sndSeenAt);
   if (d.events[0] && d.events[0].at > sndSeenAt) sndSeenAt = d.events[0].at;
+  let hit;   // the done and start cues carry the agent for the Signatures layer; the default cues ignore it
   if (fresh.some(e => /^Needs input:/.test(e.text))) cue.ask();
   else if (fresh.some(e => /^Ready for review:/.test(e.text))) cue.review();
-  else if (fresh.some(e => e.text === 'Marked done' || e.text === 'Moved to done')) cue.done();          // one cue per tick, best first
-  else if (fresh.some(e => /^(Started|Claimed) by /.test(e.text))) cue.start();
+  else if ((hit = fresh.find(e => e.text === 'Marked done' || e.text === 'Moved to done'))) cue.done(hit.agent);   // one cue per tick, best first
+  else if ((hit = fresh.find(e => /^(Started|Claimed) by /.test(e.text)))) cue.start(hit.agent);
   else if (fresh.length) cue.update(fresh[0].agent);
   const st = agentStates(d);
   if (Object.entries(st).some(([n, v]) => v === 'quiet' && prevStates[n] === 'working')) cue.quiet();
   prevStates = st;
 }
+
+// --- sound layers (Mix): more ambience and effects on top of the sound above, which stays the default and does not change.
+// Each layer has its own switch and level, saved in this browser, and is OFF until chosen. To add one later, add an entry
+// to LAYERS: kind 'amb' runs with the ambient bed in Load (start(ctx, out, lv) returns { stops, end? }); kind 'fx' answers
+// the cues (fx(kind, agent, lvl) after every cue), ticks once a second (tick(lvl)) or opens a bus (apply(lvl)). demo() is
+// what the Hear button plays; an 'amb' layer without one simply runs for six seconds.
+const MIX_KEY = 'agentboard-mix';
+let mix = {}, echo = null, demoNodes = null, demoTimer = null;
+const layerNodes = {};
+try { mix = JSON.parse(localStorage.getItem(MIX_KEY) || '{}') || {}; } catch (e) { mix = {}; }
+const layerOn = id => !!(mix[id] && mix[id].on);
+const layerLvl = id => { const v = mix[id] && mix[id].lvl; return v == null ? 1 : v; };   // 0..1, default full
+function saveMix() { try { localStorage.setItem(MIX_KEY, JSON.stringify(mix)); } catch (e) {} markMix(); }
+function markMix() { const n = LAYERS.filter(L => layerOn(L.id)).length; $('h-mix').textContent = n ? `Mix ${n}` : 'Mix'; }
+function noisePath(ctx, out, type, freq, q, vol, white) {   // looped noise through one filter, a gain and a panner into out
+  const n = ctx.createBufferSource(); n.buffer = noiseBuf(ctx, 4, white); n.loop = true;
+  const f = ctx.createBiquadFilter(); f.type = type; f.frequency.value = freq; f.Q.value = q;
+  const g = ctx.createGain(); g.gain.value = vol;
+  const p = ctx.createStereoPanner ? ctx.createStereoPanner() : ctx.createGain();
+  n.connect(f); f.connect(g); g.connect(p); p.connect(out); n.start();
+  return { n, f, g, p };
+}
+function slow(ctx, hz, amount, param) {         // an LFO on one parameter; returns the oscillator to stop
+  const o = ctx.createOscillator(); o.frequency.value = hz; const g = ctx.createGain(); g.gain.value = amount; o.connect(g); g.connect(param); o.start(); return o;
+}
+function thump(ctx, out, t0, vol) {             // a soft low kick: the Pulse layer's heartbeat
+  const o = ctx.createOscillator(), g = ctx.createGain();
+  o.frequency.setValueAtTime(90, t0); o.frequency.exponentialRampToValueAtTime(45, t0 + .18);
+  g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(.06 * vol, t0 + .015); g.gain.exponentialRampToValueAtTime(.0001, t0 + .28);
+  o.connect(g); g.connect(out); o.start(t0); o.stop(t0 + .3);
+}
+const hashOf = s => { let h = 0; for (const ch of String(s || '')) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return h; };
+const LAYERS = [
+  { id: 'rain', kind: 'amb', name: 'Rain', about: 'soft rain on the hull, the odd drop close by',
+    start(ctx, out, lv) {
+      const hiss = noisePath(ctx, out, 'bandpass', 4200, .5, .012, true), body = noisePath(ctx, out, 'lowpass', 900, .3, .01, true);
+      let timer = null;
+      const drop = () => { const t = sndNow(); if (t != null) tone(2400 + Math.random() * 2600, t, .04, { vol: (.005 + Math.random() * .006) * lv(), verb: .8, pan: Math.random() * 1.4 - .7 }); timer = setTimeout(drop, 120 + Math.random() * 700); };
+      drop();
+      return { stops: [hiss.n, body.n], end: () => clearTimeout(timer) };
+    } },
+  { id: 'wind', kind: 'amb', name: 'Wind', about: 'a slow gust that sweeps from side to side',
+    start(ctx, out) {
+      const w = noisePath(ctx, out, 'bandpass', 500, 1.2, .02, true);
+      const stops = [w.n, slow(ctx, .05, 350, w.f.frequency), slow(ctx, .03, .012, w.g.gain)];
+      if (w.p.pan) stops.push(slow(ctx, .04, .7, w.p.pan));
+      return { stops };
+    } },
+  { id: 'pad', kind: 'amb', name: 'Pad', about: 'a soft held chord, far away, drifting in and out',
+    start(ctx, out) {
+      const stops = [];
+      [220, 330, 440, 554.4].forEach((f, i) => {
+        const o = ctx.createOscillator(); o.frequency.value = f; const g = ctx.createGain(); g.gain.value = .006 / (i + 1);
+        o.connect(g); g.connect(out); const w = ctx.createGain(); w.gain.value = 1.2; g.connect(w); w.connect(send); o.start();
+        stops.push(o, slow(ctx, .08 + i * .03, f * .003, o.frequency), slow(ctx, .02 + i * .011, .003 / (i + 1), g.gain));
+      });
+      return { stops };
+    } },
+  { id: 'pulse', kind: 'amb', name: 'Pulse', about: 'a low heartbeat that quickens as more agents work; silent when none do',
+    start(ctx, out, lv) {
+      let timer = null;
+      const beat = () => {
+        const t = sndNow(), n = lastWorking.length;
+        if (t != null && n) { thump(ctx, out, t, .9); thump(ctx, out, t + .16, .6); }
+        timer = setTimeout(beat, n ? 2400 / Math.min(n, 5) + 600 : 2000);   // one agent: every 3 s; five: every 1.1 s
+      };
+      beat();
+      return { stops: [], end: () => clearTimeout(timer) };
+    },
+    demo(ctx) { const t = ctx.currentTime + .05, v = layerLvl('pulse'); [0, .16, 1.4, 1.56, 2.8, 2.96].forEach((d, i) => thump(ctx, dry, t + d, (i % 2 ? .6 : .9) * v)); } },
+  { id: 'echo', kind: 'fx', name: 'Echo', about: 'every cue answers itself, softer and off to one side',
+    apply(lvl) { if (echo) echo.gain.value = .35 * lvl; },
+    demo() { cue.review(); } },
+  { id: 'sig', kind: 'fx', name: 'Signatures', about: 'each agent has its own three-note call, heard when it starts or finishes',
+    fx(kind, agent, lvl) {
+      if (!agent || (kind !== 'start' && kind !== 'done')) return;
+      const t = sndNow(); if (t == null) return;
+      const h = hashOf(agent), notes = [agentPitch(agent), PITCHES[(h >>> 3) % PITCHES.length], PITCHES[(h >>> 6) % PITCHES.length]];   // unsigned shifts: a signed one can go negative and pick no note
+      notes.forEach((f, i) => tone(f, t + .45 + i * .11, .14, { type: 'triangle', vol: .02 * lvl, verb: 1, pan: (h % 7 - 3) / 6 }));
+    },
+    demo() { this.fx('start', 'AGENT-2', layerLvl('sig')); } },
+  { id: 'clear', kind: 'fx', name: 'All clear', about: 'a settling chord when the last card waiting on you is answered',
+    fx(kind, agent, lvl) {
+      if (kind !== 'clear') return;
+      const t = sndNow(); if (t == null) return;
+      [523.3, 659.3, 784, 1046.5].forEach((f, i) => tone(f, t + i * .04, .9 - i * .1, { vol: .022 * lvl, verb: 1.4 }));
+    },
+    demo() { this.fx('clear', null, layerLvl('clear')); } },
+  { id: 'hour', kind: 'fx', name: 'Hourly chime', about: 'two soft notes on the hour',
+    tick(lvl) { const d = new Date(); if (d.getMinutes() || d.getSeconds() > 2 || this.last === d.getHours()) return; this.last = d.getHours(); this.ring(lvl); },
+    ring(lvl) { const t = sndNow(); if (t == null) return; tone(1319, t, .5, { vol: .03 * lvl, verb: 1.3 }); tone(988, t + .5, .9, { vol: .028 * lvl, verb: 1.5 }); },
+    demo() { this.ring(layerLvl('hour')); } },
+];
+function fx(kind, agent) { if (!sndOn) return; LAYERS.forEach(L => { if (L.fx && layerOn(L.id)) L.fx(kind, agent, layerLvl(L.id)); }); }
+Object.keys(cue).forEach(k => { const f = cue[k]; cue[k] = agent => { f(agent); fx(k, agent); }; });   // the default cue first, then any layer
+setInterval(() => { if (sndOn) LAYERS.forEach(L => { if (L.tick && layerOn(L.id)) L.tick(layerLvl(L.id)); }); }, 1000);
+function fadeOut(n) {                           // ramp a layer's gain down, then stop its sources
+  if (n.end) n.end();
+  const t = audio.currentTime; n.g.gain.cancelScheduledValues(t); n.g.gain.setValueAtTime(n.g.gain.value, t); n.g.gain.linearRampToValueAtTime(0, t + .8);
+  setTimeout(() => n.stops.forEach(x => { try { x.stop(); } catch (e) {} }), 900);
+}
+function startLayer(L) {
+  if (layerNodes[L.id] || L.kind !== 'amb' || !ambNodes) return;
+  const ctx = ac(), g = ctx.createGain();
+  g.gain.setValueAtTime(0, ctx.currentTime); g.gain.linearRampToValueAtTime(layerLvl(L.id), ctx.currentTime + 2); g.connect(ambNodes.gain);
+  layerNodes[L.id] = { g, ...L.start(ctx, g, () => layerLvl(L.id)) };
+}
+function stopLayer(id) { const n = layerNodes[id]; if (!n) return; delete layerNodes[id]; fadeOut(n); }
+function startLayers() { LAYERS.forEach(L => { if (layerOn(L.id)) startLayer(L); }); }
+function stopLayers() { Object.keys(layerNodes).forEach(stopLayer); }
+function applyLayer(L) {                        // a switch or level moved: follow it live
+  if (L.apply) L.apply(layerOn(L.id) ? layerLvl(L.id) : 0);
+  if (L.kind !== 'amb') return;
+  if (!layerOn(L.id)) { stopLayer(L.id); return; }
+  const n = layerNodes[L.id];
+  if (n) n.g.gain.setTargetAtTime(layerLvl(L.id), audio.currentTime, .1); else startLayer(L);
+}
+function stopDemo() { if (demoTimer) { clearTimeout(demoTimer); demoTimer = null; } if (demoNodes) { fadeOut(demoNodes); demoNodes = null; } }
+function hearLayer(L) {                         // the Hear button: the layer alone, for a few seconds, whether or not it is on
+  const ctx = ac(); if (!ctx) return;
+  stopDemo();
+  if (L.demo) { L.demo(ctx); return; }
+  const g = ctx.createGain(); g.gain.setValueAtTime(0, ctx.currentTime); g.gain.linearRampToValueAtTime(layerLvl(L.id), ctx.currentTime + 1); g.connect(dry);
+  demoNodes = { g, ...L.start(ctx, g, () => layerLvl(L.id)) };
+  demoTimer = setTimeout(stopDemo, 6000);
+}
+function renderMix() {
+  const row = L => `<div class="mix-row"><input type="checkbox" id="mix-${L.id}" data-mix="${L.id}"${layerOn(L.id) ? ' checked' : ''}><label for="mix-${L.id}">${L.name}</label>`
+    + `<input type="range" min="0" max="100" value="${Math.round(layerLvl(L.id) * 100)}" data-lvl="${L.id}" aria-label="${L.name} level">`
+    + `<button class="btn" data-hear="${L.id}">Hear it</button><span class="mix-about">${L.about}</span></div>`;
+  $('mix-amb').innerHTML = LAYERS.filter(L => L.kind === 'amb').map(row).join('');
+  $('mix-fx').innerHTML = LAYERS.filter(L => L.kind === 'fx').map(row).join('');
+}
+const mixIsOpen = () => $('mix').classList.contains('on');
+function toggleMix(on) {
+  const open = on ?? !mixIsOpen();
+  if (open) renderMix(); else stopDemo();
+  $('mix').classList.toggle('on', open);
+  if (open) $('mix').querySelector('input').focus(); else $('h-mix').focus();
+}
+$('mix').addEventListener('click', e => {
+  if (e.target.id === 'mix') { toggleMix(false); return; }
+  const h = e.target.closest('[data-hear]'); if (h) hearLayer(LAYERS.find(L => L.id === h.dataset.hear));
+});
+$('mix').addEventListener('input', e => {
+  const id = e.target.dataset.mix || e.target.dataset.lvl; if (!id) return;
+  mix[id] = mix[id] || {};
+  if (e.target.dataset.mix) mix[id].on = e.target.checked; else mix[id].lvl = e.target.value / 100;
+  saveMix(); applyLayer(LAYERS.find(L => L.id === id));
+});
+markMix();
 
 // --- HUD ---
 let hudTimer = null, hudKey = '';
@@ -2507,6 +2687,7 @@ $('h-close').onclick = closeHud;
 $('h-full').onclick = toggleHudFull;
 $('h-snd').onclick = () => setSnd(!sndOn);
 $('h-amb').onclick = () => setAmb(!ambOn);
+$('h-mix').onclick = () => toggleMix();
 $('snd2').onclick = () => { setSnd(!sndOn, true); if (sndOn) cue.added(); };
 $('h-pop').onclick = () => { const w = window.open(BASE + '/hud', 'agentboard-hud', 'width=1320,height=860'); if (w) closeHud(); };
 $('hud').addEventListener('click', e => { if (e.target.id === 'hud' && !$('hud').classList.contains('full')) closeHud(); });
@@ -2857,6 +3038,7 @@ document.addEventListener('keydown', e => {
   const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName);
   if (e.key === 'Escape') {
     if ($('keys').classList.contains('on')) { $('keys').classList.remove('on'); return; }
+    if (mixIsOpen()) { toggleMix(false); return; }
     if ($('later').classList.contains('open')) { closeLater(); return; }   // the drawers open over Load, so they close first
     if ($('chat').classList.contains('open')) { closeChat(); return; }
     if (hudIsOpen()) { closeHud(); return; }
@@ -2866,6 +3048,7 @@ document.addEventListener('keydown', e => {
   if (typing) return;
   if (e.altKey) return;
   if ((e.key === '[' || e.key === ']') && !SOLO) { e.preventDefault(); goView((curView() + (e.key === ']' ? 1 : VIEWS - 1)) % VIEWS); return; }   // SOLO: the Load window has no board to flip to
+  if (e.key === 'm') { toggleMix(); return; }
   if (hudIsOpen()) { if (e.key === 'f') toggleHudFull(); else if (e.key === 's') $('h-snd').click(); else if (e.key === 'h') closeHud(); return; }
   if (e.key === '?') { $('keys').classList.toggle('on'); return; }
   if (e.key === 'n') { e.preventDefault(); toggleAdd(true); return; }
@@ -2955,13 +3138,15 @@ function checkAsks() {
     if ((snap[id] === 'ask' || snap[id] === 'rev') && was(id) !== snap[id] && openId !== id && !pendingAutoOpen.includes(id))
       pendingAutoOpen.push(id);
   });
-  if (hudIsOpen()) return;
   const anyAsk = ids.some(id => snap[id] === 'ask');
+  if (!anyAsk && Object.values(prev).some(v => v === 'ask')) fx('clear');   // the All clear layer (off by default); Load has no cue for it, so it plays under Load too
+  if (hudIsOpen()) return;
+  const who = id => (tasks.find(t => t.id === id) || {}).agent; let hit;   // the done and start cues carry the agent for the Signatures layer
   if (ids.some(id => snap[id] === 'ask' && was(id) !== 'ask')) { cue.ask(); askPingAt = Date.now(); }
   else if (anyAsk && Date.now() - askPingAt > 90000) { cue.ask(); askPingAt = Date.now(); }
   else if (ids.some(id => snap[id] === 'rev' && was(id) !== 'rev')) cue.review();
-  else if (ids.some(id => snap[id] === 'done' && was(id) && was(id) !== 'done')) cue.done();
-  else if (ids.some(id => snap[id] === 'doing' && !['doing', 'ask', 'rev'].includes(was(id)))) cue.start();
+  else if ((hit = ids.find(id => snap[id] === 'done' && was(id) && was(id) !== 'done'))) cue.done(who(hit));
+  else if ((hit = ids.find(id => snap[id] === 'doing' && !['doing', 'ask', 'rev'].includes(was(id))))) cue.start(who(hit));
   else if (ids.some(id => !was(id))) cue.added();
 }
 
