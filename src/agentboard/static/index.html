@@ -1063,8 +1063,8 @@
   .qr .replied { font-size: var(--fs-xs); color: var(--muted); } .qr .replied b { color: var(--ok); }
   .card .qr { margin: 0 0 8px; } .lat .qr { margin: 0 0 12px; }
   /* stacked on a phone: the page scrolls as one, columns size to their cards */
-  /* ----- By agent (/agents): the board's cards in swimlane columns, one per agent: every agent with a card in Doing, then one
-     column for the idle agents. No Queue column (unassigned Todo stays on the Board), so the agents get the width. An agent's
+  /* ----- By agent (/agents): the board's cards in swimlane columns, one per agent with a card in Doing.
+     No Queue and no Idle column (unassigned Todo stays on the Board), so the agents get the width. An agent's
      assigned Todo cards wait at the foot of its column as "next up". Todo and Done stay on the Board. ----- */
   body.byagent .board { grid-template-columns: var(--tracks); overflow-x: auto; scrollbar-gutter: stable; padding-bottom: 4px; }
   body.byagent .col { min-width: 220px; }
@@ -1073,13 +1073,6 @@
   .col.acol h2 .av { width: 20px; height: 20px; font-size: var(--fs-xs); }
   .col.acol h2 em { font-style: normal; font-weight: 600; font-size: var(--fs-xs); letter-spacing: var(--tr-tight); text-transform: uppercase; color: var(--st, var(--muted)); margin-left: auto; }
   .col.acol h2 em.ask { --st: var(--err); } .col.acol h2 em.review { --st: var(--ok); } .col.acol h2 em.quiet, .col.acol h2 em.abandoned { --st: var(--warn); } .col.acol h2 em.working { --st: var(--run); }
-  .col.idle-col { opacity: .7; border-top-style: dashed; }
-  .col.idle-col .cards { gap: 14px; }
-  .ia { display: flex; flex-direction: column; gap: 6px; }
-  .ia .agent-h { display: flex; align-items: center; gap: 7px; font-size: var(--fs-md); font-weight: 600; padding: 0 2px; }
-  .ia .agent-h em { font-style: normal; font-weight: 600; font-size: var(--fs-xs); letter-spacing: var(--tr-tight); text-transform: uppercase; color: var(--muted); margin-left: auto; }
-  .ia .last { font-size: var(--fs-sm); color: var(--muted); padding: 0 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .ia .last .check { vertical-align: -2px; margin-right: 4px; }
   .nextup { position: relative; opacity: .6; }
   .nextup::before { content: 'next up'; position: absolute; top: -7px; left: 12px; z-index: 1; font-size: 9px; font-weight: 700; letter-spacing: var(--tr-tight); text-transform: uppercase; color: var(--muted); background: var(--bg); padding: 0 5px; border-radius: 4px; }
   .nextup .card { border-style: dashed; }
@@ -1451,24 +1444,17 @@ function toggleSubs(btn) {
 }
 const FLAG_LABEL = { needs_input: 'needs input', review: 'to review' };
 
-// --- By agent: swimlane columns. One column per agent with a card in Doing, one for the idle agents; no Queue, the agents get the width.
-// The roster comes from /api/hud (every agent with a card plus [orch] agents), so an idle agent shows even with no card.
-let roster = [], rosterAt = 0;
-async function loadRoster() {
-  if (!BYAGENT || Date.now() - rosterAt < 5000) return;
-  rosterAt = Date.now();
-  try { const r = await fetch('/api/hud', { cache: 'no-store' }); if (r.ok) { roster = ((await r.json()).agents || []).map(a => ({ name: a.name, state: a.state, color: a.color })); render(); } } catch (e) {}   // the HUD's agents: every one with a card plus the [orch] roster
-}
+// --- By agent: swimlane columns, one per agent with a card in Doing. No Queue and no Idle column, so the agents get the width.
 const STATE_WORD2 = { idle: 'idle', working: 'working', quiet: 'quiet', waiting: 'ask', review: 'review', abandoned: 'quiet' };
 function byAgentHtml(by, filtered) {
   const limit = cfg.stale_minutes || DEFAULT_STALE_MIN;
   const doingBy = new Map(), nextBy = new Map();
   by.doing.forEach(t => { const k = t.agent || ''; if (!doingBy.has(k)) doingBy.set(k, []); doingBy.get(k).push(t); });
   by.todo.forEach(t => { if (t.agent) { if (!nextBy.has(t.agent)) nextBy.set(t.agent, []); nextBy.get(t.agent).push(t); } });
-  const names = new Set([...doingBy.keys()].filter(Boolean)); roster.forEach(a => names.add(a.name));
+  const names = new Set([...doingBy.keys()].filter(Boolean));
   const sorted = [...names].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base', numeric: true }));
-  const active = sorted.filter(n => doingBy.has(n)), idle = sorted.filter(n => !doingBy.has(n));
-  const colorFor = n => { const t = (doingBy.get(n) || nextBy.get(n) || [])[0]; return t ? colorOf(t) : hudColor((roster.find(a => a.name === n) || {}).color || 'var(--neutral)'); };
+  const active = sorted.filter(n => doingBy.has(n));
+  const colorFor = n => { const t = (doingBy.get(n) || nextBy.get(n) || [])[0]; return t ? colorOf(t) : 'var(--neutral)'; };
   const stateFor = n => {
     const cards = doingBy.get(n) || [];
     if (cards.some(t => t.needs_input)) return 'ask';
@@ -1477,21 +1463,14 @@ function byAgentHtml(by, filtered) {
     if (cards.every(t => ago(t.updated).min >= STALE_MIN)) return 'quiet';
     return 'working';
   };
-  const lastDone = n => by.done.find(t => t.agent === n);
   const agentCol = n => {
     const st = stateFor(n), cards = doingBy.get(n) || [], next = nextBy.get(n) || [];
     return `<section class="col acol" data-status="agent:${esc(n)}" style="--c:${colorFor(n)}"><h2><span class="av" style="--c:${colorFor(n)}" aria-hidden="true">${esc(nodeGlyph(n))}</span><span class="nm" title="${esc(n)}">${esc(n)}</span><span class="cnt">${cards.length}</span><em class="${st}">${esc(st)}</em></h2>`
       + `<div class="cards">${cards.map(card).join('')}${next.map(t => `<div class="nextup">${card(t)}</div>`).join('')}</div></section>`;
   };
-  const idleCol = idle.length ? `<section class="col acol idle-col" data-status="agent:idle" style="--c:var(--neutral)"><h2>Idle <span class="cnt">${idle.length}</span></h2><div class="cards">${idle.map(n => {
-    const next = nextBy.get(n) || [], last = lastDone(n), c = colorFor(n);
-    return `<div class="ia" style="--c:${c}"><div class="agent-h"><span class="av ring" style="--c:${c}" aria-hidden="true">${esc(nodeGlyph(n))}</span>${esc(n)}<em>idle</em></div>`
-      + (next.length ? next.map(t => `<div class="nextup">${card(t)}</div>`).join('') : '')
-      + (last ? `<div class="last" title="${esc(last.title)}"><svg class="check" width="11" height="11" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>${esc(last.title)} · ${ago(last.updated).text}</div>` : (next.length ? '' : `<div class="last">no card yet</div>`)) + `</div>`;
-  }).join('')}</div></section>` : '';
-  const n = active.length + (idleCol ? 1 : 0);
+  const n = active.length;
   $('board').style.setProperty('--tracks', `repeat(${Math.max(1, n)}, minmax(220px, 1fr))`);
-  return n ? active.map(agentCol).join('') + idleCol : `<div class="empty">${filtered ? 'No matches' : 'No agents yet'}</div>`;
+  return n ? active.map(agentCol).join('') : `<div class="empty">${filtered ? 'No matches' : 'No agent is working'}</div>`;
 }
 
 // --- quick replies: the options an ask names become one-tap chips ---
@@ -2496,7 +2475,6 @@ if (BYAGENT) {
   $('tab-board').classList.remove('on'); $('tab-board').removeAttribute('aria-current');
   $('tab-agents').classList.add('on'); $('tab-agents').setAttribute('aria-current', 'page');
   document.title = APP + ' · by agent';
-  setInterval(loadRoster, 1000); loadRoster();
 }
 ['tab-reports', 'h-tab-reports'].forEach(id => { const a = $(id); if (a) a.href = BASE + '/reports'; });
 $('h-close').onclick = closeHud;
