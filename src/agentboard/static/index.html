@@ -565,6 +565,7 @@
   .h-fold .h-name em { color: var(--hdim); }
   .h-fold .chev { flex: none; color: var(--hdim); transition: transform .18s ease; margin-left: 2px; }
   .h-fold[aria-expanded="true"] .chev { transform: rotate(90deg); }
+  .h-fold[aria-expanded="true"] .h-fold-list { display: none; }   /* open: the rows below say it all; the chips are the closed summary */
   .h-fold-list { display: flex; flex-wrap: wrap; gap: 5px 14px; margin-top: 5px; }
   .h-fchip { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-xs); color: var(--hdim); letter-spacing: var(--tr-tight); white-space: nowrap; }
   .h-fchip i { width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center; font-style: normal; font-size: 10px; color: var(--htext);
@@ -2603,7 +2604,7 @@ function loadTrack(d, a, win, start, end) {   // the agent's last hour as segmen
 }
 
 $('h-tele')?.addEventListener('click', e => {
-  if (e.target.closest('#h-fold')) { idleOpen = !idleOpen; teleKey = ''; if (lastHud) renderGrid(lastHud); $('h-fold')?.focus(); return; }
+  if (e.target.closest('#h-fold')) { idleOpen = !idleOpen; try { localStorage.setItem('agentboard-idle', idleOpen ? 'open' : 'closed'); } catch (e) {} teleKey = ''; if (lastHud) renderGrid(lastHud); $('h-fold')?.focus(); return; }
   const r = e.target.closest('.h-row.attn[data-id]'); if (!r) return;
   const id = r.dataset.id;
   if (SOLO) { window.open(BASE + '/#' + encodeURIComponent(id), 'agentboard-board'); return; }
@@ -2646,7 +2647,8 @@ function progChart(a) {
   return `<svg class="h-chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true"><path class="ar" d="${area}"/><g class="ev">${ticks}</g>`
     + `<path class="ln" d="${line}" vector-effect="non-scaling-stroke"/><path class="dot" d="M${W} ${yEnd} l0 .01" vector-effect="non-scaling-stroke"/></svg>`;
 }
-let idleOpen = false, lastHud = null;   // the idle fold: closed until clicked; remembered for the session
+let idleOpen = true, lastHud = null;   // the idle fold: open by default (Troy, Nov 2), so the idle agents show without a click; collapsing it is remembered in this browser
+try { idleOpen = localStorage.getItem('agentboard-idle') !== 'closed'; } catch (e) {}
 function renderGrid(d) {
   const box = $('h-tele'); if (!box) return;
   const all = d.agents, agents = teleOrder(all);

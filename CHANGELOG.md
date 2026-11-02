@@ -3,6 +3,7 @@
 ## Unreleased
 
 ### Load
+- The idle agents on Load are **open by default** (Troy, Nov 2), so the default view shows them without a click. The IDLE row still folds them away, and a collapse is remembered in that browser.
 - The **HUD** tab is now **Load** (its address is still `/hud`, key `h`). Load no longer draws a top bar of its own: the board's header stays on screen and Load opens right under it, so Board, By agent and Load share one nav, item for item, at every width (before, Load's copy sat 12px further in between 600 and 900px, up to 24px lower below 980px, and had different items). Load's own controls (LIVE, alerts, sound, ambient, pop out, close) sit in a thin bar under the nav. The pop-out window keeps the header too. Later and Chat open over Load, Esc closes them first, and the Later and Todo buttons share one width so ORCH no longer moves between Board and By agent.
 
 ### By agent
