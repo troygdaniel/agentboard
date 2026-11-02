@@ -1212,6 +1212,7 @@
     <dt><kbd>c</kbd></dt><dd>Chat</dd>
     <dt><kbd>h</kbd></dt><dd>HUD</dd>
     <dt><kbd>a</kbd></dt><dd>By agent / back to the board</dd>
+    <dt><kbd>[</kbd> <kbd>]</kbd></dt><dd>Previous / next view: Board, By agent, Load</dd>
     <dt><kbd>/</kbd></dt><dd>Filter</dd>
     <dt><kbd>↑ ↓ ← →</kbd></dt><dd>Move between cards</dd>
     <dt><kbd>j</kbd> <kbd>k</kbd></dt><dd>Next / previous card</dd>
@@ -2823,6 +2824,16 @@ function extendSelectionVertical(dir) {
   renderSelection();
 }
 
+// [ and ] flip between the three views in a ring: Board, By agent, Load (the HUD). Board and By agent are pages; Load is the overlay on whichever page is open.
+const VIEWS = 3;
+const curView = () => hudIsOpen() ? 2 : BYAGENT ? 1 : 0;
+function goView(i) {
+  const here = hudIsOpen();
+  if (i === 2) { if (!here) $('hud-btn').click(); return; }
+  const agents = i === 1;
+  if (agents !== BYAGENT) { location.href = BASE + (agents ? '/agents' : '/'); return; }   // a page change drops the overlay too
+  if (here) closeHud();
+}
 document.addEventListener('keydown', e => {
   if (e.metaKey || e.ctrlKey) return;
   const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName);
@@ -2836,6 +2847,7 @@ document.addEventListener('keydown', e => {
   }
   if (typing) return;
   if (e.altKey) return;
+  if ((e.key === '[' || e.key === ']') && !SOLO) { e.preventDefault(); goView((curView() + (e.key === ']' ? 1 : VIEWS - 1)) % VIEWS); return; }   // SOLO: the Load window has no board to flip to
   if (hudIsOpen()) { if (e.key === 'f') toggleHudFull(); else if (e.key === 's') $('h-snd').click(); else if (e.key === 'h') closeHud(); return; }
   if (e.key === '?') { $('keys').classList.toggle('on'); return; }
   if (e.key === 'n') { e.preventDefault(); toggleAdd(true); return; }
