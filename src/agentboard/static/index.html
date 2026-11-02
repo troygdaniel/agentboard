@@ -912,6 +912,8 @@
   .lat-h b { color: var(--text); font-size: var(--fs-base); font-weight: 600; letter-spacing: .02em; }
   .lat.ask { border-color: var(--err); }   /* the card's Needs your input colour, so the panel's ask is as easy to find */
   .lat.ask .lat-h b { color: var(--err); }
+  .lat.rev { border-color: var(--ok); }   /* and the card's Ready for review colour, same idea */
+  .lat.rev .lat-h b { color: var(--ok); }
   .arw { margin: 0 0 12px; border-radius: 8px; padding: 10px 14px; display: flex; gap: 12px; align-items: baseline; font-weight: 500;
     background: color-mix(in srgb, var(--tone) 12%, var(--surface)); border-left: 4px solid var(--tone); }
   .arw .who { flex: none; font-size: var(--fs-sm); text-transform: uppercase; letter-spacing: var(--tr-label); color: var(--tone); font-weight: 700; }
@@ -2054,7 +2056,7 @@ function panelHtml(t) {
     : t.status === 'done' ? `<b>Result</b><span>${esc(t.agent || '')} ${since}</span>` : `<b>Latest</b><span>${since}</span>`;
   const btns = (t.needs_input ? quickHtml(t, false) : '') + (t.needs_input || rv ? `<div class="lat-btns">${rv ? '<button class="btn primary go" id="p-lat-done">Mark done</button>' : ''}<button class="btn" id="p-reply-toggle">${replyOpen ? 'Cancel reply' : 'Reply'}</button></div>
     <div class="reply" ${replyOpen ? '' : 'hidden'}><textarea id="p-reply-text" placeholder="Reply as Troy — saved to this card's log (⌘↵ to send)">${esc(replyDraft)}</textarea><div class="lat-btns" style="margin:0"><button class="btn primary" id="p-reply-send">Send reply</button></div></div>` : '');
-  const latest = sawText || bodyHtml ? `<div class="lat${t.needs_input ? ' ask' : ''}">${'<div class="lat-h">' + head + '</div>'}${parsed.has ? arwHtml(parsed) : `<div class="fmt">${fmt(sawText)}</div>`}${bodyHtml}${btns}</div>` : '';
+  const latest = sawText || bodyHtml ? `<div class="lat${t.needs_input ? ' ask' : rv ? ' rev' : ''}">${'<div class="lat-h">' + head + '</div>'}${parsed.has ? arwHtml(parsed) : `<div class="fmt">${fmt(sawText)}</div>`}${bodyHtml}${btns}</div>` : '';
   const askC = latest, revC = '', result = '';
   const projectSel = `<div class="p-sec"><h3>Project</h3><select class="btn" id="p-project" style="width:100%" aria-label="Project">
     <option value="">No project</option>
