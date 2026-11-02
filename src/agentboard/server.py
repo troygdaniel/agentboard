@@ -195,8 +195,10 @@ def make_handler(default_store, port):
                 self._send(200, data)
             elif url.path == "/api/config":
                 conf = _config(self.store)
+                colors = conf.get("agent_colors")   # [agent_colors] AGENT-1 = "#2563eb": overrides the palette slot a name gets
                 self._send(200, {"dispatch": bool(conf.get("ui", {}).get("dispatch", True)),
-                                  "stale_minutes": hud.stale_minutes(conf)})
+                                  "stale_minutes": hud.stale_minutes(conf),
+                                  "agent_colors": {str(k): v for k, v in colors.items() if isinstance(v, str)} if isinstance(colors, dict) else {}})
             elif url.path == "/api/task":
                 try:
                     t = dict(Store.get(self.store.load(), (q.get("id") or [""])[0]))

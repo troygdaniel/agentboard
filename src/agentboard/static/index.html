@@ -20,6 +20,9 @@
     --panel: linear-gradient(180deg, rgba(255,255,255,.72), rgba(255,255,255,.4));
     --panel-hi: rgba(255,255,255,.95); --panel-sh: 0 18px 40px -28px rgba(28,25,23,.35);
     --card-hi: rgba(255,255,255,.8); --well: rgba(28,25,23,.1);
+    /* Agent palette (Troy picked scheme B, 2026-11-01): one hue per agent name, set once and inherited by every card.
+       Kept out of the status hues (orange running, green review, red ask); agentColor() below picks the slot. */
+    --a1: #2563eb; --a2: #7c3aed; --a3: #db2777; --a4: #0e7490; --a5: #475569; --a6: #a21caf; --on-agent: #ffffff;
     /* HUD palette, shared: the dark board theme maps its state colors onto these */
     --hcy: #5ee7ff; --hok: #5dffb0; --hwarn: #ffc857; --hbad: #ff6b6b;
     /* Type scale + tracking (same system as the HUD, which overrides the sizes for its monospace
@@ -41,6 +44,7 @@
       --panel: linear-gradient(180deg, rgba(14,25,38,.74), rgba(8,15,24,.66));
       --panel-hi: rgba(255,255,255,.045); --panel-sh: 0 18px 40px -26px rgba(0,0,0,.9);
       --card-hi: rgba(255,255,255,.05); --well: rgba(0,0,0,.45);
+      --a1: #60a5fa; --a2: #c084fc; --a3: #f472b6; --a4: #22d3ee; --a5: #94a3b8; --a6: #e879f9; --on-agent: #0b1220;
     }
   }
   :root[data-theme="dark"] {
@@ -56,6 +60,7 @@
       --panel: linear-gradient(180deg, rgba(14,25,38,.74), rgba(8,15,24,.66));
       --panel-hi: rgba(255,255,255,.045); --panel-sh: 0 18px 40px -26px rgba(0,0,0,.9);
       --card-hi: rgba(255,255,255,.05); --well: rgba(0,0,0,.45);
+      --a1: #60a5fa; --a2: #c084fc; --a3: #f472b6; --a4: #22d3ee; --a5: #94a3b8; --a6: #e879f9; --on-agent: #0b1220;
   }
   :root { color-scheme: light dark; }
   :root[data-theme="light"] { color-scheme: light; }
@@ -252,6 +257,13 @@
   @keyframes avbr { 50% { box-shadow: inset 0 0 0 1.5px var(--c, var(--neutral)), 0 0 10px 1px color-mix(in srgb, var(--c, var(--neutral)) 55%, transparent); } }
   .who:hover .av { transform: scale(1.08); }
   .av { transition: transform .15s ease; }
+  /* Scheme B on the card's top row: the name sits in a pill tinted with the agent's colour, the avatar is a solid disc.
+     margin keeps the disc where the ring avatar was (left edge) and the row at its old height */
+  .top .who { margin: -2px 0 -2px -2px; padding: 2px 10px 2px 2px; border-radius: 999px;
+    background: color-mix(in srgb, var(--c, var(--neutral)) 17%, var(--chip)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c, var(--neutral)) 55%, var(--line)); }
+  .top .who .av { background: var(--c, var(--neutral)); box-shadow: none; color: var(--on-agent); }
+  .top .who .av.live { animation: avglow 3s ease-in-out infinite; }
+  @keyframes avglow { 50% { box-shadow: 0 0 10px 1px color-mix(in srgb, var(--c, var(--neutral)) 55%, transparent); } }
   /* Doing header: one quiet dot per agent working right now */
   .pres { display: inline-flex; gap: 4px; margin-left: 2px; }
   .pres i { width: 7px; height: 7px; border-radius: 50%; background: var(--c); animation: avbr2 3s ease-in-out infinite; }
@@ -1222,7 +1234,18 @@ let selected = new Set(), selectAnchor = null;   // multi-select: shift-click/sh
 
 const $ = id => document.getElementById(id);
 const esc = s => { const d = document.createElement('div'); d.textContent = s ?? ''; return d.innerHTML; };
-const colorOf = t => /^[#\w(),.% -]{1,32}$/.test(t.color || '') ? t.color : 'var(--neutral)';
+// One colour per agent NAME, not per card (Troy picked scheme B, 2026-11-01): AGENT-1 to AGENT-5 were all "green" because each card carried
+// its own colour. [agent_colors] in config.toml overrides a name; otherwise a palette slot (--a1..--a6, clear of the status hues).
+const COLOR_OK = /^[#\w(),.% -]{1,32}$/;
+const AGENT_SLOT = { GENERAL: 5, ORCH: 6 };
+const agentColor = (name, fallback) => {
+  const own = (cfg.agent_colors || {})[name];
+  if (COLOR_OK.test(own || '')) return own;
+  if (!name) return fallback || 'var(--neutral)';
+  const m = /^AGENT-(\d+)$/.exec(name);
+  return `var(--a${AGENT_SLOT[name] || (m ? (m[1] - 1) % 4 + 1 : 1 + [...name].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) >>> 0, 7) % 6)})`;
+};
+const colorOf = t => agentColor(t.agent, COLOR_OK.test(t.color || '') ? t.color : '');
 const projectOf = id => projects.find(p => p.id === id) || null;
 const projColor = p => /^[#\w(),.% -]{1,32}$/.test(p?.color || '') ? p.color : 'var(--neutral)';
 function renderProjectFilter() {
@@ -1679,7 +1702,7 @@ function chatBubble(m) {
         : `<div class="decided">${esc(a.by || 'Troy')} · ${ago(a.decided_at).text}</div>`) + '</div>';
   }
   const fresh = !chatShown.has(m.seq) && !chatFirstLoad; chatShown.add(m.seq);
-  return `<div class="cmsg ${m.kind} ${fresh ? 'enter' : ''}" style="--c:${hudColor(m.color || '')}"><div class="cmsg-head"><b>${esc(m.sender)}</b>${to}${topic}<span>${ago(m.at).text}</span></div>`
+  return `<div class="cmsg ${m.kind} ${fresh ? 'enter' : ''}" style="--c:${hudColor(m.kind === 'agent' ? agentColor(m.sender, m.color) : m.color || '')}"><div class="cmsg-head"><b>${esc(m.sender)}</b>${to}${topic}<span>${ago(m.at).text}</span></div>`
     + `<div class="cmsg-txt ${long && !open ? 'clamp' : ''} ${spoken ? 'spoken' : ''}">${esc(body)}</div>${toggle}${meta}${detail}${act}</div>`;
 }
 function renderChat() {
@@ -2550,7 +2573,7 @@ function renderGrid(d) {
          <div class="h-load"><div class="ln-track" id="h-qtrack" title="unclaimed cards in Todo over the hour"></div></div></div>`;
   }
   if (idle.length) {   // the fold's chips: glyph, name, how long since they last spoke, signed off today
-    const chips = idle.map(a => `<span class="h-fchip" style="--c:${hudColor(a.color)}"><i>${hh(nodeGlyph(a.name))}</i><b>${hh(a.name)}</b>${a.updated ? hh(ago(a.updated).text.replace(' ago', '')) : 'no card yet'}${a.done_today ? `<span class="ok">✓${a.done_today}</span>` : ''}</span>`).join('');
+    const chips = idle.map(a => `<span class="h-fchip" style="--c:${hudColor(agentColor(a.name, a.color))}"><i>${hh(nodeGlyph(a.name))}</i><b>${hh(a.name)}</b>${a.updated ? hh(ago(a.updated).text.replace(' ago', '')) : 'no card yet'}${a.done_today ? `<span class="ok">✓${a.done_today}</span>` : ''}</span>`).join('');
     const fl = $('h-fold-list'); if (fl && fl.dataset.k !== chips) { fl.dataset.k = chips; fl.innerHTML = chips; }
     const doneT = idle.reduce((n, a) => n + (a.done_today || 0), 0);
     const fc = $('h-fold-card'); if (fc) fc.textContent = doneT ? `${doneT} signed off today` : (idleOpen ? '' : 'nothing open');
@@ -2558,7 +2581,7 @@ function renderGrid(d) {
   const asks = new Map(); for (const x of d.actions || []) if (!asks.has(x.agent)) asks.set(x.agent, x);   // most urgent per agent
   agents.forEach(a => {
     const r = box.querySelector(`[data-agent="${CSS.escape(a.name)}"]`); if (!r) return;
-    const c = hudColor(a.color), ask = asks.get(a.name);
+    const c = hudColor(agentColor(a.name, a.color)), ask = asks.get(a.name);
     r.className = `h-row ${a.state}` + (ask ? ` attn ${ask.kind === 'stale' ? 'stale' : (ask.who === 'Troy' || ask.who === 'none') ? '' : 'other'}` : '');
     r.style.setProperty('--c', c);
     r.dataset.id = ask ? ask.id : a.task_id || '';

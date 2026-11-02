@@ -86,6 +86,9 @@ SAMPLE_CONFIG = '''\
 #                              # (default 120; much longer than the board's 10-min "quiet" warning).
 #                              # Surfaced by `agentboard list --stale`, a red card marker, and the HUD.
 
+# [agent_colors]              # one colour per agent name, on every card it holds (the board picks a palette hue by default)
+# "AGENT-1" = "#2563eb"        # any CSS colour; keep clear of orange, green and red, which mean running, review and ask
+
 # [notify]                    # native macOS notification when a card needs input or is ready for review
 # enabled = true               # off by default; osascript only, no new dependency
 # sound = "Glass"               # optional: a macOS notification sound name (omit for silent)
