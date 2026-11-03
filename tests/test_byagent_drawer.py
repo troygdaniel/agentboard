@@ -1,5 +1,4 @@
-"""The left drawer: Later (backlog) on the board, the Todo cards on the by-agent view. One drawer, one switch (DRAWER)."""
-import re
+"""The left drawer is Later (backlog), the same on the Board and on By agent: Todo is a column in both, so there is no Todo drawer (Nov 2)."""
 import unittest
 from pathlib import Path
 
@@ -9,25 +8,23 @@ HTML = (Path(nav.__file__).parent / "static" / "index.html").read_text()
 
 
 class DrawerTests(unittest.TestCase):
-    def test_the_drawer_lists_backlog_on_the_board_and_todo_by_agent(self):
-        m = re.search(r"const DRAWER = BYAGENT \? \{ status: '(\w+)', label: '(\w+)'.*?\n  : \{ status: '(\w+)', label: '(\w+)'", HTML, re.S)
-        self.assertEqual(m.groups(), ("todo", "Todo", "backlog", "Later"))
+    def test_the_drawer_is_later_in_both_views_with_no_view_switch(self):
+        self.assertNotIn("DRAWER", HTML)
+        self.assertIn("renderLater(by.backlog)", HTML)
+        self.assertIn("t.status === 'backlog' && !isKid(t)", HTML)
+        self.assertIn('<button class="btn" id="later-btn" aria-controls="later">Later <span id="later-n"></span></button>', HTML)
 
-    def test_every_list_the_drawer_shows_comes_from_the_one_switch(self):
-        self.assertIn("renderLater(by[DRAWER.status])", HTML)
-        self.assertIn("t.status === DRAWER.status && !isKid(t)", HTML)
-        self.assertNotIn("renderLater(by.backlog)", HTML)
+    def test_by_agent_has_the_park_an_idea_form_like_the_board(self):
+        render = HTML[HTML.index("function renderLater(list) {"):]
+        render = render[:render.index("\nfunction setSide")]
+        self.assertIn('<form class="later-add" id="later-form">', render)
+        self.assertNotIn("BYAGENT", render)
 
-    def test_the_todo_drawer_has_no_park_an_idea_form_and_nothing_drags(self):
-        self.assertIn("(BYAGENT ? '' : `<form class=\"later-add\"", HTML)
-        self.assertIn("if (BYAGENT) body.querySelectorAll('.card').forEach(c => { c.draggable = false; });", HTML)
-
-    def test_the_by_agent_init_relabels_the_button_title_and_key_help(self):
+    def test_the_by_agent_init_does_not_relabel_the_later_button(self):
         init = HTML[HTML.index("if (BYAGENT) {\n  document.body.classList.add('byagent');"):]
         init = init[:init.index("\n}\n")]
-        for needle in ("$('later-btn').firstChild.nodeValue", "$('later').setAttribute('aria-label'", ".p-head strong').textContent", "$('key-later')"):
-            self.assertIn(needle, init)
-        self.assertIn('<button class="btn" id="later-btn" aria-controls="later">Later <span id="later-n"></span></button>', HTML)   # the board keeps Later
+        for needle in ("$('later-btn')", "$('later').setAttribute('aria-label'", ".p-head strong').textContent", "$('key-later')"):
+            self.assertNotIn(needle, init)
 
     def test_copy_prompt_and_later_buttons_work_inside_the_drawer(self):
         drawer = HTML[HTML.index("$('later-body').addEventListener('click'"):]

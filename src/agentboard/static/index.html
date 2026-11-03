@@ -115,7 +115,7 @@
   .run-chip { font-size: var(--fs-sm); color: var(--warn); border: 1px solid currentColor; border-radius: 999px; padding: 0 7px; margin-left: 6px; white-space: nowrap; }
   header { border-top: 3px solid var(--board-accent, transparent); }   /* a registered board's colour */
   #board-switch { max-width: 150px; }
-  #later-btn { min-width: 96px; }   /* "Later (15)" on the board, "Todo (2)" on By agent: the buttons after it must not move when you flip between the views */
+  #later-btn { min-width: 96px; }   /* "Later (15)": the buttons after it must not move as the count grows */
   .hicons { display: inline-flex; align-items: center; gap: 8px; }   /* Chat, bell, sound, theme wrap as one group, not one by one */
   #theme { width: 44px; height: 44px; padding: 0; display: grid; place-items: center; }   /* icon button: a 44px target (BJ: header tidy) */
   /* one top bar for the whole product: the same tabs (Board, By agent, Load) sit here and on the summary and report pages
@@ -1285,9 +1285,8 @@ const BASE = window.AB_BASE || '';   // '' for the default board, '/b/<name>' fo
 { const nativeFetch = window.fetch.bind(window); window.fetch = (u, o) => nativeFetch(typeof u === 'string' && u.startsWith('/api/') ? BASE + u : u, o); }
 const SOLO = location.pathname.replace(/\/+$/, '').endsWith('/hud');
 const BYAGENT = location.pathname.replace(/\/+$/, '').endsWith('/agents');   // the by-agent view: same page, swimlane columns
-// the left drawer: Later (parked ideas) on the board; on the by-agent view the same drawer lists the Todo cards instead
-const DRAWER = BYAGENT ? { status: 'todo', label: 'Todo', empty: 'Nothing queued. Cards waiting for an agent to claim them live here.' }
-  : { status: 'backlog', label: 'Later', empty: 'Nothing parked. Ideas you are not ready to start live here, out of the way.' };
+// the left drawer: Later (parked ideas), the same on the Board and on By agent (Todo is a column in both)
+const LATER_EMPTY = 'Nothing parked. Ideas you are not ready to start live here, out of the way.';
 const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;   // HUD running in its own window
 const COLUMNS = [['backlog', 'Later'], ['todo', 'Todo'], ['doing', 'Doing'], ['done', 'Done']];
 const EMPTY = { backlog: '', todo: 'Nothing queued — agents claim work from here', doing: 'Nothing in progress', done: 'Nothing finished yet' };
@@ -1686,8 +1685,8 @@ function render() {
     $('board').querySelectorAll('.bar b[data-to]').forEach(b => { b.style.width = b.dataset.to + '%'; })));
   tasks.forEach(t => lastPct.set(t.id, t.progress || 0));
   firstRender = false;
-  $('later-n').textContent = by[DRAWER.status].length ? '(' + by[DRAWER.status].length + ')' : '';
-  renderLater(by[DRAWER.status]);
+  $('later-n').textContent = by.backlog.length ? '(' + by.backlog.length + ')' : '';
+  renderLater(by.backlog);
   const quiet = working.filter(t => ago(t.updated).min >= STALE_MIN && ago(t.updated).min < (cfg.stale_minutes || DEFAULT_STALE_MIN)).length;
   const abandoned = working.filter(t => ago(t.updated).min >= (cfg.stale_minutes || DEFAULT_STALE_MIN)).length;
   $('summary').innerHTML = (abandoned ? `<span class="err">⚠ ${abandoned} abandoned</span> · ` : '')
@@ -2691,8 +2690,6 @@ if (BYAGENT) {
   document.body.classList.add('byagent');
   $('tab-board').classList.remove('on'); $('tab-board').removeAttribute('aria-current');
   $('tab-agents').classList.add('on'); $('tab-agents').setAttribute('aria-current', 'page');
-  $('later-btn').firstChild.nodeValue = DRAWER.label + ' '; $('later').setAttribute('aria-label', DRAWER.label);   // the drawer is the Todo list here
-  $('later').querySelector('.p-head strong').textContent = DRAWER.label; $('key-later').textContent = DRAWER.label + ' list';
   document.title = APP + ' · by agent';
 }
 $('h-close').onclick = closeHud;
@@ -2917,9 +2914,8 @@ function renderLater(list) {
   if (!body || !$('later').classList.contains('open')) return;
   const typed = document.getElementById('later-input')?.value || '';
   const hadFocus = document.activeElement?.id === 'later-input', keepScroll = body.scrollTop;
-  body.innerHTML = (BYAGENT ? '' : `<form class="later-add" id="later-form"><input id="later-input" placeholder="Park an idea…" aria-label="Park an idea" required><button class="btn primary">Add</button></form>`) +
-    (list.length ? `<div class="cards">${list.map(card).join('')}</div>` : `<div class="empty">${DRAWER.empty}</div>`);
-  if (BYAGENT) body.querySelectorAll('.card').forEach(c => { c.draggable = false; });   // a card's column is its agent: nothing drags here
+  body.innerHTML = `<form class="later-add" id="later-form"><input id="later-input" placeholder="Park an idea…" aria-label="Park an idea" required><button class="btn primary">Add</button></form>` +
+    (list.length ? `<div class="cards">${list.map(card).join('')}</div>` : `<div class="empty">${LATER_EMPTY}</div>`);
   body.scrollTop = keepScroll;
   const inp = $('later-input'); if (inp) { inp.value = typed; if (hadFocus) inp.focus(); }
 }
@@ -2928,7 +2924,7 @@ function setSide(which) {            // one surface at a time
   if (which !== 'panel' && openId) closePanel(true);
   if (which !== 'chat') $('chat').classList.remove('open');
 }
-function openLater() { setSide('later'); $('later').classList.add('open'); renderLater(tasks.filter(t => t.status === DRAWER.status && !isKid(t))); $('later-input')?.focus(); }
+function openLater() { setSide('later'); $('later').classList.add('open'); renderLater(tasks.filter(t => t.status === 'backlog' && !isKid(t))); $('later-input')?.focus(); }
 function closeLater() { $('later').classList.remove('open'); $('later-btn').focus(); }
 $('later-btn').onclick = () => $('later').classList.contains('open') ? closeLater() : openLater();
 $('later-close').onclick = closeLater;
