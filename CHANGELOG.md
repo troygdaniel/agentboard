@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### By agent as polished as the Board, and Motion (Nov 3)
+- **By agent's lanes draw their cards the way the Board's Doing column does**: the status-tinted fill (orange running, green review, red ask), the status border and shadow, the hover glow, and a lit column head. It is one rule for both now, so no new colour was added and a change to Doing's look carries to the lanes.
+- **Motion**, a Mix layer that is off until you choose it: look and sound move together. An agent's card that changes column lands at the end of its glide with the Touch settle (pitched by the column, in the agent's voice); a card reaching Done draws its check in; the view crossfades for the swish. Your own moves do not get the settle (they sounded when you made them). Off, nothing on the page changes.
+
 ### Every card gets subtasks, always (Nov 3)
 - **The card prompt (Copy prompt) now tells the agent to add subtasks as soon as it starts**: at least two, even on a tiny card (do it, check it), and to report progress on the subtasks, since the card's % is their mean. No description needs the line pasted in any more. A card that already has subtasks keeps its list; custom templates are left alone.
 - **The protocol says it plainly**: the Subtasks part of `agentboard instructions` (and the repo's CLAUDE.md) say "always, at start", and the ORCH boot prompt says never to paste the line into a card.
