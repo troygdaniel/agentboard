@@ -71,9 +71,9 @@ class TouchSoundTests(unittest.TestCase):
         # nothing in the poll path or the renderer asks for a touch sound
         for fn in ("load", "render", "hudSounds", "checkAsks", "maybeAutoOpen", "renderSelection", "renderLater", "renderPanel", "hudLoad"):
             self.assertNotIn("touch(", body(fn), fn)
-        # what lands after an await (a copy, a failed save) is still the user's action, so it may play after the gesture is past
+        # what lands after an await (a copy, a done, an undo, a failed save) is still the user's action, so it may play after the gesture is past
         self.assertIn("touch.after = (kind, ...args) => { const t = touchAt(true);", PAGE)
-        self.assertEqual(sorted(set(re.findall(r"touch\.after\('(\w+)'", PAGE))), ["copy", "error", "toggle"])
+        self.assertEqual(sorted(set(re.findall(r"touch\.after\('(\w+)'", PAGE))), ["copy", "drop", "error", "toggle", "undo"])
 
     def test_the_existing_cues_and_the_bed_are_unchanged_and_never_doubled(self):
         for line in (

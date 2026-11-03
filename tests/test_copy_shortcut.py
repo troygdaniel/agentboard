@@ -58,14 +58,14 @@ class OneCopyPathTests(unittest.TestCase):
 
 class WhichCardTests(unittest.TestCase):
     def test_the_order_is_pointer_or_keyboard_by_whichever_was_last_then_selected_then_the_open_card(self):
-        pick = body("promptTarget")
+        pick = body("aimedCard")
         self.assertIn("(aimedBy === 'pointer' ? [under, focused, picked, openId] : [focused, picked, under, openId]).find(Boolean)", pick)
         self.assertIn("selected.size === 1", pick)
         self.assertIn("if (at !== pointerAt) { pointerAt = at; aimedBy = 'pointer'; }", HTML)   # a repeated move at the same spot is not you
-        self.assertIn("window.addEventListener('keydown', e => { if (e.key !== 'c') aimedBy = 'key'; }, true);", HTML)
+        self.assertIn("window.addEventListener('keydown', e => { if (!['c', 'd', 'u'].includes(e.key)) aimedBy = 'key'; }, true);", HTML)   # c, d and u act on the aimed card; they do not move the aim
 
     def test_a_card_in_any_column_or_view_is_found_by_its_class(self):
-        pick = body("promptTarget")
+        pick = body("aimedCard")
         self.assertIn(".closest?.('.card')", pick)       # Board, By agent, Load's Doing cards and the Later drawer all use .card
         self.assertIn("'.card:hover'", pick)
         self.assertNotIn("status", pick)                  # no column or status is special-cased

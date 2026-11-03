@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### `d` marks a card done and `u` undoes (Nov 3)
+- **Press `d` to mark a card done**: the same move the Mark done button makes, on the card `c` would copy (the one you pointed at or focused last, else the selected one, else the open one), in any view and any column. A card with subtasks takes them along; a subtask says it goes with its parent; a done card says it is already done. One settle sound once it has landed. Ignored while typing, with Cmd or Ctrl held, and behind an open sheet.
+- **Press `u` to undo what the toast offers**, for as long as its toast shows (7 seconds): a move between columns, a done, a **delete** (the card and its subtasks come back, new), Archive and Clear, and the bulk move and project changes. The toast now says `Undone: …`, with one short falling sound, whether you pressed `u` or the Undo button. With nothing on offer it does nothing, quietly. Not covered: a reply, an edit, a copy, a send-back (made on the report page).
+- **Fixed on the way**: the keys that act on a card (`c`, `d`, `u`) no longer count as keyboard use when deciding between the pointer and the focused card, so a card under the pointer is not passed over for one that merely has focus.
+
 ### By agent as polished as the Board, and Motion (Nov 3)
 - **By agent's lanes draw their cards the way the Board's Doing column does**: the status-tinted fill (orange running, green review, red ask), the status border and shadow, the hover glow, and a lit column head. It is one rule for both now, so no new colour was added and a change to Doing's look carries to the lanes.
 - **Motion**, a Mix layer that is off until you choose it: look and sound move together. An agent's card that changes column lands at the end of its glide with the Touch settle (pitched by the column, in the agent's voice); a card reaching Done draws its check in; the view crossfades for the swish. Your own moves do not get the settle (they sounded when you made them). Off, nothing on the page changes.

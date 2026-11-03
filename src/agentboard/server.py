@@ -287,8 +287,12 @@ def make_handler(default_store, port):
                 elif path == "/api/run-kill":
                     self._send(200, {"result": runs.kill_run(self.store.dir, body["id"])})
                 elif path == "/api/delete":
+                    loaded = self.store.load()
+                    prev = Store.get(loaded, body["id"])
+                    prev_kids = [k for k in loaded if k.get("parent_id") == body["id"]]   # a parent takes its subtasks with it
+                    prev_before = self.store.next_sibling(body["id"])
                     self.store.delete(body["id"])
-                    self._send(200, {"ok": True})
+                    self._send(200, {"ok": True, "prev": prev, "prev_before": prev_before, "prev_kids": prev_kids})
                 elif path == "/api/reply":
                     if not isinstance(body["text"], str):
                         raise BoardError("text must be a string")

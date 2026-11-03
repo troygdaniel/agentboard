@@ -568,20 +568,27 @@ class Store:
 
     def restore(self, snapshot, before_id=None, kids=None):
         """Put a task back exactly as it was (undo for moves). `kids` are the snapshots of its
-        subtasks, which a move may have cascaded onto."""
+        subtasks, which a move may have cascaded onto. A task that is gone (undo for a delete) is put back
+        too, with its subtasks."""
         if snapshot.get("status") not in STATUSES:
             raise BoardError(f"status must be one of {STATUSES}")
         with self.transaction() as tasks:
-            tasks.remove(self.get(tasks, snapshot["id"]))
+            now_there = next((x for x in tasks if x["id"] == snapshot["id"]), None)
+            if now_there is not None:
+                tasks.remove(now_there)
             snap = dict(snapshot)
             snap["log"] = list(snap.get("log", []))
             _restored(snap)
             _insert(tasks, snap, before_id)
             for ks in kids or []:
+                kid = dict(ks, log=list(ks.get("log", [])))
                 for i, x in enumerate(tasks):
                     if x["id"] == ks["id"]:
-                        tasks[i] = dict(ks, log=list(ks.get("log", [])))
-                        _restored(tasks[i])
+                        tasks[i] = kid
+                        break
+                else:
+                    tasks.append(kid)   # deleted along with its parent
+                _restored(kid)
             return snap
 
     def clear_done(self):

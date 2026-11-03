@@ -1236,6 +1236,8 @@
     <dt><kbd>n</kbd></dt><dd>New task</dd>
     <dt><kbd>l</kbd></dt><dd id="key-later">Later list</dd>
     <dt><kbd>c</kbd></dt><dd id="key-copy">Copy a card's prompt: the one you pointed at or focused last, else the selected or open one</dd>
+    <dt><kbd>d</kbd></dt><dd id="key-done">Mark that same card done</dd>
+    <dt><kbd>u</kbd></dt><dd id="key-undo">Undo what the toast offers: a move, a done, a delete, Archive or Clear, a bulk change</dd>
     <dt><kbd>h</kbd></dt><dd>Load</dd>
     <dt><kbd>a</kbd></dt><dd>By agent / back to the board</dd>
     <dt><kbd>[</kbd> <kbd>]</kbd></dt><dd>Previous / next view: Board, By agent, Load</dd>
@@ -1934,25 +1936,36 @@ function toast(text, undo) {
   $('toast').classList.remove('on'); void $('toast').offsetWidth; $('toast').classList.add('on');
   clearTimeout(toastTimer); toastTimer = setTimeout(() => $('toast').classList.remove('on'), TOAST_MS);
 }
-$('toast-undo').onclick = async () => {
-  const u = undoInfo; $('toast').classList.remove('on'); if (!u) return;
+// What Undo can take back is whatever the toast on screen offers it for, for as long as that toast shows (7 s): a move between
+// columns (drag, buttons, Alt+arrows, the d key), a card marked done, a delete (the card and its subtasks come back), Archive and
+// Clear, and the bulk move and bulk project changes. Not offered: a reply, an edit, a copy, a send-back (that is made on the report page).
+// The toast button and the u key both come here, so every undo says what it undid and plays the same one sound.
+async function undoLast() {
+  const u = undoInfo, label = $('toast-text').textContent; $('toast').classList.remove('on'); if (!u) return false;
+  undoInfo = null;
+  let ok = false;
   try {
     if (u.ids) await api('/api/unarchive', { ids: u.ids });
     else if (u.replay) await Promise.all(u.replay.map(r => api(r.path, r.body)));   // bulk actions: one request per affected card
     else await api('/api/restore', { task: u.prev, before: u.before, kids: u.kids });
-    showError('');
+    showError(''); ok = true;
   }
   catch (e) { showError('Could not undo: ' + e.message); }
   raw = ''; detailRaw = ''; load();
-};
+  if (ok) { toast(`Undone: ${label}`); touch.after('undo'); }
+  return ok;
+}
+$('toast-undo').onclick = undoLast;
 async function move(id, status, before) {
   const t = tasks.find(x => x.id === id);
+  let ok = false;
   try {
     const r = await api('/api/move', { id, status, before: before || null });
-    showError('');
+    showError(''); ok = true;
     if (t && t.status !== status) toast(`Moved “${t.title}” to ${LABELS[status]}`, { prev: r.prev, before: r.prev_before, kids: r.prev_kids });
   } catch (e) { showError('Could not move task: ' + e.message); }
   raw = ''; detailRaw = ''; load();
+  return ok;
 }
 
 // --- bulk toolbar: move/archive/assign-project a multi-selection in one action ---
@@ -2366,7 +2379,12 @@ $('p-body').addEventListener('click', async e => {
       clearTimeout(delTimer); delTimer = setTimeout(() => { if (b.isConnected) { delete b.dataset.armed; b.textContent = 'Delete'; } }, 3000);
       return;
     }
-    try { await api('/api/delete', { id: openId }); closePanel(true); showError(''); raw = ''; load(); }
+    const gone = byId.get(openId);
+    try {
+      const r = await api('/api/delete', { id: openId });
+      closePanel(true); showError(''); raw = ''; load();
+      toast(`Deleted “${gone?.title ?? 'the card'}”`, { prev: r.prev, before: r.prev_before, kids: r.prev_kids });
+    }
     catch (err) { showError('Could not delete: ' + err.message); }
   }
 });
@@ -2720,6 +2738,7 @@ const TOUCH = {                                          // kind: (t, ...) => th
     tap(a, t, .03, .9, { type: 'triangle', verb: .3 }); tap(b, t + .03, .035, .9, { type: 'triangle', verb: .4 }); },
   match: t => tap(1400, t, .02, .6),                                                       // the filter's match count changed
   copy:  t => { tap(1047, t, .035, .9, { verb: .4 }); tap(1319, t + .035, .05, .9, { verb: .6 }); },   // copied
+  undo:  t => tap(520, t, .07, .9, { glide: 330, atk: .005, verb: .5 }),                   // undone: the lift's glide, run backwards
   select: (t, n, agent, added) => { const f = agentPitch(agent) / 2 * Math.pow(2, Math.min(n, 12) / 12);   // a semitone up per card selected, in the card's voice
     tap(f, t, .03, .9, { glide: f * (added ? 1.04 : .96), verb: .4 }); },
   error: t => tap(196, t, .12, 1, { type: 'triangle', atk: .01, verb: .3 }),              // one low, dull tone
@@ -3233,6 +3252,8 @@ document.addEventListener('keydown', e => {
   if (e.key === 'm') { toggleMix(); return; }
   if (e.key === 's') { $(hudIsOpen() ? 'h-snd' : 'snd2').click(); return; }   // sound on or off, on every view
   if (e.key === 'c') { copyPromptByKey(); return; }   // any card, on every view
+  if (e.key === 'd') { markDoneByKey(); return; }     // the same card as c
+  if (e.key === 'u') { undoByKey(); return; }
   if (hudIsOpen()) { if (e.key === 'f') toggleHudFull(); else if (e.key === 'h') closeHud(); return; }
   if (e.key === '?') { toggleKeys(); return; }
   if (e.key === 'n') { e.preventDefault(); toggleAdd(true); return; }
@@ -3403,23 +3424,39 @@ async function copyPrompt(btn) {   // the Copy prompt button on a Todo card, on 
   await copyPromptOf(id, btn);
   setTimeout(() => { btn.textContent = 'Copy prompt'; }, 1800);
 }
-// The c key: which card? The one you are aiming at, by whichever you used last (the pointer or the keyboard), then the
+// The c and d keys: which card? The one you are aiming at, by whichever you used last (the pointer or the keyboard), then the
 // other, then the single selected card, then the card open in the panel. Any card, any column, any view.
 let aimedBy = 'pointer', pointerAt = '';
 window.addEventListener('pointermove', e => {   // only a real move counts: the browser repeats one at the same spot after a scroll or a focus
   const at = e.clientX + ',' + e.clientY;
   if (at !== pointerAt) { pointerAt = at; aimedBy = 'pointer'; }
 }, { passive: true });
-window.addEventListener('keydown', e => { if (e.key !== 'c') aimedBy = 'key'; }, true);
-function promptTarget() {
+window.addEventListener('keydown', e => { if (!['c', 'd', 'u'].includes(e.key)) aimedBy = 'key'; }, true);   // the keys that act on a card do not change where you are aiming
+function aimedCard() {
   const idOf = el => el?.closest?.('.card')?.dataset.id || null;
   const under = idOf([...document.querySelectorAll('.card:hover')].pop());
   const focused = idOf(document.activeElement);
   const picked = selected.size === 1 ? [...selected][0] : null;
   return (aimedBy === 'pointer' ? [under, focused, picked, openId] : [focused, picked, under, openId]).find(Boolean) || null;
 }
+// d: what the Done button does (the same move), on the card c would copy. One settle sound once it has landed.
+async function markDoneByKey() {
+  if ($('keys').classList.contains('on') || mixIsOpen()) return;   // not behind an open sheet
+  const id = aimedCard();
+  if (!id) { toast('Point at a card, or open one, then press d to mark it done'); return; }
+  const t = byId.get(id);
+  if (!t) return;
+  if (t.parent_id) { toast('A subtask is done with its parent: aim at the parent card'); return; }
+  if (t.status === 'done') { toast(`“${t.title}” is already done`); return; }
+  if (await move(id, 'done')) {
+    touch.after('drop', 'done', t.agent);
+    if (id === openId) closePanel();   // as the panel's Mark done does
+  }
+}
+// u: the toast's Undo, while its toast shows. Nothing on offer: nothing happens, quietly.
+function undoByKey() { if (undoInfo && $('toast').classList.contains('on')) undoLast(); }
 async function copyPromptByKey() {
-  const id = promptTarget();
+  const id = aimedCard();
   if (!id) { toast('Point at a card, or open one, then press c to copy its prompt'); return; }
   const inPanel = id === openId && $('p-copy');
   const ok = await copyPromptOf(id, inPanel || null);
