@@ -90,7 +90,7 @@
      full-height panels that share it, and each column scrolls within itself when it's over
      capacity — the page itself never scrolls, so the layout always reads as one composed
      instrument instead of three lists huddled at the top of a long empty page. */
-  .wrap { width: min(100%, 1800px); margin: 0 auto; padding: 18px 28px 22px; height: 100vh; height: 100dvh;
+  .wrap { width: 100%; margin: 0; padding: 18px 28px 22px; height: 100vh; height: 100dvh;   /* no width cap: the board uses the whole window, however wide */
     display: flex; flex-direction: column; }
 
   header { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; flex: none; margin-bottom: 18px; padding-bottom: 14px;
@@ -181,6 +181,9 @@
   /* the card list scrolls inside its panel; the padding keeps hover lifts, selection outlines and
      the ask/review pulse rings from being clipped at the scroll edge */
   .cards { display: flex; flex-direction: column; gap: 10px; flex: 1; min-height: 48px; overflow-y: auto; padding: 4px 6px 10px; }
+  /* the columns grow with the window, the cards do not: past this a card's title, bar and reply box would stretch into lines too long to read */
+  .board { --card-max: 760px; }
+  @media (min-width: 901px) { .col:not(.todo) .cards > :is(.card, .empty, .day-div) { max-width: var(--card-max); } }   /* stacked below this, one column: full width is right there */
   .cards::-webkit-scrollbar { width: 6px; } .cards::-webkit-scrollbar-thumb { background: var(--line); border-radius: 3px; }
   .cards::-webkit-scrollbar-thumb:hover { background: var(--neutral); }
 
@@ -543,6 +546,7 @@
      an empty box. Narrow screens stack the bar under the text of its own row. */
   .h-grid { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); min-height: 0; }
   .h-one { --cols: 40px minmax(0, 2.3fr) 100px minmax(200px, 1fr); --gap: 16px; align-self: stretch; width: 100%; max-width: 100%; }   /* text gets the room; the hour bar reads at 1fr */
+  @media (min-width: 1800px) { .h-one { --cols: 40px minmax(0, 760px) 100px minmax(200px, 1fr); } }   /* ultrawide: the text stops growing (a line past ~760px is a gap, not a read); the hour bar takes the rest */
   /* (2026-10-24) "the board has more vertical space; use it to show more text". The panel
      fills the HUD, rows share the spare height, and the task / status lines may run to three
      lines before truncating. Idle rows show their last status line too. */

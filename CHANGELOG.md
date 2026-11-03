@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Full width (Nov 3)
+- **The board uses the whole browser window**: the 1800 px cap is gone, so Board, By agent and Load fill a 2560 or 3440 px screen, and the top bar stays where it is (no longer centred) on every view and width.
+- The columns grow with the window; the **cards stop at 760 px** (side by side columns only; stacked, a card still fills its column) so a title, bar or reply box never stretches into a line too long to read.
+- Load's text column stops at 760 px from 1800 px up and the hour bar takes the rest.
+
 ### Todo column in both views (Nov 2)
 - **By agent now has the Todo column**, the same one as on the board: one function draws both, so they cannot drift. It is narrower than before (about 17% of the width, 220 to 270 px, the Doing and Done columns get the rest), its cards are narrower too, and they no longer say *Unassigned*. Copy prompt, Later and the queued time sit in one wrapping foot row instead of floating over the title; an assigned card shows its agent's name with the time in the foot row; a project shows as a dot in the corner.
 - The assigned Todo cards that waited at the foot of an agent's column as *next up* are gone: they are in the Todo column now, so no card is drawn twice.
