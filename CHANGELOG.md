@@ -8,6 +8,11 @@
 - **The terminal nudges**: `claim` and `start` on a card with no subtasks print one line saying to add them; `review` on one with none warns but still goes through; `add` of a top-level card reminds ORCH (on stderr, so scripts reading its output are unaffected).
 - **The board flags it**: a Doing card with no subtasks shows a small amber "No subtasks yet" line under its bar, and it clears when the first one is added.
 
+### `c` copies a card's prompt; Chat has no key (Nov 3)
+- **Press `c` to copy the prompt of any card**, in any column and any view (Board, By agent, Load, the Later drawer): the one you pointed at or focused last, else the single selected card, else the card open in the panel. A Todo card's Copy button flips to its Copied state, as when clicked; any other card says which one it copied. Ignored while typing and with Cmd or Ctrl held. It is on the `?` list.
+- **One copy path, one sound**: the key, the card's Copy button and the panel's Copy button all go through the same function and make the same short "copied" blip (off with the sound toggle).
+- **Chat lost its key**: it is reached by its button only, and the shortcut is gone from its title and the `?` list.
+
 ### Load shows the Doing cards (Nov 3)
 - **The left of Load is the Doing column**: the same cards as Board and By agent, in the same design, with their subtasks folded; the telemetry and agent-load grid stays on the right as it was. The cards follow the board's filter, and their reply box, Mark done and click-to-open work as they do on the board. A narrow window stacks the cards above the grid.
 - **They glide into place**: opening Load slides the Doing cards from where they sit on the board (or the By agent lanes) into the pane, and closing it slides them back, the way Board and By agent already trade places. One swish per switch, nothing more; the bed plays through.
