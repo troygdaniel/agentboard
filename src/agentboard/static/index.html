@@ -47,7 +47,7 @@
       --a1: #60a5fa; --a2: #c084fc; --a3: #f472b6; --a4: #22d3ee; --a5: #94a3b8; --a6: #e879f9; --on-agent: #0b1220;
     }
   }
-  :root[data-theme="dark"] {
+  :root[data-theme="dark"], #h-cards {   /* #h-cards: the Doing cards on Load, which is always dark, take the dark set whatever the theme */
       --bg: #070b12; --surface: #0f1722; --line: #1c2a3a;
       --text: #d6e9ff; --muted: #7f95ad; --accent: #d6e9ff;
       --run: #ff9a3c; --warn: var(--hwarn); --ok: var(--hok); --err: var(--hbad); --neutral: #4b5f75; --info: var(--hcy);
@@ -541,7 +541,12 @@
      divider runs under the bar too. Rows stretch to share the height (no dead space) up to a cap;
      past the cap the panel ends and the HUD background shows through, which reads as room, not as
      an empty box. Narrow screens stack the bar under the text of its own row. */
-  .h-grid { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); min-height: 0; }
+  /* Load (Nov 3): the Doing cards on the left, the same cards in the same design as Board and By agent (they glide across when Load opens
+     and closes), the telemetry and agent-load grid on the right as before. A narrow window stacks the cards above the grid. */
+  .h-grid { display: grid; grid-template-columns: minmax(260px, 1fr) minmax(0, 2.2fr); grid-template-rows: minmax(0, 1fr); gap: 16px; min-height: 0; }
+  #h-cards { --fs-xs: 11px; --fs-sm: 12px; --fs-md: 13px; --fs-base: 14px; --fs-lg: 15px; --fs-xl: 23px; --tr-wide: .24em; --tr-label: .16em; --tr-tight: .06em;
+    font: var(--fs-base)/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; color: var(--text); }
+  @media (max-width: 980px) { .h-grid { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); } #h-cards { flex: none; } #h-cards .cards { overflow: visible; } }
   .h-one { --cols: 40px minmax(0, 2.3fr) 100px minmax(200px, 1fr); --gap: 16px; align-self: stretch; width: 100%; max-width: 100%; }   /* text gets the room; the hour bar reads at 1fr */
   @media (min-width: 1800px) { .h-one { --cols: 40px minmax(0, 760px) 100px minmax(200px, 1fr); } }   /* ultrawide: the text stops growing (a line past ~760px is a gap, not a read); the hour bar takes the rest */
   /* (2026-10-24) "the board has more vertical space; use it to show more text". The panel
@@ -1208,6 +1213,7 @@
       <button class="h-btn" id="h-close" aria-label="Close Load (Esc)">Close</button>
     </div>
     <div class="h-grid">
+      <section class="col doing" id="h-cards" aria-label="Doing"><h2>Doing <span class="cnt" id="h-cards-n">0</span></h2><div class="cards" id="h-cards-box"></div></section>
       <section class="hp h-one" aria-label="Telemetry and agent load">
         <div class="h-head"><h4 class="h-who">Telemetry <span class="ln-sub">every agent, right now</span><span class="ln-wait" id="ln-wait"></span></h4>
           <div class="h-h2"><h4>Agent load <span class="ln-sub">last 60 min</span></h4></div></div>
@@ -1305,6 +1311,8 @@ const subsOpen = new Map();   // parent id -> expanded? (unset: Doing parents st
 const isKid = t => !!t.parent_id && byId.has(t.parent_id);
 const subDone = k => k.status === 'done' || (k.progress || 0) >= 100;   // 100% is finished even if its status lags a poll behind
 let firstRender = true, justDropped = null;
+let hudPane = false;            // true while the Doing cards are being drawn for Load (subtasks folded)
+const glideFrom = new Map();    // card id -> rect: where a card was on the view we just left, so it glides into place on the next render
 const copied = new Map();   // Todo card id -> its copied-state label; this page-load only (in-memory on purpose: a refresh clears it)
 let selected = new Set(), selectAnchor = null;   // multi-select: shift-click/shift-arrows range, ⌘/ctrl-click toggle
 
@@ -1458,7 +1466,7 @@ function card(t) {
 
 // the parent's segmented bar (one cell per subtask), which doubles as the expand toggle, plus its quiet rows
 function subsBlock(t, live) {
-  const open = subsOpen.has(t.id) ? subsOpen.get(t.id) : t.status === 'doing';
+  const open = hudPane ? false : subsOpen.has(t.id) ? subsOpen.get(t.id) : t.status === 'doing';   // on Load the subtasks stay folded: the bar says how far
   const rows = kidsMap.get(t.id) || [];
   // count from the server's slot list, so subtasks archived out of the task list still count as done
   const slots = t.subs && t.subs.length ? t.subs : rows;
@@ -1628,9 +1636,17 @@ function render() {
 
   const focusId = document.activeElement?.dataset?.id;
   const focusToggle = document.activeElement?.dataset?.toggleSubs;
-  // FLIP: remember where every card was, so moves and reorders glide instead of snapping
-  const before = new Map();
-  if (!RM && !firstRender) $('board').querySelectorAll('.card').forEach(c => before.set(c.dataset.id, c.getBoundingClientRect()));
+  // FLIP: remember where every card was, so moves and reorders glide instead of snapping. The cards you can see are the board's,
+  // or under Load the Doing cards in its left pane; a view change hands over where they were on the view just left (glideFrom)
+  const before = new Map(), inHud = hudIsOpen(), shown = inHud ? $('h-cards-box') : $('board');
+  if (!RM && !firstRender) {
+    shown.querySelectorAll('.card').forEach(c => before.set(c.dataset.id, c.getBoundingClientRect()));
+    glideFrom.forEach((r, id) => before.set(id, r));
+  }
+  glideFrom.clear();
+  // Load's pane first when it is the view on show, so a card's fresh/flash state lands on the cards you can see
+  let paneHtml = null;
+  if (inHud) { hudPane = true; paneHtml = by.doing.length ? by.doing.map(card).join('') : `<div class="empty">${(q || pf || flagFilter) ? 'No matches' : EMPTY.doing}</div>`; hudPane = false; }
   const activeNow = by.doing.filter(t => t.agent && !t.needs_input && !t.review && ago(t.updated).min < STALE_MIN);
   const pres = [...new Map(activeNow.map(t => [t.agent, colorOf(t)])).entries()]
     .map(([n, c]) => `<i style="--c:${c}" title="${esc(n)} is working"></i>`).join('');
@@ -1674,6 +1690,12 @@ function render() {
   if (BYAGENT) {   // no drag here: a card's column is its agent, not a status
     $('board').querySelectorAll('.card').forEach(c => { c.draggable = false; });
   }
+  if (paneHtml != null) {   // Load: the same Doing cards, in the same order, no drag (there is no column to drop them in)
+    const box = $('h-cards-box'), top = box.scrollTop;
+    box.innerHTML = paneHtml; box.scrollTop = top;
+    box.querySelectorAll('.card').forEach(c => { c.draggable = false; });
+    $('h-cards-n').textContent = by.doing.length;
+  }
   // live counts: a brief tick when a column's count changes
   if (!firstRender) $('board').querySelectorAll('.col').forEach(col => {
     const k = col.dataset.status, n = by[k]?.length;   // the by-agent columns (agent:AGENT-1, idle) are not board columns: no count to tick
@@ -1683,7 +1705,7 @@ function render() {
   // glide cards from their old position to the new one
   before.forEach((r, id) => {
     if (id === justDropped) return;                       // the user already moved this one by hand
-    const c = $('board').querySelector(`.card[data-id="${CSS.escape(id)}"]`); if (!c) return;
+    const c = shown.querySelector(`.card[data-id="${CSS.escape(id)}"]`); if (!c) return;
     const n = c.getBoundingClientRect(), dx = r.left - n.left, dy = r.top - n.top;
     if (Math.abs(dx) > 1 || Math.abs(dy) > 1)
       c.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }], { duration: 420, easing: 'cubic-bezier(.2,.8,.2,1)' });
@@ -1691,7 +1713,7 @@ function render() {
   justDropped = null;
   // progress bars ease from their last width to the new one
   requestAnimationFrame(() => requestAnimationFrame(() =>
-    $('board').querySelectorAll('.bar b[data-to]').forEach(b => { b.style.width = b.dataset.to + '%'; })));
+    document.querySelectorAll('#board .bar b[data-to], #h-cards-box .bar b[data-to]').forEach(b => { b.style.width = b.dataset.to + '%'; })));
   tasks.forEach(t => lastPct.set(t.id, t.progress || 0));
   firstRender = false;
   $('later-n').textContent = by.backlog.length ? '(' + by.backlog.length + ')' : '';
@@ -2764,7 +2786,11 @@ const clip = (s, n) => { s = String(s ?? ''); return s.length > n ? s.slice(0, n
 function openHud() {
   setSide('hud'); $('later').classList.remove('open');
   window.scrollTo(0, 0); placeHud();   // the board's header is at the top of the page; the overlay starts right under it
+  // the Doing cards glide from where they are on the board into Load's left pane (the pane is cleared so only those positions count)
+  if (!RM) $('board').querySelectorAll('.card[data-status="doing"]').forEach(c => glideFrom.set(c.dataset.id, c.getBoundingClientRect()));
+  $('h-cards-box').innerHTML = '';
   $('hud').classList.add('open'); document.body.style.overflow = 'hidden'; litTab();
+  if (!SOLO) renderKeepingCardFocus();
   hudKey = ''; sndSeenAt = null; hudPrevTiles = null; setSnd(sndOn, true); setAmb(ambOn, true);
   if (!SOLO) touch('swish');   // the one sound of a view change, the same as a Board/By agent flip
   hudLoad(); clearInterval(hudTimer); hudTimer = setInterval(hudLoad, 1000);
@@ -2773,8 +2799,11 @@ function openHud() {
 function closeHud() {
   if (SOLO) { window.close(); return; }
   touch('swish');   // the same one sound; the bed plays on under the board, it belongs to every view
+  // and the Doing cards glide back from Load's pane to their places on the board (or the By agent lanes)
+  if (!RM) $('h-cards-box').querySelectorAll('.card').forEach(c => glideFrom.set(c.dataset.id, c.getBoundingClientRect()));
   $('hud').classList.remove('open', 'full'); document.body.style.overflow = ''; litTab();
   clearInterval(hudTimer);
+  renderKeepingCardFocus();
   if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
   $('hud-btn').focus();
 }
@@ -3315,7 +3344,9 @@ $('add').onsubmit = async e => {
 $('title').onkeydown = e => { if (e.key === 'Escape') { toggleAdd(false); $('title').blur(); } };
 
 // --- card actions ---
-$('board').addEventListener('submit', async e => {
+// the cards' own controls (reply, Mark done, subtasks, who, Copy prompt) work the same wherever the card is drawn: the board or Load's pane
+const CARD_HOMES = [$('board'), $('h-cards-box')];
+CARD_HOMES.forEach(h => h.addEventListener('submit', async e => {
   const f = e.target.closest('.card-reply');
   if (!f) return;
   if (e.defaultPrevented) return;
@@ -3324,8 +3355,8 @@ $('board').addEventListener('submit', async e => {
   if (!text) { input.focus(); return; }
   try { await api('/api/reply', { id: f.dataset.reply, text }); input.value = ''; input.blur(); showError(''); raw = ''; load(); }
   catch (err) { showError('Could not send reply: ' + err.message); }
-});
-quickEvents($('board'));
+}));
+CARD_HOMES.forEach(quickEvents);
 async function copyPrompt(btn) {   // the Copy prompt button on a Todo card, on the board or in the left drawer
   const id = btn.closest('.card').dataset.id;
   if (copied.has(id)) { copied.delete(id); return renderKeepingCardFocus(); }   // the copied state is a toggle: click/Enter/Space undoes it
@@ -3340,7 +3371,7 @@ async function copyPrompt(btn) {   // the Copy prompt button on a Todo card, on 
   } catch (err) { btn.textContent = 'Failed'; showError('Copy failed: ' + err.message); }
   setTimeout(() => { btn.textContent = 'Copy prompt'; }, 1800);
 }
-$('board').addEventListener('click', async e => {
+CARD_HOMES.forEach(h => h.addEventListener('click', async e => {
   if (e.target.closest('.card-reply, a.report-link, .qr')) return;   // typing or sending a reply must not open the panel
   const selCard = e.target.closest('.card');
   if (selCard && (e.shiftKey || e.metaKey || e.ctrlKey)) {
@@ -3381,7 +3412,7 @@ $('board').addEventListener('click', async e => {
     return;
   }
   return copyPrompt(btn);
-});
+}));
 
 
 // --- ORCH: copy a boot prompt for the orchestrator session, built from live board state at click time ---
@@ -3398,12 +3429,12 @@ $('orch-btn').addEventListener('click', async () => {
 });
 
 // --- keyboard: Alt+arrows move the focused card ---
-$('board').addEventListener('keydown', e => {
+CARD_HOMES.forEach(h => h.addEventListener('keydown', e => {
   const c = e.target.closest?.('.card');
   if (c && e.target === c && (e.key === 'Enter' || e.key === ' ') && !e.altKey) { e.preventDefault(); openPanel(c.dataset.id); return; }
   const row = e.target.closest?.('[data-sub-id]');
   if (row && e.target === row && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openPanel(row.dataset.subId); return; }
-  if (!c || !e.altKey || !e.key.startsWith('Arrow') || BYAGENT) return;
+  if (!c || !e.altKey || !e.key.startsWith('Arrow') || BYAGENT || h !== $('board')) return;
   e.preventDefault();
   const keys = [...$('board').querySelectorAll('.col')].map(x => x.dataset.status);
   const i = keys.indexOf(c.dataset.status), sibs = [...c.parentElement.children].filter(x => x.classList.contains('card'));   // not the Done column's day dividers
@@ -3414,7 +3445,7 @@ $('board').addEventListener('keydown', e => {
   else if (e.key === 'ArrowDown' && at < sibs.length - 1) move(c.dataset.id, c.dataset.status, sibs[at + 2]?.dataset.id);
   else return;   // at the edge: no move, no click
   touch('step');
-});
+}));
 
 // --- drag and drop ---
 const board = $('board');

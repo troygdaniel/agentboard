@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Load shows the Doing cards (Nov 3)
+- **The left of Load is the Doing column**: the same cards as Board and By agent, in the same design, with their subtasks folded; the telemetry and agent-load grid stays on the right as it was. The cards follow the board's filter, and their reply box, Mark done and click-to-open work as they do on the board. A narrow window stacks the cards above the grid.
+- **They glide into place**: opening Load slides the Doing cards from where they sit on the board (or the By agent lanes) into the pane, and closing it slides them back, the way Board and By agent already trade places. One swish per switch, nothing more; the bed plays through.
+
 ### Load switches with the same one sound as the other tabs (Nov 3)
 - **Opening or closing Load plays the tab swish, the same simple sound as flipping Board and By agent**, instead of its rising and falling chimes. Every switch sounds once: the tabs, `[`, `]`, `a`, `h`, Escape, Back and Forward alike, and never a swish and a chime together. The ambient bed plays straight through, and the other cues did not change.
 
