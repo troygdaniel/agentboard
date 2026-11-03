@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Todo column in both views (Nov 2)
+- **By agent now has the Todo column**, the same one as on the board: one function draws both, so they cannot drift. It is narrower than before (about 17% of the width, 220 to 270 px, the Doing and Done columns get the rest), its cards are narrower too, and they no longer say *Unassigned*. Copy prompt, Later and the queued time sit in one wrapping foot row instead of floating over the title; an assigned card shows its agent's name with the time in the foot row; a project shows as a dot in the corner.
+- The assigned Todo cards that waited at the foot of an agent's column as *next up* are gone: they are in the Todo column now, so no card is drawn twice.
+- Stacked (a phone or a narrow window) the Todo cards keep their narrow look (340 px at most) instead of stretching across the screen.
+
 ### The owner's name is a setting, not the code
 - **`[board] owner` in config.toml** names the human on this board; it is **"you"** until you set it. The board, the HUD, report pages, the SMS reply marker, the summary page, the dictation hints and every prompt (card, subtask, parent, run, instructions, ORCH, agent chat) read it, so nothing in the app names a particular person. Prompts say "the user" until it is set, and "they" for the pronoun. `/api/config` and `/api/hud` carry it to the page.
 - **`[voice] words`** adds names to the dictation hints (the old built-in list of one person's project names is gone).

@@ -25,9 +25,10 @@ class BoardTests(unittest.TestCase):
         self.assertIn(".subs-toggle::after { content: ''; position: absolute; inset: -6px 0; }", PAGE)
         self.assertIn(".clear-done::after, .report-link::after { content: ''; position: absolute; inset: -4px -2px; }", PAGE)
 
-    def test_the_later_drawer_does_not_repeat_unassigned(self):
-        self.assertIn("#later .unas { display: none; }", PAGE)
-        self.assertIn(".card[data-status=\"todo\"] .unas { padding-left: 28px; }", PAGE)   # Todo cards on the board still say it
+    def test_todo_and_later_cards_do_not_say_unassigned(self):
+        # the word is no longer drawn at all on Todo and Later cards (Nov 2): it was on every row, so it said nothing
+        self.assertIn("${todo || backlog ? '' : '<span class=\"unas\">Unassigned</span>'}", PAGE)
+        self.assertNotIn("#later .unas", PAGE)
 
     def test_small_labels_are_mixed_toward_the_text_colour(self):
         self.assertIn("color: color-mix(in srgb, var(--tc, var(--muted)) 78%, var(--text));", PAGE)

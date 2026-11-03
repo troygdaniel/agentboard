@@ -154,7 +154,7 @@
   .card.selected { outline: 2px solid var(--accent); outline-offset: -1px;
     background: color-mix(in srgb, var(--accent) 7%, var(--surface)); }
 
-  .board { display: grid; grid-template-columns: var(--tracks, repeat(3, minmax(0, 1fr))); gap: 18px; align-items: stretch; flex: 1; min-height: 0; }
+  .board { --todo-w: clamp(220px, 17vw, 270px); display: grid; grid-template-columns: var(--tracks, repeat(3, minmax(0, 1fr))); gap: 18px; align-items: stretch; flex: 1; min-height: 0; }   /* --todo-w: the Todo column's one width, Board and By agent */
   /* Columns are panels with the HUD's depth: gradient fill, a 1px highlight along the top edge,
      a soft shadow underneath. Doing gets a faint ambient glow at its head so the live column
      reads as the lit one before you've counted the cards. */
@@ -229,9 +229,8 @@
   .card .note { justify-content: flex-end; margin-top: 4px; }
   .card .said { font-size: var(--fs-md); margin: 2px 0 8px; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
   .top .pdot { width: 7px; height: 7px; border-radius: 50%; background: var(--c); flex: none; }
-  #later .unas { display: none; }   /* every row in the drawer is unassigned: the title leads (Nov 2) */
   .top .unas { color: var(--muted); font-size: var(--fs-base); font-weight: 650; letter-spacing: .02em; }   /* same type as a name, no opacity: .7 dropped it to 3.0-3.5:1 */
-  .card[data-status="todo"] .unas { padding-left: 28px; }   /* clear of the queue-number badge; lines up with where a name starts (20px avatar + 8px gap) */
+  .card .top:empty { display: none; }
   /* hovering a name lights every card that agent holds; the rest step back */
   .board.hl .card { transition: opacity .15s ease; }
   .board.hl .card:not(.hl) { opacity: .4; }
@@ -340,14 +339,23 @@
   #notif-btn.off svg { opacity: .45; }
   #notif-btn[hidden] { display: none; }
 
+  /* The Todo card: one narrow design on the Board, in By agent and in the drawer. The queue number sits left of the first row, an
+     unassigned card has no name row (its project dot rides the corner), and Copy prompt, Later and the queued time share one
+     wrapping row at the foot instead of floating over the title. */
   .card[data-status="todo"] {
+    padding: 12px 12px 10px;
     background: linear-gradient(180deg, color-mix(in srgb, var(--glow1) 70%, var(--surface)), var(--surface) 65%);
     border-color: color-mix(in srgb, var(--text) 9%, var(--line));
   }
-  .card[data-status="todo"] .title, .card[data-status="todo"] .desc,
-  .card[data-status="todo"] .proj-row, .card[data-status="todo"] .blocked-row { padding-left: 30px; }
+  .card[data-status="todo"] .top, .card[data-status="todo"] .title, .card[data-status="todo"] .desc,
+  .card[data-status="todo"] .proj-row, .card[data-status="todo"] .blocked-row { padding-left: 28px; }
+  .card[data-status="todo"] .top:not(:has(.who)) { position: absolute; top: 15px; right: 12px; margin: 0; padding: 0; min-height: 0; }
+  .card[data-status="todo"] .title { padding-right: 0; font-size: var(--fs-base); }
+  .card[data-status="todo"]:has(.top:not(:has(.who)) .pdot) .title { padding-right: 14px; }   /* clear of the corner dot */
+  .card[data-status="todo"] .meta { flex-wrap: wrap; gap: 6px 8px; margin-top: 10px; }
+  .card[data-status="todo"] .meta .when { margin-left: 0; }
   .qnum {
-    position: absolute; top: 14px; left: 16px; width: 20px; height: 20px; border-radius: 6px;
+    position: absolute; top: 12px; left: 12px; width: 20px; height: 20px; border-radius: 6px;
     display: grid; place-items: center; font-size: var(--fs-xs); font-weight: 600; font-variant-numeric: tabular-nums;
     color: var(--muted); background: var(--chip); box-shadow: inset 0 0 0 1px var(--line);
   }
@@ -362,11 +370,8 @@
     background: var(--surface); border: 1px solid var(--line); border-radius: 6px;
     padding: 2px 8px; cursor: pointer; color: var(--muted);
   }
-  .card[data-status="todo"] .copy { opacity: .75; }
+  .card[data-status="todo"] .copy { position: static; opacity: .75; white-space: nowrap; }   /* in the foot row (.meta), not over the title */
   .card:hover .copy, .card:focus-within .copy { opacity: 1; }
-  .card[data-status="todo"]:has(.copy) .title { padding-right: 96px; }
-  .card[data-status="todo"]:has(.copy.copied) .title { padding-right: 104px; }   /* the copied state is a little wider than "Copy prompt" */
-  .card[data-status="todo"]:has(.copy.wide) .title { padding-right: 172px; }     /* "Copied, with warnings" */
   .copy:hover { color: var(--text); }
   /* The same button after a successful copy: green check + "Copied". Hover/focus swaps the check for an x (click undoes it). */
   .copy.copied { display: inline-flex; align-items: center; gap: 5px; opacity: 1; color: var(--ok); padding: 2px 9px 2px 7px;
@@ -1093,9 +1098,8 @@
   .qr .replied { font-size: var(--fs-xs); color: var(--muted); } .qr .replied b { color: var(--ok); }
   .card .qr { margin: 0 0 8px; } .lat .qr { margin: 0 0 12px; }
   /* stacked on a phone: the page scrolls as one, columns size to their cards */
-  /* ----- By agent (/agents): the board's cards in swimlane columns, one per agent with a card in Doing.
-     No Queue and no Idle column (unassigned Todo stays on the Board), so the agents get the width. An agent's
-     assigned Todo cards wait at the foot of its column as "next up". Todo and Done stay on the Board. ----- */
+  /* ----- By agent (/agents): the Todo column (the same one the Board draws), then the board's cards in swimlane columns,
+     one per agent with a card in Doing. No Queue, Idle or Done column, so the agents get the width. ----- */
   body.byagent .board { grid-template-columns: var(--tracks); overflow-x: auto; scrollbar-gutter: stable; padding-bottom: 4px; }
   body.byagent .col { min-width: 220px; }
   .col.acol { border-top: 2px solid var(--c, var(--neutral)); }
@@ -1103,30 +1107,22 @@
   .col.acol h2 .av { width: 20px; height: 20px; font-size: var(--fs-xs); }
   .col.acol h2 em { font-style: normal; font-weight: 600; font-size: var(--fs-xs); letter-spacing: var(--tr-tight); text-transform: uppercase; color: color-mix(in srgb, var(--st, var(--muted)) 78%, var(--text)); margin-left: auto; }
   .col.acol h2 em.ask { --st: var(--err); } .col.acol h2 em.review { --st: var(--ok); } .col.acol h2 em.quiet, .col.acol h2 em.abandoned { --st: var(--warn); } .col.acol h2 em.working { --st: var(--run); }
-  .nextup { position: relative; opacity: .6; }
-  .nextup::before { content: 'next up'; position: absolute; top: -7px; left: 12px; z-index: 1; font-size: 9px; font-weight: 700; letter-spacing: var(--tr-tight); text-transform: uppercase; color: var(--muted); background: var(--bg); padding: 0 5px; border-radius: 4px; }
-  .nextup .card { border-style: dashed; }
-  .nextup:hover { opacity: 1; }
   body.byagent .card { cursor: pointer; }
-  /* narrow columns: the Copy button sits in the flow instead of padding the title away, the card's own agent chip is redundant
-     (the column is the agent), and the queue-number badge and its padding go */
-  body.byagent .card .copy { position: static; display: inline-flex; margin: 0 0 6px; opacity: .75; }
-  body.byagent .card[data-status="todo"]:has(.copy) .title, body.byagent .card[data-status="todo"]:has(.copy.copied) .title, body.byagent .card[data-status="todo"]:has(.copy.wide) .title { padding-right: 8px; }
-  body.byagent .card[data-status="todo"] .title, body.byagent .card[data-status="todo"] .desc, body.byagent .card[data-status="todo"] .proj-row, body.byagent .card[data-status="todo"] .blocked-row { padding-left: 0; }
-  body.byagent .card .qnum, body.byagent .card[data-status="todo"] .unas { display: none; }
-  body.byagent .card .who { display: none; }
-  body.byagent .card .top { min-height: 0; }
-  body.byagent .card .top:empty { display: none; }
+  /* a card's own agent chip is redundant inside that agent's column (the column is the agent); in the Todo column it stays */
+  body.byagent .col.acol .card .who { display: none; }
+  body.byagent .col.acol .card .top { min-height: 0; }
   .col.acol h2 { flex-wrap: nowrap; min-width: 0; }
   .col.acol h2 .nm { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
   @media (max-width: 900px) {   /* a phone: swipe sideways, one column per screen */
     body.byagent .board { display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; }
     body.byagent .col { flex: 0 0 86%; min-width: 0; scroll-snap-align: start; max-height: 70vh; }
+    body.byagent .col.todo { flex-basis: min(86%, 300px); }
     body.byagent .cards { overflow-y: auto; flex: 1; }
   }
   @media (max-width: 900px) {   /* below this three columns no longer fit (cards and the header overflowed at ~780px) */
     .wrap { height: auto; min-height: 100vh; padding: 18px 16px 40px; }   /* 18px down, as on desktop: the tab row sits where it does on the other pages */
     .board { grid-template-columns: minmax(0, 1fr); }
+    .col.todo .card { max-width: 340px; }   /* stacked, the Todo cards keep their narrow look instead of stretching across the screen */
     .col { min-height: 160px; min-width: 0; }
     .cards { overflow: visible; flex: none; }
     .empty { min-height: 100px; }
@@ -1418,7 +1414,6 @@ function card(t) {
   const laterBtn = todo ? `<button class="card-act" data-later="${esc(t.id)}" title="Move to Later (backlog)"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 3v7m0 0L5 7m3 3l3-3M3 13h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Later</button>` : '';
   const toTodoBtn = backlog ? `<button class="card-act" data-to-todo="${esc(t.id)}" title="Move to Todo"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 13V6m0 0L5 9m3-3l3 3M3 3h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Move to Todo</button>` : '';
   const queued = todo ? `<span class="when"><svg width="11" height="11" viewBox="0 0 16 16" fill="none" aria-hidden="true" style="vertical-align:-1px;margin-right:4px"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5"/><path d="M8 5v3l2 1.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>queued ${a.text}</span>` : when;
-  const meta = (todo || backlog || !who) && (queued || laterBtn || toTodoBtn) ? `<div class="meta">${laterBtn}${toTodoBtn}${who ? '' : queued}</div>` : '';
   const nSubs = t.subs_total || 0;   // a parent's % is the computed mean of its subtasks (shown as "overall"), and its one bar is the segmented toggle
   const line = doing && nSubs && !t.needs_input && !t.review ? parentLine(t) : t.status_text;   // a question or review request is never replaced by a subtask's note
   const note = doing ? `<div class="note"><span title="${esc(line)}">${esc(line)}</span><span class="pct ${nSubs ? 'computed' : ''}">${t.progress || 0}%</span></div>`
@@ -1435,11 +1430,12 @@ function card(t) {
       `<svg class="cp-ok" width="11" height="11" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>` +
       `<svg class="cp-x" width="11" height="11" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg>${esc(copiedLabel)}</button>`
     : `<button class="copy" type="button">Copy prompt</button>`;
+  const meta = (todo || backlog || !who) && (copy || queued || laterBtn || toTodoBtn) ? `<div class="meta">${copy}${laterBtn}${toTodoBtn}${who && !todo ? '' : queued}</div>` : '';
   const asking = !!t.needs_input && doing;
   const reviewing = !!t.review && doing && !asking;
   const reportLink = t.report && (asking || reviewing || done) ? `<a class="report-link" href="${BASE}/reports/${esc(t.report.file)}" target="_blank" rel="noopener" title="Open this card's report in a new tab" aria-label="Open report"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 1.5h5.5L12.5 5v9.5H4z"/><path d="M9.5 1.5V5h3M6 8.5h4.5M6 11h4.5"/></svg>Report</a>` : '';
   const pdot = proj ? `<i class="pdot" style="--c:${projColor(proj)}" title="Project: ${esc(proj.name)}"></i>` : '';
-  const top = who ? `<div class="top">${who}${pdot}${runChip}${reportLink}${when}</div>` : `<div class="top"><span class="unas">Unassigned</span>${pdot}</div>`;   // the holder is always the first row, same place on every card
+  const top = who ? `<div class="top">${who}${pdot}${runChip}${reportLink}${todo ? '' : when}</div>` : `<div class="top">${todo || backlog ? '' : '<span class="unas">Unassigned</span>'}${pdot}</div>`;   // the holder is always the first row, same place on every card
   const askFlag = asking ? `<div class="ask-flag"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 2a4 4 0 0 0-4 4v3L2.8 11h10.4L12 9V6a4 4 0 0 0-4-4z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M6.5 13a1.5 1.5 0 0 0 3 0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Needs your input</div>` : reviewing ? `<div class="ask-flag rev"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>Ready for review</div>` : '';
   // ask / review: the agent's one sentence is the card's first line, large, with a reply box the owner can answer in (stored on the card; the agent reads it with `agentboard answer`)
   const said = (asking || reviewing) ? (t.question || t.result || t.status_text || '') : '';
@@ -1455,7 +1451,7 @@ function card(t) {
   seen.add(t.id); lastUpdated.set(t.id, t.updated);
   return `<div class="card ${done ? 'done' : ''} ${asking ? 'ask' : ''} ${reviewing ? 'review' : ''} ${abandoned && !asking && !reviewing ? 'abandoned' : ''} ${live && !asking && !reviewing ? 'livebar' : ''} ${fresh ? 'enter' : ''} ${flash ? 'flash' : ''} ${selected.has(t.id) ? 'selected' : ''} " style="--c:${colorOf(t)}" data-agent="${esc(t.agent || '')}" draggable="${backlog ? 'false' : 'true'}" tabindex="0" data-id="${esc(t.id)}" data-status="${t.status}"
       aria-label="${esc(t.title)}, ${t.status}${asking ? ', needs your input' : reviewing ? ', ready for review' : abandoned ? ', no update in a long time, possibly abandoned' : ''}${t.agent ? ', ' + esc(t.agent) : ''}${proj ? ', project ' + esc(proj.name) : ''}${blockers.length ? ', blocked by ' + blockers.map(b => esc(b.title)).join(', ') : ''}">
-    ${copy}${top}${askFlag}${saidRow}${foldRow}${blockedRow}${projPill}${todo && t._q ? `<span class="qnum" aria-label="Queue position ${t._q}">${t._q}</span>` : ''}<div class="title ${done ? 'has-check' : ''}" title="${esc((done ? t.result : t.status_text) || '')}">${checkIcon}${done ? `<span>${esc(t.title)}</span>` : esc(t.title)}</div>${desc}${asking || reviewing ? '' : note}${bar}${meta}${who ? '' : reportLink}${replyRow}${reviewing ? `<button class="btn markdone" data-done="${esc(t.id)}">Mark done</button>` : ''}</div>`;
+    ${top}${askFlag}${saidRow}${foldRow}${blockedRow}${projPill}${todo && t._q ? `<span class="qnum" aria-label="Queue position ${t._q}">${t._q}</span>` : ''}<div class="title ${done ? 'has-check' : ''}" title="${esc((done ? t.result : t.status_text) || '')}">${checkIcon}${done ? `<span>${esc(t.title)}</span>` : esc(t.title)}</div>${desc}${asking || reviewing ? '' : note}${bar}${meta}${who ? '' : reportLink}${replyRow}${reviewing ? `<button class="btn markdone" data-done="${esc(t.id)}">Mark done</button>` : ''}</div>`;
 }
 
 // the parent's segmented bar (one cell per subtask), which doubles as the expand toggle, plus its quiet rows
@@ -1487,17 +1483,22 @@ function toggleSubs(btn) {
 }
 const FLAG_LABEL = { needs_input: 'needs input', review: 'to review' };
 
-// --- By agent: swimlane columns, one per agent with a card in Doing. No Queue and no Idle column, so the agents get the width.
+// The Todo column: one function draws it for the Board and for By agent, so the two can never drift apart.
+function todoColHtml(list, filtered) {
+  return `<section class="col todo" data-status="todo"><h2>Todo <span class="cnt">${list.length}</span></h2>`
+    + `<div class="cards">${list.length ? list.map(card).join('') : `<div class="empty">${filtered ? 'No matches' : EMPTY.todo}</div>`}</div></section>`;
+}
+
+// --- By agent: the Todo column, then swimlane columns, one per agent with a card in Doing. No Queue and no Idle column, so the agents get the width.
 const STATE_WORD2 = { idle: 'idle', working: 'working', quiet: 'quiet', waiting: 'ask', review: 'review', abandoned: 'quiet' };
 function byAgentHtml(by, filtered) {
   const limit = cfg.stale_minutes || DEFAULT_STALE_MIN;
-  const doingBy = new Map(), nextBy = new Map();
+  const doingBy = new Map();
   by.doing.forEach(t => { const k = t.agent || ''; if (!doingBy.has(k)) doingBy.set(k, []); doingBy.get(k).push(t); });
-  by.todo.forEach(t => { if (t.agent) { if (!nextBy.has(t.agent)) nextBy.set(t.agent, []); nextBy.get(t.agent).push(t); } });
   const names = new Set([...doingBy.keys()].filter(Boolean));
   const sorted = [...names].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base', numeric: true }));
   const active = sorted.filter(n => doingBy.has(n));
-  const colorFor = n => { const t = (doingBy.get(n) || nextBy.get(n) || [])[0]; return t ? colorOf(t) : 'var(--neutral)'; };
+  const colorFor = n => { const t = (doingBy.get(n) || [])[0]; return t ? colorOf(t) : 'var(--neutral)'; };
   const stateFor = n => {
     const cards = doingBy.get(n) || [];
     if (cards.some(t => t.needs_input)) return 'ask';
@@ -1507,13 +1508,13 @@ function byAgentHtml(by, filtered) {
     return 'working';
   };
   const agentCol = n => {
-    const st = stateFor(n), cards = doingBy.get(n) || [], next = nextBy.get(n) || [];
+    const st = stateFor(n), cards = doingBy.get(n) || [];
     return `<section class="col acol" data-status="agent:${esc(n)}" style="--c:${colorFor(n)}"><h2><span class="av" style="--c:${colorFor(n)}" aria-hidden="true">${esc(nodeGlyph(n))}</span><span class="nm" title="${esc(n)}">${esc(n)}</span><span class="cnt">${cards.length}</span><em class="${st}">${esc(st)}</em></h2>`
-      + `<div class="cards">${cards.map(card).join('')}${next.map(t => `<div class="nextup">${card(t)}</div>`).join('')}</div></section>`;
+      + `<div class="cards">${cards.map(card).join('')}</div></section>`;
   };
   const n = active.length;
-  $('board').style.setProperty('--tracks', `repeat(${Math.max(1, n)}, minmax(220px, 1fr))`);
-  return n ? active.map(agentCol).join('') : `<div class="empty">${filtered ? 'No matches' : 'No agent is working'}</div>`;
+  $('board').style.setProperty('--tracks', `var(--todo-w) repeat(${Math.max(1, n)}, minmax(220px, 1fr))`);
+  return todoColHtml(by.todo, filtered) + (n ? active.map(agentCol).join('') : `<div class="empty">${filtered ? 'No matches' : 'No agent is working'}</div>`);
 }
 
 // --- quick replies: the options an ask names become one-tap chips ---
@@ -1628,9 +1629,10 @@ function render() {
   const cols = COLUMNS.filter(([k]) => k !== 'backlog');
   // each column scrolls on its own, and the rebuild below replaces those scrollers: remember where they were
   const scrolls = Object.fromEntries([...$('board').querySelectorAll('.col')].map(c => [c.dataset.status, c.querySelector('.cards')?.scrollTop || 0]));
-  $('board').style.setProperty('--tracks', cols.map(([k]) => k === 'doing' ? 'minmax(0, 1.4fr)' : 'minmax(0, 1fr)').join(' '));
+  $('board').style.setProperty('--tracks', cols.map(([k]) => k === 'todo' ? 'var(--todo-w)' : k === 'doing' ? 'minmax(0, 1.4fr)' : 'minmax(0, 1fr)').join(' '));
   $('board').classList.remove('hl');   // a re-render drops the hover highlight with the cards it lit
   $('board').innerHTML = BYAGENT ? byAgentHtml(by, q || pf || flagFilter) : cols.map(([k, label]) => {
+    if (k === 'todo') return todoColHtml(by.todo, q || pf || flagFilter);
     let list = by[k], more = '', ribbon = '';
     if (k === 'done') {
       ribbon = ribbonHtml(list);
