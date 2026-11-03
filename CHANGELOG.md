@@ -2,12 +2,15 @@
 
 ## Unreleased
 
+### Load switches with the same one sound as the other tabs (Nov 3)
+- **Opening or closing Load plays the tab swish, the same simple sound as flipping Board and By agent**, instead of its rising and falling chimes. Every switch sounds once: the tabs, `[`, `]`, `a`, `h`, Escape, Back and Forward alike, and never a swish and a chime together. The ambient bed plays straight through, and the other cues did not change.
+
 ### Board and By agent switch in place (Nov 3)
 - **Flipping between Board and By agent no longer reloads the page**: the tabs, `a`, `[` and `]` redraw the board where it is, the way Load already opened and closed. The sound plays straight through, the open card and the filter stay, and the address bar and Back button still follow the view.
 
 ### Touch: the sounds of using the board (Nov 3)
 - **A thin layer of UI sounds for what your hands do**, synthesized like the cues and played through the same buses (compressor, reverb send), so it reads as one instrument: a soft tick when a card takes keyboard focus; a rising pair when a card's panel opens and a falling pair when it closes, in that card's agent's voice; a lift when you pick a card up and a settle when you drop it, pitched by the column it lands in (Todo low, Doing mid, Done high; dropped back where it was, nothing); a faint click per Alt+arrow step; one swish for a tab change (the tabs, `[`, `]` and `a` alike); a quiet slide in and out for Later, Chat, Mix and the shortcuts sheet; a two-pitch click on the theme, sound, notifications and AMB switches, up for on and down for off; a tick when the filter's match count changes (nothing per keystroke); a confirm blip when a prompt is copied; a tick that rises a semitone per card selected and falls when one leaves; one low tone for a failed save or a dropped connection, never again on every poll.
-- **Every one of them is at most 40% of the quietest cue and 20 to 120 ms**, only ever on your own action (never on a poll or a re-render), one per action. Mark done keeps its done cue, adding a task its added cue, opening Load its open cue: nothing plays twice.
+- **Every one of them is at most 40% of the quietest cue and 20 to 120 ms**, only ever on your own action (never on a poll or a re-render), one per action. Mark done keeps its done cue, adding a task its added cue: nothing plays twice.
 - **One Mix row, Touch, on by default with its own level**, so the whole set turns down or off in one place; SND OFF still silences everything. The cues and the bed did not change.
 
 ### Sounds on every view (Nov 3)

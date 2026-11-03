@@ -8,6 +8,12 @@ from agentboard import nav
 HTML = (Path(nav.__file__).parent / "static" / "index.html").read_text()
 
 
+def body(fn):
+    m = re.search(r"function " + fn + r"\(.*?\n}\n", HTML, re.S)
+    assert m, fn
+    return m.group(0)
+
+
 class SeamlessViewsTests(unittest.TestCase):
     def test_the_view_is_a_variable_the_page_flips_in_place(self):
         self.assertIn("let BYAGENT = location.pathname", HTML)
@@ -18,12 +24,13 @@ class SeamlessViewsTests(unittest.TestCase):
         self.assertNotIn("location.href = BASE + (agents", HTML)
         self.assertNotIn("location.href = BASE + (BYAGENT", HTML)
         self.assertIn("if (e.key === 'a') { goView(BYAGENT ? 0 : 1); return; }", HTML)
-        self.assertIn("if (agents !== BYAGENT) { touch('swish'); setView(agents); }", HTML)   # goView: the tabs, [ ] and a
-        self.assertIn("  if (here) closeHud();\n}", HTML)
+        self.assertIn("if (agents !== BYAGENT) { if (!here) touch('swish'); setView(agents); }", HTML)   # goView: the tabs, [ ] and a
+        self.assertIn("  if (here) closeHud();", body("goView"))
 
     def test_the_address_bar_and_back_follow_the_view(self):
         self.assertIn("history.pushState({ view: agents ? 'agents' : 'board' }, '', BASE + (agents ? '/agents' : '/') + location.hash);", HTML)
-        self.assertIn("window.addEventListener('popstate', () => setView(location.pathname.replace(/\\/+$/, '').endsWith('/agents'), false));", HTML)
+        self.assertIn("window.addEventListener('popstate', () => {", HTML)
+        self.assertIn("  setView(agents, false);\n});", HTML)
 
     def test_a_direct_visit_still_lands_on_the_right_view(self):
         self.assertIn("applyView();\nif (BYAGENT) document.title = APP + ' · by agent';", HTML)

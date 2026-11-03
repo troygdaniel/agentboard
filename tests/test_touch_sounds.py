@@ -88,10 +88,10 @@ class TouchSoundTests(unittest.TestCase):
         self.assertIn("if (md) { confirmDoneClick(md); move(md.dataset.done, 'done'); return; }", PAGE)
         self.assertNotIn("touch(", PAGE.split("$('add').onsubmit")[1].split("};")[0])
         self.assertNotIn("touch(", PAGE.split("$('later-body').addEventListener('submit'")[1].split("});")[0])
-        # Load's own open and close cues stay the sound of that tab; a card opened from Load does not add an open pair
+        # Load opens and closes with the same swish as a tab change, nothing on top; a card opened from Load does not add an open pair
         self.assertIn("closeHud(); openPanel(id, true);", PAGE)
-        self.assertNotIn("touch(", body("openHud"))
-        self.assertNotIn("touch(", body("closeHud"))
+        self.assertEqual(body("openHud").count("touch("), 1)
+        self.assertEqual(body("closeHud").count("touch("), 1)
         # turning sound on already plays the open cue (or the added cue): only the off click is added
         self.assertIn("$('h-snd').onclick = () => { if (sndOn) touch('toggle', false); setSnd(!sndOn); };", PAGE)
         self.assertIn("$('snd2').onclick = () => { if (sndOn) touch('toggle', false); setSnd(!sndOn, true); if (sndOn) cue.added(); };", PAGE)
@@ -115,7 +115,7 @@ class TouchSoundTests(unittest.TestCase):
         # Alt+arrows: a click per step that moved something
         self.assertIn("  else return;   // at the edge: no move, no click\n  touch('step');", PAGE)
         # tab switch: one swish for a view change, from the tabs, [ ] and a alike; the view flips in place so it plays through
-        self.assertIn("if (agents !== BYAGENT) { touch('swish'); setView(agents); }", body("goView"))
+        self.assertIn("if (agents !== BYAGENT) { if (!here) touch('swish'); setView(agents); }", body("goView"))
         self.assertIn("if (e.key === 'a') { goView(BYAGENT ? 0 : 1); return; }", PAGE)
         # drawers and sheets slide in and out, from the button, the key, Escape and a click outside
         self.assertIn("function openLater() { setSide('later'); touch('slide', true);", PAGE)

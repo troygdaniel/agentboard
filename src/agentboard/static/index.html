@@ -2420,7 +2420,6 @@ let lastWorking = [];
 function agentPitch(name) { let h = 0; for (const ch of String(name || '')) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return PITCHES[h % PITCHES.length]; }
 const cue = {
   open()   { const t = sndNow(); if (t == null) return; tone(587, t, .1, { vol: .028 }); tone(880, t + .09, .12, { vol: .026 }); tone(1175, t + .18, .3, { vol: .022, verb: 1.1 }); },
-  close()  { const t = sndNow(); if (t == null) return; tone(880, t, .09, { vol: .024 }); tone(587, t + .08, .18, { vol: .02, verb: 1.1 }); },
   start()  { const t = sndNow(); if (t == null) return; tone(698, t, .07, { vol: .026 }); tone(1047, t + .08, .13, { vol: .024, verb: .9 }); },
   update(agent) { const t = sndNow(); if (t == null) return; tone(agentPitch(agent), t, .06, { vol: .013, verb: .9, pan: .15 }); },
   done()   { const t = sndNow(); if (t == null) return; tone(1047, t, .12, { vol: .032 }); tone(1397, t + .1, .14, { vol: .03 }); tone(2093, t + .22, .4, { vol: .018, verb: 1.4 }); },
@@ -2767,13 +2766,13 @@ function openHud() {
   window.scrollTo(0, 0); placeHud();   // the board's header is at the top of the page; the overlay starts right under it
   $('hud').classList.add('open'); document.body.style.overflow = 'hidden'; litTab();
   hudKey = ''; sndSeenAt = null; hudPrevTiles = null; setSnd(sndOn, true); setAmb(ambOn, true);
-  if (!SOLO) cue.open();
+  if (!SOLO) touch('swish');   // the one sound of a view change, the same as a Board/By agent flip
   hudLoad(); clearInterval(hudTimer); hudTimer = setInterval(hudLoad, 1000);
   $('h-close').focus();
 }
 function closeHud() {
   if (SOLO) { window.close(); return; }
-  cue.close();   // the bed plays on under the board: it belongs to every view now
+  touch('swish');   // the same one sound; the bed plays on under the board, it belongs to every view
   $('hud').classList.remove('open', 'full'); document.body.style.overflow = ''; litTab();
   clearInterval(hudTimer);
   if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
@@ -3148,16 +3147,20 @@ function setView(agents, push = true) {
   if (push) history.pushState({ view: agents ? 'agents' : 'board' }, '', BASE + (agents ? '/agents' : '/') + location.hash);
   applyView(); renderKeepingCardFocus();
 }
-window.addEventListener('popstate', () => setView(location.pathname.replace(/\/+$/, '').endsWith('/agents'), false));
+window.addEventListener('popstate', () => {   // Back and Forward: the same one swish when the view changes, nothing for a hash alone
+  const agents = location.pathname.replace(/\/+$/, '').endsWith('/agents');
+  if (agents !== BYAGENT && !SOLO) touch('swish');
+  setView(agents, false);
+});
 // [ and ] flip between the three views in a ring: Board, By agent, Load (the HUD)
 const VIEWS = 3;
 const curView = () => hudIsOpen() ? 2 : BYAGENT ? 1 : 0;
 function goView(i) {
   const here = hudIsOpen();
-  if (i === 2) { if (!here) $('hud-btn').click(); return; }
+  if (i === 2) { if (!here) openHud(); return; }
   const agents = i === 1;
-  if (agents !== BYAGENT) { touch('swish'); setView(agents); }   // in place, no reload: the swish plays through
-  if (here) closeHud();
+  if (agents !== BYAGENT) { if (!here) touch('swish'); setView(agents); }   // in place, no reload: the swish plays through
+  if (here) closeHud();   // closing Load is the one sound of a switch from it, whichever view is under it
 }
 document.addEventListener('keydown', e => {
   if (e.metaKey || e.ctrlKey) return;
