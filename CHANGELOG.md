@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Agents wait for your reply in the background; an unread reply is kept (Nov 3)
+- **After an `ask`, the card prompt and `agentboard instructions` tell the agent to start `agentboard answer "$ID" --wait --timeout 3600` as a background command and end its turn.** The session is woken when you reply and the command prints your answer, so an agent no longer sits idle until you type in its terminal. A tool that cannot run background commands runs it in the foreground.
+- **An unread reply is no longer erased.** `update` and `review` used to delete a reply before the agent had read it; now `answer` marks the reply read (`read_at`), and only a read reply is cleared by the next `update` or `review`. A new `ask` or a `claim` still replaces it, since the question changed.
+- **`answer` says when the reply was left**, on stderr (`(replied 2026-11-03 18:23 by Alex, 4 min ago)`), so `$(agentboard answer ...)` still captures only the reply.
+
 ### By agent as polished as the Board, and Motion (Nov 3)
 - **By agent's lanes draw their cards the way the Board's Doing column does**: the status-tinted fill (orange running, green review, red ask), the status border and shadow, the hover glow, and a lit column head. It is one rule for both now, so no new colour was added and a change to Doing's look carries to the lanes.
 - **Motion**, a Mix layer that is off until you choose it: look and sound move together. An agent's card that changes column lands at the end of its glide with the Touch settle (pitched by the column, in the agent's voice); a card reaching Done draws its check in; the view crossfades for the swish. Your own moves do not get the settle (they sounded when you made them). Off, nothing on the page changes.

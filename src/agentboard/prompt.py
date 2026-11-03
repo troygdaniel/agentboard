@@ -84,8 +84,10 @@ If you are blocked on the user mid-task, flag it (and keep going once they answe
 
     {ab} ask {task_id} "<one-line question>"
 
-{Owner} answers on the card, not through anyone else. Read their answer with `{ab} answer {task_id} --wait`
-(it prints their reply as soon as there is one), then carry on.
+{Owner} answers on the card, not through anyone else. After you ask, do not sit idle: start
+`{ab} answer {task_id} --wait --timeout 3600` as a background command (in Claude Code, Bash with run_in_background)
+and end your turn. You are woken when {owner} replies, and it prints their reply; then carry on. A tool that cannot
+run background commands runs it in the foreground instead. If it times out with no reply, say you are still waiting.
 
 These are not optional.
 {context}
