@@ -1287,7 +1287,7 @@ let APP = 'agentboard';   // the tab title's name: 'agentboard · work' on a nam
 const BASE = window.AB_BASE || '';   // '' for the default board, '/b/<name>' for another one (the server fills it in)
 { const nativeFetch = window.fetch.bind(window); window.fetch = (u, o) => nativeFetch(typeof u === 'string' && u.startsWith('/api/') ? BASE + u : u, o); }
 const SOLO = location.pathname.replace(/\/+$/, '').endsWith('/hud');
-const BYAGENT = location.pathname.replace(/\/+$/, '').endsWith('/agents');   // the by-agent view: same page, swimlane columns
+let BYAGENT = location.pathname.replace(/\/+$/, '').endsWith('/agents');   // the by-agent view: same page, swimlane columns; setView() flips it in place
 // the left drawer: Later (parked ideas), the same on the Board and on By agent (Todo is a column in both)
 const LATER_EMPTY = 'Nothing parked. Ideas you are not ready to start live here, out of the way.';
 const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;   // HUD running in its own window
@@ -2788,15 +2788,11 @@ function toggleHudFull() {
 document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement) { $('hud').classList.remove('full'); hudKey = ''; } });
 $('hud-btn').onclick = e => { e.preventDefault(); if (!hudIsOpen()) openHud(); };   // a tab: clicking the lit one does nothing (h and Esc close it)
 // tab links are relative to the page, which is wrong for /hud (its folder is still the board): pin them to the board's base. A plain click flips the view
-// without a reload when it can (Load is an overlay); the pop-out window has no board, so it opens one
+// without a reload (Load is an overlay, Board and By agent redraw in place); the pop-out window has no board, so it opens one
 $('tab-board').href = BASE + '/'; $('tab-agents').href = BASE + '/agents';
 ['tab-board', 'tab-agents'].forEach((id, i) => { $(id).onclick = e => { if (e.metaKey || e.ctrlKey || e.shiftKey || e.button) return; e.preventDefault(); if (SOLO) window.open(BASE + (i ? '/agents' : '/'), 'agentboard-board'); else goView(i); }; });
-if (BYAGENT) {
-  document.body.classList.add('byagent');
-  $('tab-board').classList.remove('on'); $('tab-board').removeAttribute('aria-current');
-  $('tab-agents').classList.add('on'); $('tab-agents').setAttribute('aria-current', 'page');
-  document.title = APP + ' · by agent';
-}
+applyView();
+if (BYAGENT) document.title = APP + ' · by agent';
 $('h-close').onclick = closeHud;
 $('h-full').onclick = toggleHudFull;
 $('h-snd').onclick = () => { if (sndOn) touch('toggle', false); setSnd(!sndOn); };   // off: the down click, then silence; on: the open cue already says so
@@ -3143,18 +3139,24 @@ function extendSelectionVertical(dir) {
   renderSelection();
 }
 
-// [ and ] flip between the three views in a ring: Board, By agent, Load (the HUD). Board and By agent are pages; Load is the overlay on whichever page is open.
+// Board and By agent are one page that draws two ways: flipping redraws it in place, with no reload, so nothing else on the page (the sound
+// included) is interrupted. The address bar and Back follow it. Load is an overlay on whichever is open.
+function applyView() { document.body.classList.toggle('byagent', BYAGENT); litTab(); }
+function setView(agents, push = true) {
+  if (SOLO || agents === BYAGENT) return;
+  BYAGENT = agents;
+  if (push) history.pushState({ view: agents ? 'agents' : 'board' }, '', BASE + (agents ? '/agents' : '/') + location.hash);
+  applyView(); renderKeepingCardFocus();
+}
+window.addEventListener('popstate', () => setView(location.pathname.replace(/\/+$/, '').endsWith('/agents'), false));
+// [ and ] flip between the three views in a ring: Board, By agent, Load (the HUD)
 const VIEWS = 3;
 const curView = () => hudIsOpen() ? 2 : BYAGENT ? 1 : 0;
 function goView(i) {
   const here = hudIsOpen();
   if (i === 2) { if (!here) $('hud-btn').click(); return; }
   const agents = i === 1;
-  if (agents !== BYAGENT) {   // a page change drops the overlay too; the swish gets its 90 ms before the page goes
-    const url = BASE + (agents ? '/agents' : '/'), go = () => { location.href = url; };
-    if (touch('swish')) setTimeout(go, 90); else go();
-    return;
-  }
+  if (agents !== BYAGENT) { touch('swish'); setView(agents); }   // in place, no reload: the swish plays through
   if (here) closeHud();
 }
 document.addEventListener('keydown', e => {

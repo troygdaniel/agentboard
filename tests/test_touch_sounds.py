@@ -114,8 +114,8 @@ class TouchSoundTests(unittest.TestCase):
         self.assertIn("tap(agentPitch(agent), t + .05, .03, .5, { verb: .5 }); },", TOUCH)
         # Alt+arrows: a click per step that moved something
         self.assertIn("  else return;   // at the edge: no move, no click\n  touch('step');", PAGE)
-        # tab switch: one swish for a page change, from the tabs, [ ] and a alike, with 90 ms to be heard before the page goes
-        self.assertIn("if (touch('swish')) setTimeout(go, 90); else go();", body("goView"))
+        # tab switch: one swish for a view change, from the tabs, [ ] and a alike; the view flips in place so it plays through
+        self.assertIn("if (agents !== BYAGENT) { touch('swish'); setView(agents); }", body("goView"))
         self.assertIn("if (e.key === 'a') { goView(BYAGENT ? 0 : 1); return; }", PAGE)
         # drawers and sheets slide in and out, from the button, the key, Escape and a click outside
         self.assertIn("function openLater() { setSide('later'); touch('slide', true);", PAGE)

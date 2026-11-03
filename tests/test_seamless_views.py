@@ -1,0 +1,34 @@
+"""Board and By agent switch in place (Nov 3): one page drawn two ways, no reload, so the sound never skips. Load already worked that way."""
+import re
+import unittest
+from pathlib import Path
+
+from agentboard import nav
+
+HTML = (Path(nav.__file__).parent / "static" / "index.html").read_text()
+
+
+class SeamlessViewsTests(unittest.TestCase):
+    def test_the_view_is_a_variable_the_page_flips_in_place(self):
+        self.assertIn("let BYAGENT = location.pathname", HTML)
+        self.assertIn("function setView(agents, push = true) {", HTML)
+        self.assertIn("applyView(); renderKeepingCardFocus();", HTML)          # a redraw, not a navigation
+
+    def test_nothing_reloads_the_page_to_change_view(self):
+        self.assertNotIn("location.href = BASE + (agents", HTML)
+        self.assertNotIn("location.href = BASE + (BYAGENT", HTML)
+        self.assertIn("if (e.key === 'a') { goView(BYAGENT ? 0 : 1); return; }", HTML)
+        self.assertIn("if (agents !== BYAGENT) { touch('swish'); setView(agents); }", HTML)   # goView: the tabs, [ ] and a
+        self.assertIn("  if (here) closeHud();\n}", HTML)
+
+    def test_the_address_bar_and_back_follow_the_view(self):
+        self.assertIn("history.pushState({ view: agents ? 'agents' : 'board' }, '', BASE + (agents ? '/agents' : '/') + location.hash);", HTML)
+        self.assertIn("window.addEventListener('popstate', () => setView(location.pathname.replace(/\\/+$/, '').endsWith('/agents'), false));", HTML)
+
+    def test_a_direct_visit_still_lands_on_the_right_view(self):
+        self.assertIn("applyView();\nif (BYAGENT) document.title = APP + ' · by agent';", HTML)
+        self.assertIn("function applyView() { document.body.classList.toggle('byagent', BYAGENT); litTab(); }", HTML)
+
+
+if __name__ == "__main__":
+    unittest.main()

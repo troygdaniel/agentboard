@@ -21,8 +21,9 @@ class DrawerTests(unittest.TestCase):
         self.assertNotIn("BYAGENT", render)
 
     def test_the_by_agent_init_does_not_relabel_the_later_button(self):
-        init = HTML[HTML.index("if (BYAGENT) {\n  document.body.classList.add('byagent');"):]
+        init = HTML[HTML.index("function applyView() {"):]   # the By agent init: the view flips in place now (Nov 3)
         init = init[:init.index("\n}\n")]
+        init += HTML[HTML.index("applyView();\nif (BYAGENT)"):][:200]
         for needle in ("$('later-btn')", "$('later').setAttribute('aria-label'", ".p-head strong').textContent", "$('key-later')"):
             self.assertNotIn(needle, init)
 
