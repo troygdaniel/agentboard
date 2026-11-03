@@ -408,7 +408,7 @@ class Store:
                 # subtasks have no review step: reporting one finished is just 100%, which completes it
                 return self._update(tasks, t, 100, summary, None)
             _require_doing(t, "review")
-            t.pop("reply", None)
+            _drop_read_reply(t)
             t.pop("needs_input", None)
             t.pop("question", None)
             t.pop("ask_child", None)
@@ -483,9 +483,19 @@ class Store:
             return t
 
     def answer(self, task_id):
-        """The latest reply the user left on the card, or None."""
+        """The latest reply the user left on the card, or None. Reading it marks it read (`read_at`): until then the agent's
+        update and review keep it, so a status line sent before reading cannot erase it; after, they clear it as before.
+        Only the first read writes, so polling for a reply does not touch the board file."""
         r = self.get(self.load(), task_id).get("reply")
-        return dict(r) if isinstance(r, dict) and r.get("text") else None
+        if not (isinstance(r, dict) and r.get("text")):
+            return None
+        if not r.get("read_at"):
+            with self.transaction() as tasks:
+                r = self.get(tasks, task_id).get("reply")
+                if not (isinstance(r, dict) and r.get("text")):
+                    return None
+                r.setdefault("read_at", _now())
+        return dict(r)
 
     @_reports_after()
     def update(self, task_id, progress=None, text=None, status=None, body_md=None):
@@ -503,8 +513,7 @@ class Store:
         resumed = bool(t.get("needs_input") or t.get("review"))
         for f in ("needs_input", "question", "review", "body_md"):
             t.pop(f, None)
-        if resumed:
-            t.pop("reply", None)   # the agent has moved on from the question or review the reply answered
+        _drop_read_reply(t)   # the agent has moved on from what the reply answered, once it has read it
         parent = _parent_of(tasks, t)
         if parent and parent.get("ask_child") == t["id"]:   # this was the question the parent was showing
             for f in ("needs_input", "question", "ask_child"):
@@ -907,6 +916,13 @@ class Store:
 
 LOG_MAX = 200
 CHAT_MAX = 500
+
+
+def _drop_read_reply(t):
+    """Clear the card's reply once the agent has read it with `answer`; an unread one stays, so it is never lost unseen."""
+    r = t.get("reply")
+    if isinstance(r, dict) and r.get("read_at"):
+        t.pop("reply", None)
 
 
 def _log(t, text, by=None):

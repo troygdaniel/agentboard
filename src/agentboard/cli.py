@@ -7,7 +7,7 @@ import shlex
 import subprocess
 import sys
 import time
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 
 from . import __version__
@@ -786,7 +786,9 @@ NEVER mark your own task done. Finish with `review` and stop. Run
 Report to {owner} in one sentence, one idea: the ACTION they must take first, then one fact. If nothing is
 needed from them, one line of status. If more is unavoidable, one sentence, then offer the detail. Put that
 sentence on the card (ask/review/update text) so {owner} answers you there, and in your terminal. They reply
-on the card: read it with `agentboard answer "$ID" --wait`.
+on the card. After an `ask`, do not sit idle: start `agentboard answer "$ID" --wait --timeout 3600` as a background
+command (in Claude Code, Bash with run_in_background) and end your turn. You are woken when they reply, and it prints
+the reply. A tool that cannot run background commands runs it in the foreground instead.
 
 If you are handed a task id instead, run `agentboard claim <id> --name "<your session name>"`.
 Use your own session name so people can tell agents apart; the board gives each name its own colour.
@@ -1238,12 +1240,23 @@ def cmd_sms_try(a):
     print(smslib.apply(_store(), " ".join(a.text)))
 
 
+def _reply_when(r):
+    """'replied 2026-11-03 18:23 by Alex, 4 min ago': so an agent can tell a fresh reply from one it already acted on."""
+    try:
+        mins = max(0, round((datetime.now() - datetime.strptime(r["at"], "%Y-%m-%dT%H:%M:%S")).total_seconds() / 60))
+    except (KeyError, TypeError, ValueError):
+        return "replied"
+    ago = "just now" if mins < 1 else f"{mins} min ago" if mins < 120 else f"{mins // 60} h ago"
+    return f"replied {r['at'].replace('T', ' ')[:16]} by {r.get('by') or 'the user'}, {ago}"
+
+
 def cmd_answer(a):
     s = _store()
     deadline = time.time() + a.timeout if a.wait else 0
     while True:
         r = s.answer(a.id)
         if r:
+            print(f"({_reply_when(r)})", file=sys.stderr)   # on stderr, so `$(agentboard answer ...)` still captures only the reply
             print(r["text"])
             return
         if not a.wait or time.time() >= deadline:

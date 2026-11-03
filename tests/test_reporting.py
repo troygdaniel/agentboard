@@ -95,16 +95,72 @@ class ReplyTests(Base):
         self.assertTrue(Store.get(self.s.load(), "ask-me")["needs_input"])       # replying changes no state
         self.assertEqual(self.cli("answer", "ask-me").strip(), "five")
 
-    def test_the_reply_is_cleared_when_the_agent_moves_on(self):
+    def test_a_read_reply_is_cleared_when_the_agent_moves_on(self):
         for step in ("update", "ask", "review", "claim"):
             with self.subTest(step):
                 self.s.start(f"Card {step}", "alice")
                 cid = f"card-{step}"
                 self.s.ask(cid, "q?")
                 self.s.reply(cid, "go ahead")
+                self.assertEqual(self.s.answer(cid)["text"], "go ahead")   # the agent has read it
                 {"update": lambda: self.s.update(cid, 50, "on it"), "ask": lambda: self.s.ask(cid, "another?"),
                  "review": lambda: self.s.review(cid, "done"), "claim": lambda: self.s.claim(cid, "bob", force=True)}[step]()
                 self.assertIsNone(self.s.answer(cid))
+
+    def test_an_unread_reply_survives_a_status_update_or_a_review(self):
+        for step in ("update", "review"):
+            with self.subTest(step):
+                self.s.start(f"Card {step}", "alice")
+                cid = f"card-{step}"
+                self.s.ask(cid, "q?")
+                self.s.reply(cid, "go ahead")
+                {"update": lambda: self.s.update(cid, 50, "still working"), "review": lambda: self.s.review(cid, "done")}[step]()
+                self.assertEqual(self.s.answer(cid)["text"], "go ahead")   # not erased before the agent saw it
+
+    def test_a_reply_read_after_a_status_update_is_cleared_by_the_next_one(self):
+        self.s.start("Card", "alice")
+        self.s.ask("card", "q?")
+        self.s.reply("card", "go ahead")
+        self.s.update("card", 50, "still working")
+        self.assertEqual(self.s.answer("card")["text"], "go ahead")
+        self.s.update("card", 60, "on it")
+        self.assertIsNone(self.s.answer("card"))
+
+    def test_a_new_ask_or_claim_replaces_an_unread_reply(self):
+        for step in ("ask", "claim"):
+            with self.subTest(step):
+                self.s.start(f"Card {step}", "alice")
+                cid = f"card-{step}"
+                self.s.ask(cid, "q?")
+                self.s.reply(cid, "old answer")
+                {"ask": lambda: self.s.ask(cid, "a new question?"), "claim": lambda: self.s.claim(cid, "bob", force=True)}[step]()
+                self.assertIsNone(self.s.answer(cid))   # the question changed, so the old answer must not answer it
+
+    def test_a_newer_reply_is_unread_again(self):
+        self.s.start("Card", "alice")
+        self.s.ask("card", "q?")
+        self.s.reply("card", "first")
+        self.assertIn("read_at", self.s.answer("card"))
+        self.s.reply("card", "second")
+        self.assertNotIn("read_at", Store.get(self.s.load(), "card")["reply"])
+
+    def test_reading_marks_it_once_and_polling_does_not_write(self):
+        self.s.start("Card", "alice")
+        self.s.ask("card", "q?")
+        self.s.reply("card", "yes")
+        first = self.s.answer("card")["read_at"]
+        time.sleep(1.1)
+        self.assertEqual(self.s.answer("card")["read_at"], first)
+
+    def test_answer_says_when_the_reply_was_left_without_touching_the_reply_text(self):
+        self.s.start("Card", "alice")
+        self.s.ask("card", "q?")
+        self.s.reply("card", "five")
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            out = self.cli("answer", "card")
+        self.assertEqual(out.strip(), "five")
+        self.assertRegex(err.getvalue(), r"\(replied \d{4}-\d\d-\d\d \d\d:\d\d by you, just now\)")
 
     def test_answer_without_a_reply_fails_and_wait_times_out(self):
         self.s.start("Quiet", "alice")
