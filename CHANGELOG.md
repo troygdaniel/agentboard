@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Settings on every view; a tidier header and Load bar; volume (Nov 3)
+- **One gear in the header, in the same place on Board, By agent and Load**, opens Settings (`m`): what was the Mix sheet, now with the Sound and Ambient bed switches and a Volume slider above the Touch, Ambience and Effects layers. `s` still flips sound on any view.
+- **Volume**: 100% is the usual level and the default; nothing changes until you raise it. Up to 300% goes through a limiter (-3 dBFS, 20:1) and a ceiling that never reaches full scale, so a raised volume cannot clip. Saved in the browser.
+- **The header lost the project dropdown, the Filter field (and the `/` key), the Live block and the speaker button.** The who chips and the needs-input / to-review counts still filter; an active filter shows as before with a clear control next to it. A small amber chip appears only while the server is unreachable.
+- **Load's bar keeps LIVE and the alert chips**: Pop out, Close, Mix, SND and AMB are gone (`h`, Escape and the tabs close it; `f` still toggles fullscreen; `/hud` still opens the pop-out).
+
 ### By agent as polished as the Board, and Motion (Nov 3)
 - **By agent's lanes draw their cards the way the Board's Doing column does**: the status-tinted fill (orange running, green review, red ask), the status border and shadow, the hover glow, and a lit column head. It is one rule for both now, so no new colour was added and a change to Doing's look carries to the lanes.
 - **Motion**, a Mix layer that is off until you choose it: look and sound move together. An agent's card that changes column lands at the end of its glide with the Touch settle (pitched by the column, in the agent's voice); a card reaching Done draws its check in; the view crossfades for the swish. Your own moves do not get the settle (they sounded when you made them). Off, nothing on the page changes.

@@ -32,7 +32,7 @@ class SoundsOnEveryViewTests(unittest.TestCase):
 
     def test_the_toggle_and_the_key_are_the_same_on_every_view(self):
         self.assertIn("setSnd(sndOn, true); setAmb(ambOn, true);", HTML)       # the buttons show the saved state at load, not only after Load opens
-        self.assertIn("if (e.key === 's') { $(hudIsOpen() ? 'h-snd' : 'snd2').click(); return; }", HTML)
+        self.assertIn("if (e.key === 's') { toggleSound(); return; }", HTML)   # one function behind the key and the Settings switch
         self.assertEqual(len(re.findall(r"e\.key === 's'", HTML)), 1)           # one handler, not one per view
 
     def test_who_is_working_has_one_rule_on_the_board_and_under_the_sound(self):

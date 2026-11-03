@@ -34,10 +34,10 @@ class SoundMixTests(unittest.TestCase):
         self.assertIn("if (h) hearLayer(LAYERS.find(L => L.id === h.dataset.hear));", PAGE)
 
     def test_mix_opens_from_load_and_from_the_m_key_and_escape_closes_it_first(self):
-        self.assertIn('id="h-mix" aria-label="Mix: extra sound layers (m)"', PAGE)
-        self.assertIn("$('h-mix').onclick = () => toggleMix();", PAGE)
+        self.assertIn('id="cfg-btn" aria-label="Settings (m)"', PAGE)   # the sheet is Settings now (Nov 3), opened from the gear on every view
+        self.assertIn("$('cfg-btn').onclick = () => toggleMix();", PAGE)
         self.assertIn("if (e.key === 'm') { toggleMix(); return; }", PAGE)
-        self.assertIn("<dt><kbd>m</kbd></dt><dd>Mix: extra sound layers</dd>", PAGE)
+        self.assertIn("<dt><kbd>m</kbd></dt><dd>Settings: sound, volume, layers</dd>", PAGE)
         self.assertIn("if (mixIsOpen()) { toggleMix(false); return; }", PAGE)
 
     def test_the_default_sound_is_unchanged(self):
