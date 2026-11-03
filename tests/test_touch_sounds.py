@@ -24,7 +24,7 @@ class TouchSoundTests(unittest.TestCase):
         self.assertIn("const TV = .005;", PAGE)
         self.assertLessEqual(.005, .4 * quietest)
         # a tap's level is a share (<= 1) of the ceiling, scaled by the layer's level; nothing passes an absolute vol
-        self.assertIn("function tap(f, t, dur, v, o = {}) { tone(f, t, dur, { atk: .003, verb: .35, ...o, vol: v * TV * layerLvl('touch') }); }", PAGE)
+        self.assertIn("function tap(f, t, dur, v, o = {}) { tone(f, t, dur, { atk: .003, verb: .35, ...o, vol: v * TV * (o.lvl ?? layerLvl('touch')) }); }", PAGE)
         self.assertNotIn("vol:", TOUCH)
         taps = re.findall(r"tap\([^,]+, [^,]+, (\.\d+), (\.?\d+(?:\.\d+)?)", TOUCH)
         self.assertGreaterEqual(len(taps), 14)
@@ -66,7 +66,7 @@ class TouchSoundTests(unittest.TestCase):
 
     def test_nothing_plays_on_a_poll_or_a_re_render_and_one_gesture_gets_one_sound(self):
         self.assertIn("['pointerdown', 'keydown', 'click', 'input', 'change', 'submit', 'dragstart', 'drop'].forEach(ev => window.addEventListener(ev, () => {", PAGE)
-        self.assertIn("gestureSeq++; gestureLive = true; setTimeout(() => { gestureLive = false; }, 0);", PAGE)
+        self.assertIn("gestureSeq++; gestureLive = true; lastGestureAt = Date.now(); setTimeout(() => { gestureLive = false; }, 0);", PAGE)
         self.assertIn("if (!after) { if (!gestureLive || touchSeq === gestureSeq) return null; touchSeq = gestureSeq; }", body("touchAt"))
         # nothing in the poll path or the renderer asks for a touch sound
         for fn in ("load", "render", "hudSounds", "checkAsks", "maybeAutoOpen", "renderSelection", "renderLater", "renderPanel", "hudLoad"):
@@ -111,7 +111,7 @@ class TouchSoundTests(unittest.TestCase):
         self.assertIn("if (!stayed) touch('drop', col.dataset.status, c?.dataset.agent);", PAGE)
         self.assertIn("const stayed = c && c.closest('.col') === col && (b || null) === (next || null);", PAGE)
         self.assertIn("{ todo: 392, doing: 523, done: 659 }[status] || 523", TOUCH)
-        self.assertIn("tap(agentPitch(agent), t + .05, .03, .5, { verb: .5 }); },", TOUCH)
+        self.assertIn("tap(agentPitch(agent), t + .05, .03, .5, { verb: .5, lvl }); },", TOUCH)
         # Alt+arrows: a click per step that moved something
         self.assertIn("  else return;   // at the edge: no move, no click\n  touch('step');", PAGE)
         # tab switch: one swish for a view change, from the tabs, [ ] and a alike; the view flips in place so it plays through

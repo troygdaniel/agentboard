@@ -214,6 +214,9 @@
   .card.enter { animation: enter .2s ease-out; }
   .card.flash { animation: flash 1.4s ease-out; }
   @keyframes flash { from { background: color-mix(in srgb, var(--st, var(--neutral)) 16%, var(--surface)); } }
+  /* Motion (a Mix layer, off until chosen): the check draws itself in when a card reaches Done */
+  body.motion .card.flash.done .check path { stroke-dasharray: 14; stroke-dashoffset: 14; animation: checkdraw .45s .25s ease-out forwards; }
+  @keyframes checkdraw { to { stroke-dashoffset: 0; } }
   .top { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: var(--fs-sm); color: var(--muted); min-height: 20px; }
   .top .when { margin-left: auto; white-space: nowrap; }
   .top .when.stale { color: var(--warn); }
@@ -1630,8 +1633,9 @@ function render() {
   const focusId = document.activeElement?.dataset?.id;
   const focusToggle = document.activeElement?.dataset?.toggleSubs;
   // FLIP: remember where every card was, so moves and reorders glide instead of snapping
-  const before = new Map();
+  const before = new Map(), beforeCol = new Map();
   if (!RM && !firstRender) $('board').querySelectorAll('.card').forEach(c => before.set(c.dataset.id, c.getBoundingClientRect()));
+  if (!firstRender) $('board').querySelectorAll('.card').forEach(c => beforeCol.set(c.dataset.id, c.closest('.col')?.dataset.status));
   const activeNow = by.doing.filter(t => t.agent && !t.needs_input && !t.review && ago(t.updated).min < STALE_MIN);
   const pres = [...new Map(activeNow.map(t => [t.agent, colorOf(t)])).entries()]
     .map(([n, c]) => `<i style="--c:${c}" title="${esc(n)} is working"></i>`).join('');
@@ -1688,6 +1692,12 @@ function render() {
     const n = c.getBoundingClientRect(), dx = r.left - n.left, dy = r.top - n.top;
     if (Math.abs(dx) > 1 || Math.abs(dy) > 1)
       c.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }], { duration: 420, easing: 'cubic-bezier(.2,.8,.2,1)' });
+  });
+  // Motion (off until chosen): an agent's card that changed column lands at the end of its glide with a settle, pitched by the
+  // column, in the agent's voice. Not a move of yours: that sounded when you made it (the drop, the Alt+arrow click)
+  if (layerOn('motion') && Date.now() - lastGestureAt > 1000) beforeCol.forEach((was, id) => {
+    const c = $('board').querySelector(`.card[data-id="${CSS.escape(id)}"]`);
+    if (c && was !== undefined && c.closest('.col')?.dataset.status !== was) landed(c);
   });
   justDropped = null;
   // progress bars ease from their last width to the new one
@@ -2628,7 +2638,22 @@ const LAYERS = [
       TOUCH.focus(t); TOUCH.open(t + .3, 'AGENT-2'); TOUCH.lift(t + .9); TOUCH.drop(t + 1.25, 'done', 'AGENT-2');
       TOUCH.toggle(t + 1.8, true); TOUCH.copy(t + 2.3); TOUCH.close(t + 2.8, 'AGENT-2');
     } },
+  { id: 'motion', kind: 'fx', name: 'Motion', about: 'look and sound move together: a settle when an agent\'s card lands in a lane, the check drawing itself when a card reaches Done, a crossfade between views',
+    apply(lvl) { document.body.classList.toggle('motion', lvl > 0); },   // the look follows the switch (the check, the crossfade); the level is the settle's
+    demo(ctx) {
+      if (!RM) $('board').animate([{ opacity: .3 }, { opacity: 1 }], { duration: 220, easing: 'ease-out' });
+      if (sndNow() == null) return;
+      const t = ctx.currentTime + .05, lvl = layerLvl('motion');
+      TOUCH.drop(t, 'doing', 'AGENT-2', lvl); TOUCH.drop(t + .7, 'done', 'AGENT-2', lvl);
+    } },
 ];
+function landed(c) {   // Motion: the settle at the end of a card's glide into another column, and a breath of scale as it lands
+  const status = c.dataset.status, agent = c.dataset.agent;
+  setTimeout(() => {
+    if (!RM && c.isConnected) c.animate([{ transform: 'scale(1.015)' }, { transform: 'none' }], { duration: 180, easing: 'ease-out' });
+    const t = sndNow(); if (t != null && layerOn('motion')) TOUCH.drop(t, status, agent, layerLvl('motion'));
+  }, RM ? 0 : 380);
+}
 function fx(kind, agent) { if (!sndOn) return; LAYERS.forEach(L => { if (L.fx && layerOn(L.id)) L.fx(kind, agent, layerLvl(L.id)); }); }
 Object.keys(cue).forEach(k => { const f = cue[k]; cue[k] = agent => { f(agent); fx(k, agent); }; });   // the default cue first, then any layer
 setInterval(() => { if (sndOn) LAYERS.forEach(L => { if (L.tick && layerOn(L.id)) L.tick(layerLvl(L.id)); }); }, 1000);
@@ -2640,17 +2665,17 @@ setInterval(() => { if (sndOn) LAYERS.forEach(L => { if (L.tick && layerOn(L.id)
 // and one gesture gets one sound, the first asked for. The Touch row in Mix (on by default, with its own level) or SND OFF
 // silences the lot. A sound of a card's own (open, close, drop, select) is coloured by its agent's voice (agentPitch).
 const TV = .005;                                        // the ceiling: 40% of the quietest cue
-let gestureSeq = 0, gestureLive = false, gestureKey = false, touchSeq = 0, touchNoise = null;
+let gestureSeq = 0, gestureLive = false, gestureKey = false, touchSeq = 0, touchNoise = null, lastGestureAt = 0;
 ['pointerdown', 'keydown', 'click', 'input', 'change', 'submit', 'dragstart', 'drop'].forEach(ev => window.addEventListener(ev, () => {
   if (ev === 'pointerdown' || ev === 'keydown') gestureKey = ev === 'keydown';   // keyboard and mouse sound the same; only the focus tick asks (a click focuses too, silently)
-  gestureSeq++; gestureLive = true; setTimeout(() => { gestureLive = false; }, 0);
+  gestureSeq++; gestureLive = true; lastGestureAt = Date.now(); setTimeout(() => { gestureLive = false; }, 0);
 }, true));
 function touchAt(after) {   // when to play, or null: the layer or SND off, no context yet (no gesture ever), no gesture now, or this gesture already sounded
   if (!layerOn('touch')) return null;
   if (!after) { if (!gestureLive || touchSeq === gestureSeq) return null; touchSeq = gestureSeq; }
   return sndNow();
 }
-function tap(f, t, dur, v, o = {}) { tone(f, t, dur, { atk: .003, verb: .35, ...o, vol: v * TV * layerLvl('touch') }); }   // v: a share of the ceiling
+function tap(f, t, dur, v, o = {}) { tone(f, t, dur, { atk: .003, verb: .35, ...o, vol: v * TV * (o.lvl ?? layerLvl('touch')) }); }   // v: a share of the ceiling; lvl: another layer's level
 function hush(t0, dur, { from = 700, to = 3200, q = 1.2, v = 1, verb = .5, atk = .01 } = {}) {   // a filtered breath of noise: swishes and slides
   const ctx = ac(); if (!ctx) return;
   touchNoise = touchNoise || noiseBuf(ctx, .5, true);
@@ -2668,8 +2693,8 @@ const TOUCH = {                                          // kind: (t, ...) => th
   open:  (t, agent) => { const p = agentPitch(agent) / 2; tap(p, t, .05, .9, { atk: .006, verb: .5 }); tap(p * 1.5, t + .045, .06, 1, { atk: .006, verb: .7 }); },   // a rising pair in the card's voice
   close: (t, agent) => { const p = agentPitch(agent) / 2; tap(p * 1.5, t, .05, .9, { atk: .006, verb: .5 }); tap(p, t + .045, .06, .8, { atk: .006, verb: .7 }); },   // and down again
   lift:  t => tap(330, t, .06, .8, { glide: 520, atk: .008, verb: .5 }),                   // a card picked up
-  drop:  (t, status, agent) => { const b = { todo: 392, doing: 523, done: 659 }[status] || 523;   // settles low in Todo, mid in Doing, high in Done, then the card's voice
-    tap(b, t, .09, 1, { glide: b * .92, atk: .005, verb: .7 }); tap(agentPitch(agent), t + .05, .03, .5, { verb: .5 }); },
+  drop:  (t, status, agent, lvl) => { const b = { todo: 392, doing: 523, done: 659 }[status] || 523;   // settles low in Todo, mid in Doing, high in Done, then the card's voice
+    tap(b, t, .09, 1, { glide: b * .92, atk: .005, verb: .7, lvl }); tap(agentPitch(agent), t + .05, .03, .5, { verb: .5, lvl }); },
   step:  t => tap(1200, t, .025, .7, { type: 'triangle', atk: .002, verb: .3 }),           // one Alt+arrow move
   swish: t => hush(t, .1, { from: 700, to: 3200, v: 1, verb: .6 }),                        // a tab change
   slide: (t, on) => hush(t, .09, on ? { from: 400, to: 1600, q: 2, v: .8 } : { from: 1600, to: 400, q: 2, v: .8 }),   // a drawer or sheet in / out
@@ -2742,6 +2767,7 @@ $('mix').addEventListener('input', e => {
   saveMix(); applyLayer(LAYERS.find(L => L.id === id));
 });
 markMix();
+LAYERS.forEach(L => { if (L.apply) L.apply(layerOn(L.id) ? layerLvl(L.id) : 0); });   // the look of a layer (Motion) follows its saved switch from the first paint
 // every page: the buttons show the saved state at load, and the first click or key brings the sound online (browsers wait for one)
 setSnd(sndOn, true); setAmb(ambOn, true);
 const wakeSound = () => { if (sndOn) { ac(); startAmb(true); } };
@@ -3147,6 +3173,7 @@ function setView(agents, push = true) {
   BYAGENT = agents;
   if (push) history.pushState({ view: agents ? 'agents' : 'board' }, '', BASE + (agents ? '/agents' : '/') + location.hash);
   applyView(); renderKeepingCardFocus();
+  if (layerOn('motion') && !RM) $('board').animate([{ opacity: .3 }, { opacity: 1 }], { duration: 220, easing: 'ease-out' });   // Motion: the view crossfades for the swish
 }
 window.addEventListener('popstate', () => {   // Back and Forward: the same one swish when the view changes, nothing for a hash alone
   const agents = location.pathname.replace(/\/+$/, '').endsWith('/agents');
