@@ -4,7 +4,7 @@
 
 ### Full width (Nov 3)
 - **The board uses the whole browser window**: the 1800 px cap is gone, so Board, By agent and Load fill a 2560 or 3440 px screen, and the top bar stays where it is (no longer centred) on every view and width.
-- The columns grow with the window; the **cards stop at 760 px** (side by side columns only; stacked, a card still fills its column) so a title, bar or reply box never stretches into a line too long to read.
+- The columns grow with the window and the cards fill them, on the Board (Doing, Done) and on By agent alike.
 - Load's text column stops at 760 px from 1800 px up and the hour bar takes the rest.
 
 ### Todo column in both views (Nov 2)

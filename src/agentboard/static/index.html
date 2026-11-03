@@ -181,9 +181,6 @@
   /* the card list scrolls inside its panel; the padding keeps hover lifts, selection outlines and
      the ask/review pulse rings from being clipped at the scroll edge */
   .cards { display: flex; flex-direction: column; gap: 10px; flex: 1; min-height: 48px; overflow-y: auto; padding: 4px 6px 10px; }
-  /* the columns grow with the window, the cards do not: past this a card's title, bar and reply box would stretch into lines too long to read */
-  .board { --card-max: 760px; }
-  @media (min-width: 901px) { .col:not(.todo) .cards > :is(.card, .empty, .day-div) { max-width: var(--card-max); } }   /* stacked below this, one column: full width is right there */
   .cards::-webkit-scrollbar { width: 6px; } .cards::-webkit-scrollbar-thumb { background: var(--line); border-radius: 3px; }
   .cards::-webkit-scrollbar-thumb:hover { background: var(--neutral); }
 

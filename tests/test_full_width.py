@@ -1,4 +1,4 @@
-"""The board uses the whole window (Nov 3): no page-width cap on Board, By agent or Load; only the cards inside a column stop growing."""
+"""The board uses the whole window (Nov 3): no page-width cap on Board, By agent or Load; the cards fill their columns."""
 import re
 import unittest
 from pathlib import Path
@@ -26,10 +26,9 @@ class FullWidthTests(unittest.TestCase):
         self.assertNotIn("max-width: 1", rule(".hud"))
         self.assertIn("max-width: none", rule(".hud"))
 
-    def test_cards_stop_growing_but_only_where_columns_sit_side_by_side(self):
-        self.assertIn(".board { --card-max: 760px; }", HTML)
-        m = re.search(r"@media \(min-width: 901px\) \{ \.col:not\(\.todo\) \.cards > :is\(\.card, \.empty, \.day-div\) \{ max-width: var\(--card-max\); \} \}", HTML)
-        self.assertTrue(m)                                 # below 900px the columns stack and a card may use the full width
+    def test_cards_fill_their_column_however_wide(self):
+        self.assertNotIn("--card-max", HTML)               # a card is as wide as its column on the Board and on By agent (Troy, Nov 3)
+        self.assertNotIn(".col:not(.todo) .cards >", HTML)
 
     def test_the_load_text_column_stops_growing_on_ultrawide(self):
         self.assertIn("@media (min-width: 1800px) { .h-one { --cols: 40px minmax(0, 760px) 100px minmax(200px, 1fr); } }", HTML)
