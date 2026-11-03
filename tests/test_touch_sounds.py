@@ -93,8 +93,8 @@ class TouchSoundTests(unittest.TestCase):
         self.assertEqual(body("openHud").count("touch("), 1)
         self.assertEqual(body("closeHud").count("touch("), 1)
         # turning sound on already plays the open cue (or the added cue): only the off click is added
-        self.assertIn("$('h-snd').onclick = () => { if (sndOn) touch('toggle', false); setSnd(!sndOn); };", PAGE)
-        self.assertIn("$('snd2').onclick = () => { if (sndOn) touch('toggle', false); setSnd(!sndOn, true); if (sndOn) cue.added(); };", PAGE)
+        self.assertIn("function toggleSound() { if (sndOn) touch('toggle', false); setSnd(!sndOn, true); if (sndOn) cue.added(); }", PAGE)
+        self.assertIn("if (e.target.id === 'cfg-snd') { toggleSound(); return; }", PAGE)
 
     def test_what_gets_a_sound(self):
         # focus by keyboard only: a click focuses a card too, silently
@@ -130,7 +130,7 @@ class TouchSoundTests(unittest.TestCase):
         # toggles: two pitches, up for on, down for off (theme: light up, dark down, auto level)
         self.assertIn("on === true ? [660, 880] : on === false ? [880, 660] : [740, 740]", TOUCH)
         self.assertIn("touch('toggle', theme === 'light' ? true : theme === 'dark' ? false : null)", PAGE)
-        self.assertIn("$('h-amb').onclick = () => { touch('toggle', !ambOn); setAmb(!ambOn); };", PAGE)
+        self.assertIn("if (e.target.id === 'cfg-amb') { touch('toggle', e.target.checked); setAmb(e.target.checked); return; }", PAGE)
         self.assertIn("await setNotif(want); if (notifOn === want) touch.after('toggle', want);", PAGE)
         # the filter: nothing per keystroke, a tick when the match count changes
         self.assertIn("$('filter').oninput = () => { const was = shownCards(); render(); if (shownCards() !== was) touch('match'); };", PAGE)

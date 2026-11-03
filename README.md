@@ -354,7 +354,7 @@ Press `h`, or open `/hud` in its own window (second monitor). One grid, one row 
   Those rows sort to the top; click one to open the card. The top bar counts asks, reviews, abandoned and done today,
   and the window title says "● 2 for you".
 - `[hud] retired = ["AGENT-5"]` in `config.toml` hides agents you no longer run (their cards and history stay).
-- Optional synthesized sound cues (SND / AMB toggles; `s` turns sound on or off). The sounds, ambient bed included, play on every view (Board, By agent and Load), one bed at a time even with several pages open; a fresh page waits for your first click or key, as browsers require. Mix (`m`) adds extra layers, each with its own switch and level and off until you choose it: Rain, Wind, Pad, Pulse, Echo, Signatures, All clear, Hourly chime. Touch, the one layer that starts on, is the quiet set of UI sounds for what your hands do (focus, open, drag and drop, tabs, drawers, switches, select, copy, errors). Motion pairs a look with a sound (a settle when an agent's card lands in a lane, the check drawing in at Done, a crossfade between views), off until you choose it. Stacks on narrow windows, bars under the text.
+- Optional synthesized sound cues (Sound and Ambient bed switches in Settings, the gear on every view; `s` turns sound on or off anywhere). The sounds, ambient bed included, play on every view (Board, By agent and Load), one bed at a time even with several pages open; a fresh page waits for your first click or key, as browsers require. Settings (`m`) also has a Volume slider: 100% is the usual level, and up to 300% goes through a limiter so it cannot clip; and the extra layers, each with its own switch and level and off until you choose it: Rain, Wind, Pad, Pulse, Echo, Signatures, All clear, Hourly chime. Touch, the one layer that starts on, is the quiet set of UI sounds for what your hands do (focus, open, drag and drop, tabs, drawers, switches, select, copy, errors). Motion pairs a look with a sound (a settle when an agent's card lands in a lane, the check drawing in at Done, a crossfade between views), off until you choose it. Stacks on narrow windows, bars under the text.
 
 ## Daily recap
 
@@ -393,7 +393,7 @@ Findings below come from the audit in `SECURITY.md` in the repository root (v0.2
 
 **Where data lives**
 - `.agentboard/tasks.json`, `.agentboard/config.toml`, `.agentboard/.lock` in your project. Nothing is synced anywhere.
-- The browser keeps 4 UI preferences in `localStorage` (theme, sound, ambient, the Mix layers).
+- The browser keeps 5 UI preferences in `localStorage` (theme, sound, ambient, volume, the sound layers).
 - **`agentboard init` adds `.agentboard/` to your project's `.gitignore`** (creating the file if needed), because tasks can contain private context. Check it landed: `grep agentboard .gitignore`.
 
 **Network behavior**

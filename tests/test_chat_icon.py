@@ -17,7 +17,7 @@ class ChatIconTests(unittest.TestCase):
 
     def test_chat_sits_in_the_right_side_icon_group(self):
         group = re.search(r'<span class="hicons">(.*?)</span>\s*</header>', PAGE, re.S).group(1)
-        for ident in ("chat-btn", "notif-btn", "snd2", "theme"):
+        for ident in ("chat-btn", "notif-btn", "theme", "cfg-btn"):   # sound moved into Settings (the gear) on Nov 3
             self.assertIn(f'id="{ident}"', group)
 
     def test_the_unread_count_and_its_label_still_update(self):
