@@ -1233,7 +1233,8 @@
     <dt><kbd>j</kbd> <kbd>k</kbd></dt><dd>Next / previous card</dd>
     <dt><kbd>Enter</kbd></dt><dd>Open card</dd>
     <dt><kbd>e</kbd></dt><dd>Edit the open card's title</dd>
-    <dt><kbd>f</kbd> <kbd>s</kbd></dt><dd>Load: fullscreen, sound</dd>
+    <dt><kbd>s</kbd></dt><dd>Sound on or off</dd>
+    <dt><kbd>f</kbd></dt><dd>Load: fullscreen</dd>
     <dt><kbd>m</kbd></dt><dd>Mix: extra sound layers</dd>
     <dt><kbd>Alt</kbd> + arrows</dt><dd>Move the card</dd>
     <dt><kbd>Shift</kbd> + click</dt><dd>Select a range of cards</dd>
@@ -1247,8 +1248,8 @@
 <div id="mix" role="dialog" aria-label="Mix: extra sound layers"><div class="sheet">
   <h2>Mix</h2>
   <p class="mix-note">Extra layers on top of the usual sound, each off until you switch it on. Hear one first; the level is yours too.</p>
-  <h3>Ambience (plays with AMB in Load)</h3><div id="mix-amb"></div>
-  <h3>Effects (board and Load)</h3><div id="mix-fx"></div>
+  <h3>Ambience (plays with AMB, on every view)</h3><div id="mix-amb"></div>
+  <h3>Effects (every view)</h3><div id="mix-fx"></div>
 </div></div>
 
 <aside id="later" aria-label="Later">
@@ -1491,22 +1492,28 @@ function todoColHtml(list, filtered) {
 
 // --- By agent: the Todo column, then swimlane columns, one per agent with a card in Doing. No Queue and no Idle column, so the agents get the width.
 const STATE_WORD2 = { idle: 'idle', working: 'working', quiet: 'quiet', waiting: 'ask', review: 'review', abandoned: 'quiet' };
-function byAgentHtml(by, filtered) {
+// one agent's state from its Doing cards: By agent's lane colours and the sound (Pulse, the chatter's voices) read the same rule
+function agentState(cards) {
   const limit = cfg.stale_minutes || DEFAULT_STALE_MIN;
+  if (cards.some(t => t.needs_input)) return 'ask';
+  if (cards.some(t => t.review)) return 'review';
+  if (cards.some(t => ago(t.updated).min >= limit)) return 'abandoned';
+  if (cards.every(t => ago(t.updated).min >= STALE_MIN)) return 'quiet';
+  return 'working';
+}
+function workingAgents(list) {
+  const by = new Map();
+  list.forEach(t => { if (t.status === 'doing' && t.agent && !isKid(t)) by.set(t.agent, [...(by.get(t.agent) || []), t]); });
+  return [...by].filter(([, cards]) => agentState(cards) === 'working').map(([n]) => n);
+}
+function byAgentHtml(by, filtered) {
   const doingBy = new Map();
   by.doing.forEach(t => { const k = t.agent || ''; if (!doingBy.has(k)) doingBy.set(k, []); doingBy.get(k).push(t); });
   const names = new Set([...doingBy.keys()].filter(Boolean));
   const sorted = [...names].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base', numeric: true }));
   const active = sorted.filter(n => doingBy.has(n));
   const colorFor = n => { const t = (doingBy.get(n) || [])[0]; return t ? colorOf(t) : 'var(--neutral)'; };
-  const stateFor = n => {
-    const cards = doingBy.get(n) || [];
-    if (cards.some(t => t.needs_input)) return 'ask';
-    if (cards.some(t => t.review)) return 'review';
-    if (cards.some(t => ago(t.updated).min >= limit)) return 'abandoned';
-    if (cards.every(t => ago(t.updated).min >= STALE_MIN)) return 'quiet';
-    return 'working';
-  };
+  const stateFor = n => agentState(doingBy.get(n) || []);
   const agentCol = n => {
     const st = stateFor(n), cards = doingBy.get(n) || [];
     return `<section class="col acol" data-status="agent:${esc(n)}" style="--c:${colorFor(n)}"><h2><span class="av" style="--c:${colorFor(n)}" aria-hidden="true">${esc(nodeGlyph(n))}</span><span class="nm" title="${esc(n)}">${esc(n)}</span><span class="cnt">${cards.length}</span><em class="${st}">${esc(st)}</em></h2>`
@@ -2410,9 +2417,13 @@ const cue = {
   added()  { const t = sndNow(); if (t == null) return; tone(659, t, .05, { vol: .018, verb: .8 }); tone(988, t + .06, .07, { vol: .016, verb: .8 }); },
   quiet()  { const t = sndNow(); if (t == null) return; tone(440, t, .12, { type: 'triangle', vol: .026, verb: .9 }); tone(349, t + .14, .22, { type: 'triangle', vol: .024, verb: 1.1 }); },
 };
+// The ambient bed (and the Mix layers that ride on it) plays on every view: Board, By agent and Load. Board and By agent are
+// separate pages, so a new page starts its own bed and the old one goes with its page; Load is an overlay and never restarts it.
+function soundReady() { return audio ? audio.state === 'running' : !!navigator.userActivation?.hasBeenActive; }   // browsers keep a fresh page silent until a gesture
 function startAmb(force) {
-  if (ambNodes || !ambOn || !sndOn || !hudIsOpen()) return;
-  if (SOLO && !force && (!audio || audio.state !== 'running')) return;  // popped window: wait for first gesture
+  if (force) bedYielded = false;   // a click or key on this page: it takes the bed
+  if (ambNodes || !ambOn || !sndOn || bedYielded) return;
+  if (!force && !soundReady()) return;   // a fresh page: wait for the first click or key (wakeSound below)
   const ctx = ac(); if (!ctx) return;
   const t = ctx.currentTime, g = ctx.createGain();
   g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(1, t + 2.5); g.connect(dry);
@@ -2431,7 +2442,7 @@ function startAmb(force) {
   const hg = ctx.createGain(); hg.gain.value = .008; h1.connect(hg); h2.connect(hg); hg.connect(g);
   [n, n2, lfo, h1, h2].forEach(x => x.start());
   ambNodes = { gain: g, stops: [n, n2, lfo, h1, h2] };
-  scheduleBlip(); startLayers();
+  claimBed(); scheduleBlip(); startLayers();
 }
 function stopAmb() {
   if (blipTimer) { clearTimeout(blipTimer); blipTimer = null; }
@@ -2443,9 +2454,23 @@ function stopAmb() {
   a.gain.gain.linearRampToValueAtTime(0, t + .8);
   setTimeout(() => a.stops.forEach(x => { try { x.stop(); } catch (e) {} }), 900);
 }
+// One bed at a time: pages and windows of this board talk on a channel. The page you start or come back to takes the bed, any other
+// hushes, and when the page holding it closes the next visible one picks it up. Cues are not shared: they play where they always did.
+const bedId = Math.random().toString(36).slice(2), bedChan = 'BroadcastChannel' in window ? new BroadcastChannel('agentboard-bed') : null;
+let bedYielded = false;
+function claimBed() { bedYielded = false; if (bedChan) bedChan.postMessage({ claim: bedId }); }
+if (bedChan) {
+  bedChan.onmessage = e => {
+    if (e.data.claim && e.data.claim !== bedId) { bedYielded = true; stopAmb(); }
+    else if (e.data.release && bedYielded && !document.hidden) { bedYielded = false; startAmb(); }
+  };
+  addEventListener('pagehide', () => { if (ambNodes) bedChan.postMessage({ release: bedId }); });
+  const comeBack = () => { if (!document.hidden && audio && audio.state === 'running' && sndOn && ambOn && !ambNodes) { claimBed(); startAmb(); } };
+  document.addEventListener('visibilitychange', comeBack); addEventListener('focus', comeBack);
+}
 function scheduleBlip() {                      // distant console chatter, very quiet, random pan
   blipTimer = setTimeout(() => {
-    if (ambNodes && sndOn && ambOn && hudIsOpen()) {
+    if (ambNodes && sndOn && ambOn) {
       const t = sndNow(), pan = Math.random() * 1.2 - .6;
       // most chatter speaks in the voice of an agent that is actually working
       const base = lastWorking.length && Math.random() < .7
@@ -2642,6 +2667,10 @@ $('mix').addEventListener('input', e => {
   saveMix(); applyLayer(LAYERS.find(L => L.id === id));
 });
 markMix();
+// every page: the buttons show the saved state at load, and the first click or key brings the sound online (browsers wait for one)
+setSnd(sndOn, true); setAmb(ambOn, true);
+const wakeSound = () => { if (sndOn) { ac(); startAmb(true); } };
+['pointerdown', 'keydown'].forEach(ev => document.addEventListener(ev, wakeSound, { once: true, capture: true }));
 
 // --- HUD ---
 let hudTimer = null, hudKey = '';
@@ -2669,7 +2698,7 @@ function openHud() {
 }
 function closeHud() {
   if (SOLO) { window.close(); return; }
-  cue.close(); stopAmb();
+  cue.close();   // the bed plays on under the board: it belongs to every view now
   $('hud').classList.remove('open', 'full'); document.body.style.overflow = ''; litTab();
   clearInterval(hudTimer);
   if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
@@ -3059,7 +3088,8 @@ document.addEventListener('keydown', e => {
   if (e.altKey) return;
   if ((e.key === '[' || e.key === ']') && !SOLO) { e.preventDefault(); goView((curView() + (e.key === ']' ? 1 : VIEWS - 1)) % VIEWS); return; }   // SOLO: the Load window has no board to flip to
   if (e.key === 'm') { toggleMix(); return; }
-  if (hudIsOpen()) { if (e.key === 'f') toggleHudFull(); else if (e.key === 's') $('h-snd').click(); else if (e.key === 'h') closeHud(); return; }
+  if (e.key === 's') { $(hudIsOpen() ? 'h-snd' : 'snd2').click(); return; }   // sound on or off, on every view
+  if (hudIsOpen()) { if (e.key === 'f') toggleHudFull(); else if (e.key === 'h') closeHud(); return; }
   if (e.key === '?') { $('keys').classList.toggle('on'); return; }
   if (e.key === 'n') { e.preventDefault(); toggleAdd(true); return; }
   if (e.key === 'e' && openId && !panelEdit) { e.preventDefault(); startEdit('title'); return; }
@@ -3141,6 +3171,7 @@ function checkAsks() {
     : t.status === 'doing' && t.needs_input ? 'ask' : t.status === 'doing' && t.review ? 'rev' : t.status);
   const prev = prevBoard; prevBoard = snap;
   notifyChanges(tasks, !prev);
+  if (!hudIsOpen()) lastWorking = workingAgents(tasks);   // under Load the HUD feed says who is working; elsewhere the board does
   if (!prev) { askPingAt = Date.now(); return; }       // first load: baseline, no catch-up noise
   const ids = Object.keys(snap), was = id => prev[id];
   // queue the panel auto-open independently of sound/HUD state below; maybeAutoOpen() decides when it's safe to act

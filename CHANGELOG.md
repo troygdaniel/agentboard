@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Sounds on every view (Nov 3)
+- **The ambient bed and the Mix layers (Rain, Wind, Pad, Pulse) play on Board and By agent too**, not only while Load is open. The sound is the same as before; opening or closing Load no longer starts or stops it.
+- **One bed at a time**: with several pages or windows open, the one you start or come back to plays and the others hush; when it closes the next visible one picks it up. Cues are unchanged: Board and By agent play the board's cues, Load plays its own, never both.
+- **`s` turns sound on or off on every view**, and the sound button shows the saved state as soon as the page loads (it only caught up after Load was opened).
+- A fresh page waits for your first click or key before the bed starts (browsers insist); clicking the tabs to switch views carries that over.
+- Pulse and the console chatter follow who is working on Board and By agent too, by the same rule By agent's lane colours use.
+
 ### Full width (Nov 3)
 - **The board uses the whole browser window**: the 1800 px cap is gone, so Board, By agent and Load fill a 2560 or 3440 px screen, and the top bar stays where it is (no longer centred) on every view and width.
 - The columns grow with the window and the cards fill them, on the Board (Doing, Done) and on By agent alike.
