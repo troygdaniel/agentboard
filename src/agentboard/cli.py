@@ -138,6 +138,20 @@ def cmd_add(a):
     t = _store().add(a.title, a.description or "", a.status, a.ctx, a.id, a.project, blocked_by=a.blocked_by,
                      parent_id=a.parent)
     print(f"added {t['id']} ({t['status']})")
+    if not a.parent:   # stderr, so a script reading the line above is unaffected
+        print("reminder: every card gets subtasks. The agent adds them as soon as it starts; the card prompt says so, "
+              "so there is no need to put it in the description.", file=sys.stderr)
+
+
+def _lacks_subtasks(tasks, task_id):
+    """True for a top-level card that has no subtasks (a subtask itself never needs any)."""
+    t = next((x for x in tasks if x["id"] == task_id), None)
+    return bool(t) and not t.get("parent_id") and not any(k.get("parent_id") == task_id for k in tasks)
+
+
+def _subtask_nudge(task_id):
+    return (f'{task_id} has no subtasks yet: add at least two now (do it, check it), then work them:\n'
+            f'  agentboard add "<step>" --parent {task_id}')
 
 
 def cmd_list(a):
@@ -743,6 +757,8 @@ def cmd_start(a):
     print(t["id"])  # agents use this id for update/done; the sibling list goes to stderr so $(...) still captures only the id
     if a.parent:
         _print_subtasks(_store().load(), a.parent, file=sys.stderr)
+    elif _lacks_subtasks(_store().load(), t["id"]):
+        print(_subtask_nudge(t["id"]), file=sys.stderr)
 
 
 INSTRUCTIONS = """\
@@ -794,13 +810,14 @@ Group related tasks under a project so they show up together on the board:
 
 ## Subtasks
 
-A big card can be split into subtasks (one level deep). A subtask is a normal task with a parent:
+Every card gets subtasks, always (one level deep). As soon as you start or claim a card, read the work and
+add its steps: at least two, even on a tiny card (do it, check it). A subtask is a normal task with a parent:
 
-    agentboard add "<title>" --parent <parent_id>              # the owner/ORCH at planning time; follows the parent's column
+    agentboard add "<title>" --parent <parent_id>              # follows the parent's column
     agentboard start "<title>" --name "<you>" --parent <id>    # an agent adding one mid-flight
 
-When you claim a parent that has no subtasks yet, break it down first (same command). `claim <parent>`
-takes every subtask with it. Then work the subtasks, not the parent (updating a subtask before its parent is in Doing is refused):
+The board flags a Doing card with no subtasks, and `review` warns about one. `claim <parent>` takes every
+subtask with it. Work the subtasks, not the parent (updating a subtask before its parent is in Doing is refused):
 
     agentboard update <sub_id> <0-100> "<one-line status>"     # a subtask at 100% closes itself: no review step
     agentboard review <parent_id> "<one-line result>"          # the deliverable is ready; open subtasks close with it
@@ -966,7 +983,10 @@ def cmd_claim(a):
     hookslib.remember_session(s.dir, name)
     t = s.claim(a.id, name, force=a.force)   # --color is accepted and ignored
     print(f"claimed {t['id']} as {name}")
-    _print_subtasks(s.load(), t["id"])
+    tasks = s.load()
+    _print_subtasks(tasks, t["id"])
+    if _lacks_subtasks(tasks, t["id"]):
+        print(_subtask_nudge(t["id"]))
 
 
 def _print_subtasks(tasks, parent_id, file=None):
@@ -1021,6 +1041,9 @@ def cmd_ask(a):
 
 def cmd_review(a):
     s = _store()
+    if _lacks_subtasks(s.load(), a.id):   # a warning, not a refusal: a tiny card must still be able to finish
+        print(f"warning: {a.id} has no subtasks. Every card gets them as soon as it starts; add them next time "
+              f'(agentboard add "<step>" --parent {a.id}).', file=sys.stderr)
     t = s.review(a.id, a.text, _read_body(a))
     if t.get("parent_id"):
         print(f"{t['id']}: subtask finished (100%) — subtasks have no review step; review the parent, {t['parent_id']}, when the deliverable is ready")

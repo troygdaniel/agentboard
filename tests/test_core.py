@@ -1203,10 +1203,9 @@ class SubtaskPromptTests(unittest.TestCase):
         self.assertIn('review big "', text)
         self.assertIn("computed", text)
 
-    def test_plain_task_prompt_is_unchanged(self):
+    def test_plain_task_prompt_still_ends_in_a_review(self):
         text, _ = prompt.build_prompt({"id": "solo", "title": "Solo"}, self.dir, tasks=self.tasks)
         self.assertIn('review solo "<one-line result>"', text)
-        self.assertNotIn("subtask", text.lower())
 
     def test_custom_templates_are_left_alone(self):
         (self.dir / "config.toml").write_text('[prompt]\ntemplate = "mine {task_id}"\n')
@@ -1252,10 +1251,11 @@ class SubtaskCliTests(unittest.TestCase):
         self.assertIn("  one  Title of one", out)
         self.assertIn("  two  Title of two", out)
 
-    def test_claiming_a_plain_task_prints_nothing_extra(self):
+    def test_claiming_a_card_with_no_subtasks_says_to_add_them(self):
         Store(Path(self.dir)).add("Solo", status="todo", task_id="solo")
         _, out, _ = self.run_cli("claim", "solo", "--name", "atlas")
-        self.assertEqual(out.strip(), "claimed solo as atlas")
+        self.assertTrue(out.startswith("claimed solo as atlas\n"))
+        self.assertIn("solo has no subtasks yet", out)
 
     def test_start_under_a_parent_keeps_stdout_to_the_bare_id_and_lists_siblings_on_stderr(self):
         self.run_cli("claim", "big", "--name", "atlas")

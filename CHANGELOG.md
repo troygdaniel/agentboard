@@ -6,6 +6,12 @@
 - **By agent's lanes draw their cards the way the Board's Doing column does**: the status-tinted fill (orange running, green review, red ask), the status border and shadow, the hover glow, and a lit column head. It is one rule for both now, so no new colour was added and a change to Doing's look carries to the lanes.
 - **Motion**, a Mix layer that is off until you choose it: look and sound move together. An agent's card that changes column lands at the end of its glide with the Touch settle (pitched by the column, in the agent's voice); a card reaching Done draws its check in; the view crossfades for the swish. Your own moves do not get the settle (they sounded when you made them). Off, nothing on the page changes.
 
+### Every card gets subtasks, always (Nov 3)
+- **The card prompt (Copy prompt) now tells the agent to add subtasks as soon as it starts**: at least two, even on a tiny card (do it, check it), and to report progress on the subtasks, since the card's % is their mean. No description needs the line pasted in any more. A card that already has subtasks keeps its list; custom templates are left alone.
+- **The protocol says it plainly**: the Subtasks part of `agentboard instructions` (and the repo's CLAUDE.md) say "always, at start", and the ORCH boot prompt says never to paste the line into a card.
+- **The terminal nudges**: `claim` and `start` on a card with no subtasks print one line saying to add them; `review` on one with none warns but still goes through; `add` of a top-level card reminds ORCH (on stderr, so scripts reading its output are unaffected).
+- **The board flags it**: a Doing card with no subtasks shows a small amber "No subtasks yet" line under its bar, and it clears when the first one is added.
+
 ### Load shows the Doing cards (Nov 3)
 - **The left of Load is the Doing column**: the same cards as Board and By agent, in the same design, with their subtasks folded; the telemetry and agent-load grid stays on the right as it was. The cards follow the board's filter, and their reply box, Mark done and click-to-open work as they do on the board. A narrow window stacks the cards above the grid.
 - **They glide into place**: opening Load slides the Doing cards from where they sit on the board (or the By agent lanes) into the pane, and closing it slides them back, the way Board and By agent already trade places. One swish per switch, nothing more; the bed plays through.

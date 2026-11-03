@@ -58,17 +58,23 @@ Run this so the board knows you have it. Use your own session name{color_hint}:
 
     {ab} claim {task_id} --name "<your session name>"
 
+## Step 1: add subtasks as soon as you start
+
+Every card has subtasks, always. Read the work, then add the steps right away: at least two, even on
+a tiny card (do it, check it). Add more if you find more work as you go.
+
+    {ab} add "<step>" --parent {task_id}
+
 ## Progress reporting
 
 The percentage is the point — it's what the board/HUD show at a glance without anyone opening
-the card, so keep it honest: your real % of the work actually done, not a fixed checklist. Call
-`update` again whenever that estimate changes, including when you discover more work than
+the card, so keep it honest: your real % of the work actually done, not a fixed checklist. The
+card's % is computed from its subtasks (the mean), so update the subtask you are on, not the card.
+Call `update` again whenever that estimate changes, including when you discover more work than
 expected (the number can go down, not just up):
 
-    {ab} update {task_id} 10 "Starting - reading context"
-    {ab} update {task_id} 30 "Planning approach"
-    {ab} update {task_id} 50 "<what you are doing>"
-    {ab} update {task_id} 70 "<next step>"
+    {ab} update <subtask id> 50 "<what you are doing>"
+    {ab} update <subtask id> 100 "<one-line result>"     # a subtask at 100% closes itself
     {ab} review {task_id} "<one-line result>"
 
 Finish with `review` and stop — the USER signs off and moves the card to done.
@@ -277,6 +283,7 @@ Rename this session to ORCH (`/rename ORCH`). You are a fresh or /clear'ed Claud
 ## Role
 
 - Add and split cards, assign them to idle agents, and mark cards done once {owner} has signed off.
+- Every card gets subtasks, always: the card prompt and the agent protocol already tell the agent to add them as soon as it starts, so never paste that line into a description.
 - Never do an agent's work yourself: no coding or file edits for a card. If work has no owner, make a card.
 - Agents report to {owner} directly, on their cards. Close reviewed cards, run gates, migrations and restarts, log decisions.
 - Speak to {owner} only when they must act.

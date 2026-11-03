@@ -38,6 +38,22 @@ Group related tasks under a project so they show up together on the board:
     agentboard add "<title>" --project <project_id>       # or tie it at creation time
     agentboard start "<title>" --name "<you>" --project <project_id>
 
+## Subtasks
+
+Every card gets subtasks, always (one level deep). As soon as you start or claim a card, read the work and
+add its steps: at least two, even on a tiny card (do it, check it). A subtask is a normal task with a parent:
+
+    agentboard add "<title>" --parent <parent_id>              # follows the parent's column
+    agentboard start "<title>" --name "<you>" --parent <id>    # an agent adding one mid-flight
+
+The board flags a Doing card with no subtasks, and `review` warns about one. `claim <parent>` takes every
+subtask with it. Work the subtasks, not the parent (updating a subtask before its parent is in Doing is refused):
+
+    agentboard update <sub_id> <0-100> "<one-line status>"     # a subtask at 100% closes itself: no review step
+    agentboard review <parent_id> "<one-line result>"          # the deliverable is ready; open subtasks close with it
+
+The parent's % is computed (the mean of its subtasks), so `update <parent>` only sets its status line.
+
 ## Talking to other agents
 
 Coordinating with another agent — who's on what, asking for a hand, splitting or handing off

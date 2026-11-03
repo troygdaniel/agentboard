@@ -284,6 +284,7 @@
   .note { margin-top: 8px; font-size: var(--fs-sm); color: var(--muted); display: flex; gap: 10px; }
   .note span:first-child { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .note .pct { font-variant-numeric: tabular-nums; color: var(--text); }
+  .nosubs { margin-top: 6px; font-size: var(--fs-sm); color: var(--warn); }
   /* progress as a recessed channel with a lit fill, same as the HUD's tracks */
   .bar { height: 5px; background: var(--chip); border-radius: 3px; margin-top: 10px; overflow: hidden; position: relative;
     box-shadow: inset 0 1px 2px var(--well), inset 0 -1px 0 var(--card-hi); }
@@ -1434,6 +1435,8 @@ function card(t) {
     : (done && t.result ? `<div class="note"><span title="${esc(t.result)}">${esc(t.result)}</span></div>` : '');
   const bar = nSubs ? subsBlock(t, live) : doing
     ? `<div class="bar" role="progressbar" aria-valuenow="${t.progress || 0}" aria-valuemin="0" aria-valuemax="100" aria-label="Progress"><b style="width:${lastPct.has(t.id) ? lastPct.get(t.id) : t.progress || 0}%;background:${colorOf(t)}" data-to="${t.progress || 0}"></b></div>` : '';
+  // every card gets subtasks as soon as its agent starts: a Doing card with none says so, until the first one is added
+  const noSubs = doing && !nSubs && !t.needs_input && !t.review ? `<div class="nosubs" title="Agents add subtasks as soon as they start a card">No subtasks yet</div>` : '';
   const desc = t.status === 'todo' || t.status === 'backlog'
     ? (t.description ? `<div class="desc">${esc(t.description)}</div>` : '') : '';
   // One control in one place: "Copy prompt", which after a successful copy becomes the green "Copied" state; clicking that undoes it.
@@ -1465,7 +1468,7 @@ function card(t) {
   seen.add(t.id); lastUpdated.set(t.id, t.updated);
   return `<div class="card ${done ? 'done' : ''} ${asking ? 'ask' : ''} ${reviewing ? 'review' : ''} ${abandoned && !asking && !reviewing ? 'abandoned' : ''} ${live && !asking && !reviewing ? 'livebar' : ''} ${fresh ? 'enter' : ''} ${flash ? 'flash' : ''} ${selected.has(t.id) ? 'selected' : ''} " style="--c:${colorOf(t)}" data-agent="${esc(t.agent || '')}" draggable="${backlog ? 'false' : 'true'}" tabindex="0" data-id="${esc(t.id)}" data-status="${t.status}"
       aria-label="${esc(t.title)}, ${t.status}${asking ? ', needs your input' : reviewing ? ', ready for review' : abandoned ? ', no update in a long time, possibly abandoned' : ''}${t.agent ? ', ' + esc(t.agent) : ''}${proj ? ', project ' + esc(proj.name) : ''}${blockers.length ? ', blocked by ' + blockers.map(b => esc(b.title)).join(', ') : ''}">
-    ${top}${askFlag}${saidRow}${foldRow}${blockedRow}${projPill}${todo && t._q ? `<span class="qnum" aria-label="Queue position ${t._q}">${t._q}</span>` : ''}<div class="title ${done ? 'has-check' : ''}" title="${esc((done ? t.result : t.status_text) || '')}">${checkIcon}${done ? `<span>${esc(t.title)}</span>` : esc(t.title)}</div>${desc}${asking || reviewing ? '' : note}${bar}${meta}${who ? '' : reportLink}${replyRow}${reviewing ? `<button class="btn markdone" data-done="${esc(t.id)}">Mark done</button>` : ''}</div>`;
+    ${top}${askFlag}${saidRow}${foldRow}${blockedRow}${projPill}${todo && t._q ? `<span class="qnum" aria-label="Queue position ${t._q}">${t._q}</span>` : ''}<div class="title ${done ? 'has-check' : ''}" title="${esc((done ? t.result : t.status_text) || '')}">${checkIcon}${done ? `<span>${esc(t.title)}</span>` : esc(t.title)}</div>${desc}${asking || reviewing ? '' : note}${bar}${noSubs}${meta}${who ? '' : reportLink}${replyRow}${reviewing ? `<button class="btn markdone" data-done="${esc(t.id)}">Mark done</button>` : ''}</div>`;
 }
 
 // the parent's segmented bar (one cell per subtask), which doubles as the expand toggle, plus its quiet rows
