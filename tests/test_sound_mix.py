@@ -19,7 +19,9 @@ class SoundMixTests(unittest.TestCase):
         self.assertEqual(len(re.findall(r"name: '[^']+', about: '[^']+'", LAYERS)), len(IDS))
 
     def test_every_layer_is_off_until_chosen_and_the_choice_is_saved_per_browser(self):
-        self.assertIn("const layerOn = id => !!(mix[id] && mix[id].on);", PAGE)
+        # Touch (the UI sounds) is the one layer that starts on; every other layer is off until chosen, and a saved choice wins
+        self.assertIn("const LAYER_ON = { touch: true };", PAGE)
+        self.assertIn("const layerOn = id => { const m = mix[id]; return m && m.on != null ? !!m.on : !!LAYER_ON[id]; };", PAGE)
         self.assertIn("return v == null ? 1 : v;", PAGE)                  # a level that was never set is full, not silent
         self.assertIn("localStorage.setItem(MIX_KEY, JSON.stringify(mix))", PAGE)
         self.assertIn("const MIX_KEY = 'agentboard-mix';", PAGE)

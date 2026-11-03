@@ -1247,7 +1247,8 @@
 
 <div id="mix" role="dialog" aria-label="Mix: extra sound layers"><div class="sheet">
   <h2>Mix</h2>
-  <p class="mix-note">Extra layers on top of the usual sound, each off until you switch it on. Hear one first; the level is yours too.</p>
+  <p class="mix-note">Extra layers on top of the usual sound, each off until you switch it on; Touch, the sounds of using the board, starts on. Hear one first; the level is yours too.</p>
+  <h3>Touch (what your hands do, on every view)</h3><div id="mix-touch"></div>
   <h3>Ambience (plays with AMB, on every view)</h3><div id="mix-amb"></div>
   <h3>Effects (every view)</h3><div id="mix-fx"></div>
 </div></div>
@@ -1857,11 +1858,19 @@ $('chat-body').addEventListener('keydown', e => {
   if (card && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openPanel(card.dataset.chatCard); }
 });
 
+let statusOk = true;
 function setStatus(ok) {
+  if (statusOk && !ok) touch.after('error');   // once when the connection drops, not on every poll that finds it still down
+  statusOk = ok;
   $('status').className = 'status' + (ok ? '' : ' off');
   $('status').lastElementChild.textContent = ok ? 'Live' : 'Disconnected; retrying';
 }
-function showError(msg) { $('error').textContent = msg || ''; $('error').style.display = msg ? 'block' : 'none'; }
+let errShown = '', errAt = 0;
+function showError(msg) {
+  msg = msg || '';
+  if (msg && (msg !== errShown || Date.now() - errAt > 500)) { touch.after('error'); errAt = Date.now(); }   // a message sounds once; the same one in the same breath (one bulk action, several failures) does not
+  errShown = msg; $('error').textContent = msg; $('error').style.display = msg ? 'block' : 'none';
+}
 
 // Mark done has no server round trip to wait on for the click itself to register — swap the
 // button to a checkmark synchronously, before the move() request even goes out, so the card
@@ -1977,7 +1986,7 @@ if (!THEMES.includes(theme)) theme = 'auto';
 applyTheme(theme);
 $('theme').onclick = () => {
   theme = THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length];
-  applyTheme(theme);
+  applyTheme(theme); touch('toggle', theme === 'light' ? true : theme === 'dark' ? false : null);   // light is up, dark is down, auto is level
   try { localStorage.setItem('agentboard-theme', theme); } catch (e) {}
 };
 
@@ -2175,7 +2184,8 @@ async function loadPrompt() {
   if ($('pre')) $('pre').textContent = promptText;
 }
 
-function openPanel(id) {
+function openPanel(id, quiet) {
+  if (!quiet && (openId !== id || !$('panel').classList.contains('open'))) touch('open', agentOf(id));
   if (openId !== id) { detailRaw = ''; promptText = ''; promptOpen = false; descOpen = false; actAll = false; replyOpen = false; replyDraft = ''; openEntries = new Set(); resetScroll = true; panelEdit = null; panelDraft = ''; }
   lastFocus = document.activeElement;
   $('later').classList.remove('open');
@@ -2194,7 +2204,8 @@ function focusSoon(getEl) {
     if (document.activeElement !== el && Date.now() - t0 < 400) requestAnimationFrame(attempt);
   })();
 }
-function closePanel(skipFocus) {
+function closePanel(skipFocus, quiet) {
+  if (!quiet && openId) touch('close', agentOf(openId));   // before the focus goes back to the card: the close is the sound, not the focus tick
   openId = null; detailRaw = ''; panelEdit = null; panelDraft = '';
   history.replaceState(null, '', location.pathname);
   $('panel').classList.remove('open'); document.body.classList.remove('panel-open');
@@ -2212,8 +2223,8 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape' && openId && 
 document.addEventListener('click', e => {
   if (!e.target.isConnected) return;    // the click re-rendered its own button; not an outside click
   if (openId && !e.target.closest('#panel, .card, #theme, #add, #toast')) closePanel();
-  if ($('later').classList.contains('open') && !e.target.closest('#later, #later-btn, #toast, .card')) $('later').classList.remove('open');
-  if ($('chat').classList.contains('open') && !e.target.closest('#chat, #chat-btn, #toast')) $('chat').classList.remove('open');
+  if ($('later').classList.contains('open') && !e.target.closest('#later, #later-btn, #toast, .card')) { touch('slide', false); $('later').classList.remove('open'); }
+  if ($('chat').classList.contains('open') && !e.target.closest('#chat, #chat-btn, #toast')) { touch('slide', false); $('chat').classList.remove('open'); }
 });
 $('p-body').addEventListener('toggle', e => {
   if (e.target.id !== 'pd') return;
@@ -2298,7 +2309,7 @@ $('p-body').addEventListener('click', async e => {
   if (sr) { openPanel(sr.dataset.subId); return; }
   const b = e.target.closest('button'); if (!b) return;
   if (b.dataset.copy != null) {
-    try { await navigator.clipboard.writeText(b.dataset.copy); b.textContent = 'copied'; } catch (err) { b.textContent = 'failed'; }
+    try { await navigator.clipboard.writeText(b.dataset.copy); b.textContent = 'copied'; touch.after('copy'); } catch (err) { b.textContent = 'failed'; }
     setTimeout(() => { if (b.isConnected) b.textContent = 'copy'; }, 1500); return;
   }
   if (b.dataset.more) { const k = b.dataset.more; openEntries.has(k) ? openEntries.delete(k) : openEntries.add(k); if (lastDetail) renderPanel(lastDetail); return; }
@@ -2313,7 +2324,7 @@ $('p-body').addEventListener('click', async e => {
       if (!r.ok) throw new Error(d.error);
       await navigator.clipboard.writeText(d.prompt);
       b.textContent = d.warnings.length ? 'Copied, with warnings' : 'Copied';
-      if (d.warnings.length) showError(d.warnings.join(' · '));
+      if (d.warnings.length) showError(d.warnings.join(' · ')); else touch.after('copy');   // with warnings the message's tone says look
       if (byId.get(openId)?.status === 'todo') { copied.set(openId, d.warnings.length ? 'Copied, with warnings' : 'Copied'); render(); }
     } catch (err) { b.textContent = 'Failed'; showError('Copy failed: ' + err.message); }
     setTimeout(() => { if (b.isConnected) b.textContent = 'Copy prompt'; }, 1800);
@@ -2331,7 +2342,8 @@ $('p-body').addEventListener('click', async e => {
   }
 });
 
-$('filter').oninput = render;
+const shownCards = () => $('board').querySelectorAll('.card').length;
+$('filter').oninput = () => { const was = shownCards(); render(); if (shownCards() !== was) touch('match'); };
 $('project-filter').onchange = render;
 document.addEventListener('keydown', e => {
   if (e.key === '/' && !/^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName)) { e.preventDefault(); $('filter').classList.add('on'); $('filter').focus(); }
@@ -2388,13 +2400,13 @@ function ac() {
   return audio;
 }
 function sndNow() { if (!sndOn) return null; const c = ac(); return c && c.state === 'running' ? c.currentTime : null; }
-function tone(freq, t0, dur, { type = 'sine', vol = .05, glide, verb = .6, pan = 0 } = {}) {
+function tone(freq, t0, dur, { type = 'sine', vol = .05, glide, verb = .6, pan = 0, atk = .02 } = {}) {
   const ctx = ac(); if (!ctx) return;
   const o = ctx.createOscillator(), g = ctx.createGain();
   o.type = type; o.frequency.setValueAtTime(freq, t0);
   if (glide) o.frequency.exponentialRampToValueAtTime(glide, t0 + dur);
   g.gain.setValueAtTime(0, t0);
-  g.gain.linearRampToValueAtTime(vol, t0 + .02);               // soft attack
+  g.gain.linearRampToValueAtTime(vol, t0 + atk);               // soft attack
   g.gain.exponentialRampToValueAtTime(.0001, t0 + dur);
   let out = g;
   if (pan && ctx.createStereoPanner) { const p = ctx.createStereoPanner(); p.pan.value = pan; g.connect(p); out = p; }
@@ -2526,10 +2538,11 @@ const MIX_KEY = 'agentboard-mix';
 let mix = {}, echo = null, demoNodes = null, demoTimer = null;
 const layerNodes = {};
 try { mix = JSON.parse(localStorage.getItem(MIX_KEY) || '{}') || {}; } catch (e) { mix = {}; }
-const layerOn = id => !!(mix[id] && mix[id].on);
+const LAYER_ON = { touch: true };   // layers that are on until switched off; every other one is off until chosen
+const layerOn = id => { const m = mix[id]; return m && m.on != null ? !!m.on : !!LAYER_ON[id]; };
 const layerLvl = id => { const v = mix[id] && mix[id].lvl; return v == null ? 1 : v; };   // 0..1, default full
 function saveMix() { try { localStorage.setItem(MIX_KEY, JSON.stringify(mix)); } catch (e) {} markMix(); }
-function markMix() { const n = LAYERS.filter(L => layerOn(L.id)).length; $('h-mix').textContent = n ? `Mix ${n}` : 'Mix'; }
+function markMix() { const n = LAYERS.filter(L => layerOn(L.id) && !LAYER_ON[L.id]).length; $('h-mix').textContent = n ? `Mix ${n}` : 'Mix'; }   // the extras you chose; Touch is the default, not an extra
 function noisePath(ctx, out, type, freq, q, vol, white) {   // looped noise through one filter, a gain and a panner into out
   const n = ctx.createBufferSource(); n.buffer = noiseBuf(ctx, 4, white); n.loop = true;
   const f = ctx.createBiquadFilter(); f.type = type; f.frequency.value = freq; f.Q.value = q;
@@ -2608,10 +2621,70 @@ const LAYERS = [
     tick(lvl) { const d = new Date(); if (d.getMinutes() || d.getSeconds() > 2 || this.last === d.getHours()) return; this.last = d.getHours(); this.ring(lvl); },
     ring(lvl) { const t = sndNow(); if (t == null) return; tone(1319, t, .5, { vol: .03 * lvl, verb: 1.3 }); tone(988, t + .5, .9, { vol: .028 * lvl, verb: 1.5 }); },
     demo() { this.ring(layerLvl('hour')); } },
+  { id: 'touch', kind: 'fx', ui: true, name: 'Touch', about: 'the sounds of using the board: a tick on focus, a lift and a settle on a drag, a swish between tabs, a click on a switch',
+    demo(ctx) {   // the set in order, the way a minute of use sounds: focus, open, lift, drop in Done, a switch, a copy, close
+      if (sndNow() == null) return;
+      const t = ctx.currentTime + .05;
+      TOUCH.focus(t); TOUCH.open(t + .3, 'AGENT-2'); TOUCH.lift(t + .9); TOUCH.drop(t + 1.25, 'done', 'AGENT-2');
+      TOUCH.toggle(t + 1.8, true); TOUCH.copy(t + 2.3); TOUCH.close(t + 2.8, 'AGENT-2');
+    } },
 ];
 function fx(kind, agent) { if (!sndOn) return; LAYERS.forEach(L => { if (L.fx && layerOn(L.id)) L.fx(kind, agent, layerLvl(L.id)); }); }
 Object.keys(cue).forEach(k => { const f = cue[k]; cue[k] = agent => { f(agent); fx(k, agent); }; });   // the default cue first, then any layer
 setInterval(() => { if (sndOn) LAYERS.forEach(L => { if (L.tick && layerOn(L.id)) L.tick(layerLvl(L.id)); }); }, 1000);
+
+// --- Touch: the sounds of using the board. A thin layer for what your hands do (focus, open, drag, switch, toggle, select),
+// on top of the cues above and through the same buses (dry, reverb send, compressor), so it reads as one instrument.
+// Every sound is at most 40% of the quietest cue (update, .013) and 20 to 120 ms. Nothing here plays on a poll or a
+// re-render: a sound needs a live gesture (the capture listeners below, true only while that one event's handlers run),
+// and one gesture gets one sound, the first asked for. The Touch row in Mix (on by default, with its own level) or SND OFF
+// silences the lot. A sound of a card's own (open, close, drop, select) is coloured by its agent's voice (agentPitch).
+const TV = .005;                                        // the ceiling: 40% of the quietest cue
+let gestureSeq = 0, gestureLive = false, gestureKey = false, touchSeq = 0, touchNoise = null;
+['pointerdown', 'keydown', 'click', 'input', 'change', 'submit', 'dragstart', 'drop'].forEach(ev => window.addEventListener(ev, () => {
+  if (ev === 'pointerdown' || ev === 'keydown') gestureKey = ev === 'keydown';   // keyboard and mouse sound the same; only the focus tick asks (a click focuses too, silently)
+  gestureSeq++; gestureLive = true; setTimeout(() => { gestureLive = false; }, 0);
+}, true));
+function touchAt(after) {   // when to play, or null: the layer or SND off, no context yet (no gesture ever), no gesture now, or this gesture already sounded
+  if (!layerOn('touch')) return null;
+  if (!after) { if (!gestureLive || touchSeq === gestureSeq) return null; touchSeq = gestureSeq; }
+  return sndNow();
+}
+function tap(f, t, dur, v, o = {}) { tone(f, t, dur, { atk: .003, verb: .35, ...o, vol: v * TV * layerLvl('touch') }); }   // v: a share of the ceiling
+function hush(t0, dur, { from = 700, to = 3200, q = 1.2, v = 1, verb = .5, atk = .01 } = {}) {   // a filtered breath of noise: swishes and slides
+  const ctx = ac(); if (!ctx) return;
+  touchNoise = touchNoise || noiseBuf(ctx, .5, true);
+  const n = ctx.createBufferSource(); n.buffer = touchNoise;
+  const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = q;
+  f.frequency.setValueAtTime(from, t0); f.frequency.exponentialRampToValueAtTime(to, t0 + dur);
+  const g = ctx.createGain(); g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(v * TV * layerLvl('touch'), t0 + atk); g.gain.exponentialRampToValueAtTime(.0001, t0 + dur);
+  n.connect(f); f.connect(g); g.connect(dry);
+  const w = ctx.createGain(); w.gain.value = verb; g.connect(w); w.connect(send);
+  if (echo) g.connect(echo);
+  n.start(t0); n.stop(t0 + dur + .05);
+}
+const TOUCH = {                                          // kind: (t, ...) => the notes at t
+  focus: t => tap(1760, t, .02, .7),                                                       // a card takes keyboard focus
+  open:  (t, agent) => { const p = agentPitch(agent) / 2; tap(p, t, .05, .9, { atk: .006, verb: .5 }); tap(p * 1.5, t + .045, .06, 1, { atk: .006, verb: .7 }); },   // a rising pair in the card's voice
+  close: (t, agent) => { const p = agentPitch(agent) / 2; tap(p * 1.5, t, .05, .9, { atk: .006, verb: .5 }); tap(p, t + .045, .06, .8, { atk: .006, verb: .7 }); },   // and down again
+  lift:  t => tap(330, t, .06, .8, { glide: 520, atk: .008, verb: .5 }),                   // a card picked up
+  drop:  (t, status, agent) => { const b = { todo: 392, doing: 523, done: 659 }[status] || 523;   // settles low in Todo, mid in Doing, high in Done, then the card's voice
+    tap(b, t, .09, 1, { glide: b * .92, atk: .005, verb: .7 }); tap(agentPitch(agent), t + .05, .03, .5, { verb: .5 }); },
+  step:  t => tap(1200, t, .025, .7, { type: 'triangle', atk: .002, verb: .3 }),           // one Alt+arrow move
+  swish: t => hush(t, .1, { from: 700, to: 3200, v: 1, verb: .6 }),                        // a tab change
+  slide: (t, on) => hush(t, .09, on ? { from: 400, to: 1600, q: 2, v: .8 } : { from: 1600, to: 400, q: 2, v: .8 }),   // a drawer or sheet in / out
+  toggle: (t, on) => { const [a, b] = on === true ? [660, 880] : on === false ? [880, 660] : [740, 740];   // up for on, down for off, flat for a third state
+    tap(a, t, .03, .9, { type: 'triangle', verb: .3 }); tap(b, t + .03, .035, .9, { type: 'triangle', verb: .4 }); },
+  match: t => tap(1400, t, .02, .6),                                                       // the filter's match count changed
+  copy:  t => { tap(1047, t, .035, .9, { verb: .4 }); tap(1319, t + .035, .05, .9, { verb: .6 }); },   // copied
+  select: (t, n, agent, added) => { const f = agentPitch(agent) / 2 * Math.pow(2, Math.min(n, 12) / 12);   // a semitone up per card selected, in the card's voice
+    tap(f, t, .03, .9, { glide: f * (added ? 1.04 : .96), verb: .4 }); },
+  error: t => tap(196, t, .12, 1, { type: 'triangle', atk: .01, verb: .3 }),              // one low, dull tone
+};
+function touch(kind, ...args) { const t = touchAt(); if (t != null) TOUCH[kind](t, ...args); return t != null; }
+touch.after = (kind, ...args) => { const t = touchAt(true); if (t != null) TOUCH[kind](t, ...args); };   // what lands after an await (a copy, a failed save): the gesture is past, the action is still yours
+const agentOf = id => byId.get(id)?.agent;
+document.addEventListener('focusin', e => { if (gestureKey && e.target.classList?.contains('card')) touch('focus'); });
 function fadeOut(n) {                           // ramp a layer's gain down, then stop its sources
   if (n.end) n.end();
   const t = audio.currentTime; n.g.gain.cancelScheduledValues(t); n.g.gain.setValueAtTime(n.g.gain.value, t); n.g.gain.linearRampToValueAtTime(0, t + .8);
@@ -2646,12 +2719,14 @@ function renderMix() {
   const row = L => `<div class="mix-row"><input type="checkbox" id="mix-${L.id}" data-mix="${L.id}"${layerOn(L.id) ? ' checked' : ''}><label for="mix-${L.id}">${L.name}</label>`
     + `<input type="range" min="0" max="100" value="${Math.round(layerLvl(L.id) * 100)}" data-lvl="${L.id}" aria-label="${L.name} level">`
     + `<button class="btn" data-hear="${L.id}">Hear it</button><span class="mix-about">${L.about}</span></div>`;
+  $('mix-touch').innerHTML = LAYERS.filter(L => L.ui).map(row).join('');
   $('mix-amb').innerHTML = LAYERS.filter(L => L.kind === 'amb').map(row).join('');
-  $('mix-fx').innerHTML = LAYERS.filter(L => L.kind === 'fx').map(row).join('');
+  $('mix-fx').innerHTML = LAYERS.filter(L => L.kind === 'fx' && !L.ui).map(row).join('');
 }
 const mixIsOpen = () => $('mix').classList.contains('on');
 function toggleMix(on) {
   const open = on ?? !mixIsOpen();
+  if (open !== mixIsOpen()) touch('slide', open);
   if (open) renderMix(); else stopDemo();
   $('mix').classList.toggle('on', open);
   if (open) $('mix').querySelector('input').focus(); else $('h-mix').focus();
@@ -2724,10 +2799,10 @@ if (BYAGENT) {
 }
 $('h-close').onclick = closeHud;
 $('h-full').onclick = toggleHudFull;
-$('h-snd').onclick = () => setSnd(!sndOn);
-$('h-amb').onclick = () => setAmb(!ambOn);
+$('h-snd').onclick = () => { if (sndOn) touch('toggle', false); setSnd(!sndOn); };   // off: the down click, then silence; on: the open cue already says so
+$('h-amb').onclick = () => { touch('toggle', !ambOn); setAmb(!ambOn); };
 $('h-mix').onclick = () => toggleMix();
-$('snd2').onclick = () => { setSnd(!sndOn, true); if (sndOn) cue.added(); };
+$('snd2').onclick = () => { if (sndOn) touch('toggle', false); setSnd(!sndOn, true); if (sndOn) cue.added(); };
 $('h-pop').onclick = () => { const w = window.open(BASE + '/hud', 'agentboard-hud', 'width=1320,height=860'); if (w) closeHud(); };
 $('hud').addEventListener('click', e => { if (e.target.id === 'hud' && !$('hud').classList.contains('full')) closeHud(); });
 
@@ -2829,7 +2904,7 @@ $('h-tele')?.addEventListener('click', e => {
   const r = e.target.closest('.h-row.attn[data-id]'); if (!r) return;
   const id = r.dataset.id;
   if (SOLO) { window.open(BASE + '/#' + encodeURIComponent(id), 'agentboard-board'); return; }
-  closeHud(); openPanel(id);
+  closeHud(); openPanel(id, true);   // Load's close cue already sounded for this click
 });
 
 // Hover-kind tracking for the Agent Load legend highlight (see the #hud-inner[data-hk]
@@ -2951,20 +3026,20 @@ function renderLater(list) {
 }
 function setSide(which) {            // one surface at a time
   if (which !== 'later') $('later').classList.remove('open');
-  if (which !== 'panel' && openId) closePanel(true);
+  if (which !== 'panel' && openId) closePanel(true, true);   // the surface opening is the sound, not this
   if (which !== 'chat') $('chat').classList.remove('open');
 }
-function openLater() { setSide('later'); $('later').classList.add('open'); renderLater(tasks.filter(t => t.status === 'backlog' && !isKid(t))); $('later-input')?.focus(); }
-function closeLater() { $('later').classList.remove('open'); $('later-btn').focus(); }
+function openLater() { setSide('later'); touch('slide', true); $('later').classList.add('open'); renderLater(tasks.filter(t => t.status === 'backlog' && !isKid(t))); $('later-input')?.focus(); }
+function closeLater() { touch('slide', false); $('later').classList.remove('open'); $('later-btn').focus(); }
 $('later-btn').onclick = () => $('later').classList.contains('open') ? closeLater() : openLater();
 $('later-close').onclick = closeLater;
 
 function openChat() {
-  setSide('chat'); $('chat').classList.add('open');
+  setSide('chat'); touch('slide', true); $('chat').classList.add('open');
   chatSeenSeq = chatMaxSeq; chatUnread = 0; renderChat();
   $('chat-input')?.focus();
 }
-function closeChat() { $('chat').classList.remove('open'); $('chat-btn').focus(); }
+function closeChat() { touch('slide', false); $('chat').classList.remove('open'); $('chat-btn').focus(); }
 $('chat-btn').onclick = () => $('chat').classList.contains('open') ? closeChat() : openChat();
 $('chat-close').onclick = closeChat;
 $('chat-form').addEventListener('submit', async e => {
@@ -3031,18 +3106,22 @@ function renderSelection() {
   $('bulkbar').classList.toggle('open', n > 0);
   $('bulk-n').textContent = n ? `${n} selected` : '';
 }
-function clearSelection() { if (!selected.size) return; selected.clear(); selectAnchor = null; renderSelection(); }
+function clearSelection() { if (!selected.size) return; selected.clear(); selectAnchor = null; touch('select', 0, null, false); renderSelection(); }
 function toggleSelect(id) {
-  if (selected.has(id)) selected.delete(id); else selected.add(id);
+  const added = !selected.has(id);
+  if (added) selected.add(id); else selected.delete(id);
   selectAnchor = id;
+  touch('select', selected.size, agentOf(id), added);
   renderSelection();
 }
 function selectRangeTo(id) {
   const ids = cardsGrid().flat().map(c => c.dataset.id);
   const ai = selectAnchor ? ids.indexOf(selectAnchor) : -1, bi = ids.indexOf(id);
-  if (ai === -1 || bi === -1) { selectAnchor = id; selected = new Set([id]); renderSelection(); return; }
+  const had = selected.size;
+  if (ai === -1 || bi === -1) { selectAnchor = id; selected = new Set([id]); touch('select', 1, agentOf(id), true); renderSelection(); return; }
   const [lo, hi] = ai < bi ? [ai, bi] : [bi, ai];
   selected = new Set(ids.slice(lo, hi + 1));
+  touch('select', selected.size, agentOf(id), selected.size >= had);
   renderSelection();
 }
 function extendSelectionVertical(dir) {
@@ -3055,10 +3134,12 @@ function extendSelectionVertical(dir) {
   }
   let ri = col.indexOf(cur);
   ri = dir === 'down' ? Math.min(col.length - 1, ri + 1) : Math.max(0, ri - 1);
-  focusCard(col[ri]);
   const ai = col.findIndex(c => c.dataset.id === selectAnchor);
   const [lo, hi] = ai < ri ? [ai, ri] : [ri, ai];
+  const had = selected.size;
   selected = new Set(col.slice(lo, hi + 1).map(c => c.dataset.id));
+  touch('select', selected.size, col[ri].dataset.agent, selected.size >= had);   // the select is the sound of this step, before the focus moves
+  focusCard(col[ri]);
   renderSelection();
 }
 
@@ -3069,14 +3150,18 @@ function goView(i) {
   const here = hudIsOpen();
   if (i === 2) { if (!here) $('hud-btn').click(); return; }
   const agents = i === 1;
-  if (agents !== BYAGENT) { location.href = BASE + (agents ? '/agents' : '/'); return; }   // a page change drops the overlay too
+  if (agents !== BYAGENT) {   // a page change drops the overlay too; the swish gets its 90 ms before the page goes
+    const url = BASE + (agents ? '/agents' : '/'), go = () => { location.href = url; };
+    if (touch('swish')) setTimeout(go, 90); else go();
+    return;
+  }
   if (here) closeHud();
 }
 document.addEventListener('keydown', e => {
   if (e.metaKey || e.ctrlKey) return;
   const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName);
   if (e.key === 'Escape') {
-    if ($('keys').classList.contains('on')) { $('keys').classList.remove('on'); return; }
+    if ($('keys').classList.contains('on')) { toggleKeys(false); return; }
     if (mixIsOpen()) { toggleMix(false); return; }
     if ($('later').classList.contains('open')) { closeLater(); return; }   // the drawers open over Load, so they close first
     if ($('chat').classList.contains('open')) { closeChat(); return; }
@@ -3090,20 +3175,25 @@ document.addEventListener('keydown', e => {
   if (e.key === 'm') { toggleMix(); return; }
   if (e.key === 's') { $(hudIsOpen() ? 'h-snd' : 'snd2').click(); return; }   // sound on or off, on every view
   if (hudIsOpen()) { if (e.key === 'f') toggleHudFull(); else if (e.key === 'h') closeHud(); return; }
-  if (e.key === '?') { $('keys').classList.toggle('on'); return; }
+  if (e.key === '?') { toggleKeys(); return; }
   if (e.key === 'n') { e.preventDefault(); toggleAdd(true); return; }
   if (e.key === 'e' && openId && !panelEdit) { e.preventDefault(); startEdit('title'); return; }
   if (e.key === 'l') { $('later-btn').click(); return; }
   if (e.key === 'c') { $('chat-btn').click(); return; }
   if (e.key === 'h') { $('hud-btn').click(); return; }
-  if (e.key === 'a') { location.href = BASE + (BYAGENT ? '/' : '/agents'); return; }
+  if (e.key === 'a') { goView(BYAGENT ? 0 : 1); return; }
   if (e.shiftKey && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
     e.preventDefault(); extendSelectionVertical(e.key === 'ArrowDown' ? 'down' : 'up'); return;
   }
   const map = { ArrowDown: 'down', j: 'down', ArrowUp: 'up', k: 'up', ArrowLeft: 'left', ArrowRight: 'right' };
   if (map[e.key]) { e.preventDefault(); navigate(map[e.key]); }
 });
-$('keys').addEventListener('click', e => { if (e.target.id === 'keys') $('keys').classList.remove('on'); });
+$('keys').addEventListener('click', e => { if (e.target.id === 'keys') toggleKeys(false); });
+function toggleKeys(on) {   // the shortcuts sheet, with the same slide as the other sheets
+  const open = on ?? !$('keys').classList.contains('on');
+  if (open !== $('keys').classList.contains('on')) touch('slide', open);
+  $('keys').classList.toggle('on', open);
+}
 
 // --- desktop notifications: the browser's own Notification API, local only, opt-in with the bell. Only while the tab is in
 // the background (in front, the strip and the sounds already say it): an ask at once and again every 15 minutes while it
@@ -3131,7 +3221,7 @@ async function setNotif(on) {
   paintNotif();
   if (on) toast('Desktop notifications on: asks, reviews and quiet agents, while this tab is in the background');
 }
-$('notif-btn').onclick = () => setNotif(!notifOn);
+$('notif-btn').onclick = async () => { const want = !notifOn; await setNotif(want); if (notifOn === want) touch.after('toggle', want); };   // blocked by the browser: the error tone says so instead
 paintNotif();
 const hiddenNow = () => document.hidden || document.visibilityState !== 'visible';
 function notify(id, kind, t) {
@@ -3240,7 +3330,7 @@ async function copyPrompt(btn) {   // the Copy prompt button on a Todo card, on 
     if (!r.ok) throw new Error(d.error);
     await navigator.clipboard.writeText(d.prompt);
     btn.textContent = d.warnings.length ? 'Copied, with warnings' : 'Copied';
-    if (d.warnings.length) showError(d.warnings.join(' · '));
+    if (d.warnings.length) showError(d.warnings.join(' · ')); else touch.after('copy');
     if (byId.get(id)?.status === 'todo') { copied.set(id, d.warnings.length ? 'Copied, with warnings' : 'Copied'); renderKeepingCardFocus(); }   // only after the clipboard write actually succeeded
   } catch (err) { btn.textContent = 'Failed'; showError('Copy failed: ' + err.message); }
   setTimeout(() => { btn.textContent = 'Copy prompt'; }, 1800);
@@ -3297,7 +3387,7 @@ $('orch-btn').addEventListener('click', async () => {
     const d = await r.json();
     if (!r.ok) throw new Error(d.error);
     await navigator.clipboard.writeText(d.prompt);
-    b.textContent = 'Copied';
+    b.textContent = 'Copied'; touch.after('copy');
   } catch (err) { b.textContent = 'Failed'; showError('Copy failed: ' + err.message); }
   setTimeout(() => { b.textContent = 'ORCH'; }, 1800);
 });
@@ -3317,6 +3407,8 @@ $('board').addEventListener('keydown', e => {
   else if (e.key === 'ArrowRight' && i < keys.length - 1) move(c.dataset.id, keys[i + 1]);
   else if (e.key === 'ArrowUp' && at > 0) move(c.dataset.id, c.dataset.status, sibs[at - 1].dataset.id);
   else if (e.key === 'ArrowDown' && at < sibs.length - 1) move(c.dataset.id, c.dataset.status, sibs[at + 2]?.dataset.id);
+  else return;   // at the edge: no move, no click
+  touch('step');
 });
 
 // --- drag and drop ---
@@ -3325,6 +3417,7 @@ board.addEventListener('dragstart', e => {
   const c = e.target.closest('.card'); if (!c) return;
   dragging = c.dataset.id; c.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move';
   e.dataTransfer.setData('text/plain', dragging);
+  touch('lift');
 });
 board.addEventListener('dragend', () => { dragging = null; clearDrop(); raw = ''; load(); });
 function clearDrop() {
@@ -3354,8 +3447,11 @@ board.addEventListener('dragleave', e => {
 board.addEventListener('drop', e => {
   const col = e.target.closest('.col'); if (!dragging || !col) return;
   e.preventDefault();
-  const id = dragging, b = beforeCard(col, e.clientY);
+  const id = dragging, b = beforeCard(col, e.clientY), c = board.querySelector('.card.dragging');
+  let next = c?.nextElementSibling; while (next && !next.classList.contains('card')) next = next.nextElementSibling;   // the card after it, past the drop line and a day divider
+  const stayed = c && c.closest('.col') === col && (b || null) === (next || null);
   clearDrop(); dragging = null; justDropped = id;
+  if (!stayed) touch('drop', col.dataset.status, c?.dataset.agent);   // dropped back where it was: nothing
   move(id, col.dataset.status, b?.dataset.id);
 });
 

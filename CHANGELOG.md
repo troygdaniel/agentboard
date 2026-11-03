@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Touch: the sounds of using the board (Nov 3)
+- **A thin layer of UI sounds for what your hands do**, synthesized like the cues and played through the same buses (compressor, reverb send), so it reads as one instrument: a soft tick when a card takes keyboard focus; a rising pair when a card's panel opens and a falling pair when it closes, in that card's agent's voice; a lift when you pick a card up and a settle when you drop it, pitched by the column it lands in (Todo low, Doing mid, Done high; dropped back where it was, nothing); a faint click per Alt+arrow step; one swish for a tab change (the tabs, `[`, `]` and `a` alike); a quiet slide in and out for Later, Chat, Mix and the shortcuts sheet; a two-pitch click on the theme, sound, notifications and AMB switches, up for on and down for off; a tick when the filter's match count changes (nothing per keystroke); a confirm blip when a prompt is copied; a tick that rises a semitone per card selected and falls when one leaves; one low tone for a failed save or a dropped connection, never again on every poll.
+- **Every one of them is at most 40% of the quietest cue and 20 to 120 ms**, only ever on your own action (never on a poll or a re-render), one per action. Mark done keeps its done cue, adding a task its added cue, opening Load its open cue: nothing plays twice.
+- **One Mix row, Touch, on by default with its own level**, so the whole set turns down or off in one place; SND OFF still silences everything. The cues and the bed did not change.
+
 ### Sounds on every view (Nov 3)
 - **The ambient bed and the Mix layers (Rain, Wind, Pad, Pulse) play on Board and By agent too**, not only while Load is open. The sound is the same as before; opening or closing Load no longer starts or stops it.
 - **One bed at a time**: with several pages or windows open, the one you start or come back to plays and the others hush; when it closes the next visible one picks it up. Cues are unchanged: Board and By agent play the board's cues, Load plays its own, never both.

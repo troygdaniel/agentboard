@@ -354,7 +354,7 @@ Press `h`, or open `/hud` in its own window (second monitor). One grid, one row 
   Those rows sort to the top; click one to open the card. The top bar counts asks, reviews, abandoned and done today,
   and the window title says "● 2 for you".
 - `[hud] retired = ["AGENT-5"]` in `config.toml` hides agents you no longer run (their cards and history stay).
-- Optional synthesized sound cues (SND / AMB toggles; `s` turns sound on or off). The sounds, ambient bed included, play on every view (Board, By agent and Load), one bed at a time even with several pages open; a fresh page waits for your first click or key, as browsers require. Mix (`m`) adds extra layers, each with its own switch and level and off until you choose it: Rain, Wind, Pad, Pulse, Echo, Signatures, All clear, Hourly chime. Stacks on narrow windows, bars under the text.
+- Optional synthesized sound cues (SND / AMB toggles; `s` turns sound on or off). The sounds, ambient bed included, play on every view (Board, By agent and Load), one bed at a time even with several pages open; a fresh page waits for your first click or key, as browsers require. Mix (`m`) adds extra layers, each with its own switch and level and off until you choose it: Rain, Wind, Pad, Pulse, Echo, Signatures, All clear, Hourly chime. Touch, the one layer that starts on, is the quiet set of UI sounds for what your hands do (focus, open, drag and drop, tabs, drawers, switches, select, copy, errors). Stacks on narrow windows, bars under the text.
 
 ## Daily recap
 
