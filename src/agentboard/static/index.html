@@ -161,8 +161,8 @@
   .col { position: relative; display: flex; flex-direction: column; min-height: 0; isolation: isolate;
     border: 1px solid var(--line); border-radius: 16px; padding: 14px 8px 8px;
     background: var(--panel); box-shadow: inset 0 1px 0 var(--panel-hi), var(--panel-sh); }
-  .col.doing { border-color: color-mix(in srgb, var(--accent) 14%, var(--line)); }
-  .col.doing::before { content: ''; position: absolute; inset: 0; border-radius: 16px; pointer-events: none; z-index: -1;
+  .col.doing, .col.acol { border-color: color-mix(in srgb, var(--accent) 14%, var(--line)); }   /* a lane on By agent is a live column too: the same lit panel as Doing */
+  .col.doing::before, .col.acol::before { content: ''; position: absolute; inset: 0; border-radius: 16px; pointer-events: none; z-index: -1;
     background: radial-gradient(70% 38% at 50% 0%, var(--glow1), transparent 70%); }
   .col h2 {
     font-size: var(--fs-xs); font-weight: 600; color: var(--muted); letter-spacing: var(--tr-label); text-transform: uppercase;
@@ -195,7 +195,8 @@
   .card[data-status="doing"] { --st: var(--run); }
   .card.review { --st: var(--ok); }
   .card.ask, .card.abandoned { --st: var(--err); }
-  .col.doing .card:not(.done) {
+  /* the Doing treatment is by status (running, review, ask), so it belongs to every card in Doing: the Board's column and By agent's lanes alike */
+  :is(.col.doing, .col.acol) .card:not(.done) {
     background: linear-gradient(180deg, color-mix(in srgb, var(--st) 9%, var(--surface)), var(--surface) 75%);
     border-color: color-mix(in srgb, var(--st) 38%, var(--line));
     box-shadow: inset 0 1px 0 var(--card-hi), var(--shadow), 0 12px 32px -16px color-mix(in srgb, var(--st) 60%, transparent);
@@ -237,7 +238,7 @@
   @keyframes enter { from { opacity: 0; transform: translateY(4px); } }
   .card.dragging { opacity: .4; }
   .card:hover { border-color: var(--neutral); box-shadow: inset 0 1px 0 var(--card-hi), var(--shadow-hover); transform: translateY(-2px); }
-  .col.doing .card:not(.done):hover { box-shadow: inset 0 1px 0 var(--card-hi), var(--shadow-hover), 0 16px 36px -14px color-mix(in srgb, var(--st) 70%, transparent); }
+  :is(.col.doing, .col.acol) .card:not(.done):hover { box-shadow: inset 0 1px 0 var(--card-hi), var(--shadow-hover), 0 16px 36px -14px color-mix(in srgb, var(--st) 70%, transparent); }
   .title { font-weight: 550; font-size: var(--fs-lg); line-height: 1.4; letter-spacing: -.01em; padding-right: 8px; overflow-wrap: anywhere; }
   .desc {
     color: var(--muted); font-size: var(--fs-md); margin-top: 2px;
@@ -313,9 +314,9 @@
   .card.abandoned { border-color: var(--err); animation: abandonedpulse 2.6s ease-in-out infinite; }
   /* in Doing the agent-colored border (.col.doing .card:not(.done)) is more specific than the rules above,
      so ask/review/abandoned lost their state border and read as ordinary cards: win it back */
-  .col.doing .card.ask:not(.done) { border-color: var(--err); }
-  .col.doing .card.review:not(.done) { border-color: var(--ok); }
-  .col.doing .card.abandoned:not(.done) { border-color: var(--err); }
+  :is(.col.doing, .col.acol) .card.ask:not(.done) { border-color: var(--err); }
+  :is(.col.doing, .col.acol) .card.review:not(.done) { border-color: var(--ok); }
+  :is(.col.doing, .col.acol) .card.abandoned:not(.done) { border-color: var(--err); }
   @keyframes abandonedpulse { 50% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--err) 18%, transparent); } }
   .top .when.abandoned, .meta .when.abandoned { color: var(--err); font-weight: 600; }
   .markdone { margin-top: 10px; font-size: var(--fs-sm); padding: 3px 10px; min-height: 26px; border-color: var(--ok); color: var(--ok); }
