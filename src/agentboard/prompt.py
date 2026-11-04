@@ -77,7 +77,10 @@ expected (the number can go down, not just up):
     {ab} update <subtask id> 100 "<one-line result>"     # a subtask at 100% closes itself
     {ab} review {task_id} "<one-line result>"
 
-Finish with `review` and stop — the USER signs off and moves the card to done.
+Finish with `review` — the USER signs off and moves the card to done. After `review`, do not sit idle: start
+`{ab} answer {task_id} --wait --timeout 3600` as a background command (in Claude Code, Bash with run_in_background)
+and end your turn. You are woken when {owner} replies, sends the card back, closes it ("Done by {owner}"), moves it
+or removes it, and it prints what happened. If it says the card is closed, you are free to go idle or take the next card.
 Run `{ab} done {task_id}` ONLY if the user explicitly tells you to.
 
 If you are blocked on the user mid-task, flag it (and keep going once they answer):
@@ -128,6 +131,9 @@ When the whole deliverable is ready (this and its sibling subtasks), review the 
     {ab} review {parent_id} "<one-line result>"
 
 The USER signs off on the parent and moves the card to done. Run `{ab} done` ONLY if the user explicitly tells you to.
+After you review the parent, do not sit idle: start `{ab} answer {parent_id} --wait --timeout 3600` as a background
+command (in Claude Code, Bash with run_in_background) and end your turn. You are woken when {owner} replies, sends the
+card back, closes it ("Done by {owner}"), moves it or removes it, and it prints what happened.
 
 """
 
@@ -159,6 +165,9 @@ Keep the subtasks honest, updated whenever your estimate changes (it can go down
     {ab} review {task_id} "<one-line result>"
 
 Any subtask still open closes with it. The USER signs off and moves the card to done.
+After `review`, do not sit idle: start `{ab} answer {task_id} --wait --timeout 3600` as a background command (in
+Claude Code, Bash with run_in_background) and end your turn. You are woken when {owner} replies, sends the card back,
+closes it ("Done by {owner}"), moves it or removes it, and it prints what happened.
 Run `{ab} done {task_id}` ONLY if the user explicitly tells you to.
 
 """

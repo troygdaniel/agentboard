@@ -1472,7 +1472,7 @@ function card(t) {
   const foldRow = t.details ? `<details class="fold"><summary>Details</summary><div class="fold-body">${esc(t.details)}</div></details>` : '';
   const quick = asking ? quickHtml(t, false) : '';
   const replyRow = (asking || reviewing) ? quick + `<form class="card-reply" data-reply="${esc(t.id)}">` +
-    (t.reply && t.reply.text && !asking ? `<div class="replied">You replied: ${esc(t.reply.text)}</div>` : '') +
+    (t.reply && t.reply.text && !t.reply.state && !asking ? `<div class="replied">You replied: ${esc(t.reply.text)}</div>` : '') +
     `<div class="rr"><input name="text" autocomplete="off" maxlength="2000" placeholder="Reply${t.agent ? ' to ' + esc(t.agent) : ''}…" aria-label="Reply to ${esc(t.agent || 'the agent')}"><button class="btn primary" type="submit">Send</button></div></form>` : '';
   const fresh = !firstRender && !seen.has(t.id);
   const flash = !firstRender && seen.has(t.id) && lastUpdated.get(t.id) !== t.updated;
@@ -1582,7 +1582,7 @@ function quickOptions(q) {
   return [];
 }
 function quickHtml(t, withForm = true) {   // the strip row has no box of its own; the card and the panel already do
-  if (t.reply && t.reply.text) return `<div class="qr"><span class="replied">You replied <b>${esc(t.reply.text)}</b> · ${esc(t.agent || 'the agent')} reads it next</span></div>`;
+  if (t.reply && t.reply.text && !t.reply.state) return `<div class="qr"><span class="replied">You replied <b>${esc(t.reply.text)}</b> · ${esc(t.agent || 'the agent')} reads it next</span></div>`;
   const opts = quickOptions(t.question || t.status_text);
   const chip = (label, cls, text) => `<button class="qr-ch ${cls}" type="button" data-quick="${esc(t.id)}" data-text="${esc(text || label)}" title="Reply “${esc(text || label)}”"><span>${esc(label)}</span></button>`;
   return `<div class="qr">${opts.map(o => chip(o, 'opt')).join('')}${QUICK_ALWAYS.map(([l, c]) => chip(l, c)).join('')}`

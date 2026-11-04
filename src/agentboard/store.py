@@ -462,10 +462,50 @@ class Store:
                 t.pop(f, None)
             t["progress"] = min(int(t.get("progress", 0)), 95)
             t["status_text"] = f"Sent back: {text}"[:300]
-            t["reply"] = {"text": text, "at": _now(), "by": self.owner}
-            _log(t, f"Sent back: {text}", by=self.owner)
+            owner = self.owner
+            t["reply"] = {"text": f"Sent back by {_who(owner)}: the card is open again in Doing, not closed. Note: {text}",
+                          "at": _now(), "by": owner, "state": True}
+            _log(t, f"Sent back: {text}", by=owner)
             t["updated"] = _now()
             return t
+
+    def _tell_holder(self, t, was, agent):
+        """The owner changed a card's column under the agent that holds it (`was` is the column before, `agent` who held it): leave
+        that agent a reply saying where the card stands now. It is the slot a typed reply uses, so a waiting `answer --wait` wakes
+        with it and an agent that is not waiting finds it, unread, with `answer`. Tagged `state` so the board never shows it as
+        "You replied". Nothing happens for a card nobody holds, a subtask, or a move within a column."""
+        now = t["status"]
+        if not agent or t.get("parent_id") or was == now:
+            return
+        owner = self.owner
+        who = _who(owner)
+        if now == "done":
+            text = f"Done by {who}: the card is closed, you are free to go idle or take the next card."
+        elif now == "doing":
+            text = f"Reopened by {who}: the card is back in Doing, not closed."
+        else:
+            text = f"Moved by {who} to {now.capitalize()}: the card is no longer yours, stop work on it and go idle or take the next card."
+        t["reply"] = {"text": text, "at": _now(), "by": owner, "state": True}
+
+    def _tell_restored(self, snap, was):
+        """An undo put a card back under its agent (`was` is the card as it stood just before, None if it had been removed): say so."""
+        if not snap.get("agent") or snap.get("parent_id"):
+            return
+        gone = was is None
+        if not gone and was["status"] == snap["status"]:
+            return
+        owner = self.owner
+        who = _who(owner)
+        place = "review" if snap.get("review") else snap["status"].capitalize()
+        if snap["status"] == "done":
+            text = f"Done by {who}: the card is closed again, you are free to go idle or take the next card."
+        elif not gone and was["status"] == "done":
+            text = f"Reopened by {who}: the card is back in {place}, not closed."
+        elif gone:
+            text = f"Restored by {who}: the removal is undone, the card is back in {place} and yours again."
+        else:
+            text = f"Restored by {who}: the card is back in {place} and yours again."
+        snap["reply"] = {"text": text, "at": _now(), "by": owner, "state": True}
 
     def answer(self, task_id):
         """The latest reply the user left on the card, or None. Reading it marks it read (`read_at`): until then the agent's
@@ -518,7 +558,9 @@ class Store:
         if auto_done:   # a subtask at 100% closes itself; no review step
             t["result"] = text or t.get("status_text") or ""
         if status:   # log after the move so the entry carries the new column
+            was, holder = t["status"], t.get("agent")
             _set_status(tasks, t, status)
+            self._tell_holder(t, was, holder)
             _log(t, "Marked done" if status == "done" else text)
         elif auto_done:
             _log(t, text)
@@ -546,7 +588,9 @@ class Store:
                     raise BoardError(f"{task_id} is blocked by: {', '.join(unresolved)}")
             tasks.remove(t)
             if t["status"] != status:
+                was, holder = t["status"], t.get("agent")
                 _set_status(tasks, t, status)
+                self._tell_holder(t, was, holder)
                 _log(t, f"Moved to {status}")
             t["updated"] = _now()
             _insert(tasks, t, before_id)
@@ -573,6 +617,7 @@ class Store:
             snap = dict(snapshot)
             snap["log"] = list(snap.get("log", []))
             _restored(snap)
+            self._tell_restored(snap, now_there)
             _insert(tasks, snap, before_id)
             for ks in kids or []:
                 kid = dict(ks, log=list(ks.get("log", [])))
@@ -640,7 +685,9 @@ class Store:
                         raise BoardError(f"{tid} is blocked by: {', '.join(unresolved)}")
                 tasks.remove(t)
                 if t["status"] != status:
+                    was, holder = t["status"], t.get("agent")
                     _set_status(tasks, t, status)
+                    self._tell_holder(t, was, holder)
                     _log(t, f"Moved to {status}")
                 t["updated"] = _now()
                 _insert(tasks, t, None)
@@ -810,6 +857,11 @@ class Store:
 
 LOG_MAX = 200
 CHAT_MAX = 500
+
+
+def _who(owner):
+    """How an agent reads the owner's name in a state note: the configured name, else "the user"."""
+    return "the user" if owner == DEFAULT_OWNER else owner
 
 
 def _drop_read_reply(t):

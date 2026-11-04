@@ -146,7 +146,8 @@ class SendBackTests(Base):
         t = Store.get(self.s.load(), cid)
         self.assertEqual((t["status"], t["agent"]), ("doing", "nova"))
         self.assertNotIn("review", t)
-        self.assertEqual(self.s.answer(cid)["text"], "also handle the dark theme")
+        self.assertEqual(self.s.answer(cid)["text"],   # the note opens with the card's state, so a waiting agent knows it is not closed
+                         "Sent back by the user: the card is open again in Doing, not closed. Note: also handle the dark theme")
         self.assertIn("Sent back", t["status_text"])
         with self.assertRaises(BoardError):
             self.s.send_back(cid, "  ")
@@ -285,7 +286,7 @@ class HttpTests(Base):
     def test_the_controls_call_the_board_api(self):
         cid = self.review()
         self.post("/api/send-back", {"id": cid, "text": "please redo the header"})
-        self.assertEqual(self.s.answer(cid)["text"], "please redo the header")
+        self.assertTrue(self.s.answer(cid)["text"].endswith("Note: please redo the header"))
         self.s.review(cid, "second try")
         self.post("/api/move", {"id": cid, "status": "done"})
         self.assertEqual(Store.get(self.s.load(), cid)["status"], "done")

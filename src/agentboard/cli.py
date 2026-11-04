@@ -750,15 +750,17 @@ for the details behind your sentence: a recap, diff, or report. The first line o
 reads; the body sits under "Details" on the card and in the detail panel. A multi-line text splits the
 same way: its first line is the sentence, the rest becomes the body.
 
-NEVER mark your own task done. Finish with `review` and stop. Run
+NEVER mark your own task done. Finish with `review`, then wait (below). Run
 `agentboard done "$ID"` only if the user explicitly tells you to.
 
 Report to {owner} in one sentence, one idea: the ACTION they must take first, then one fact. If nothing is
 needed from them, one line of status. If more is unavoidable, one sentence, then offer the detail. Put that
 sentence on the card (ask/review/update text) so {owner} answers you there, and in your terminal. They reply
-on the card. After an `ask`, do not sit idle: start `agentboard answer "$ID" --wait --timeout 3600` as a background
-command (in Claude Code, Bash with run_in_background) and end your turn. You are woken when they reply, and it prints
-the reply. A tool that cannot run background commands runs it in the foreground instead.
+on the card. After an `ask` or a `review`, do not sit idle: start `agentboard answer "$ID" --wait --timeout 3600` as a
+background command (in Claude Code, Bash with run_in_background) and end your turn. You are woken when they reply, and
+it prints the reply. It also wakes you when they send the card back, close it ("Done by {owner}: the card is closed"),
+move it or remove it, and says which: a closed card means you are free to go idle or take the next card. A tool that
+cannot run background commands runs it in the foreground instead.
 
 If you are handed a task id instead, run `agentboard claim <id> --name "<your session name>"`.
 Use your own session name so people can tell agents apart; the board gives each name its own colour.
@@ -1209,11 +1211,23 @@ def _reply_when(r):
     return f"replied {r['at'].replace('T', ' ')[:16]} by {r.get('by') or 'the user'}, {ago}"
 
 
+REMOVED_NOTE = "Removed: the card is no longer on the board, stop work on it and go idle or take the next card."
+
+
 def cmd_answer(a):
     s = _store()
     deadline = time.time() + a.timeout if a.wait else 0
+    seen = False
     while True:
-        r = s.answer(a.id)
+        try:
+            r = s.answer(a.id)
+        except BoardError:
+            if not seen:
+                raise BoardError(f"no such task: {a.id} (it is not on the board: removed, or the id is wrong)") from None
+            print(f"(card {a.id} is gone)", file=sys.stderr)   # it was there when the wait began: the owner removed it, and that is the wake-up
+            print(REMOVED_NOTE)
+            return
+        seen = True
         if r:
             print(f"({_reply_when(r)})", file=sys.stderr)   # on stderr, so `$(agentboard answer ...)` still captures only the reply
             print(r["text"])
