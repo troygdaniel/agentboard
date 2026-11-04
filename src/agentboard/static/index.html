@@ -891,6 +891,10 @@
   .mix-row { display: grid; grid-template-columns: auto 1fr 72px auto; align-items: center; gap: 2px 10px; padding: 7px 0; border-top: 1px solid var(--line); }
   .mix-row.cfg-vol { grid-template-columns: auto 1fr 160px auto; }   /* the volume slider gets room; its number sits where Hear it would */
   .mix-row.cfg-vol b { font-variant-numeric: tabular-nums; min-width: 4ch; text-align: right; font-weight: 500; }
+  .mix-row.lv > span:first-child { width: 13px; }   /* where the other rows' switch sits, so the names line up */
+  .mix-row.lv .seg { grid-column: 3 / -1; justify-self: end; display: inline-flex; gap: 2px; padding: 2px; border: 1px solid var(--line); border-radius: 8px; }   /* Off / Subtle / Full */
+  .mix-row.lv .seg .btn { min-height: 26px; padding: 2px 10px; border: 0; font-size: var(--fs-sm); color: var(--muted); }
+  .mix-row.lv .seg .btn[aria-pressed="true"] { background: var(--chip); color: var(--text); box-shadow: inset 0 0 0 1px var(--line); }
   #hud-inner:focus { outline: none; }
   .mix-row label { font-weight: 600; cursor: pointer; }
   .mix-row input[type=range] { width: 72px; margin: 0; }
@@ -1060,6 +1064,81 @@
     body.lively .card.landed::before, body.lively .cnt.roll::before, body.lively .empty::before { animation: none; }
     body.lively .card.dragging { transform: none; }
   }
+  /* ===== Look > From the future (Off / Subtle / Full; off until chosen) =====
+     A HUD from a game set some years on. Subtle: the panels go holographic (a tint of the page's info colour, a lit edge, corner
+     brackets), a faint scanline veil lies over the page, the column heads become monospace readouts, the lit tab and the bars glow.
+     Full adds a light that travels the live columns' top edge, a header readout (the clock, who works, who waits, the link), the
+     background glows following the pointer, a tilt on a hovered card, a boot sequence on a page load and a scan sweep on a view
+     change. Nothing is hidden and nothing new polls the server: every animation is transform, opacity or a 2px strip, the readout is a
+     one-second clock while Full is on, and reduced motion stops every one of them (the last block). */
+  body.future { --holo: var(--info); --holo-a: color-mix(in srgb, var(--holo) 55%, transparent); }
+  body.future::after { content: ''; position: fixed; inset: 0; z-index: 70; pointer-events: none; opacity: .08;
+    background: repeating-linear-gradient(0deg, transparent 0 3px, color-mix(in srgb, var(--holo) 40%, var(--text)) 3px 4px); }   /* the veil: a 4px scanline, at 8%, never over the reading */
+  body.future .col { border-radius: 8px; border-color: color-mix(in srgb, var(--holo) 38%, var(--line));
+    background: linear-gradient(180deg, color-mix(in srgb, var(--holo) 9%, var(--surface) 30%), color-mix(in srgb, var(--holo) 3%, transparent));
+    box-shadow: inset 0 1px 0 color-mix(in srgb, var(--holo) 25%, var(--panel-hi)), 0 0 28px -14px var(--holo-a), var(--panel-sh); }
+  body.future .col::before { border-radius: 8px; }
+  body.future .col::after { content: ''; position: absolute; inset: 5px; border-radius: 4px; pointer-events: none; z-index: 1; opacity: .75; --b: linear-gradient(var(--holo), var(--holo));
+    background: var(--b) 0 0 / 14px 1.5px, var(--b) 0 0 / 1.5px 14px, var(--b) 100% 0 / 14px 1.5px, var(--b) 100% 0 / 1.5px 14px,
+                var(--b) 0 100% / 14px 1.5px, var(--b) 0 100% / 1.5px 14px, var(--b) 100% 100% / 14px 1.5px, var(--b) 100% 100% / 1.5px 14px; background-repeat: no-repeat; }   /* corner brackets */
+  body.future .col h2 { font-family: ui-monospace, Menlo, monospace; letter-spacing: .2em; color: color-mix(in srgb, var(--holo) 70%, var(--text)); text-shadow: 0 0 8px var(--holo-a); }
+  body.future .col.acol h2 { letter-spacing: .04em; }
+  body.future .col h2 .cnt { background: color-mix(in srgb, var(--holo) 12%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--holo) 45%, transparent); color: inherit; border-radius: 4px; min-width: 2.4ch; text-align: center; }
+  body.future .col h2 .cnt.roll { border-radius: 4px; }
+  body.future .card { border-radius: 8px; border-color: color-mix(in srgb, var(--holo) 24%, var(--line)); }
+  body.future .card::after { box-shadow: 0 0 12px 1px var(--c, var(--neutral)); }
+  body.future .bar { box-shadow: inset 0 1px 2px var(--well), inset 0 0 0 1px color-mix(in srgb, var(--holo) 25%, transparent); }
+  body.future .bar b { box-shadow: 0 0 10px -1px var(--c, var(--neutral)); }
+  body.future header { border-bottom-color: color-mix(in srgb, var(--holo) 40%, var(--line)); }
+  body.future .ab-tabs { border-radius: 6px; border-color: color-mix(in srgb, var(--holo) 35%, var(--line)); }
+  body.future .ab-tabs .tab { border-radius: 4px; }
+  body.future .ab-tabs .tab.on { color: var(--holo); box-shadow: inset 0 0 0 1px var(--holo-a), 0 0 12px -4px var(--holo); text-shadow: 0 0 10px var(--holo-a); }
+  body.future :is(.btn, .card-act, #add input, .card-reply input, .later-add input, .chat-form input, .sheet) { border-radius: 6px; }
+  body.future :is(#panel, #chat) { border-left-color: var(--holo-a); box-shadow: inset 1px 0 0 var(--holo-a), -12px 0 40px rgba(0,0,0,.2); }
+  body.future #later { border-right-color: var(--holo-a); box-shadow: inset -1px 0 0 var(--holo-a), 12px 0 40px rgba(0,0,0,.2); }
+  body.future .p-head { border-bottom-color: color-mix(in srgb, var(--holo) 35%, var(--line)); }
+  body.future #toast { border-radius: 6px; box-shadow: 0 0 0 1px var(--holo-a), 0 0 24px -8px var(--holo); }
+  body.future .empty { border-color: color-mix(in srgb, var(--holo) 35%, var(--line)); font-family: ui-monospace, Menlo, monospace; font-size: var(--fs-sm); letter-spacing: .06em; text-transform: uppercase; color: color-mix(in srgb, var(--holo) 50%, var(--muted)); }
+  /* the header readout (Full): the clock, who works, who waits, the link. Real numbers from the board's own poll, nothing new asked */
+  .fut-ro { display: none; flex: 0 20 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; font: var(--fs-xs) ui-monospace, Menlo, monospace; letter-spacing: .14em; color: color-mix(in srgb, var(--holo) 75%, var(--text)); text-shadow: 0 0 8px var(--holo-a); white-space: nowrap; font-variant-numeric: tabular-nums; }   /* the first thing to give: the counts keep their words */
+  .fut-ro i { font-style: normal; opacity: .55; margin: 0 7px; }
+  .fut-ro .ok { color: var(--ok); } .fut-ro .warn { color: var(--err); }
+  .fut-ro::after { content: '▌'; margin-left: 4px; animation: futblink 1.1s steps(1) infinite; }
+  @keyframes futblink { 50% { opacity: 0; } }
+  @media (min-width: 1500px) { body.future-full .fut-ro { display: inline; } }   /* a narrower header keeps its counts and buttons; the readout is the first to go */
+  /* Full: a light travels the live columns' top edge (a 2px strip; a repaint of that strip only) */
+  body.future-full .col h2 { position: relative; }
+  body.future-full :is(.col.doing, .col.acol) h2::before { content: ''; position: absolute; top: -15px; left: -8px; right: -8px; height: 2px; border-radius: 2px; pointer-events: none; opacity: .85;
+    background: linear-gradient(90deg, transparent, var(--holo), transparent) no-repeat; background-size: 35% 100%; animation: futsweep 3.6s linear infinite; }
+  @keyframes futsweep { from { background-position: -60% 0; } to { background-position: 160% 0; } }
+  /* Full: depth. The far glows ride a fixed layer that the pointer moves a little (transform only); a hovered card tilts towards you */
+  body.future-full::before { content: ''; position: fixed; inset: -48px; z-index: -1; pointer-events: none; will-change: transform; transform: translate(var(--px, 0px), var(--py, 0px));
+    background: radial-gradient(640px 420px at 18% 8%, color-mix(in srgb, var(--holo) 14%, transparent), transparent 70%), radial-gradient(520px 380px at 84% 92%, color-mix(in srgb, var(--holo) 10%, transparent), transparent 70%); }
+  body.future-full .card:hover { transform: perspective(700px) translateY(-2px) rotateX(1.4deg); }
+  body.future-full .card.dragging { transform: none; }
+  /* Full: the boot sequence (a page load) and the scan sweep (a view change). Neither takes the pointer or dims the board; a key or a click ends the boot at once */
+  #boot { position: fixed; inset: 0; z-index: 66; display: none; place-items: end center; padding-bottom: 36px; pointer-events: none; }   /* at the foot, where the toast lives: never over a card */
+  #boot.on { display: grid; }
+  #boot.out { animation: bootout .3s ease-out forwards; }
+  @keyframes bootout { to { opacity: 0; } }
+  .boot-box { padding: 14px 22px; border: 1px solid var(--holo-a); border-radius: 6px; background: color-mix(in srgb, var(--holo) 8%, var(--bg) 70%); box-shadow: 0 0 0 1px color-mix(in srgb, var(--holo) 12%, transparent), 0 0 40px -10px var(--holo), inset 0 1px 0 var(--holo-a);
+    font: var(--fs-md) ui-monospace, Menlo, monospace; letter-spacing: .16em; color: color-mix(in srgb, var(--holo) 75%, var(--text)); text-shadow: 0 0 10px var(--holo-a); animation: bootbox .35s cubic-bezier(.2,.9,.3,1.2) both; }
+  @keyframes bootbox { from { opacity: 0; transform: scale(.94); } }
+  .boot-box div { opacity: 0; animation: bootline .18s steps(1) forwards; white-space: pre; }
+  .boot-box div:nth-child(2) { animation-delay: .22s; } .boot-box div:nth-child(3) { animation-delay: .46s; } .boot-box div:nth-child(4) { animation-delay: .7s; }
+  @keyframes bootline { to { opacity: 1; } }
+  .boot-box .ok { color: var(--ok); }
+  #scan { position: fixed; left: 0; right: 0; top: 0; height: 2px; z-index: 65; pointer-events: none; display: none; background: linear-gradient(90deg, transparent, var(--holo), transparent); box-shadow: 0 0 14px 3px var(--holo-a); }
+  #scan.on, #boot.on #scan { display: block; }
+  #boot #scan { animation: bootscan 1s .15s ease-in-out both; }
+  @keyframes bootscan { from { transform: translateY(0); } to { transform: translateY(100vh); } }
+  @media (max-width: 900px) { body.future .col::after { inset: 4px; } }
+  @media (prefers-reduced-motion: reduce) {
+    body.future-full :is(.col.doing, .col.acol) h2::before, .fut-ro::after, #boot, #boot.out, .boot-box, .boot-box div, #boot #scan { animation: none; }
+    body.future-full::before { transform: none; }
+    body.future-full .card:hover { transform: translateY(-2px); }
+    .boot-box div { opacity: 1; }
+  }
 </style>
 </head>
 <body>
@@ -1075,6 +1154,7 @@
     <input class="filter" id="filter" aria-label="Filter tasks" hidden>
     <span class="summary" id="filter-summary" role="status"></span><button class="btn filter-clear" id="filter-clear" hidden aria-label="Clear the filter" title="Clear the filter"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
     <span class="summary" id="summary"></span>
+    <span class="fut-ro" id="fut-ro" aria-hidden="true"></span>
     <span class="hicons">
     <span class="status off" id="status" role="status" hidden><i></i><span>Disconnected; retrying</span></span>
     <button class="btn" id="chat-btn" aria-controls="chat" aria-label="Chat" title="Chat"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 2.5h10a1 1 0 0 1 1 1v6.5a1 1 0 0 1-1 1H8.2L5 13.5V11H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg><span id="chat-n"></span></button>
@@ -1118,6 +1198,7 @@
 
 
 
+<div id="boot" aria-hidden="true"><div id="scan"></div><div class="boot-box"><div>AGENTBOARD // BOOT</div><div>LINK ········ <span class="ok">OK</span></div><div>BOARD ······· <span class="ok">ONLINE</span></div><div>HUD ········· <span class="ok">READY</span></div></div></div>
 <div id="toast" role="status" aria-live="polite">
   <div class="toast-row"><span id="toast-text"></span><button id="toast-undo">Undo</button></div>
   <div class="toast-bar"><b id="toast-cd"></b></div>
@@ -2198,6 +2279,7 @@ async function loadPrompt() {
 
 function openPanel(id, quiet) {
   if (!quiet && (openId !== id || !$('panel').classList.contains('open'))) touch('open', agentOf(id));
+  if (!quiet && (openId !== id || !$('panel').classList.contains('open'))) futSound('open');   // From the future's own sound, only while that look and its row are on
   if (openId !== id) { detailRaw = ''; promptText = ''; promptOpen = false; descOpen = false; actAll = false; replyOpen = false; replyDraft = ''; openEntries = new Set(); resetScroll = true; panelEdit = null; panelDraft = ''; }
   lastFocus = document.activeElement;
   $('later').classList.remove('open'); $('chat').classList.remove('open');   // a card opens alone: the drawers go
@@ -2218,6 +2300,7 @@ function focusSoon(getEl) {
   })();
 }
 function closePanel(skipFocus, quiet) {
+  if (!quiet && openId) futSound('close');
   if (!quiet && openId) touch('close', agentOf(openId));   // before the focus goes back to the card: the close is the sound, not the focus tick
   openId = null; detailRaw = ''; panelEdit = null; panelDraft = '';
   history.replaceState(null, '', location.pathname);
@@ -2701,6 +2784,8 @@ const LAYERS = [
     apply(lvl) { document.body.classList.toggle('calm', lvl > 0); } },
   { id: 'lively', kind: 'fx', look: true, plain: true, name: 'Lively', about: 'the small moments move: a card settles where you moved it with a ring of the column colour, a count rolls to its new number, a finished subtask ticks itself in, a changed percent pops and its bar flashes, an empty column breathes, the toast springs up, the open card steps in, the column under a drag lights up',
     apply(lvl) { document.body.classList.toggle('lively', lvl > 0); } },
+  { id: 'future', kind: 'fx', look: true, levels: ['Off', 'Subtle', 'Full'], name: 'From the future', about: 'a HUD from a game set some years on. Subtle: holographic panels with corner brackets, a faint scanline veil, monospace readouts for the column heads. Full adds a light that travels the live columns, a header readout, glows that follow the pointer, a tilt on a hovered card, a boot sequence on a page load and a scan sweep on a view change. Nothing is hidden, nothing polls more, and reduced motion stops every one of them',
+    apply(lvl) { document.body.classList.toggle('future', lvl > 0); document.body.classList.toggle('future-full', lvl >= 1); futureRuntime(lvl >= 1); } },
   { id: 'motion', kind: 'fx', look: true, name: 'Motion', about: 'look and sound move together: a settle when an agent\'s card lands in a lane (a new By agent lane slides in with it), the green edge drawing itself in when a card reaches review, the check drawing itself when a card reaches Done, a crossfade between views',
     apply(lvl) { document.body.classList.toggle('motion', lvl > 0); },   // the look follows the switch (the check, the crossfade); the level is the settle's
     demo(ctx) {
@@ -2710,6 +2795,42 @@ const LAYERS = [
       TOUCH.drop(t, 'doing', 'AGENT-2', lvl); TOUCH.drop(t + .7, 'done', 'AGENT-2', lvl);
     } },
 ];
+// From the future, Full: the one-second readout, the pointer parallax, the boot on a page load and the scan on a view change.
+// All of it starts with the level and stops with it; reduced motion keeps the readout (text) and drops every movement.
+const T0 = Date.now();
+let futTimer = null, futRaf = 0, futBooted = false;
+function futureRuntime(full) {
+  const ro = $('fut-ro');
+  clearInterval(futTimer); futTimer = null;
+  if (!full) { ro.textContent = ''; document.documentElement.style.removeProperty('--px'); document.documentElement.style.removeProperty('--py'); return; }
+  const tickRo = () => {
+    const d = new Date(), hh = String(d.getHours()).padStart(2, '0'), mm = String(d.getMinutes()).padStart(2, '0'), ss = String(d.getSeconds()).padStart(2, '0');
+    const working = tasks.filter(t => t.status === 'doing' && !isKid(t)).length, waiting = tasks.filter(t => t.status === 'doing' && !isKid(t) && t.needs_input).length;   // the header's own counts
+    ro.innerHTML = `${hh}:${mm}:${ss}<i>·</i>${working} WORKING<i>·</i>${waiting ? `<span class="warn">${waiting} WAITING</span>` : '0 WAITING'}<i>·</i>LINK <span class="${statusOk ? 'ok' : 'warn'}">${statusOk ? 'OK' : 'LOST'}</span>`;
+  };
+  tickRo(); futTimer = setInterval(tickRo, 1000);
+  if (!futBooted && !RM && Date.now() - T0 < 3000) futBoot();   // a page load with Full saved: the boot, once
+  futBooted = true;
+}
+window.addEventListener('pointermove', e => {   // the far glows follow the pointer a little: one transform on one fixed layer, at most once a frame
+  if (!document.body.classList.contains('future-full') || RM || futRaf) return;
+  futRaf = requestAnimationFrame(() => { futRaf = 0; if (!document.body.classList.contains('future-full')) return; const x = (e.clientX / innerWidth - .5) * -28, y = (e.clientY / innerHeight - .5) * -20;   // Off since the move: leave it
+    document.documentElement.style.setProperty('--px', x.toFixed(1) + 'px'); document.documentElement.style.setProperty('--py', y.toFixed(1) + 'px'); });
+}, { passive: true });
+function futBoot() {
+  const b = $('boot'); b.classList.add('on');
+  const end = () => { if (!b.classList.contains('on')) return; b.classList.add('out'); setTimeout(() => b.classList.remove('on', 'out'), 320); };
+  setTimeout(end, 1500);
+  ['pointerdown', 'keydown'].forEach(ev => document.addEventListener(ev, end, { once: true, capture: true }));   // a hand on the board ends it at once
+  futSound('boot');
+}
+function futScan() {   // a view change: one line sweeps down the page, in Full and without reduced motion; nothing else moves
+  if (!document.body.classList.contains('future-full') || RM) return;
+  const el = $('scan'); el.classList.add('on');
+  el.animate([{ transform: 'translateY(0)', opacity: 1 }, { transform: 'translateY(100vh)', opacity: .5 }], { duration: 450, easing: 'ease-in' }).onfinish = () => el.classList.remove('on');
+  futSound('scan');
+}
+function futSound(kind) { if (sndOn && layerOn('futsnd') && layerOn('future')) LAYERS.find(L => L.id === 'futsnd').play(kind, layerLvl('futsnd')); }   // the Future sound row, only while the look is on
 function landed(c) {   // Motion: the settle at the end of a card's glide into another column, and a breath of scale as it lands
   const status = c.dataset.status, agent = c.dataset.agent;
   setTimeout(() => {
@@ -2816,7 +2937,8 @@ function hearLayer(L) {                         // the Hear button: the layer al
   demoTimer = setTimeout(stopDemo, 6000);
 }
 function renderMix() {
-  const row = L => `<div class="mix-row${L.plain ? ' plain' : ''}"><input type="checkbox" id="mix-${L.id}" data-mix="${L.id}"${layerOn(L.id) ? ' checked' : ''}><label for="mix-${L.id}">${L.name}</label>`
+  const levelAt = L => !layerOn(L.id) ? 0 : layerLvl(L.id) >= 1 ? 2 : 1;   // Off / Subtle / Full from the saved switch and level
+  const row = L => L.levels ? `<div class="mix-row plain lv"><span></span><label>${L.name}</label><span class="seg" role="group" aria-label="${L.name}">${L.levels.map((n, i) => `<button class="btn" type="button" data-level="${L.id}" data-val="${i / (L.levels.length - 1)}" aria-pressed="${levelAt(L) === i}">${n}</button>`).join('')}</span><span class="mix-about">${L.about}</span></div>` : `<div class="mix-row${L.plain ? ' plain' : ''}"><input type="checkbox" id="mix-${L.id}" data-mix="${L.id}"${layerOn(L.id) ? ' checked' : ''}><label for="mix-${L.id}">${L.name}</label>`
     + (L.plain ? '<span></span><span></span>' : `<input type="range" min="0" max="100" value="${Math.round(layerLvl(L.id) * 100)}" data-lvl="${L.id}" aria-label="${L.name} level">`   // a look switch has no level and nothing to hear
     + `<button class="btn" data-hear="${L.id}">Hear it</button>`) + `<span class="mix-about">${L.about}</span></div>`;
   $('cfg-sound').innerHTML = `<div class="mix-row"><input type="checkbox" id="cfg-snd"${sndOn ? ' checked' : ''}><label for="cfg-snd">Sound</label><span class="mix-about">the cues, Touch and the layers; <kbd>s</kbd> flips it on any view</span></div>`
@@ -2840,6 +2962,12 @@ $('cfg-btn').onclick = () => toggleMix();
 $('mix').addEventListener('click', e => {
   if (e.target.id === 'mix') { toggleMix(false); return; }
   const h = e.target.closest('[data-hear]'); if (h) hearLayer(LAYERS.find(L => L.id === h.dataset.hear));
+  const lv = e.target.closest('[data-level]');   // Off / Subtle / Full: one click each way
+  if (lv) {
+    const id = lv.dataset.level, val = +lv.dataset.val; mix[id] = { on: val > 0, lvl: val > 0 ? val : (mix[id]?.lvl ?? 1) };
+    saveMix(); applyLayer(LAYERS.find(L => L.id === id)); touch('toggle', val > 0 ? true : false);
+    lv.parentElement.querySelectorAll('[data-level]').forEach(b => b.setAttribute('aria-pressed', String(b === lv)));
+  }
 });
 $('mix').addEventListener('change', e => { if (e.target.id === 'cfg-vol') cue.added(); });   // let go of the slider: hear the new level once
 $('mix').addEventListener('input', e => {
@@ -2881,7 +3009,7 @@ function openHud() {
   if (!RM) $('board').querySelectorAll('.card[data-status="doing"], .card[data-status="todo"]').forEach(c => glideFrom.set(c.dataset.id, c.getBoundingClientRect()));
   hudScroll = { doing: $('h-cards-box').scrollTop, todo: $('h-todo-wrap').querySelector('.cards')?.scrollTop || 0 };
   $('h-cards-box').innerHTML = ''; $('h-todo-wrap').innerHTML = '';
-  $('hud').classList.add('open'); document.body.style.overflow = 'hidden'; litTab();
+  $('hud').classList.add('open'); document.body.style.overflow = 'hidden'; litTab(); futScan();
   if (!SOLO) renderKeepingCardFocus();
   hudKey = ''; sndSeenAt = null; hudPrevTiles = null; setSnd(sndOn, true); setAmb(ambOn, true);
   if (!SOLO) touch('swish');   // the one sound of a view change, the same as a Board/By agent flip
@@ -2893,7 +3021,7 @@ function closeHud() {
   touch('swish');   // the same one sound; the bed plays on under the board, it belongs to every view
   // and the cards glide back from Load's columns to their places on the board (or the By agent lanes)
   if (!RM) document.querySelectorAll('#h-todo-wrap .card, #h-cards-box .card').forEach(c => glideFrom.set(c.dataset.id, c.getBoundingClientRect()));
-  $('hud').classList.remove('open', 'full'); document.body.style.overflow = ''; litTab();
+  $('hud').classList.remove('open', 'full'); document.body.style.overflow = ''; litTab(); futScan();
   clearInterval(hudTimer);
   renderKeepingCardFocus();
   if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
@@ -3194,7 +3322,7 @@ function setView(agents, push = true) {
   if (SOLO || agents === BYAGENT) return;
   BYAGENT = agents;
   if (push) history.pushState({ view: agents ? 'agents' : 'board' }, '', BASE + (agents ? '/agents' : '/') + location.hash);
-  applyView(); renderKeepingCardFocus();
+  applyView(); renderKeepingCardFocus(); futScan();
   if (layerOn('motion') && !RM) $('board').animate([{ opacity: .3 }, { opacity: 1 }], { duration: 220, easing: 'ease-out' });   // Motion: the view crossfades for the swish
 }
 window.addEventListener('popstate', () => {   // Back and Forward: the same one swish when the view changes, nothing for a hash alone

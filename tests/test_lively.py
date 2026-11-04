@@ -25,7 +25,7 @@ class LivelyTests(unittest.TestCase):
         self.assertIn("const lively = () => layerOn('lively');", PAGE)
 
     def test_every_rule_sits_under_the_body_class(self):
-        css = PAGE[PAGE.index("/* Look > Lively"):PAGE.index("</style>")]
+        css = PAGE[PAGE.index("/* Look > Lively"):PAGE.index("/* ===== Look > From the future")]
         css = css[css.index("*/") + 2:]   # past the comment block
         rules = [l.strip() for l in css.splitlines() if l.strip() and not l.strip().startswith(("@keyframes", "@media", "body.lively", "}"))]
         self.assertEqual(rules, [".col.todo { --ring: var(--info); } .col.doing, .col.acol { --ring: var(--run); } .col.done { --ring: var(--ok); }"])   # a token only; it paints nothing by itself
