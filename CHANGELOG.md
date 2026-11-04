@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### The agent hears when you close its card (Nov 4)
+- **Closing a held card tells its agent.** Mark done (the button, `d`, a drag, a multi-select or `agentboard done`) leaves a reply on the card in the same slot a typed answer uses: "Done by Troy: the card is closed, you are free to go idle or take the next card." An agent waiting with `agentboard answer <id> --wait` wakes with it (who and when on stderr); one that is not waiting finds it, unread, with `answer`.
+- **The other changes that left an agent guessing say so the same way**: undo of a close ("Reopened by Troy: the card is back in review, not closed"), a drag back to Doing, send back (now opens with the state, then your note), a move out of Doing ("no longer yours, stop work on it"), undo of a move or a removal ("back in Doing and yours again"), and a removal (`answer --wait` prints a Removed line and exits; a wrong id still errors).
+- **Nothing new for you.** These replies are tagged as state notes: the board never shows them as "You replied", never hides an ask's quick chips, and there is no popup, sound or config.
+- **Agents now wait after `review`**, not only after `ask`: the card, parent and subtask prompts and `agentboard instructions` say to start `answer <id> --wait --timeout 3600` in the background and end the turn.
+
 ### Gorgeous and satisfying: Lively, Chimes, more ambience, From the future (Nov 4)
 Every pick here is a setting that defaults to the current look, and every new sound starts off. Before/after shots: `docs/gorgeous-2026-11-04/`.
 - **Settings > Look > Lively** (off): the small moments move. A card you moved settles with a ring of the column's colour once it is drawn where you sent it (after its glide, never under it); a count rolls to its new number; a finished subtask ticks itself in, its check drawing; a changed % pops and its bar flashes once; an empty column breathes and its line arrives when the column empties; the header's counts bump; the toast springs up; the open card's sections step in; the drop line pulses and the column under a drag lights in its colour (red for another agent's lane). Reduced motion turns all of it off.
