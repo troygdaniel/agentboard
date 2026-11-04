@@ -154,8 +154,8 @@ For a Claude Code terminal (ORCH or an agent): `agentboard dictate` (Enter, spea
 The **By agent** tab (or the key `a`) shows the same cards as swimlane columns. The **Todo** column comes first and is the very same
 narrow column the board draws: every Todo card (an assigned one carries its agent's name), the queue number, Copy prompt and Later in one
 foot row. After it comes one column per agent with a card in Doing (its ask, review or quiet state in the header, its cards stacked).
-There is no Done column here (it stays on the board), so the agents get the width. A card opens its panel as usual; nothing drags here,
-a card's column is its agent. On a phone it is one column per screen, swipe sideways.
+There is no Done column here (it stays on the board), so the agents get the width. A card opens its panel as usual, and drags as on Board: onto Todo, or onto a lane (a lane is Doing). A drop never changes who holds a card, so
+another agent's lane refuses it (red outline, no insertion line, a toast says why); a Todo card with no agent that you drop on a lane goes to Doing under Unassigned. On a phone it is one column per screen, swipe sideways.
 
 ### Done summary
 

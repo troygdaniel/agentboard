@@ -17,7 +17,7 @@ def body(fn):
 class LoadSameCardsTests(unittest.TestCase):
     def test_load_has_a_doing_column_on_the_left_in_the_boards_own_column_markup(self):
         grid = HTML[HTML.index('<div class="h-grid">'):HTML.index('<section class="col h-one"')]
-        self.assertIn('<section class="col doing" id="h-cards" aria-label="Doing"><h2>Doing <span class="cnt" id="h-cards-n">0</span></h2><div class="cards" id="h-cards-box"></div></section>', grid)
+        self.assertIn('<section class="col doing" id="h-cards" data-status="doing" aria-label="Doing"><h2>Doing <span class="cnt" id="h-cards-n">0</span></h2><div class="cards" id="h-cards-box"></div></section>', grid)
         # two columns: the cards, then the agent load; a narrow window stacks them, cards first
         self.assertIn(".h-grid { --todo-w: clamp(220px, 17vw, 270px); display: grid; grid-template-columns: var(--todo-w) minmax(0, 1.4fr) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); gap: 18px;", HTML)   # the Board's own tracks (Nov 3)   # Todo, Doing, telemetry (Nov 3)
         self.assertIn("    .h-grid { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; grid-auto-rows: max-content; }", HTML)   # stacked under 980px: Todo, Doing, telemetry, each as tall as its content
@@ -27,7 +27,7 @@ class LoadSameCardsTests(unittest.TestCase):
         self.assertIn("paneHtml = by.doing.length ? by.doing.map(card).join('')", r)
         self.assertIn("box.innerHTML = paneHtml;", r)
         self.assertIn("$('h-cards-n').textContent = by.doing.length;", r)
-        self.assertIn("[box, tw].forEach(h => h.querySelectorAll('.card').forEach(c => { c.draggable = false; }));", r)
+        self.assertNotIn("c.draggable = false", r)   # Nov 4: Load's cards drag between its Todo and Doing panes, as Board's do
         # subtasks stay folded on Load
         self.assertIn("const open = hudPane ? false : subsOpen.has(t.id) ? subsOpen.get(t.id) : t.status === 'doing';", HTML)
         self.assertIn("    hudPane = true;\n    todoPaneHtml = todoColHtml(by.todo, q || flagFilter);", r)

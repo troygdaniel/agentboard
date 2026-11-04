@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Drag and drop on By agent and Load (Nov 4)
+- **Cards drag on every view**, with Board's own lift, drop line, sounds, glide and Undo toast (one set of handlers now): By agent's Todo column and agent lanes, Load's Todo column and Doing pane. A lane is Doing.
+- **A drop never changes who holds a card.** Another agent's lane shows a red outline and no insertion line, and the drop springs back with a toast ("stays with AGENT-1: drop it in its own lane, or on Todo"). A Todo card with no agent dropped on a lane goes to Doing under Unassigned, and the toast says so. Reordering inside a lane works.
+- There is no Done target on By agent or Load (Board only); `d` still marks the card under the pointer done.
+
 ### Calm cards, a Look switch (Nov 4)
 - **Settings > Look > Calm cards**, off until you choose it: a Doing or lane card is a plain card (the agent's stripe and the status word stay) with no orange fill, border or glow while it runs. An ask, review or abandoned card keeps its coloured edge, since that one carries meaning. The current look is the default; the switch is there to compare the two in one click (the card-colours question).
 

@@ -192,6 +192,7 @@
   .done-acts { margin-left: auto; display: inline-flex; flex-wrap: wrap; justify-content: flex-end; min-width: 0; }   /* Summary, Reports, Clear: wrap under each other in a narrow column instead of clipping */
   .done-acts .clear-done { margin-left: 0; }
   .col.over .cards { outline: 1px dashed var(--neutral); outline-offset: -2px; border-radius: 12px; }
+  .col.over.nodrop .cards { outline-color: var(--err); }   /* another agent's lane: the card stays with its agent, so no insertion line and a red outline */
   /* the card list scrolls inside its panel; the padding keeps hover lifts, selection outlines and
      the ask/review pulse rings from being clipped at the scroll edge */
   .cards { display: flex; flex-direction: column; gap: 10px; flex: 1; min-height: 48px; overflow-y: auto; padding: 4px 6px 10px; }
@@ -978,7 +979,6 @@
   .col.acol h2 .av { width: 20px; height: 20px; font-size: var(--fs-xs); }
   .col.acol h2 em { font-style: normal; font-weight: 600; font-size: var(--fs-xs); letter-spacing: var(--tr-tight); text-transform: uppercase; color: color-mix(in srgb, var(--st, var(--muted)) 78%, var(--text)); margin-left: auto; }
   .col.acol h2 em.ask { --st: var(--err); } .col.acol h2 em.review { --st: var(--ok); } .col.acol h2 em.quiet, .col.acol h2 em.abandoned { --st: var(--warn); } .col.acol h2 em.working { --st: var(--run); }
-  body.byagent .card { cursor: pointer; }
   /* a card's own agent chip is redundant inside that agent's column (the column is the agent); in the Todo column it stays */
   body.byagent .col.acol .card .who { display: none; }
   body.byagent .col.acol .card .top { min-height: 0; }
@@ -1076,7 +1076,7 @@
     <button class="h-btn" id="h-full" aria-label="Toggle fullscreen (f)">Fullscreen</button>
     <div class="h-grid">
       <div id="h-todo-wrap"></div>
-      <section class="col doing" id="h-cards" aria-label="Doing"><h2>Doing <span class="cnt" id="h-cards-n">0</span></h2><div class="cards" id="h-cards-box"></div></section>
+      <section class="col doing" id="h-cards" data-status="doing" aria-label="Doing"><h2>Doing <span class="cnt" id="h-cards-n">0</span></h2><div class="cards" id="h-cards-box"></div></section>
       <section class="col h-one" aria-label="Agents">
         <h2>Agents <span class="cnt" id="h-tele-n">0</span><span class="ln-wait" id="ln-wait"></span></h2>
         <div class="cards h-scroll" id="h-tele"></div>
@@ -1576,16 +1576,12 @@ function render() {
     return `<section class="col ${k}" data-status="${k}"><h2>${label} <span class="cnt">${by[k].length}</span>${p}${clr}</h2>${ribbon}<div class="cards">${body}</div>${more}</section>`;
   }).join('');
   $('board').querySelectorAll('.col').forEach(c => { const k = c.querySelector('.cards'); if (k) k.scrollTop = scrolls[c.dataset.status] || 0; });
-  if (BYAGENT) {   // no drag here: a card's column is its agent, not a status
-    $('board').querySelectorAll('.card').forEach(c => { c.draggable = false; });
-  }
-  if (paneHtml != null) {   // Load: the same Todo and Doing cards, in the same order, no drag (there is no column to drop them in)
+  if (paneHtml != null) {   // Load: the same Todo and Doing cards, in the same order, dragged between the same two panes
     const box = $('h-cards-box'), top = box.innerHTML ? box.scrollTop : hudScroll.doing;   // an emptied pane (Load just opened) takes the scroll it had last time
     box.innerHTML = paneHtml; box.scrollTop = top;
     $('h-cards-n').textContent = by.doing.length;
     const tw = $('h-todo-wrap'), ttop = tw.innerHTML ? (tw.querySelector('.cards')?.scrollTop || 0) : hudScroll.todo;
     tw.innerHTML = todoPaneHtml; const tc = tw.querySelector('.cards'); if (tc) tc.scrollTop = ttop;
-    [box, tw].forEach(h => h.querySelectorAll('.card').forEach(c => { c.draggable = false; }));
   }
   // live counts: a brief tick when a column's count changes
   if (!firstRender) $('board').querySelectorAll('.col').forEach(col => {
@@ -1836,13 +1832,13 @@ async function undoLast() {
   return ok;
 }
 $('toast-undo').onclick = undoLast;
-async function move(id, status, before) {
+async function move(id, status, before, note = '') {
   const t = tasks.find(x => x.id === id);
   let ok = false;
   try {
     const r = await api('/api/move', { id, status, before: before || null });
     showError(''); ok = true;
-    if (t && t.status !== status) toast(`Moved “${t.title}” to ${LABELS[status]}`, { prev: r.prev, before: r.prev_before, kids: r.prev_kids });
+    if (t && t.status !== status) toast(`Moved “${t.title}” to ${LABELS[status]}${note}`, { prev: r.prev, before: r.prev_before, kids: r.prev_kids });
   } catch (e) { showError('Could not move task: ' + e.message); }
   raw = ''; detailRaw = ''; load();
   return ok;
@@ -3375,47 +3371,69 @@ CARD_HOMES.forEach(h => h.addEventListener('keydown', e => {
 }));
 
 // --- drag and drop ---
+// One set of handlers for every place a card can be dropped: Board's three columns, By agent's Todo column and agent lanes,
+// Load's Todo column and Doing pane. A lane is Doing (data-status "agent:NAME"); a drop never changes who holds a card.
 const board = $('board');
-board.addEventListener('dragstart', e => {
-  const c = e.target.closest('.card'); if (!c) return;
-  dragging = c.dataset.id; c.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move';
-  e.dataTransfer.setData('text/plain', dragging);
-  touch('lift');
-});
-board.addEventListener('dragend', () => { dragging = null; clearDrop(); raw = ''; load(); });
+const DROP_ROOTS = [board, $('h-todo-wrap'), $('h-cards')];
+function dropRule(col, id) {   // what a drop on this column means for this card: the column it moves to, and whether the drop is refused
+  const k = col.dataset.status; if (!k) return null;
+  if (!k.startsWith('agent:')) return { status: k };
+  const lane = k.slice(6), t = byId.get(id);
+  return { status: 'doing', lane, foreign: !!t && t.status === 'doing' && (t.agent || '') !== lane };   // another agent's lane: the card stays with its agent
+}
 function clearDrop() {
-  board.querySelectorAll('.drop').forEach(n => n.remove());
-  board.querySelectorAll('.col.over').forEach(n => n.classList.remove('over'));
+  document.querySelectorAll('.drop').forEach(n => n.remove());
+  document.querySelectorAll('.col.over').forEach(n => n.classList.remove('over', 'nodrop'));
 }
 function beforeCard(col, y) {
   return [...col.querySelectorAll('.card:not(.dragging)')].find(c => {
     const r = c.getBoundingClientRect(); return y < r.top + r.height / 2;
   });
 }
-board.addEventListener('dragover', e => {
-  const col = e.target.closest('.col'); if (!dragging || !col) return;
-  e.preventDefault(); clearDrop(); col.classList.add('over');
-  const line = document.createElement('div'); line.className = 'drop';
-  const b = beforeCard(col, e.clientY), cards = col.querySelector('.cards');
-  b ? cards.insertBefore(line, b) : cards.appendChild(line);
-});
-// dragover alone never fires once the cursor leaves every .col (the header, the gap between
-// columns, outside the window) — without this the insertion line and column highlight go stale,
-// still showing a position that's no longer where a drop would land.
-board.addEventListener('dragleave', e => {
-  const col = e.target.closest('.col'); if (!dragging || !col) return;
-  if (col.contains(e.relatedTarget)) return;   // still inside the same column (card <-> gap); not a real exit
-  clearDrop();
-});
-board.addEventListener('drop', e => {
-  const col = e.target.closest('.col'); if (!dragging || !col) return;
-  e.preventDefault();
-  const id = dragging, b = beforeCard(col, e.clientY), c = board.querySelector('.card.dragging');
-  let next = c?.nextElementSibling; while (next && !next.classList.contains('card')) next = next.nextElementSibling;   // the card after it, past the drop line and a day divider
-  const stayed = c && c.closest('.col') === col && (b || null) === (next || null);
-  clearDrop(); dragging = null; justDropped = id;
-  if (!stayed) touch('drop', col.dataset.status, c?.dataset.agent);   // dropped back where it was: nothing
-  move(id, col.dataset.status, b?.dataset.id);
+DROP_ROOTS.forEach(root => {
+  root.addEventListener('dragstart', e => {
+    const c = e.target.closest('.card'); if (!c) return;
+    dragging = c.dataset.id; c.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', dragging);
+    touch('lift');
+  });
+  root.addEventListener('dragend', () => { dragging = null; clearDrop(); raw = ''; load(); });
+  root.addEventListener('dragover', e => {
+    const col = e.target.closest('.col'); if (!dragging || !col) return;
+    const rule = dropRule(col, dragging); if (!rule) return;
+    e.preventDefault(); clearDrop(); col.classList.add('over');
+    if (rule.foreign) { col.classList.add('nodrop'); return; }   // no insertion line: nothing would land here
+    const line = document.createElement('div'); line.className = 'drop';
+    const b = beforeCard(col, e.clientY), cards = col.querySelector('.cards');
+    b ? cards.insertBefore(line, b) : cards.appendChild(line);
+  });
+  // dragover alone never fires once the cursor leaves every .col (the header, the gap between
+  // columns, outside the window) — without this the insertion line and column highlight go stale,
+  // still showing a position that's no longer where a drop would land.
+  root.addEventListener('dragleave', e => {
+    const col = e.target.closest('.col'); if (!dragging || !col) return;
+    if (col.contains(e.relatedTarget)) return;   // still inside the same column (card <-> gap); not a real exit
+    clearDrop();
+  });
+  root.addEventListener('drop', e => {
+    const col = e.target.closest('.col'); if (!dragging || !col) return;
+    const rule = dropRule(col, dragging); if (!rule) return;
+    e.preventDefault();
+    const id = dragging, t = byId.get(id), b = beforeCard(col, e.clientY), c = document.querySelector('.card.dragging');
+    if (rule.foreign) {   // it springs back (the dragend redraw); say why
+      clearDrop(); dragging = null;
+      toast(`“${t.title}” stays with ${t.agent || 'no agent'}: drop it in its own lane, or on Todo`);
+      return;
+    }
+    let next = c?.nextElementSibling; while (next && !next.classList.contains('card')) next = next.nextElementSibling;   // the card after it, past the drop line and a day divider
+    const stayed = c && c.closest('.col') === col && (b || null) === (next || null);
+    clearDrop(); dragging = null; justDropped = id;
+    if (!stayed) touch('drop', rule.status, c?.dataset.agent);   // dropped back where it was: nothing
+    // a Todo card dropped on a lane goes to Doing without an agent (or with the one it had): it lands where its agent is, not necessarily where it was dropped
+    const where = rule.lane !== undefined && t && t.status !== 'doing' && (t.agent || '') !== rule.lane
+      ? ` · ${t.agent ? 'it stays with ' + t.agent : 'no agent yet, so under Unassigned'}` : '';
+    move(id, rule.status, b?.dataset.id, where);
+  });
 });
 
 fetch('/api/boards').then(r => r.json()).then(d => {   // the board switcher: hidden while there is only one board

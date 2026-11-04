@@ -107,8 +107,8 @@ class TouchSoundTests(unittest.TestCase):
         for kind in ("open", "close"):
             self.assertRegex(TOUCH, kind + r":\s+\(t, agent\) => \{ const p = agentPitch\(agent\) / 2;")
         # drag: a lift, then a settle pitched by the column, in the card's voice; back where it was: nothing
-        self.assertIn("e.dataTransfer.setData('text/plain', dragging);\n  touch('lift');", PAGE)
-        self.assertIn("if (!stayed) touch('drop', col.dataset.status, c?.dataset.agent);", PAGE)
+        self.assertIn("e.dataTransfer.setData('text/plain', dragging);\n    touch('lift');", PAGE)
+        self.assertIn("if (!stayed) touch('drop', rule.status, c?.dataset.agent);", PAGE)
         self.assertIn("const stayed = c && c.closest('.col') === col && (b || null) === (next || null);", PAGE)
         self.assertIn("{ todo: 392, doing: 523, done: 659 }[status] || 523", TOUCH)
         self.assertIn("tap(agentPitch(agent), t + .05, .03, .5, { verb: .5, lvl }); },", TOUCH)
