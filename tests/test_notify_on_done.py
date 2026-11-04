@@ -34,6 +34,13 @@ class Base(unittest.TestCase):
             cli.main(list(argv))
         return out.getvalue(), err.getvalue()
 
+    def later(self, fn, delay=0.4):
+        """Run `fn` on a timer thread, and join it before the test ends: `move` writes a report after the store write
+        (`_reports_after`), so the wait can wake and the tempdir go while the thread is still writing into it."""
+        t = threading.Timer(delay, fn)
+        self.addCleanup(t.join)
+        t.start()
+
     def reviewed(self, name="Card", agent="alice"):
         """A card in review, held by an agent, with a subtask (as every card has)."""
         self.s.start(name, agent)
@@ -156,7 +163,7 @@ class OtherStateTests(Base):
 
     def test_a_removed_card_wakes_a_waiting_agent_and_a_typo_still_errors(self):
         cid = self.reviewed()
-        threading.Timer(0.4, lambda: self.s.delete(cid)).start()
+        self.later(lambda: self.s.delete(cid))
         out, err = self.cli("answer", cid, "--wait", "--timeout", "10", "--interval", "0.1")
         self.assertEqual(out.strip(), cli.REMOVED_NOTE)
         self.assertIn("is gone", err)
@@ -168,7 +175,7 @@ class OtherStateTests(Base):
 class WaitTests(Base):
     def test_a_background_answer_wait_wakes_with_the_done_reply(self):
         cid = self.reviewed()
-        threading.Timer(0.4, lambda: self.s.move(cid, "done")).start()
+        self.later(lambda: self.s.move(cid, "done"))
         t0 = time.time()
         out, err = self.cli("answer", cid, "--wait", "--timeout", "10", "--interval", "0.1")
         self.assertEqual(out.strip(), DONE)
@@ -194,7 +201,7 @@ class WaitTests(Base):
         self.s.reply(cid, "x")   # stands in for any later reply; then the board clears it as the agent moves on
         with self.s.transaction() as tasks:
             Store.get(tasks, cid).pop("reply")
-        threading.Timer(0.4, lambda: self.s.restore(prev, None, kids)).start()
+        self.later(lambda: self.s.restore(prev, None, kids))
         out, _ = self.cli("answer", cid, "--wait", "--timeout", "10", "--interval", "0.1")
         self.assertIn("Reopened by the user: the card is back in review", out)
 
