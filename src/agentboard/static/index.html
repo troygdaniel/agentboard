@@ -1236,6 +1236,7 @@ let selected = new Set(), selectAnchor = null;   // multi-select: shift-click/sh
 const lastSubDone = new Map(), subCountNow = new Map(), lastSubCount = new Map(), lastSum = {};   // Lively: what was finished, and the counts, on the last render
 let landedId = null, landedTo = null, freshTimer = null;   // the card you just moved by hand and where to: it settles with a ring once it is drawn there
 const lively = () => layerOn('lively');
+let chimeQ = [], cueAt = 0;   // Chimes (a sound layer, off until chosen): the moments a render found, played once it is drawn; when the last cue played
 let hoverAgent = null;   // the pill under the pointer: re-applied after a redraw so the highlight does not flicker on a poll. Declared here, before the
                          // first render: a page opened at #/hud or at a card's hash renders at once, and reading this below the script's end threw
 
@@ -1356,6 +1357,7 @@ function card(t) {
   const nSubs = t.subs_total || 0;   // a parent's % is the computed mean of its subtasks (shown as "overall"), and its one bar is the segmented toggle
   const line = doing && nSubs && !t.needs_input && !t.review ? parentLine(t) : t.status_text;   // a question or review request is never replaced by a subtask's note
   const pctUp = !firstRender && lastPct.has(t.id) && lastPct.get(t.id) !== (t.progress || 0);   // Lively: the number pops and the bar flashes once
+  if (pctUp && doing && (t.progress || 0) < 100 && Math.floor((t.progress || 0) / 25) > Math.floor(lastPct.get(t.id) / 25)) chimeQ.push(['milestone', t.agent, Math.floor((t.progress || 0) / 25)]);   // Chimes: 25, 50, 75
   const note = doing ? `<div class="note"><span title="${esc(line)}">${esc(line)}</span><span class="pct ${nSubs ? 'computed' : ''}${pctUp ? ' pop' : ''}">${t.progress || 0}%</span></div>`
     : (done && t.result ? `<div class="note"><span title="${esc(t.result)}">${esc(t.result)}</span></div>` : '');
   const bar = nSubs ? subsBlock(t, live) : doing
@@ -1407,6 +1409,7 @@ function subsBlock(t, live) {
   const html = rows.map(k => {
     const kdone = subDone(k), klive = !kdone && (k.progress || 0) > 0, kask = !kdone && !!k.needs_input;
     const kjust = kdone && !firstRender && lastSubDone.get(k.id) === false;   // Lively: finished since the last render, so it ticks itself in
+    if (kjust) chimeQ.push(['sub', k.agent || t.agent]);
     const blocked = kdone ? null : unresolvedBlockers(k)[0];
     const st = kask ? (k.question || k.status_text) : blocked ? 'blocked by ' + blocked.title : (klive ? k.status_text : '');
     return `<div class="sub ${kdone ? 'done' : klive ? 'live' : 'queued'} ${kask ? 'ask' : ''}${kjust ? ' just-done' : ''}" data-sub-id="${esc(k.id)}" role="button" tabindex="0" style="--c:${colorOf(k)}"><span class="g">${kdone ? tick : ''}</span>` +
@@ -1603,7 +1606,7 @@ function render() {
   // each column scrolls on its own, and the rebuild below replaces those scrollers: remember where they were
   const scrolls = Object.fromEntries([...$('board').querySelectorAll('.col')].map(c => [c.dataset.status, c.querySelector('.cards')?.scrollTop || 0]));
   const cntBefore = new Map();   // Lively: every column's count and whether it was empty, before the rebuild (the board's, By agent's lanes, Load's)
-  if (!firstRender) document.querySelectorAll('.col').forEach(c => cntBefore.set(c.dataset.status, [+c.querySelector('.cnt')?.textContent, !!c.querySelector('.empty')]));
+  if (!firstRender) document.querySelectorAll('.col').forEach(c => cntBefore.set(colKey(c), [+c.querySelector('.cnt')?.textContent, !!c.querySelector('.empty')]));
   $('board').style.setProperty('--tracks', cols.map(([k]) => k === 'todo' ? 'var(--todo-w)' : k === 'doing' ? 'minmax(0, 1.4fr)' : 'minmax(0, 1fr)').join(' '));
   $('board').classList.remove('hl');   // a re-render drops the hover highlight with the cards it lit
   $('board').innerHTML = BYAGENT ? byAgentHtml(by, q || flagFilter) : cols.map(([k, label]) => {
@@ -1651,7 +1654,7 @@ function render() {
     if (n !== undefined && lastCounts[k] !== undefined && lastCounts[k] !== n) col.querySelector('.cnt')?.classList.add('tick');
   });
   COLUMNS.forEach(([k]) => { lastCounts[k] = by[k].length; });
-  if (!firstRender && lively()) livelyCounts(cntBefore);
+  if (!firstRender) livelyCounts(cntBefore);
   // glide cards from their old position to the new one
   // only a card whose column or order changed glides (or one handed over from the view just left); a card that merely shifted
   // because the card above it grew (a reply box arriving, a note going) stays still, so a background poll moves nothing
@@ -1681,6 +1684,7 @@ function render() {
     document.querySelectorAll('#board .bar b[data-to], #h-cards-box .bar b[data-to]').forEach(b => { b.style.width = b.dataset.to + '%'; })));
   tasks.forEach(t => lastPct.set(t.id, t.progress || 0));
   tasks.forEach(t => lastSubDone.set(t.id, subDone(t))); subCountNow.forEach((d, id) => lastSubCount.set(id, d)); subCountNow.clear();
+  flushChimes();
   firstRender = false;
   const parked = top.filter(t => t.status === 'backlog');   // the drawer and its count ignore the filter: an idea is parked whether or not it matches
   $('later-n').textContent = parked.length ? '(' + parked.length + ')' : '';
@@ -1705,13 +1709,16 @@ function render() {
 
 // Lively (a Look switch, off until chosen): the counts roll to their new number and a column that just emptied has its line arrive;
 // the header's counts bump; the card you moved settles with a ring. Each is a class the CSS above animates; reduced motion turns them off.
-function livelyCounts(cntBefore) {
+const colKey = col => (col.closest('#hud') ? 'hud:' : '') + col.dataset.status;   // the board's Doing and Load's Doing pane share a status: two keys
+function livelyCounts(cntBefore) {   // the look only with Lively on; the Chimes layer hears a count change or a column emptying either way
+  let rolled = 0, emptied = 0;
   document.querySelectorAll('.col').forEach(col => {
-    const was = cntBefore.get(col.dataset.status); if (!was) return;
+    const was = cntBefore.get(colKey(col)); if (!was) return;
     const c = col.querySelector('.cnt'), n = +c?.textContent;
-    if (c && !isNaN(n) && !isNaN(was[0]) && was[0] !== n) rollCount(c, was[0], n);
-    const e = col.querySelector('.empty'); if (e && !was[1]) e.classList.add('arrive');
+    if (c && !isNaN(n) && !isNaN(was[0]) && was[0] !== n) { rolled++; if (lively()) rollCount(c, was[0], n); }
+    const e = col.querySelector('.empty'); if (e && !was[1]) { emptied++; if (lively()) e.classList.add('arrive'); }
   });
+  if (Date.now() - lastGestureAt > 1000) { if (emptied) chimeQ.push(['empty']); else if (rolled) chimeQ.push(['count']); }   // a move of yours sounded already (the drop)
 }
 function rollCount(c, from, to) {
   if (!c || RM) return;
@@ -1909,6 +1916,7 @@ function toast(text, undo) {
   $('toast-cd').style.animationDuration = TOAST_MS + 'ms';
   // restart the countdown bar's animation even if a toast is already showing (remove+reflow+add)
   $('toast').classList.remove('on'); void $('toast').offsetWidth; $('toast').classList.add('on');
+  chime('toast');
   clearTimeout(toastTimer); toastTimer = setTimeout(() => $('toast').classList.remove('on'), TOAST_MS);
 }
 // What Undo can take back is whatever the toast on screen offers it for, for as long as that toast shows (7 s): a move between
@@ -2642,6 +2650,16 @@ const LAYERS = [
       [523.3, 659.3, 784, 1046.5].forEach((f, i) => tone(f, t + i * .04, .9 - i * .1, { vol: .022 * lvl, verb: 1.4 }));
     },
     demo() { this.fx('clear', null, layerLvl('clear')); } },
+  { id: 'chimes', kind: 'fx', name: 'Chimes', about: 'small sounds for the small moments: a tick per finished subtask in its agent voice, a rising note at 25, 50 and 75 percent, a settle when a column empties, a tiny tick when a count changes, a blip when the toast arrives',
+    play(kind, lvl, agent, n) {
+      const t = sndNow(); if (t == null) return; const p = agentPitch(agent);
+      if (kind === 'sub') { tone(p, t + .4, .05, { type: 'triangle', vol: .014 * lvl, verb: .7 }); tone(p * 1.5, t + .46, .09, { type: 'triangle', vol: .012 * lvl, verb: .9 }); }   // after the done cue, as its answer
+      else if (kind === 'milestone') { const f = [587, 587, 659, 784][n] || 784; tone(f, t, .12, { vol: .015 * lvl, verb: 1 }); tone(f * 1.25, t + .11, .18, { vol: .011 * lvl, verb: 1.2 }); }
+      else if (kind === 'empty') tone(660, t, .22, { glide: 440, type: 'triangle', vol: .012 * lvl, verb: 1.3 });
+      else if (kind === 'count') tone(1760, t, .025, { vol: .007 * lvl, verb: .4 });
+      else if (kind === 'toast') tone(1319, t, .04, { vol: .009 * lvl, verb: .5 });
+    },
+    demo() { const v = layerLvl('chimes'), L = this; L.play('sub', v, 'AGENT-2'); setTimeout(() => L.play('milestone', v, 'AGENT-2', 2), 900); setTimeout(() => L.play('count', v), 1500); setTimeout(() => L.play('toast', v), 1900); setTimeout(() => L.play('empty', v), 2400); } },
   { id: 'hour', kind: 'fx', name: 'Hourly chime', about: 'two soft notes on the hour',
     tick(lvl) { const d = new Date(); if (d.getMinutes() || d.getSeconds() > 2 || this.last === d.getHours()) return; this.last = d.getHours(); this.ring(lvl); },
     ring(lvl) { const t = sndNow(); if (t == null) return; tone(1319, t, .5, { vol: .03 * lvl, verb: 1.3 }); tone(988, t + .5, .9, { vol: .028 * lvl, verb: 1.5 }); },
@@ -2673,7 +2691,18 @@ function landed(c) {   // Motion: the settle at the end of a card's glide into a
     const t = sndNow(); if (t != null && layerOn('motion')) TOUCH.drop(t, status, agent, layerLvl('motion'));
   }, RM ? 0 : 380);
 }
-function fx(kind, agent) { if (!sndOn) return; LAYERS.forEach(L => { if (L.fx && layerOn(L.id)) L.fx(kind, agent, layerLvl(L.id)); }); }
+function fx(kind, agent) { cueAt = Date.now(); if (!sndOn) return; LAYERS.forEach(L => { if (L.fx && layerOn(L.id)) L.fx(kind, agent, layerLvl(L.id)); }); }   // every cue passes here: Chimes reads cueAt
+// Chimes: the small moments a render finds (a subtask finished, a % past 25/50/75, a column emptied, a count changed) queue up while
+// the cards are drawn and one plays once they are, the most telling first; a first render and your own moves queue nothing. A count
+// tick stays quiet when a cue played in the same breath (the cue said it). The toast's blip comes straight from toast().
+const CHIME_RANK = { sub: 0, milestone: 1, empty: 2, count: 3 };
+function chime(kind, agent, n) { if (!sndOn || !layerOn('chimes') || firstRender) return; LAYERS.find(L => L.id === 'chimes').play(kind, layerLvl('chimes'), agent, n); }
+function flushChimes() {
+  const q = chimeQ; chimeQ = [];
+  if (!q.length || firstRender) return;
+  const [kind, agent, n] = q.sort((a, b) => CHIME_RANK[a[0]] - CHIME_RANK[b[0]])[0];
+  setTimeout(() => { if (kind === 'count' && Date.now() - cueAt < 300) return; chime(kind, agent, n); }, 40);   // after checkAsks has had its say
+}
 Object.keys(cue).forEach(k => { const f = cue[k]; cue[k] = agent => { f(agent); fx(k, agent); }; });   // the default cue first, then any layer
 setInterval(() => { if (sndOn) LAYERS.forEach(L => { if (L.tick && layerOn(L.id)) L.tick(layerLvl(L.id)); }); }, 1000);
 

@@ -45,8 +45,8 @@ class LivelyTests(unittest.TestCase):
         self.assertIn("const kjust = kdone && !firstRender && lastSubDone.get(k.id) === false;", body("subsBlock"))
         self.assertIn("const dUp = !firstRender && lastSubCount.has(t.id) && lastSubCount.get(t.id) !== d; subCountNow.set(t.id, d);", body("subsBlock"))
         r = body("render")
-        self.assertIn("if (!firstRender) document.querySelectorAll('.col').forEach(c => cntBefore.set(c.dataset.status, [+c.querySelector('.cnt')?.textContent, !!c.querySelector('.empty')]));", r)
-        self.assertIn("if (!firstRender && lively()) livelyCounts(cntBefore);", r)
+        self.assertIn("if (!firstRender) document.querySelectorAll('.col').forEach(c => cntBefore.set(colKey(c), [+c.querySelector('.cnt')?.textContent, !!c.querySelector('.empty')]));", r)
+        self.assertIn("if (!firstRender) livelyCounts(cntBefore);", r)   # the look inside it is gated; Chimes hears either way
         self.assertIn("livelySummary({ needs_input: asks, review: revs, working: working.length });", r)
         self.assertIn("if (landedId) {", r)
 
