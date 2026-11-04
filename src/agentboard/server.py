@@ -239,7 +239,7 @@ def make_handler(default_store, port):
                         t["sections"] = mdlib.sections(t["body_md"])   # Changed / Checked / Next / flow, for the panel's layout
                     blob = "\n".join([t.get("result") or "", t.get("body_md") or "", *[str(x.get("text", "")) for x in t.get("log", [])]])
                     t["checks"] = reports.test_totals(blob)   # "675 tests pass": the chips that say whether it passed
-                    if t.get("status") == "done" and not t.get("parent_id"):
+                    if (t.get("status") == "done" or t.get("review")) and not t.get("parent_id"):   # finished work, closed or up for review
                         t["git"] = _git_summary(self.store, t)
                     self._send(200, t)
                 except BoardError as e:

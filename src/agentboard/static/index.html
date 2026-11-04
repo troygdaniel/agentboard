@@ -2221,7 +2221,7 @@ function pathStrip(t) {   // the card's path, one dot per state it passed throug
     <div class="dp-labels">${st.map(s => `<span>${s.label} ${esc(hhmm(s.at))}</span>`).join('')}</div></div>`;
 }
 const PALETTE = ['--a1', '--a2', '--a4', '--a3', '--a6', '--a5'];
-function doneHtml(t, parsed, sawText, kids) {
+function doneHtml(t, parsed, sawText, kids, head, btns) {   // the finished-work layout; a card in review gets it too, with its Mark done / Reply controls
   const sec = t.sections || {}, checks = t.checks || [], g = t.git || {};
   if (sec.arw) parsed = parseArw(sawText + '\n' + sec.arw);   // STATUS / WHY lines of a multi-line summary sit with the sentence
   const chips = [];
@@ -2243,7 +2243,7 @@ function doneHtml(t, parsed, sawText, kids) {
     <div class="dbar">${groups.map(([k, n], i) => `<i style="flex:${n};--c:var(${PALETTE[i % PALETTE.length]})" title="${esc(k)}: ${n}"></i>`).join('')}</div>
     <div class="dlegend">${groups.map(([k, n], i) => `<span style="--c:var(${PALETTE[i % PALETTE.length]})">${esc(k)} ${n}</span>`).join('')}</div>` : '';
   const rest = sec.has && sec.rest ? `<div class="rich-body">${sec.rest}</div>` : (!sec.has && t.body_html ? `<div class="rich-body">${t.body_html}</div>` : '');
-  return `<div class="lat"><div class="lat-h"><b>Result</b><span>${esc(t.agent || '')} ${ago(t.updated).text}</span></div>${sentence}${chips.length ? `<div class="dchips">${chips.join('')}</div>` : ''}</div>
+  return `<div class="lat${t.status === 'done' ? '' : ' rev'}"><div class="lat-h">${head}</div>${sentence}${chips.length ? `<div class="dchips">${chips.join('')}</div>` : ''}${btns || ''}</div>
     ${grid}${diagram}${ticks}${qa}${where}${pathStrip(t)}`
     + `<details class="dfold"><summary>Details<small>${[rest ? 'full note' : '', t.description ? 'description' : '', 'activity', 'prompt'].filter(Boolean).join(' · ')}</small></summary>${rest}`;
 }
@@ -2303,8 +2303,8 @@ function panelHtml(t) {
   const titleHtml = panelEdit === 'title'
     ? `<form class="ed-form" data-ed="title"><input id="ed-field" class="title" value="${esc(panelDraft).replace(/"/g, '&quot;')}" aria-label="Title" maxlength="200" autocomplete="off">${edActs}</form>`
     : `<h2 class="ed" data-ed-open="title" tabindex="0" role="button" title="Click to edit (e)">${esc(t.title)}<span class="pen">edit</span></h2>`;
-  if (t.status === 'done' && !t.parent_id) {   // a finished card reads top down: result, what changed, the picture, the ticks; everything else under Details
-    return `${titleHtml}${who}${doneHtml(t, parsed, sawText, kids)}
+  if ((t.status === 'done' || rv) && !t.parent_id) {   // finished work, done or up for review, reads top down: result, what changed, the picture, the ticks; everything else under Details
+    return `${titleHtml}${who}${doneHtml(t, parsed, sawText, kids, head, rv ? btns : '')}
     ${desc}${tl}${details}${prompt}</details>
     <div class="p-actions">${copy}<button class="btn danger" id="p-del">Delete</button></div>`;
   }

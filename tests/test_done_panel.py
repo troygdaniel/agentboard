@@ -164,6 +164,14 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(t["status"], "done")
         self.assertIn("Go ahead", [l["text"] for l in t["log"]])   # the panel pairs it with the question
 
+    def test_a_card_in_review_gets_the_git_summary_too(self):
+        self.s.start("Reviewed", "bob")
+        self.s.add("s", parent_id="reviewed")
+        self.s.review("reviewed", "ready", body_md="## Changed\n- x")
+        t = self.get("/api/task?id=reviewed")
+        self.assertIn("git", t)
+        self.assertTrue(t["sections"]["has"])
+
     def test_a_subtask_gets_no_git_summary_and_the_list_stays_light(self):
         t = self.get("/api/task?id=step")
         self.assertNotIn("git", t)
@@ -196,9 +204,10 @@ class PromptTests(unittest.TestCase):
 
 class PanelMarkupTests(unittest.TestCase):
     def test_the_done_branch_exists_and_reads_in_the_agreed_order(self):
-        self.assertIn("function doneHtml(t, parsed, sawText, kids)", HTML)
-        m = re.search(r"if \(t\.status === 'done' && !t\.parent_id\) \{.*?\n  \}", HTML, re.S)
-        self.assertTrue(m)
+        self.assertIn("function doneHtml(t, parsed, sawText, kids, head, btns)", HTML)
+        m = re.search(r"if \(\(t\.status === 'done' \|\| rv\) && !t\.parent_id\) \{.*?\n  \}", HTML, re.S)
+        self.assertTrue(m)   # a card up for review reads the same way, with its controls
+        self.assertIn("doneHtml(t, parsed, sawText, kids, head, rv ? btns : '')", HTML)
         body = re.search(r"function doneHtml.*?\n\}\n", HTML, re.S).group(0)
         order = [body.index(x) for x in ("${sentence}", "${grid}", "${diagram}", "${ticks}", "${qa}", "${where}", "${pathStrip(t)}", '<details class="dfold">')]
         self.assertEqual(order, sorted(order))   # sentence, Changed/Checked/Next, the diagram, the ticks, your call, where, path, then the fold
