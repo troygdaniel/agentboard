@@ -545,7 +545,7 @@ class Store:
             raise BoardError(parent_pct_hint(t["id"], open_kids))
         resumed = bool(t.get("needs_input") or t.get("review"))
         settled = False   # a subtask's report ended the card's own question
-        for f in ("needs_input", "question", "review", "body_md"):
+        for f in ("needs_input", "question", "review") + (() if status == "done" else ("body_md",)):   # done keeps the body it closes with
             t.pop(f, None)
         _drop_read_reply(t)   # the agent has moved on from what the reply answered, once it has read it
         parent = _parent_of(tasks, t)
@@ -1059,7 +1059,7 @@ def _apply_status(t, status):
         t.pop("needs_input", None)
         t.pop("question", None)
         t.pop("review", None)
-        t.pop("body_md", None)
+        # body_md stays: it is the agent's account of the finished work, and the Done panel is built from it
         t["progress"] = 100
         t["status_text"] = ""
     elif status in ("backlog", "todo"):

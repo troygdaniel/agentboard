@@ -30,6 +30,26 @@ status. If more is unavoidable, one sentence, then offer the detail. Put that se
 so {owner} answers you there, and in your terminal. Put detail in `--body` (it shows under Details on the card), never in the first line.
 """
 
+# What the finished card is built from: the shape of a review body. Sits just before the reporting rule in every card prompt.
+REVIEW_SHAPE = """\
+## When you review
+
+Write the `--body` in this shape; the board lays it out on the finished card (keep what you have, skip the rest):
+
+    ## Changed
+    - up to four bullets: what is different now
+    ## Checked
+    - 675 tests pass · render-check wide and narrow
+    ## Next
+    - what {owner} must do, or: nothing
+    ```flow
+    You mark done -> Card gets a reply -> Agent wakes
+    ```
+
+A ```flow block is a small diagram: `A -> B -> C` draws boxes and arrows, `label: 12` draws a bar. A card without this
+still shows what the board knows (subtasks, tests it can find, commits).
+"""
+
 # The block ORCH copies into every card description and assignment it writes.
 KEEP_SIMPLE = """\
 ## Keep it simple
@@ -100,6 +120,7 @@ These are not optional.
 
 Ask for clarification if anything is unclear.
 
+{review_shape}
 {report_rule}"""
 
 # The claim/progress/review middle of the default prompt, by kind of card. Custom templates
@@ -270,6 +291,7 @@ def build_prompt(task, board_dir, public=False, tasks=None):
         "parent_id": parent["id"] if parent else "",
         "parent_title": parent["title"] if parent else "",
         "report_rule": say(REPORT_RULE.rstrip("\n"), board_dir),
+        "review_shape": say(REVIEW_SHAPE.rstrip("\n"), board_dir),
         "owner": owner_ref(board_dir),
         "Owner": say("{Owner}", board_dir),
         "subtasks": "\n".join(f"- {k['id']}: {k['title']}" + (" (done)" if k.get("status") == "done" else "")

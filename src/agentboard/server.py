@@ -19,6 +19,38 @@ BOARD_PATH = re.compile(r"^/b/([a-z0-9][a-z0-9_-]{0,39})(/.*)?$")
 MAX_BODY = 1_000_000
 
 
+_GIT_CACHE = {}
+
+
+def _group_files(files):
+    """Files counted by folder, at the shallowest depth that tells two groups apart (src 4 · tests 2), six groups at most."""
+    for depth in (1, 2, 3):
+        groups = {}
+        for f in files:
+            parts = f.split("/")
+            key = "/".join(parts[:depth]) if len(parts) > depth else parts[-1]
+            groups[key] = groups.get(key, 0) + 1
+        if len(groups) >= 2 or depth == 3:
+            return sorted(groups.items(), key=lambda kv: -kv[1])[:6]
+    return []
+
+
+def _git_summary(store, t):
+    """{commits, files, groups} for a finished card, from the project's git (reports.git_info: the commits made while the card was
+    open). Cached on the card's updated stamp, since git is slow and the panel polls; {} without a repo or on any error."""
+    key = (str(store.dir), t["id"], t.get("updated"))
+    if key not in _GIT_CACHE:
+        try:
+            g = reports.git_info(store.dir, t, t.get("run")) or {}
+        except Exception:   # a broken repo must never break the panel
+            g = {}
+        if len(_GIT_CACHE) > 200:
+            _GIT_CACHE.clear()
+        files = [f for f in g.get("files", []) if not f.startswith(".agentboard")]   # board data is not the work
+        _GIT_CACHE[key] = {"commits": len(g.get("commits", [])), "files": len(files), "groups": _group_files(files)} if g else {}
+    return _GIT_CACHE[key]
+
+
 def _ids(body):
     ids = body["ids"]
     if not isinstance(ids, list) or not all(isinstance(i, str) for i in ids):
@@ -204,6 +236,11 @@ def make_handler(default_store, port):
                         # rendered here, not stored: agent text is untrusted, and to_html()
                         # never passes raw HTML through, so the client can insert it as-is
                         t["body_html"] = mdlib.to_html(t["body_md"])
+                        t["sections"] = mdlib.sections(t["body_md"])   # Changed / Checked / Next / flow, for the panel's layout
+                    blob = "\n".join([t.get("result") or "", t.get("body_md") or "", *[str(x.get("text", "")) for x in t.get("log", [])]])
+                    t["checks"] = reports.test_totals(blob)   # "675 tests pass": the chips that say whether it passed
+                    if t.get("status") == "done" and not t.get("parent_id"):
+                        t["git"] = _git_summary(self.store, t)
                     self._send(200, t)
                 except BoardError as e:
                     self._send(404, {"error": str(e)})
