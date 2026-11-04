@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Nothing hides under Load, nothing in the header moves (Nov 4)
+- **The toast shows on Load** (it was drawn under the overlay, so "Moved… Undo" and its countdown were invisible there), and **the error strip too**: it floats under the header on every view, has an × to dismiss it, and no longer pushes the board down when it appears.
+- **The header stays put.** Above the phone width it never wraps to a second line (the counts appearing or changing used to push the board and Load's top edge down), the counts shrink with an ellipsis before anything else gives, their numbers are tabular, the Later button fits three digits, and ORCH keeps its slot from the first paint instead of appearing a moment later.
+- **The bulk bar floats** over the board's foot (and above Load): opening it no longer shrinks every column; the toast steps up over it.
+- **Cards glide only when their column or order changed.** A card that merely shifted because the card above it grew (a reply box arriving, a note going) stays still, so a background poll moves nothing.
+- **Load keeps each column's scroll** across closing and opening; the Done ribbon's week count no longer narrows the day bars when it gains a digit; a telemetry row on Load no longer lifts on hover like a card you could open.
+- **Settings has a Look section** (Motion lives there, not under Sound), the Ambience heading says "plays with the ambient bed" (there is no AMB control any more), and **the gear shows a small badge while sound is off**, the only sign of it outside Settings.
+
 ### Every shortcut works on every view (Nov 4)
 - **On Load the arrows and `j` / `k` walk the Todo column as well as Doing**, `←` / `→` cross between them, and **`Alt` + `←` / `→` move the card you are on between Todo and Doing** (there was no way to move a card to Todo from Load). The same on By agent: `Alt` + `←` takes a lane card to Todo, `→` brings a Todo card into Doing, `↑` / `↓` reorder within the column.
 - **The arrows no longer crash** when the card under focus is not in the grid (a Later card, a chat chip, the board under Load): they start the walk instead.

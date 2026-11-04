@@ -55,7 +55,7 @@ class TouchSoundTests(unittest.TestCase):
         self.assertIn("if (!layerOn('touch')) return null;", body("touchAt"))
         self.assertIn('<h3>Touch (what your hands do, on every view)</h3><div id="mix-touch"></div>', PAGE)
         self.assertIn("$('mix-touch').innerHTML = LAYERS.filter(L => L.ui).map(row).join('');", PAGE)
-        self.assertIn("LAYERS.filter(L => L.kind === 'fx' && !L.ui)", PAGE)        # not twice in the sheet
+        self.assertIn("LAYERS.filter(L => L.kind === 'fx' && !L.ui && !L.look)", PAGE)        # not twice in the sheet
         self.assertIn("layerOn(L.id) && !LAYER_ON[L.id]).length", PAGE)             # the Mix count stays the extras you chose
         self.assertIn("demo(ctx) {", LAYERS.split("id: 'touch'")[1])                 # a Hear button like every other row
 

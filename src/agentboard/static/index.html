@@ -95,6 +95,12 @@
 
   header { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; flex: none; margin-bottom: 18px; padding-bottom: 14px;
     border-bottom: 1px solid var(--line); }
+  /* Nothing in the header moves on a poll (Nov 4): above the phone width it never wraps to a second line (that pushed the board and
+     Load's top edge down whenever the counts appeared), the counts shrink with an ellipsis before anything else gives, the numbers
+     are tabular, and ORCH / the board switch keep their slot from the first paint instead of appearing later */
+  @media (min-width: 901px) { header { flex-wrap: nowrap; } }
+  #summary { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 0 1 auto; font-variant-numeric: tabular-nums; }
+  #orch-btn[hidden] { display: inline-flex; visibility: hidden; }
   h1 { font-size: var(--fs-lg); font-weight: 600; letter-spacing: -.015em; display: flex; align-items: center; gap: 9px; flex: 0 0 106px; }
   h1 svg { color: var(--text); }
   .filter { display: none; width: 160px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 5px 10px; min-height: 32px; }
@@ -119,8 +125,12 @@
   .run-chip { font-size: var(--fs-sm); color: var(--warn); border: 1px solid currentColor; border-radius: 999px; padding: 0 7px; margin-left: 6px; white-space: nowrap; }
   header { border-top: 3px solid var(--board-accent, transparent); }   /* a registered board's colour */
   #board-switch { max-width: 150px; }
-  #later-btn { min-width: 96px; }   /* "Later (15)": the buttons after it must not move as the count grows */
+  #later-btn { min-width: 104px; font-variant-numeric: tabular-nums; }   /* "Later (100)": the buttons after it must not move as the count grows */
   .hicons { display: inline-flex; align-items: center; gap: 8px; }   /* Chat, bell, sound, theme wrap as one group, not one by one */
+  /* the gear says when sound is off (the only sign of it outside Settings): a small struck dot in its corner */
+  #cfg-btn { position: relative; }
+  #cfg-btn .snd-off { display: none; position: absolute; top: 5px; right: 6px; width: 7px; height: 7px; border-radius: 50%; background: var(--warn); box-shadow: 0 0 0 2px var(--surface); }
+  body.snd-off #cfg-btn .snd-off { display: block; }
   #theme, #cfg-btn { width: 44px; height: 44px; padding: 0; display: grid; place-items: center; }   /* icon buttons: a 44px target (BJ: header tidy) */
   /* one top bar for the whole product: the same tabs (Board, By agent, Load) sit here and on the summary and report pages
      (nav.py draws those); Load shows this very header, it does not draw another. The page you are on is the lit one */
@@ -428,7 +438,7 @@
   .rb.on i { opacity: 1; box-shadow: 0 0 8px color-mix(in srgb, var(--ok) 60%, transparent); }
   .rb span { text-transform: uppercase; letter-spacing: var(--tr-tight); }
   .rb.today span { color: var(--text); font-weight: 600; }
-  .rb-sum { flex: none; align-self: center; margin-left: 4px; font-size: var(--fs-xs); color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .rb-sum { flex: none; align-self: center; margin-left: 4px; min-width: 6ch; text-align: right; font-size: var(--fs-xs); color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }   /* a digit more does not narrow the day bars */
   .rb-sum b { color: var(--text); font-weight: 600; }
 
 
@@ -545,6 +555,7 @@
   .h-one > h2 .ln-wait { margin-left: auto; color: var(--warn); font-size: var(--fs-xs); letter-spacing: 0; text-transform: none; font-weight: 600; }
   .h-scroll { overflow-x: hidden; scrollbar-gutter: stable; }
   .h-row { cursor: default; } .h-row.attn[data-id] { cursor: pointer; }
+  .h-row:not(.attn):hover { transform: none; box-shadow: inset 0 1px 0 var(--card-hi), var(--shadow); border-color: var(--line); }   /* nothing to open: no lift */
   .h-row .top { margin-bottom: 10px; }
   .h-row .who { cursor: default; } .h-row .who:hover .nm { text-decoration: none; }
   .h-row .ln-track, .h-q .ln-track { height: 34px; min-height: 0; }
@@ -887,7 +898,7 @@
   #toast {
     position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 16px); opacity: 0; pointer-events: none;
     background: var(--text); color: var(--bg); border-radius: 10px; font-size: var(--fs-md); overflow: hidden;
-    transition: opacity .15s, transform .15s, background-color .18s ease, color .18s ease; z-index: 20; max-width: calc(100vw - 32px);
+    transition: opacity .15s, transform .15s, background-color .18s ease, color .18s ease; z-index: 36; max-width: calc(100vw - 32px);   /* above Load (30) and the bulk bar (35): Undo is never hidden */
   }
   #toast.on { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
   body:has(#bulkbar.open) #toast { bottom: 84px; }   /* the toast steps up over the floating bulk bar */
@@ -931,7 +942,14 @@
     margin-top: 16px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px;
     background: var(--surface); color: var(--text); font: var(--fs-md)/1.6 ui-monospace, Menlo, monospace; overflow-x: auto;
   }
-  #error { color: var(--warn); font-size: var(--fs-md); margin-bottom: 16px; display: none; }
+  /* the error strip floats under the header, above every view (Load included), and moves nothing when it appears; × closes it */
+  #error { display: none; position: fixed; left: 50%; top: calc(var(--hdr-b, 56px) + 10px); transform: translateX(-50%); z-index: 36; align-items: center; gap: 10px;
+    max-width: calc(100vw - 32px); padding: 8px 10px 8px 14px; border-radius: 10px; color: var(--warn); font-size: var(--fs-md);
+    background: var(--surface); border: 1px solid color-mix(in srgb, var(--warn) 45%, var(--line)); box-shadow: var(--shadow-hover); }
+  #error.on { display: flex; }
+  #error span { min-width: 0; overflow-wrap: anywhere; }
+  #error button { background: none; border: 0; color: var(--muted); font: inherit; font-size: var(--fs-lg); line-height: 1; cursor: pointer; padding: 2px 6px; border-radius: 6px; }
+  #error button:hover { color: var(--text); background: var(--chip); }
   /* quick replies: the options in the question as one-tap chips (red ring = an option the agent named), then the three
      that fit any ask; the typed box stays beside them. Same chips on the card and the panel. */
   .qr { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
@@ -1005,7 +1023,7 @@
     <button class="btn" id="chat-btn" aria-controls="chat" aria-label="Chat" title="Chat"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 2.5h10a1 1 0 0 1 1 1v6.5a1 1 0 0 1-1 1H8.2L5 13.5V11H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg><span id="chat-n"></span></button>
     <button class="btn off" id="notif-btn" aria-label="Desktop notifications: off. Press to turn on." aria-pressed="false" title="Desktop notifications: off"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 2a4 4 0 0 0-4 4v3L2.8 11h10.4L12 9V6a4 4 0 0 0-4-4z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M6.5 13a1.5 1.5 0 0 0 3 0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
     <button class="btn" id="theme" aria-label="Color theme: auto. Press to change." title="Color theme: auto (follows the system)"></button>
-    <button class="btn" id="cfg-btn" aria-label="Settings (m)" title="Settings" aria-controls="mix"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M6.8 1.5h2.4l.4 1.9 1.3.7 1.8-.7 1.2 2.1-1.5 1.2v1.6l1.5 1.2-1.2 2.1-1.8-.7-1.3.7-.4 1.9H6.8l-.4-1.9-1.3-.7-1.8.7-1.2-2.1 1.5-1.2V6.7L2.1 5.5l1.2-2.1 1.8.7 1.3-.7z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><circle cx="8" cy="8" r="2" stroke="currentColor" stroke-width="1.4"/></svg></button>
+    <button class="btn" id="cfg-btn" aria-label="Settings (m)" title="Settings" aria-controls="mix"><i class="snd-off" aria-hidden="true"></i><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M6.8 1.5h2.4l.4 1.9 1.3.7 1.8-.7 1.2 2.1-1.5 1.2v1.6l1.5 1.2-1.2 2.1-1.8-.7-1.3.7-.4 1.9H6.8l-.4-1.9-1.3-.7-1.8.7-1.2-2.1 1.5-1.2V6.7L2.1 5.5l1.2-2.1 1.8.7 1.3-.7z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><circle cx="8" cy="8" r="2" stroke="currentColor" stroke-width="1.4"/></svg></button>
     </span>
   </header>
 
@@ -1028,7 +1046,7 @@
     <select id="add-status" class="btn" aria-label="Add to"><option value="todo">Todo</option><option value="backlog">Later</option></select>
     <button class="btn primary">Add</button>
   </form>
-  <div id="error" role="alert"></div>
+  <div id="error" role="alert"><span id="error-text"></span><button type="button" id="error-close" aria-label="Dismiss">×</button></div>
 
   <div id="welcome">
     <h2>No tasks yet</h2>
@@ -1094,11 +1112,12 @@
 
 <div id="mix" role="dialog" aria-label="Settings"><div class="sheet">
   <h2>Settings</h2>
-  <p class="mix-note">Sound for every view. The usual sound is the default: the volume can go above it through a limiter, and the layers are extras, each off until you switch it on; Touch, the sounds of using the board, starts on. Hear one first; the level is yours too.</p>
+  <p class="mix-note">Sound and look, for every view. The usual sound is the default: the volume can go above it through a limiter, and the layers are extras, each off until you switch it on; Touch, the sounds of using the board, starts on. Hear one first; the level is yours too.</p>
   <h3>Sound</h3><div id="cfg-sound"></div>
   <h3>Touch (what your hands do, on every view)</h3><div id="mix-touch"></div>
-  <h3>Ambience (plays with AMB, on every view)</h3><div id="mix-amb"></div>
+  <h3>Ambience (plays with the ambient bed, on every view)</h3><div id="mix-amb"></div>
   <h3>Effects (every view)</h3><div id="mix-fx"></div>
+  <h3>Look (every view)</h3><div id="mix-look"></div>
 </div></div>
 
 <aside id="later" aria-label="Later">
@@ -1494,7 +1513,8 @@ function render() {
     glideFrom.forEach((r, id) => before.set(id, r));
   }
   glideFrom.clear();
-  if (!firstRender) shown.all('.card').forEach(c => beforeCol.set(c.dataset.id, c.closest('.col')?.dataset.status));   // Motion: a card that changes column lands with a settle
+  const beforeOrder = new Map();   // column and position of every card before the rebuild: a glide is for a change in these
+  if (!firstRender) shown.all('.card').forEach((c, i) => { beforeCol.set(c.dataset.id, c.closest('.col')?.dataset.status); beforeOrder.set(c.dataset.id, (c.closest('.col')?.dataset.status || '') + ':' + i); });   // Motion: a card that changes column lands with a settle
   // Motion: which cards were already at review, and which By agent lanes were already up, so only a change draws itself in
   revBefore.clear(); lanesBefore.clear(); lanesKnown = !!$('board').querySelector('.col.acol');
   if (!firstRender) {
@@ -1553,10 +1573,10 @@ function render() {
     $('board').querySelectorAll('.card').forEach(c => { c.draggable = false; });
   }
   if (paneHtml != null) {   // Load: the same Todo and Doing cards, in the same order, no drag (there is no column to drop them in)
-    const box = $('h-cards-box'), top = box.scrollTop;
+    const box = $('h-cards-box'), top = box.innerHTML ? box.scrollTop : hudScroll.doing;   // an emptied pane (Load just opened) takes the scroll it had last time
     box.innerHTML = paneHtml; box.scrollTop = top;
     $('h-cards-n').textContent = by.doing.length;
-    const tw = $('h-todo-wrap'), ttop = tw.querySelector('.cards')?.scrollTop || 0;
+    const tw = $('h-todo-wrap'), ttop = tw.innerHTML ? (tw.querySelector('.cards')?.scrollTop || 0) : hudScroll.todo;
     tw.innerHTML = todoPaneHtml; const tc = tw.querySelector('.cards'); if (tc) tc.scrollTop = ttop;
     [box, tw].forEach(h => h.querySelectorAll('.card').forEach(c => { c.draggable = false; }));
   }
@@ -1567,9 +1587,13 @@ function render() {
   });
   COLUMNS.forEach(([k]) => { lastCounts[k] = by[k].length; });
   // glide cards from their old position to the new one
+  // only a card whose column or order changed glides (or one handed over from the view just left); a card that merely shifted
+  // because the card above it grew (a reply box arriving, a note going) stays still, so a background poll moves nothing
+  const orderNow = Object.fromEntries([...shown.all('.card')].map((c, i) => [c.dataset.id, (c.closest('.col')?.dataset.status || '') + ':' + i]));
   before.forEach((r, id) => {
     if (id === justDropped) return;                       // the user already moved this one by hand
     const c = shown.one(`.card[data-id="${CSS.escape(id)}"]`); if (!c) return;
+    if (beforeOrder.has(id) && beforeOrder.get(id) === orderNow[id]) return;
     const n = c.getBoundingClientRect(), dx = r.left - n.left, dy = r.top - n.top;
     if (Math.abs(dx) > 1 || Math.abs(dy) > 1)
       c.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }], { duration: 420, easing: 'cubic-bezier(.2,.8,.2,1)' });
@@ -1752,8 +1776,9 @@ let errShown = '', errAt = 0;
 function showError(msg) {
   msg = msg || '';
   if (msg && (msg !== errShown || Date.now() - errAt > 500)) { touch.after('error'); errAt = Date.now(); }   // a message sounds once; the same one in the same breath (one bulk action, several failures) does not
-  errShown = msg; $('error').textContent = msg; $('error').style.display = msg ? 'block' : 'none';
+  errShown = msg; $('error-text').textContent = msg; $('error').classList.toggle('on', !!msg);
 }
+$('error-close').onclick = () => showError('');
 
 // Mark done has no server round trip to wait on for the click itself to register — swap the
 // button to a checkmark synchronously, before the move() request even goes out, so the card
@@ -2377,6 +2402,7 @@ function scheduleBlip() {                      // distant console chatter, very 
 function setSnd(on, silent) {
   sndOn = on;
   const c = $('cfg-snd'); if (c) c.checked = on;   // the switch lives in Settings; the s key flips it anywhere
+  document.body.classList.toggle('snd-off', !on);   // the gear shows it
   try { localStorage.setItem('agentboard-snd', on ? 'on' : 'off'); } catch (e) {}
   if (on) { if (!silent) cue.open(); startAmb(); } else stopAmb();
 }
@@ -2517,7 +2543,7 @@ const LAYERS = [
       TOUCH.focus(t); TOUCH.open(t + .3, 'AGENT-2'); TOUCH.lift(t + .9); TOUCH.drop(t + 1.25, 'done', 'AGENT-2');
       TOUCH.toggle(t + 1.8, true); TOUCH.copy(t + 2.3); TOUCH.close(t + 2.8, 'AGENT-2');
     } },
-  { id: 'motion', kind: 'fx', name: 'Motion', about: 'look and sound move together: a settle when an agent\'s card lands in a lane (a new By agent lane slides in with it), the green edge drawing itself in when a card reaches review, the check drawing itself when a card reaches Done, a crossfade between views',
+  { id: 'motion', kind: 'fx', look: true, name: 'Motion', about: 'look and sound move together: a settle when an agent\'s card lands in a lane (a new By agent lane slides in with it), the green edge drawing itself in when a card reaches review, the check drawing itself when a card reaches Done, a crossfade between views',
     apply(lvl) { document.body.classList.toggle('motion', lvl > 0); },   // the look follows the switch (the check, the crossfade); the level is the settle's
     demo(ctx) {
       if (!RM) $('board').animate([{ opacity: .3 }, { opacity: 1 }], { duration: 220, easing: 'ease-out' });
@@ -2630,7 +2656,8 @@ function renderMix() {
     + `<span class="mix-about">100% is the usual level; above it the sound goes through a limiter at -3 dB, so it cannot clip</span></div>`;
   $('mix-touch').innerHTML = LAYERS.filter(L => L.ui).map(row).join('');
   $('mix-amb').innerHTML = LAYERS.filter(L => L.kind === 'amb').map(row).join('');
-  $('mix-fx').innerHTML = LAYERS.filter(L => L.kind === 'fx' && !L.ui).map(row).join('');
+  $('mix-fx').innerHTML = LAYERS.filter(L => L.kind === 'fx' && !L.ui && !L.look).map(row).join('');
+  $('mix-look').innerHTML = LAYERS.filter(L => L.look).map(row).join('');
 }
 const mixIsOpen = () => $('mix').classList.contains('on');
 function toggleMix(on) {
@@ -2677,11 +2704,13 @@ function hudColor(c) { return /^[#\w(),.% -]{1,32}$/.test(c || '') ? c : 'var(--
 const hh = s => esc(String(s ?? ''));
 const clip = (s, n) => { s = String(s ?? ''); return s.length > n ? s.slice(0, n - 1) + '…' : s; };
 
+let hudScroll = { doing: 0, todo: 0 };   // where Load's columns were scrolled when it last closed
 function openHud() {
   setSide('hud'); $('later').classList.remove('open');
   window.scrollTo(0, 0); placeHud();   // the board's header is at the top of the page; the overlay starts right under it
   // the Todo and Doing cards glide from where they are on the board into Load's columns (the panes are cleared so only those positions count)
   if (!RM) $('board').querySelectorAll('.card[data-status="doing"], .card[data-status="todo"]').forEach(c => glideFrom.set(c.dataset.id, c.getBoundingClientRect()));
+  hudScroll = { doing: $('h-cards-box').scrollTop, todo: $('h-todo-wrap').querySelector('.cards')?.scrollTop || 0 };
   $('h-cards-box').innerHTML = ''; $('h-todo-wrap').innerHTML = '';
   $('hud').classList.add('open'); document.body.style.overflow = 'hidden'; litTab();
   if (!SOLO) renderKeepingCardFocus();

@@ -79,7 +79,7 @@ class SameRowTests(unittest.TestCase):
         self.assertIn("goView(i)", self.html)
 
     def test_the_later_and_todo_buttons_share_one_width(self):
-        self.assertIn("#later-btn { min-width: 96px; }", self.html)   # ORCH sits after it and must not move between Board and By agent
+        self.assertIn("#later-btn { min-width: 104px; font-variant-numeric: tabular-nums; }", self.html)   # ORCH sits after it and must not move between Board and By agent
 
     def test_the_lit_tab_never_changes_weight(self):
         self.assertNotIn("font-weight:600", nav.CSS.split(".ab-tabs .tab.on")[1].split("}")[0])

@@ -35,7 +35,7 @@ class MotionTests(unittest.TestCase):
         self.assertIn("body.motion .card.rev-in::after { animation: revin .7s ease-out; }", HTML)
         self.assertIn("@keyframes revin { from { clip-path: inset(0 0 100% 0); box-shadow: 0 0 18px 3px var(--c, var(--ok)); } 70% { clip-path: inset(0); } }", HTML)
         self.assertNotIn(".col.acol.enter { animation", HTML.replace("body.motion .col.acol.enter { animation", ""))   # nothing animates without the layer
-        self.assertIn("{ id: 'motion', kind: 'fx', name: 'Motion', about: 'look and sound move together: a settle when an agent\\'s card lands in a lane (a new By agent lane slides in with it), the green edge drawing itself in when a card reaches review,", HTML)
+        self.assertIn("{ id: 'motion', kind: 'fx', look: true, name: 'Motion', about: 'look and sound move together: a settle when an agent\\'s card lands in a lane (a new By agent lane slides in with it), the green edge drawing itself in when a card reaches review,", HTML)
         self.assertIn(".col.acol.enter, .card.rev-in::after,", HTML[HTML.index("@media (prefers-reduced-motion: reduce) { .bar b"):])   # reduced motion: still
 
     def test_only_a_change_draws_itself_in(self):

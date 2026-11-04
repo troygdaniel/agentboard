@@ -18,7 +18,7 @@ def body(name):
 
 class MotionLayerTests(unittest.TestCase):
     def test_motion_is_one_mix_row_off_until_chosen_with_a_level_and_a_hear_button(self):
-        self.assertIn("{ id: 'motion', kind: 'fx', name: 'Motion', about: '", LAYERS)
+        self.assertIn("{ id: 'motion', kind: 'fx', look: true, name: 'Motion', about: '", LAYERS)
         self.assertEqual(re.search(r"const LAYER_ON = \{([^}]*)\}", PAGE).group(1).strip(), "touch: true")   # Touch is the only default-on layer
         entry = LAYERS.split("id: 'motion'")[1]
         self.assertIn("apply(lvl) { document.body.classList.toggle('motion', lvl > 0); }", entry)
