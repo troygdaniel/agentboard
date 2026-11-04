@@ -47,7 +47,7 @@
       --a1: #60a5fa; --a2: #c084fc; --a3: #f472b6; --a4: #22d3ee; --a5: #94a3b8; --a6: #e879f9; --on-agent: #0b1220;
     }
   }
-  :root[data-theme="dark"], #h-cards {   /* #h-cards: the Doing cards on Load, which is always dark, take the dark set whatever the theme */
+  :root[data-theme="dark"], #h-cards, #h-todo-wrap {   /* #h-cards, #h-todo-wrap: the Doing and Todo cards on Load, which is always dark, take the dark set whatever the theme */
       --bg: #070b12; --surface: #0f1722; --line: #1c2a3a;
       --text: #d6e9ff; --muted: #7f95ad; --accent: #d6e9ff;
       --run: #ff9a3c; --warn: var(--hwarn); --ok: var(--hok); --err: var(--hbad); --neutral: #4b5f75; --info: var(--hcy);
@@ -236,6 +236,7 @@
   /* the holder's name is the card's first thing to find (2026-11-01): 14px/650 in full text colour (the title is 15px),
      the same on every status; it was 12px/500, the smallest text on the card, level with the timestamp */
   .top .who, .p-who .agent-pill { min-width: 0; font-size: var(--fs-base); font-weight: 650; letter-spacing: .02em; }
+  .top .who { flex-shrink: 0; max-width: 60%; }   /* a narrow card shortens the status text first; the name stays whole up to 60% of the row */
   .top .who .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   /* less noise (2026-10-28): a card reads as one row, agent + title + its mark. The description, status line,
      result and Details are still in the DOM and in the detail panel (tap the card); a doing card keeps its bar and % */
@@ -541,10 +542,17 @@
      an empty box. Narrow screens stack the bar under the text of its own row. */
   /* Load (Nov 3): the Doing cards on the left, the same cards in the same design as Board and By agent (they glide across when Load opens
      and closes), the telemetry and agent-load grid on the right as before. A narrow window stacks the cards above the grid. */
-  .h-grid { display: grid; grid-template-columns: minmax(260px, 1fr) minmax(0, 2.2fr); grid-template-rows: minmax(0, 1fr); gap: 16px; min-height: 0; }
-  #h-cards { --fs-xs: 11px; --fs-sm: 12px; --fs-md: 13px; --fs-base: 14px; --fs-lg: 15px; --fs-xl: 23px; --tr-wide: .24em; --tr-label: .16em; --tr-tight: .06em;
+  /* Load (Nov 3, later): the Todo column too, the same one Board and By agent draw (todoColHtml), at its one width, left of Doing */
+  .h-grid { --todo-w: clamp(220px, 17vw, 270px); display: grid; grid-template-columns: var(--todo-w) minmax(300px, 1fr) minmax(0, 2fr); grid-template-rows: minmax(0, 1fr); gap: 16px; min-height: 0; }
+  #h-todo-wrap { display: contents; }   /* the Todo section itself is the grid item */
+  #h-cards, #h-todo-wrap { --fs-xs: 11px; --fs-sm: 12px; --fs-md: 13px; --fs-base: 14px; --fs-lg: 15px; --fs-xl: 23px; --tr-wide: .24em; --tr-label: .16em; --tr-tight: .06em;
     font: var(--fs-base)/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; color: var(--text); }
-  @media (max-width: 980px) { .h-grid { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); } #h-cards { flex: none; } #h-cards .cards { overflow: visible; } }
+  #h-todo-wrap .col { min-height: 0; }
+  @media (max-width: 980px) {   /* stacked: Todo, Doing, telemetry, each as tall as its content; the grid scrolls as one (the overflow-y rule below) */
+    .h-grid { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; grid-auto-rows: max-content; }
+    #h-cards .cards, #h-todo-wrap .cards { overflow: visible; }
+    .h-one { align-self: start; }
+  }
   .h-one { --cols: 40px minmax(0, 2.3fr) 100px minmax(200px, 1fr); --gap: 16px; align-self: stretch; width: 100%; max-width: 100%; }   /* text gets the room; the hour bar reads at 1fr */
   @media (min-width: 1800px) { .h-one { --cols: 40px minmax(0, 760px) 100px minmax(200px, 1fr); } }   /* ultrawide: the text stops growing (a line past ~760px is a gap, not a read); the hour bar takes the rest */
   /* (2026-10-24) "the board has more vertical space; use it to show more text". The panel
@@ -554,22 +562,6 @@
     grid-template-areas: "av who since load"; }
   .h-av { grid-area: av; } .h-who { grid-area: who; min-width: 0; }
   .h-since { grid-area: since; } .h-load { grid-area: load; min-width: 0; align-self: center; }
-  /* progress is part of the agent's own text block (2026-10-24: the separate bar + % column
-     "looks odd"): a 4px line under the task/status lines, the % at its end. Idle rows have none. */
-  .h-one .h-prgw { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
-  .h-one .h-prog { flex: 1; height: 4px; border-radius: 2px; }
-  /* one chart per agent: its card's % over the last hour as a stepped line with the area under it lit in the
-     agent's state colour, and a tick per bucket where the agent said something (brighter = more). Same 2-minute
-     buckets and the same -60m..now axis as the load track under it, so the two read as one instrument. */
-  .h-chw { flex: 1; min-width: 0; display: flex; }
-  .h-chart { flex: 1; min-width: 0; width: 100%; height: 38px; display: block; border-radius: 6px; border: 1px solid rgba(110,190,255,.12);
-    background: linear-gradient(90deg, rgba(110,190,255,.14) 1px, transparent 1px) 0 0 / 25% 100%, linear-gradient(180deg, rgba(110,190,255,.05), rgba(110,190,255,.02)); }
-  .h-chart .ar { fill: var(--c); opacity: .16; }
-  .h-chart .ln { fill: none; stroke: var(--c); stroke-width: 1.6px; filter: drop-shadow(0 0 4px var(--c)); }
-  .h-chart .dot { stroke: var(--c); stroke-width: 6px; stroke-linecap: round; filter: drop-shadow(0 0 6px var(--c)); }
-  .h-chart .ev rect { fill: var(--hcy); }
-  .h-row.working .h-chart .dot { animation: hdot 2.2s ease-in-out infinite; }
-  @keyframes hdot { 50% { stroke-width: 9px; } }
   /* the idle agents fold into one row: a chip per agent (glyph, name, how long ago, signed off today); click to open the rows */
   .h-row.h-fold { flex: none; min-height: 0; padding: 9px 12px 9px 16px; cursor: pointer; opacity: .85; align-items: center; }
   .h-row.h-fold:hover { opacity: 1; background: rgba(110,190,255,.04); }
@@ -589,20 +581,18 @@
   .h-fold .h-card { white-space: normal; }
   .h-idle[hidden] { display: none; }
   .h-idle .h-row { min-height: 64px; }
-  .h-one .h-pct { margin: 0; flex: none; min-width: 3.2ch; text-align: right; font-size: var(--fs-sm); }
-  .h-one .h-row.idle .h-prgw { display: none; }
   /* the age may take two lines ("wrapped / 2h") rather than run under the bar */
   .h-one .h-since { white-space: normal; line-height: 1.2; font-size: var(--fs-sm); }
   /* the load column reads as its own column: a divider at its left edge, down every row */
   .h-one .h-load { position: relative; padding-left: var(--gap); margin-left: calc(-1 * var(--gap)); border-left: 1px solid rgba(110,190,255,.14); align-self: stretch; display: flex; flex-direction: column; justify-content: center; align-items: stretch; gap: 6px; }
-  .h-one .h-load .h-prgw { margin-top: 0; }
-  .h-row.idle .h-load .h-prgw, .h-row.h-q .h-load .h-prgw { display: none; }
   .h-one .h-head .h-h2 { padding-left: var(--gap); margin-left: calc(-1 * var(--gap)); }   /* the ticks stay on the bare column: left:0% must be the bar's left edge */
   /* head and foot sit outside the scroll box; the rows inside it lose 6px to the scrollbar. The
      gutter is reserved always and the head/foot pad the same 6px, so the bar column (fr-sized)
      resolves to the same pixels in all three and the -60m/now ticks land exactly under the bars. */
   .h-one .h-scroll { scrollbar-gutter: stable; }
   .h-head { align-items: baseline; padding: 0 18px 10px 16px; border-bottom: 1px solid var(--hline); flex: none; }
+  @media (max-width: 1700px) { .h-head .h-who .ln-sub { display: none; } }   /* with the Todo column beside it the telemetry title keeps to one line: the subtitle goes first */
+  @media (max-width: 1500px) { .h-head .ln-wait { display: block; margin: 2px 0 0; } }   /* narrower still: the waiting flag takes its own line whole, rather than breaking mid-phrase */
   .h-head .h-who, .h-foot .ln-leg { grid-column: av-start / who-end; }   /* flush left, like the strip's title */
   .h-head h4 { margin: 0; }
   .h-head .h-h2 { grid-area: load; display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
@@ -698,10 +688,6 @@
   .h-status { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; color: var(--htext); opacity: .85; margin-top: 4px; font-size: var(--fs-md); line-height: 1.35; overflow-wrap: anywhere; }
   .h-row.idle .h-status { opacity: 1; color: var(--hdim); }
   .h-card { display: block; color: var(--hdim); font-size: var(--fs-xs); letter-spacing: var(--tr-tight); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .h-prog { height: 7px; border-radius: 3.5px; background: rgba(110,190,255,.12); overflow: hidden; position: relative; }
-  .h-prog::after { content: ''; position: absolute; inset: 0; transform: translateX(-100%);
-    background: linear-gradient(90deg, transparent, rgba(255,255,255,.4), transparent); animation: hsheen 3.2s ease-in-out infinite; }
-  .h-row:not(.working) .h-prog::after { display: none; }
   @keyframes hsheen { 0% { transform: translateX(-100%); } 55%, 100% { transform: translateX(100%); } }
   .h-row.working .h-av { animation: havbr 3s ease-in-out infinite; }
   @keyframes havbr { 50% { box-shadow: inset 0 0 0 1.5px var(--c), 0 0 18px 0 var(--c); } }
@@ -709,14 +695,12 @@
   .h-row.waiting .h-name em, .h-row.waiting .h-since { color: var(--hbad); }
   .h-row.review .h-name em { color: var(--hok); }
   @keyframes hqblink { 50% { opacity: .45; } }
-  .h-prog b { display: block; height: 100%; background: var(--c); box-shadow: 0 0 10px var(--c); transition: width .7s ease; }
-  .h-row.idle .h-prgw { visibility: hidden; }
-  .h-pct { color: var(--hdim); font-size: var(--fs-md); margin-top: 4px; display: block; }
   .h-since { text-align: right; color: var(--hdim); font-size: var(--fs-md); white-space: nowrap; }   /* "abandoned 12h05" wrapped to two lines in the old 92px column */ .h-row.quiet .h-since { color: var(--hwarn); }
   .h-row.abandoned .h-since { color: var(--hbad); }
   /* ----- agent load: one lane per agent over the last hour ----- */
   .ln-foot { flex: none; padding-top: 8px; margin-top: 6px; border-top: 1px solid var(--hline); display: flex; justify-content: center; }
-  .ln-leg { letter-spacing: var(--tr-tight); text-transform: none; font-size: var(--fs-sm); display: inline-flex; align-items: center; gap: 2px; }
+  .ln-leg { letter-spacing: var(--tr-tight); text-transform: none; font-size: var(--fs-sm); display: inline-flex; flex-wrap: wrap; align-items: center; gap: 2px; }   /* a narrow pane wraps between the words, never inside one */
+  .ln-leg u { white-space: nowrap; }
   .ln-leg u { text-decoration: none; color: color-mix(in srgb, var(--k) 65%, var(--hdim)); cursor: default;
     padding: 2px 7px; border-radius: 6px; transition: background .15s ease, color .15s ease; }
   .ln-leg u::before { content: ''; display: inline-block; width: 9px; height: 9px; border-radius: 3px; margin-right: 6px; background: var(--k); box-shadow: 0 0 8px var(--k); vertical-align: -1px; }
@@ -1209,6 +1193,7 @@
   <div class="hud" id="hud-inner" tabindex="-1">
     <button class="h-btn" id="h-full" aria-label="Toggle fullscreen (f)">Fullscreen</button>
     <div class="h-grid">
+      <div id="h-todo-wrap"></div>
       <section class="col doing" id="h-cards" aria-label="Doing"><h2>Doing <span class="cnt" id="h-cards-n">0</span></h2><div class="cards" id="h-cards-box"></div></section>
       <section class="hp h-one" aria-label="Telemetry and agent load">
         <div class="h-head"><h4 class="h-who">Telemetry <span class="ln-sub">every agent, right now</span><span class="ln-wait" id="ln-wait"></span></h4>
@@ -1643,13 +1628,15 @@ function render() {
   const focusToggle = document.activeElement?.dataset?.toggleSubs;
   // FLIP: remember where every card was, so moves and reorders glide instead of snapping. The cards you can see are the board's,
   // or under Load the Doing cards in its left pane; a view change hands over where they were on the view just left (glideFrom)
-  const before = new Map(), beforeCol = new Map(), inHud = hudIsOpen(), shown = inHud ? $('h-cards-box') : $('board');
+  const before = new Map(), beforeCol = new Map(), inHud = hudIsOpen();
+  const panes = inHud ? [$('h-todo-wrap'), $('h-cards-box')] : [$('board')];   // under Load: its Todo column and its Doing pane
+  const shown = { all: sel => panes.flatMap(p => [...p.querySelectorAll(sel)]), one: sel => { for (const p of panes) { const c = p.querySelector(sel); if (c) return c; } return null; } };
   if (!RM && !firstRender) {
-    shown.querySelectorAll('.card').forEach(c => before.set(c.dataset.id, c.getBoundingClientRect()));
+    shown.all('.card').forEach(c => before.set(c.dataset.id, c.getBoundingClientRect()));
     glideFrom.forEach((r, id) => before.set(id, r));
   }
   glideFrom.clear();
-  if (!firstRender) shown.querySelectorAll('.card').forEach(c => beforeCol.set(c.dataset.id, c.closest('.col')?.dataset.status));   // Motion: a card that changes column lands with a settle
+  if (!firstRender) shown.all('.card').forEach(c => beforeCol.set(c.dataset.id, c.closest('.col')?.dataset.status));   // Motion: a card that changes column lands with a settle
   // Motion: which cards were already at review, and which By agent lanes were already up, so only a change draws itself in
   revBefore.clear(); lanesBefore.clear(); lanesKnown = !!$('board').querySelector('.col.acol');
   if (!firstRender) {
@@ -1657,8 +1644,13 @@ function render() {
     $('board').querySelectorAll('.col.acol').forEach(c => lanesBefore.add(c.dataset.status.slice(6)));
   }
   // Load's pane first when it is the view on show, so a card's fresh/flash state lands on the cards you can see
-  let paneHtml = null;
-  if (inHud) { hudPane = true; paneHtml = by.doing.length ? by.doing.map(card).join('') : `<div class="empty">${(q || pf || flagFilter) ? 'No matches' : EMPTY.doing}</div>`; hudPane = false; }
+  let paneHtml = null, todoPaneHtml = null;
+  if (inHud) {
+    hudPane = true;
+    todoPaneHtml = todoColHtml(by.todo, q || pf || flagFilter);   // the one Todo column, as Board and By agent draw it
+    paneHtml = by.doing.length ? by.doing.map(card).join('') : `<div class="empty">${(q || pf || flagFilter) ? 'No matches' : EMPTY.doing}</div>`;
+    hudPane = false;
+  }
   const activeNow = by.doing.filter(t => t.agent && !t.needs_input && !t.review && ago(t.updated).min < STALE_MIN);
   const pres = [...new Map(activeNow.map(t => [t.agent, colorOf(t)])).entries()]
     .map(([n, c]) => `<i style="--c:${c}" title="${esc(n)} is working"></i>`).join('');
@@ -1702,11 +1694,13 @@ function render() {
   if (BYAGENT) {   // no drag here: a card's column is its agent, not a status
     $('board').querySelectorAll('.card').forEach(c => { c.draggable = false; });
   }
-  if (paneHtml != null) {   // Load: the same Doing cards, in the same order, no drag (there is no column to drop them in)
+  if (paneHtml != null) {   // Load: the same Todo and Doing cards, in the same order, no drag (there is no column to drop them in)
     const box = $('h-cards-box'), top = box.scrollTop;
     box.innerHTML = paneHtml; box.scrollTop = top;
-    box.querySelectorAll('.card').forEach(c => { c.draggable = false; });
     $('h-cards-n').textContent = by.doing.length;
+    const tw = $('h-todo-wrap'), ttop = tw.querySelector('.cards')?.scrollTop || 0;
+    tw.innerHTML = todoPaneHtml; const tc = tw.querySelector('.cards'); if (tc) tc.scrollTop = ttop;
+    [box, tw].forEach(h => h.querySelectorAll('.card').forEach(c => { c.draggable = false; }));
   }
   // live counts: a brief tick when a column's count changes
   if (!firstRender) $('board').querySelectorAll('.col').forEach(col => {
@@ -1717,7 +1711,7 @@ function render() {
   // glide cards from their old position to the new one
   before.forEach((r, id) => {
     if (id === justDropped) return;                       // the user already moved this one by hand
-    const c = shown.querySelector(`.card[data-id="${CSS.escape(id)}"]`); if (!c) return;
+    const c = shown.one(`.card[data-id="${CSS.escape(id)}"]`); if (!c) return;
     const n = c.getBoundingClientRect(), dx = r.left - n.left, dy = r.top - n.top;
     if (Math.abs(dx) > 1 || Math.abs(dy) > 1)
       c.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }], { duration: 420, easing: 'cubic-bezier(.2,.8,.2,1)' });
@@ -1725,7 +1719,7 @@ function render() {
   // Motion (off until chosen): an agent's card that changed column lands at the end of its glide with a settle, pitched by the
   // column, in the agent's voice. Not a move of yours: that sounded when you made it (the drop, the Alt+arrow click)
   if (layerOn('motion') && Date.now() - lastGestureAt > 1000) beforeCol.forEach((was, id) => {
-    const c = shown.querySelector(`.card[data-id="${CSS.escape(id)}"]`);
+    const c = shown.one(`.card[data-id="${CSS.escape(id)}"]`);
     if (c && was !== undefined && c.closest('.col')?.dataset.status !== was) landed(c);
   });
   justDropped = null;
@@ -2861,9 +2855,9 @@ const clip = (s, n) => { s = String(s ?? ''); return s.length > n ? s.slice(0, n
 function openHud() {
   setSide('hud'); $('later').classList.remove('open');
   window.scrollTo(0, 0); placeHud();   // the board's header is at the top of the page; the overlay starts right under it
-  // the Doing cards glide from where they are on the board into Load's left pane (the pane is cleared so only those positions count)
-  if (!RM) $('board').querySelectorAll('.card[data-status="doing"]').forEach(c => glideFrom.set(c.dataset.id, c.getBoundingClientRect()));
-  $('h-cards-box').innerHTML = '';
+  // the Todo and Doing cards glide from where they are on the board into Load's columns (the panes are cleared so only those positions count)
+  if (!RM) $('board').querySelectorAll('.card[data-status="doing"], .card[data-status="todo"]').forEach(c => glideFrom.set(c.dataset.id, c.getBoundingClientRect()));
+  $('h-cards-box').innerHTML = ''; $('h-todo-wrap').innerHTML = '';
   $('hud').classList.add('open'); document.body.style.overflow = 'hidden'; litTab();
   if (!SOLO) renderKeepingCardFocus();
   hudKey = ''; sndSeenAt = null; hudPrevTiles = null; setSnd(sndOn, true); setAmb(ambOn, true);
@@ -2874,8 +2868,8 @@ function openHud() {
 function closeHud() {
   if (SOLO) { window.close(); return; }
   touch('swish');   // the same one sound; the bed plays on under the board, it belongs to every view
-  // and the Doing cards glide back from Load's pane to their places on the board (or the By agent lanes)
-  if (!RM) $('h-cards-box').querySelectorAll('.card').forEach(c => glideFrom.set(c.dataset.id, c.getBoundingClientRect()));
+  // and the cards glide back from Load's columns to their places on the board (or the By agent lanes)
+  if (!RM) document.querySelectorAll('#h-todo-wrap .card, #h-cards-box .card').forEach(c => glideFrom.set(c.dataset.id, c.getBoundingClientRect()));
   $('hud').classList.remove('open', 'full'); document.body.style.overflow = ''; litTab();
   clearInterval(hudTimer);
   renderKeepingCardFocus();
@@ -2998,23 +2992,6 @@ $('h-tele')?.addEventListener('keydown', e => {
   if (e.target.id === 'h-fold' && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); e.target.click(); }
 });
 
-// the agent's hour as one chart: a stepped line of its card's % (None before the card said anything), the area under it,
-// a tick per bucket with activity, and a dot at the live value. preserveAspectRatio=none stretches the box to the column,
-// so strokes are non-scaling and the dot is a round-capped zero-length stroke rather than a circle (which would squash).
-function progChart(a) {
-  const pct = a.chart?.pct || [], ev = a.chart?.events || [], n = Math.max(1, pct.length), W = 300, H = 40, PAD = 4, FOOT = 7;
-  const x = i => (i + 1) / n * W, y = v => PAD + (100 - v) / 100 * (H - PAD - FOOT - 2);
-  let line = '', last = null;
-  pct.forEach((v, i) => { if (v == null) return; const x0 = (i / n * W).toFixed(1), x1 = x(i).toFixed(1), yy = y(v).toFixed(1);
-    line += last === null ? `M${x0} ${yy} H${x1}` : ` V${yy} H${x1}`; last = v; });
-  const evMax = Math.max(1, ...ev);
-  const ticks = ev.map((c, i) => c ? `<rect x="${(i / n * W).toFixed(1)}" y="${H - FOOT + 1}" width="${(W / n - .6).toFixed(1)}" height="${FOOT - 2}" opacity="${(.3 + .7 * c / evMax).toFixed(2)}"/>` : '').join('');
-  if (last === null) return `<svg class="h-chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true"><g class="ev">${ticks}</g></svg>`;
-  const yEnd = y(last).toFixed(1), xStart = (pct.findIndex(v => v != null) / n * W).toFixed(1);
-  const area = `${line} V${H - FOOT} H${xStart} Z`;
-  return `<svg class="h-chart" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true"><path class="ar" d="${area}"/><g class="ev">${ticks}</g>`
-    + `<path class="ln" d="${line}" vector-effect="non-scaling-stroke"/><path class="dot" d="M${W} ${yEnd} l0 .01" vector-effect="non-scaling-stroke"/></svg>`;
-}
 let idleOpen = true, lastHud = null;   // the idle fold: open by default (Nov 2), so the idle agents show without a click; collapsing it is remembered in this browser
 try { idleOpen = localStorage.getItem('agentboard-idle') !== 'closed'; } catch (e) {}
 function renderGrid(d) {
@@ -3031,7 +3008,7 @@ function renderGrid(d) {
       <div class="h-who"><div class="h-name">${hh(a.name)}<em></em></div><span class="h-status"></span><div class="h-ask"></div>
         <ul class="h-recent"></ul></div>
       <span class="h-since"></span>
-      <div class="h-load"><span class="h-card"></span><div class="h-prgw" title="progress over the last 60 min; ticks are updates"><span class="h-chw"></span><span class="h-pct"></span></div><div class="ln-track"></div></div></div>`;
+      <div class="h-load"><span class="h-card"></span><div class="ln-track"></div></div></div>`;
     const fold = !idle.length ? '' : `<div class="h-row h-fold" id="h-fold" role="button" tabindex="0" aria-expanded="${idleOpen}" aria-controls="h-idle" title="${idleOpen ? 'Hide' : 'Show'} the idle agents">
         <span class="h-av" id="h-fold-n">${idle.length}</span>
         <div class="h-who"><div class="h-name">IDLE<em>${idle.length === 1 ? '1 agent' : idle.length + ' agents'}</em><svg class="chev" width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M3 1l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6"/></svg></div><div class="h-fold-list" id="h-fold-list"></div></div>
@@ -3065,13 +3042,11 @@ function renderGrid(d) {
     const askHtml = ask ? stepsHtml(ask.what, hh) + `<i>${hh(KIND_WORD[ask.kind] || ask.kind)}${ask.who && !isOwner(ask.who) && ask.who !== 'none' ? ' · for ' + hh(ask.who) : ''}${ask.age_min == null ? '' : ' · ' + (ask.age_min < 1 ? 'just now' : dur(ask.age_min))}</i>` : '';
     if (askEl.dataset.k !== askHtml) { askEl.dataset.k = askHtml; askEl.innerHTML = askHtml; }
     r.querySelector('em').textContent = a.state.toUpperCase();
-    r.querySelector('.h-card').textContent = a.state === 'idle' ? (a.task ? 'last: ' + a.task : 'no activity yet') : a.task;
-    r.querySelector('.h-card').title = (a.open_titles || []).join('\n') || a.task || '';
+    // the card's title, bar and % are on the Doing card to the left (Nov 3): the row says them only for an idle agent, which has no card there
+    r.querySelector('.h-card').textContent = a.state === 'idle' ? (a.task ? 'last: ' + a.task : 'no activity yet') : '';
+    r.querySelector('.h-card').title = a.state === 'idle' ? ((a.open_titles || []).join('\n') || a.task || '') : '';
     r.querySelector('.h-status').textContent = a.status_text || (a.state === 'idle' ? '' : 'no status yet');
     r.querySelector('.h-name').title = `${a.open || 0} open · ${a.done_today || 0} signed off today`;   // on hover only; it is not part of the reading
-    const ch = progChart(a), cw = r.querySelector('.h-chw');
-    if (cw.dataset.k !== ch) { cw.dataset.k = ch; cw.innerHTML = ch; }   // only when the chart actually changed, so the dot keeps breathing
-    r.querySelector('.h-pct').textContent = (a.progress || 0) + '%';
     r.querySelector('.h-since').textContent = a.updated ? ago(a.updated).text.replace(' ago', '') : '';
     const { sg, title } = loadTrack(d, a, win, start, end), tr = r.querySelector('.h-load .ln-track');
     if (tr.dataset.k !== sg) { tr.dataset.k = sg; tr.innerHTML = sg; }   // only when the bar actually moved, so glows don't restart
@@ -3396,7 +3371,7 @@ $('title').onkeydown = e => { if (e.key === 'Escape') { toggleAdd(false); $('tit
 
 // --- card actions ---
 // the cards' own controls (reply, Mark done, subtasks, who, Copy prompt) work the same wherever the card is drawn: the board or Load's pane
-const CARD_HOMES = [$('board'), $('h-cards-box')];
+const CARD_HOMES = [$('board'), $('h-cards-box'), $('h-todo-wrap')];
 CARD_HOMES.forEach(h => h.addEventListener('submit', async e => {
   const f = e.target.closest('.card-reply');
   if (!f) return;
