@@ -221,8 +221,14 @@
   /* Motion (a Mix layer, off until chosen): the check draws itself in when a card reaches Done */
   body.motion .card.flash.done .check path { stroke-dasharray: 14; stroke-dashoffset: 14; animation: checkdraw .45s .25s ease-out forwards; }
   @keyframes checkdraw { to { stroke-dashoffset: 0; } }
-  .top { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: var(--fs-sm); color: var(--muted); min-height: 20px; }
-  .top .when { margin-left: auto; white-space: nowrap; }
+  /* Motion, By agent (Nov 3): a lane that appears because an agent just started slides in as its card glides over and settles;
+     a card that reaches review has its edge bar draw itself in, green, with the review chime */
+  body.motion .col.acol.enter { animation: lanein .32s ease-out; }
+  @keyframes lanein { from { opacity: 0; transform: translateY(8px); } }
+  body.motion .card.rev-in::after { animation: revin .7s ease-out; }
+  @keyframes revin { from { clip-path: inset(0 0 100% 0); box-shadow: 0 0 18px 3px var(--c, var(--ok)); } 70% { clip-path: inset(0); } }
+  .top { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: var(--fs-sm); color: var(--muted); min-height: 20px; min-width: 0; }
+  .top .when { margin-left: auto; white-space: nowrap; min-width: 0; overflow: hidden; text-overflow: ellipsis; }   /* "abandoned? no update 12h ago" ends in … in a narrow card, not past its edge */
   .top .when.stale { color: var(--warn); }
   .who { display: inline-flex; align-items: center; gap: 8px; background: none; border: 0; padding: 0; cursor: pointer; color: var(--text); font-weight: 500; font-size: var(--fs-sm); border-radius: 6px; }
   .who:hover .nm { text-decoration: underline; text-underline-offset: 3px; }
@@ -316,7 +322,9 @@
   .fold summary { cursor: pointer; width: max-content; }
   .fold .fold-body { white-space: pre-wrap; overflow-wrap: anywhere; margin-top: 6px; max-height: 220px; overflow: auto; color: var(--text); }
   .card-reply { margin-top: 10px; display: grid; gap: 6px; }
-  .card-reply .rr { display: flex; gap: 6px; }
+  .card-reply .rr { display: flex; flex-wrap: wrap; gap: 6px; }   /* in a narrow card (a By agent lane) Send drops under the field instead of running off the edge */
+  .card-reply .rr input { flex: 1 1 150px; }
+  .card-reply .rr .btn { flex: 0 0 auto; }
   .card-reply input { flex: 1; min-width: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; font: inherit; font-size: var(--fs-md); }
   .card-reply .replied { font-size: var(--fs-sm); color: var(--muted); }
   .card.abandoned { border-color: var(--err); animation: abandonedpulse 2.6s ease-in-out infinite; }
@@ -1109,6 +1117,10 @@
   /* a card's own agent chip is redundant inside that agent's column (the column is the agent); in the Todo column it stays */
   body.byagent .col.acol .card .who { display: none; }
   body.byagent .col.acol .card .top { min-height: 0; }
+  /* with the chip gone the card's status text ("abandoned? no update 7h ago", "2m ago") takes its place on the left, the card's first line,
+     instead of floating alone at the right; with a Report chip in the row it stays on the right of that */
+  body.byagent .col.acol .card .top .when { margin-left: 0; }
+  body.byagent .col.acol .card .top:has(.report-link) .when { margin-left: auto; }
   .col.acol h2 { flex-wrap: nowrap; min-width: 0; }
   .col.acol h2 .nm { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
   @media (max-width: 900px) {   /* a phone: swipe sideways, one column per screen */
@@ -1125,7 +1137,7 @@
     .cards { overflow: visible; flex: none; }
     .empty { min-height: 100px; }
   }
-  @media (prefers-reduced-motion: reduce) { .bar b, .card { transition: none; } .card.enter, .card.flash, .card.ask, .card.review, .card.abandoned, .card.livebar::after, .sub.live .g::after, .av.live, .pres i, .col h2 .cnt.tick { animation: none; } .card.ask { box-shadow: 0 0 0 2px var(--err); } .card.review { box-shadow: 0 0 0 2px var(--ok); } .card.abandoned { box-shadow: 0 0 0 2px var(--err); } .card.livebar .bar::after { animation: none; opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) { .bar b, .card { transition: none; } .card.enter, .card.flash, .card.ask, .card.review, .card.abandoned, .card.livebar::after, .col.acol.enter, .card.rev-in::after, .sub.live .g::after, .av.live, .pres i, .col h2 .cnt.tick { animation: none; } .card.ask { box-shadow: 0 0 0 2px var(--err); } .card.review { box-shadow: 0 0 0 2px var(--ok); } .card.abandoned { box-shadow: 0 0 0 2px var(--err); } .card.livebar .bar::after { animation: none; opacity: 0; } }
 </style>
 </head>
 <body>
@@ -1291,6 +1303,7 @@ let raw = '', tasks = [], dragging = null, showAllDone = false, tick = 0;
 let flagFilter = null;   // 'needs_input' | 'review' | null — set by clicking the header's attention counts
 let projectsRaw = '', projects = [];
 const seen = new Set(), lastUpdated = new Map(), lastPct = new Map(), lastCounts = {};
+const revBefore = new Set(), lanesBefore = new Set(); let lanesKnown = false;   // Motion: the review cards and By agent lanes the last render drew
 // subtasks: a parent's open subtasks live inside its card; each finished one gets its own card in Done
 let byId = new Map(), kidsMap = new Map();
 const subsOpen = new Map();   // parent id -> expanded? (unset: Doing parents start open, the rest collapsed)
@@ -1446,8 +1459,9 @@ function card(t) {
     `<div class="rr"><input name="text" autocomplete="off" maxlength="2000" placeholder="Reply${t.agent ? ' to ' + esc(t.agent) : ''}…" aria-label="Reply to ${esc(t.agent || 'the agent')}"><button class="btn primary" type="submit">Send</button></div></form>` : '';
   const fresh = !firstRender && !seen.has(t.id);
   const flash = !firstRender && seen.has(t.id) && lastUpdated.get(t.id) !== t.updated;
+  const revIn = reviewing && !firstRender && seen.has(t.id) && !revBefore.has(t.id);   // Motion: just reached review; the edge bar draws itself in
   seen.add(t.id); lastUpdated.set(t.id, t.updated);
-  return `<div class="card ${done ? 'done' : ''} ${asking ? 'ask' : ''} ${reviewing ? 'review' : ''} ${abandoned && !asking && !reviewing ? 'abandoned' : ''} ${live && !asking && !reviewing ? 'livebar' : ''} ${fresh ? 'enter' : ''} ${flash ? 'flash' : ''} ${selected.has(t.id) ? 'selected' : ''} " style="--c:${colorOf(t)}" data-agent="${esc(t.agent || '')}" draggable="${backlog ? 'false' : 'true'}" tabindex="0" data-id="${esc(t.id)}" data-status="${t.status}"
+  return `<div class="card ${done ? 'done' : ''} ${asking ? 'ask' : ''} ${reviewing ? 'review' : ''} ${revIn ? 'rev-in' : ''} ${abandoned && !asking && !reviewing ? 'abandoned' : ''} ${live && !asking && !reviewing ? 'livebar' : ''} ${fresh ? 'enter' : ''} ${flash ? 'flash' : ''} ${selected.has(t.id) ? 'selected' : ''} " style="--c:${colorOf(t)}" data-agent="${esc(t.agent || '')}" draggable="${backlog ? 'false' : 'true'}" tabindex="0" data-id="${esc(t.id)}" data-status="${t.status}"
       aria-label="${esc(t.title)}, ${t.status}${asking ? ', needs your input' : reviewing ? ', ready for review' : abandoned ? ', no update in a long time, possibly abandoned' : ''}${t.agent ? ', ' + esc(t.agent) : ''}${proj ? ', project ' + esc(proj.name) : ''}${blockers.length ? ', blocked by ' + blockers.map(b => esc(b.title)).join(', ') : ''}">
     ${top}${askFlag}${saidRow}${foldRow}${blockedRow}${projPill}${todo && t._q ? `<span class="qnum" aria-label="Queue position ${t._q}">${t._q}</span>` : ''}<div class="title ${done ? 'has-check' : ''}" title="${esc((done ? t.result : t.status_text) || '')}">${checkIcon}${done ? `<span>${esc(t.title)}</span>` : esc(t.title)}</div>${desc}${asking || reviewing ? '' : note}${bar}${noSubs}${meta}${who ? '' : reportLink}${replyRow}${reviewing ? `<button class="btn markdone" data-done="${esc(t.id)}">Mark done</button>` : ''}</div>`;
 }
@@ -1513,7 +1527,8 @@ function byAgentHtml(by, filtered) {
   const stateFor = n => agentState(doingBy.get(n) || []);
   const agentCol = n => {
     const st = stateFor(n), cards = doingBy.get(n) || [];
-    return `<section class="col acol" data-status="agent:${esc(n)}" style="--c:${colorFor(n)}"><h2><span class="av" style="--c:${colorFor(n)}" aria-hidden="true">${esc(nodeGlyph(n))}</span><span class="nm" title="${esc(n)}">${esc(n)}</span><span class="cnt">${cards.length}</span><em class="${st}">${esc(st)}</em></h2>`
+    const fresh = lanesKnown && !firstRender && !lanesBefore.has(n);   // Motion: a lane that was not up on the last By agent render slides in (a view switch is not that)
+    return `<section class="col acol${fresh ? ' enter' : ''}" data-status="agent:${esc(n)}" style="--c:${colorFor(n)}"><h2><span class="av" style="--c:${colorFor(n)}" aria-hidden="true">${esc(nodeGlyph(n))}</span><span class="nm" title="${esc(n)}">${esc(n)}</span><span class="cnt">${cards.length}</span><em class="${st}">${esc(st)}</em></h2>`
       + `<div class="cards">${cards.map(card).join('')}</div></section>`;
   };
   const n = active.length;
@@ -1635,6 +1650,12 @@ function render() {
   }
   glideFrom.clear();
   if (!firstRender) shown.querySelectorAll('.card').forEach(c => beforeCol.set(c.dataset.id, c.closest('.col')?.dataset.status));   // Motion: a card that changes column lands with a settle
+  // Motion: which cards were already at review, and which By agent lanes were already up, so only a change draws itself in
+  revBefore.clear(); lanesBefore.clear(); lanesKnown = !!$('board').querySelector('.col.acol');
+  if (!firstRender) {
+    document.querySelectorAll('#board .card.review, #h-cards-box .card.review').forEach(c => revBefore.add(c.dataset.id));
+    $('board').querySelectorAll('.col.acol').forEach(c => lanesBefore.add(c.dataset.status.slice(6)));
+  }
   // Load's pane first when it is the view on show, so a card's fresh/flash state lands on the cards you can see
   let paneHtml = null;
   if (inHud) { hudPane = true; paneHtml = by.doing.length ? by.doing.map(card).join('') : `<div class="empty">${(q || pf || flagFilter) ? 'No matches' : EMPTY.doing}</div>`; hudPane = false; }
@@ -2677,7 +2698,7 @@ const LAYERS = [
       TOUCH.focus(t); TOUCH.open(t + .3, 'AGENT-2'); TOUCH.lift(t + .9); TOUCH.drop(t + 1.25, 'done', 'AGENT-2');
       TOUCH.toggle(t + 1.8, true); TOUCH.copy(t + 2.3); TOUCH.close(t + 2.8, 'AGENT-2');
     } },
-  { id: 'motion', kind: 'fx', name: 'Motion', about: 'look and sound move together: a settle when an agent\'s card lands in a lane, the check drawing itself when a card reaches Done, a crossfade between views',
+  { id: 'motion', kind: 'fx', name: 'Motion', about: 'look and sound move together: a settle when an agent\'s card lands in a lane (a new By agent lane slides in with it), the green edge drawing itself in when a card reaches review, the check drawing itself when a card reaches Done, a crossfade between views',
     apply(lvl) { document.body.classList.toggle('motion', lvl > 0); },   // the look follows the switch (the check, the crossfade); the level is the settle's
     demo(ctx) {
       if (!RM) $('board').animate([{ opacity: .3 }, { opacity: 1 }], { duration: 220, easing: 'ease-out' });

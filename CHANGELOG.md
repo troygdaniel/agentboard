@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### By agent: review and ask cards fit a lane; two more Motion pairings (Nov 3)
+- **A review or ask card no longer runs off the edge of its By agent lane.** The Send button drops under the reply field when the card is narrow, and a long status line ("abandoned? no update 12h ago") ends in an ellipsis instead of past the card. By agent already draws the Board's Doing card design (the same tint, border and glow by state), so the cards match; this was the one visible gap.
+- **In a lane the card's status text sits on the left**, where the agent chip would be (the lane already names the agent), instead of floating alone at the right. With a Report chip in the row it stays to the right of that.
+- **Motion (the Mix layer, off until you choose it) now covers By agent and review**: a lane that appears because an agent just started slides in as its card glides over and settles; a card that reaches review has its edge bar draw itself in, green, with the review chime. A view switch does not count as a new lane. The sounds are the ones already there; nothing changes with Motion off. Not taken (your call left to me): a state dot in the lane header, the agent's colour on the lane panel, a tick per finished subtask, a dim for a quiet agent, a brighten when the panel opens.
+
 ### Load's Doing column sits where Board's does (Nov 3)
 - **The Live bar under the tabs is gone from Load**, with its alert chips (backup age, abandoned, needs input, to review, quiet, average time to ship). It pushed Load's Doing column 42px lower than Board and By agent draw theirs, so switching to Load jumped. The overlay now uses the board's own gutters, and the Doing column has the same top, left edge and bottom on all three views at every width, down to a phone. The header's summary and its Disconnected chip carry the counts and the connection state; `f` still toggles fullscreen.
 
