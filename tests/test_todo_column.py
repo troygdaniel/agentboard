@@ -36,7 +36,7 @@ class TodoColumnTests(unittest.TestCase):
 
     def test_the_stacked_phone_layouts_keep_the_narrow_todo_cards(self):
         self.assertIn(".col.todo .card { max-width: 340px; }", HTML)
-        self.assertIn("body.byagent .col.todo { flex-basis: min(86%, 300px); }", HTML)
+        self.assertIn("body.byagent .board .col.todo { flex-basis: min(86%, 300px); }", HTML)
 
     def test_todo_cards_do_not_say_unassigned_and_copy_prompt_is_in_the_foot_row(self):
         self.assertNotIn(".card[data-status=\"todo\"] .unas", HTML)

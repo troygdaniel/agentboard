@@ -47,7 +47,7 @@
       --a1: #60a5fa; --a2: #c084fc; --a3: #f472b6; --a4: #22d3ee; --a5: #94a3b8; --a6: #e879f9; --on-agent: #0b1220;
     }
   }
-  :root[data-theme="dark"], #h-cards, #h-todo-wrap {   /* #h-cards, #h-todo-wrap: the Doing and Todo cards on Load, which is always dark, take the dark set whatever the theme */
+  :root[data-theme="dark"] {
       --bg: #070b12; --surface: #0f1722; --line: #1c2a3a;
       --text: #d6e9ff; --muted: #7f95ad; --accent: #d6e9ff;
       --run: #ff9a3c; --warn: var(--hwarn); --ok: var(--hok); --err: var(--hbad); --neutral: #4b5f75; --info: var(--hcy);
@@ -496,13 +496,23 @@
      shrinking .wrap, so Todo (leftmost) never gets squashed while it's open */
 
   /* ===== HUD (always dark; a deliberate departure from the calm board) ===== */
-  #hud { position: fixed; inset: 0; top: var(--hdr-b, 0px); z-index: 30; display: none; background: rgba(2,4,8,.6); backdrop-filter: blur(8px); padding: 0; }
+  #hud { position: fixed; inset: 0; top: var(--hdr-b, 0px); z-index: 30; display: none; padding: 0;
+    background:   /* the page's own background (body), so Load sits on what Board and By agent sit on */
+      radial-gradient(1000px 460px at 10% -8%, var(--glow1), transparent 70%) no-repeat,
+      radial-gradient(760px 420px at 96% -6%, var(--glow2), transparent 70%) no-repeat,
+      radial-gradient(700px 420px at 92% 108%, var(--glow3), transparent 70%) no-repeat,
+      radial-gradient(520px 360px at 4% 96%, var(--glow4), transparent 70%) no-repeat,
+      radial-gradient(var(--dot) 1px, transparent 1px) 0 0 / 22px 22px,
+      var(--bg);
+    background-attachment: fixed; }
   #hud.open { display: block; }
   body:has(#hud.open) :is(#panel, #later, #chat) { z-index: 32; }   /* Later and Chat are in the header Load keeps on screen: they open over it */
   .hud {
-    --hbg: #04070c; --hline: rgba(110,190,255,.17); --htext: #d6e9ff; --hdim: #7f95ad;
-    --hcy: #5ee7ff; --hok: #5dffb0; --hwarn: #ffc857; --hbad: #ff6b6b;
-    --c0: #ff9a3c;   /* the "working" color: one token, used by the legend dot, track segments and lane state alike */
+    /* Nov 3: Load follows the theme like Board and By agent. Its tokens come from the page's (the dark theme maps its status
+       colours onto the neons, so dark looks as it did; light gets the board's light set) */
+    --hbg: var(--bg); --hline: var(--line); --htext: var(--text); --hdim: var(--muted);
+    --hcy: var(--info, #5ee7ff); --hok: var(--ok); --hwarn: var(--warn); --hbad: var(--err);
+    --c0: var(--run);   /* the "working" color: one token, used by the legend dot, track segments and lane state alike */
     /* Type scale + tracking. Pick from these rather than inventing a 12.5px — the HUD had grown
        14 distinct font sizes across separate passes, which is what made it read as a collection
        of separately-styled pieces rather than one instrument panel. */
@@ -511,18 +521,9 @@
     position: relative; height: 100%; max-width: none; margin: 0; overflow: hidden;   /* fills the viewport on first open */
     border: 0; border-radius: 0; color: var(--htext);
     font: 16px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; font-variant-numeric: tabular-nums;
-    background:
-      radial-gradient(900px 520px at 50% -25%, rgba(94,231,255,.13), transparent 70%),
-      radial-gradient(700px 420px at 92% 108%, rgba(93,255,176,.07), transparent 70%),
-      radial-gradient(520px 360px at 4% 96%, rgba(94,231,255,.06), transparent 70%),
-      linear-gradient(rgba(94,231,255,.035) 1px, transparent 1px) 0 0 / 40px 40px,
-      linear-gradient(90deg, rgba(94,231,255,.035) 1px, transparent 1px) 0 0 / 40px 40px,
-      var(--hbg);
-    box-shadow: 0 0 0 1px rgba(94,231,255,.06), 0 30px 120px rgba(0,0,0,.6), inset 0 0 120px rgba(94,231,255,.04);
+    background: none; box-shadow: none;
     display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); padding: 18px 28px 22px;   /* .wrap's padding: the Doing column sits where Board's does */
   }
-  .hud::after { content: ''; position: absolute; inset: 0; pointer-events: none; opacity: .1;
-    background: repeating-linear-gradient(transparent 0 2px, rgba(0,0,0,.22) 2px 3px); }
   #hud.full { padding: 0; }
   #hud.full .hud { max-width: none; border-radius: 0; border: 0; }
   /* Load has no bar of its own (Nov 3: the Live bar and its alert chips went; they pushed the Doing column 42px under where Board and By agent
@@ -543,7 +544,7 @@
   /* Load (Nov 3): the Doing cards on the left, the same cards in the same design as Board and By agent (they glide across when Load opens
      and closes), the telemetry and agent-load grid on the right as before. A narrow window stacks the cards above the grid. */
   /* Load (Nov 3, later): the Todo column too, the same one Board and By agent draw (todoColHtml), at its one width, left of Doing */
-  .h-grid { --todo-w: clamp(220px, 17vw, 270px); display: grid; grid-template-columns: var(--todo-w) minmax(300px, 1fr) minmax(0, 2fr); grid-template-rows: minmax(0, 1fr); gap: 16px; min-height: 0; }
+  .h-grid { --todo-w: clamp(220px, 17vw, 270px); display: grid; grid-template-columns: var(--todo-w) minmax(0, 1.4fr) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); gap: 18px; min-height: 0; }   /* the Board's tracks: the telemetry sits where Done sits */
   #h-todo-wrap { display: contents; }   /* the Todo section itself is the grid item */
   #h-cards, #h-todo-wrap { --fs-xs: 11px; --fs-sm: 12px; --fs-md: 13px; --fs-base: 14px; --fs-lg: 15px; --fs-xl: 23px; --tr-wide: .24em; --tr-label: .16em; --tr-tight: .06em;
     font: var(--fs-base)/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; color: var(--text); }
@@ -584,7 +585,7 @@
   /* the age may take two lines ("wrapped / 2h") rather than run under the bar */
   .h-one .h-since { white-space: normal; line-height: 1.2; font-size: var(--fs-sm); }
   /* the load column reads as its own column: a divider at its left edge, down every row */
-  .h-one .h-load { position: relative; padding-left: var(--gap); margin-left: calc(-1 * var(--gap)); border-left: 1px solid rgba(110,190,255,.14); align-self: stretch; display: flex; flex-direction: column; justify-content: center; align-items: stretch; gap: 6px; }
+  .h-one .h-load { position: relative; padding-left: var(--gap); margin-left: calc(-1 * var(--gap)); border-left: 1px solid var(--hline); align-self: stretch; display: flex; flex-direction: column; justify-content: center; align-items: stretch; gap: 6px; }
   .h-one .h-head .h-h2 { padding-left: var(--gap); margin-left: calc(-1 * var(--gap)); }   /* the ticks stay on the bare column: left:0% must be the bar's left edge */
   /* head and foot sit outside the scroll box; the rows inside it lose 6px to the scrollbar. The
      gutter is reserved always and the head/foot pad the same 6px, so the bar column (fr-sized)
@@ -599,7 +600,7 @@
   .h-head .h-h2 h4 { margin: 0; }
   .h-head .ln-wait { float: none; margin-left: 18px; }
   .h-one .h-scroll { display: flex; flex-direction: column; }
-  .h-one .h-row { flex: 1 0 auto; min-height: 126px; }   /* room for title + chart + load track on the right */
+  .h-one .h-row { flex: 1 0 auto; min-height: 108px; }
   .h-one .h-row:first-child { border-top: 0; }
   .h-load .ln-track { height: clamp(30px, 26%, 56px); min-height: 0; flex: none; width: 100%; }   /* grows a little with a tall row */
   /* (2026-10-24) tall rows left empty space around the text. Each row now carries its last
@@ -611,7 +612,7 @@
   @media (max-height: 820px) { .h-recent { display: none; } }
   .h-row.idle .h-load .ln-track { opacity: .45; }
   /* the queue is the last row of the same grid: label where the names are, bars where the bars are */
-  .h-row.h-q { flex: none; min-height: 56px; max-height: 64px; border-top: 1px solid rgba(110,190,255,.14);
+  .h-row.h-q { flex: none; min-height: 56px; max-height: 64px; border-top: 1px solid var(--hline);
     position: sticky; bottom: 0; z-index: 2; background: var(--hbg); }   /* stays in view when the open idle rows push it below the fold (Nov 2) */
   .h-row.h-q .h-who { color: var(--hcy); font-size: var(--fs-sm); letter-spacing: var(--tr-label); align-self: center; }
   .h-row.h-q .h-load .ln-track { display: flex; align-items: flex-end; gap: 2px; padding: 0 1px; height: 30px; }
@@ -620,13 +621,24 @@
   .h-foot { flex: none; padding: 8px 18px 0 16px; border-top: 1px solid var(--hline); align-items: center; }
   .h-foot .ln-leg { grid-area: who; justify-self: start; }
   .h-foot .ln-ticks { grid-area: load; }
-  @media (max-width: 1100px) {
-    .h-one { --cols: 40px minmax(0, 1fr) 110px; }
-    .h-one .h-head, .h-one .h-row, .h-one .h-foot { grid-template-areas: "av who since" "av load load"; }
+  /* the telemetry column is Done's width (Nov 3), so it re-flows by its own width, whatever the window: under 760px the hour bar
+     goes under the text and the AGENT LOAD title goes (the -60m..now ticks say it); under 480px the state sits under the name and the type steps down */
+  .h-one { container-type: inline-size; }
+  @container (max-width: 760px) {
+    .h-one .h-head, .h-one .h-row, .h-one .h-foot { --cols: 40px minmax(0, 1fr) 90px; grid-template-areas: "av who since" "av load load"; }
     .h-one .h-load { border-left: 0; padding-left: 0; margin-left: 0; }
-    .h-one .h-head .h-h2 { padding-left: 0; margin-left: 0; }
-    .h-head .h-h2 { justify-content: flex-start; }
+    .h-one .h-head .h-h2 { display: none; }
     .h-load { margin-top: 8px; }
+    .h-one .h-row { min-height: 96px; }
+  }
+  @container (max-width: 480px) {
+    .h-one .h-head, .h-one .h-row, .h-one .h-foot { --cols: 32px minmax(0, 1fr) 64px; --gap: 10px; }
+    .h-av { width: 28px; height: 28px; font-size: var(--fs-sm); }
+    .h-name { flex-wrap: wrap; gap: 2px 8px; font-size: var(--fs-md); }
+    .h-name em { flex-basis: 100%; }
+    .h-since, .h-status, .h-ask { font-size: var(--fs-sm); }
+    .h-row.h-q .h-who { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .ln-leg { font-size: var(--fs-xs); gap: 0 6px; }
   }
   /* ----- attention rows (2026-10-24: "highlight the agent that is asking, make it look like the
      top panel did; my name doesn't need to be mentioned"). A row whose card needs a person is tinted
@@ -647,7 +659,7 @@
      per-lane caps below, scaled to the viewport, plus the idle rows absorbing whatever height
      the active lanes don't — the panel reads full without any one lane ballooning. */
   .hp { border: 1px solid var(--hline); border-radius: 12px; padding: 12px 16px 14px; display: flex; flex-direction: column; min-height: 0; overflow: hidden;
-    background: linear-gradient(180deg, rgba(14,25,38,.74), rgba(8,15,24,.66));
+    background: var(--panel); box-shadow: inset 0 1px 0 var(--panel-hi), var(--panel-sh);   /* the Board's column panel, so Load's telemetry sits like Done does */
     box-shadow: inset 0 1px 0 rgba(255,255,255,.045), 0 18px 40px -26px rgba(0,0,0,.9); }
   .hp h4 { margin: 0 0 10px; font-weight: 500; font-size: var(--fs-xs); letter-spacing: var(--tr-label); color: var(--hdim); text-transform: uppercase; flex: none; }
   .hp h4::before { content: '// '; color: var(--hcy); }
@@ -751,7 +763,7 @@
   .ln.idle { flex: 0 0 auto; height: clamp(44px, 7vh, 78px); max-height: none; opacity: .86; filter: saturate(.35); transition: opacity .2s ease, filter .2s ease, background .2s ease; }
   .ln.idle:hover { opacity: 1; filter: none; background: rgba(110,190,255,.04); }
   .ln-rest { align-self: stretch; display: flex; flex-direction: column; justify-content: center; gap: 2px; min-width: 0; padding: 0 14px;
-    border-radius: 6px; border: 1px dashed rgba(110,190,255,.14); background: rgba(110,190,255,.025); }
+    border-radius: 6px; border: 1px dashed var(--hline); background: rgba(110,190,255,.025); }
   .ln-rest-t { color: var(--htext); font-size: var(--fs-sm); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .ln-rest-when { color: var(--hdim); font-size: var(--fs-xs); letter-spacing: var(--tr-tight); }
   .ln-who, .ln-sum { align-self: center; }
@@ -761,7 +773,7 @@
     background: color-mix(in srgb, var(--c) 14%, transparent); box-shadow: inset 0 0 0 1.5px var(--c), 0 0 10px -2px var(--c); }
   /* the track is a recessed channel: lighter at the top edge, shadowed at the bottom, with the
      15-minute gridlines showing through — segments sit "in" it rather than on a flat strip */
-  .ln-track { position: relative; height: 100%; min-height: 28px; border-radius: 7px; overflow: hidden; border: 1px solid rgba(110,190,255,.14);
+  .ln-track { position: relative; height: 100%; min-height: 28px; border-radius: 7px; overflow: hidden; border: 1px solid var(--hline);
     background: linear-gradient(90deg, rgba(110,190,255,.16) 1px, transparent 1px) 0 0 / 25% 100%, linear-gradient(180deg, rgba(110,190,255,.075), rgba(110,190,255,.03));
     box-shadow: inset 0 1px 0 rgba(255,255,255,.05), inset 0 -10px 18px -14px rgba(0,0,0,.75); }
   .ln-track::after { content: ''; position: absolute; right: 0; top: 0; bottom: 0; width: 3px; background: var(--hcy); box-shadow: 0 0 12px 2px rgba(94,231,255,.55); opacity: .8; }
@@ -808,7 +820,7 @@
   @media (prefers-reduced-motion: reduce) { .hud *, .hud *::before, .hud *::after { animation: none !important; } }
   body.solo { overflow: hidden; }
   body.solo .wrap > :not(header), body.solo #toast, body.solo #keys { display: none; }   /* the pop-out keeps the board's header too: same nav on every view */
-  body.solo #hud { padding: 0; background: #04070c; backdrop-filter: none; }
+  body.solo #hud { padding: 0; background: var(--bg); }
   body.solo .hud { max-width: none; border: 0; border-radius: 0; }
   /* detail panel */
   .card { cursor: pointer; }
@@ -1091,7 +1103,7 @@
   /* ----- By agent (/agents): the Todo column (the same one the Board draws), then the board's cards in swimlane columns,
      one per agent with a card in Doing. No Queue, Idle or Done column, so the agents get the width. ----- */
   body.byagent .board { grid-template-columns: var(--tracks); overflow-x: auto; scrollbar-gutter: stable; padding-bottom: 4px; }
-  body.byagent .col { min-width: 220px; }
+  body.byagent .board .col { min-width: 220px; }
   .col.acol { border-top: 2px solid var(--c, var(--neutral)); }
   .col.acol h2 { color: var(--text); letter-spacing: 0; text-transform: none; font-size: var(--fs-md); gap: 7px; }
   .col.acol h2 .av { width: 20px; height: 20px; font-size: var(--fs-xs); }
@@ -1109,9 +1121,9 @@
   .col.acol h2 .nm { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
   @media (max-width: 900px) {   /* a phone: swipe sideways, one column per screen */
     body.byagent .board { display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; }
-    body.byagent .col { flex: 0 0 86%; min-width: 0; scroll-snap-align: start; max-height: 70vh; }
-    body.byagent .col.todo { flex-basis: min(86%, 300px); }
-    body.byagent .cards { overflow-y: auto; flex: 1; }
+    body.byagent .board .col { flex: 0 0 86%; min-width: 0; scroll-snap-align: start; max-height: 70vh; }   /* the board's columns only: Load's Todo column is a .col too and must not be capped */
+    body.byagent .board .col.todo { flex-basis: min(86%, 300px); }
+    body.byagent .board .cards { overflow-y: auto; flex: 1; }
   }
   @media (max-width: 900px) {   /* below this three columns no longer fit (cards and the header overflowed at ~780px) */
     .wrap { height: auto; min-height: 100vh; padding: 18px 16px 40px; }   /* 18px down, as on desktop: the tab row sits where it does on the other pages */
@@ -2848,7 +2860,7 @@ function litTab() {
 }
 window.addEventListener('resize', placeHud);
 new ResizeObserver(placeHud).observe(document.querySelector('header'));
-function hudColor(c) { return /^[#\w(),.% -]{1,32}$/.test(c || '') ? c : '#5ee7ff'; }
+function hudColor(c) { return /^[#\w(),.% -]{1,32}$/.test(c || '') ? c : 'var(--hcy)'; }
 const hh = s => esc(String(s ?? ''));
 const clip = (s, n) => { s = String(s ?? ''); return s.length > n ? s.slice(0, n - 1) + '…' : s; };
 

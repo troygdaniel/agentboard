@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Load sits on the Board's grid and follows the theme (Nov 3)
+- **Load's three columns use the Board's own tracks**: Todo, Doing and the telemetry sit exactly where Board's Todo, Doing and Done sit (same left, right, top and bottom at every window width), so flipping Board ↔ Load moves nothing but the content. The telemetry is Done's width now and **re-flows by its own width**: under 760px the hour bar goes under the text and the AGENT LOAD title goes (the time axis says it); under 480px the state sits under the name and the type steps down. The column scrolls when the rows outgrow it.
+- **Load follows the theme like Board and By agent.** It sits on the page's own background (dots and glows) instead of its black backdrop with blur, grid lines and scanlines; the Todo and Doing columns take the theme like the Board's; the telemetry panel is the Board's column panel and its text, lines and state colours come from the page's tokens, so the light theme gets a light Load. The dark theme looks as it did (it already mapped its status colours onto the HUD's neons).
+
 ### The shortcuts work on Load (Nov 3)
 - **On Load the arrows and `j` / `k` walk the Doing cards, `Enter` opens one, and `c`, `d` and `u` act on the card you are on.** Only `[`, `]`, `m`, `s`, `c`, `d`, `u`, `f` and `h` did anything there before; the arrows, `j` / `k`, `?`, `l`, `a`, `e` and `n` were silent, because Load swallowed every other key.
 - **`?` and `l` open the shortcut list and the Later list over Load, `e` edits the open card's title, `a` goes to By agent, and `n` closes Load to show the new-task field** (the field lives on the board). `Shift` + arrows (the selection bar) and `Alt` + arrows (moving a card between columns) stay off on Load, and the list now says so. The pop-out Load window keeps its short list: it has no board.
