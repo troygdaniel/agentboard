@@ -1,11 +1,11 @@
 """Done summary: what was actually done, as one page (and one text block) that can be understood at a glance.
 
-It is about the work, not the management of it. Each project is split into work areas (themes found in the card titles) and each
+It is about the work, not the management of it. Each agent's cards are split into work areas (themes found in the card titles) and each
 card is tagged by the kind of change (added, fixed, improved, tested, documented, explored). A card row shows the title and the
 outcome in one line; it opens to what was asked, the full result, the timeline and links to the board card and its report.
-One stacked bar per project shows the mix of kinds; a search box and a kind filter scope the whole page. Colours come from a
+One stacked bar per agent shows the mix of kinds; a search box and a kind filter scope the whole page. Colours come from a
 validated categorical palette (light and dark) and every colour sits beside its word. Everything an agent wrote is escaped.
-Read-only: it never writes to the board. Served at /summary (?since=1d|7d|30d|all&project=<id>) and printed by `agentboard summary`."""
+Read-only: it never writes to the board. Served at /summary (?since=1d|7d|30d|all&agent=<name>) and printed by `agentboard summary`."""
 import functools
 import html
 import json
@@ -17,7 +17,7 @@ from .store import DEFAULT_OWNER, BoardError
 
 DEFAULT_SINCE = "7d"
 LINE_MAX = 150
-TEXT_MAX = 12       # cards per project in the text version; the rest is a count
+TEXT_MAX = 12       # cards per agent in the text version; the rest is a count
 THEME_SHOWN = 5     # cards per work area shown in the page; the rest opens under "more"
 OTHER_SHOWN = 3     # the same for the cards that fit no area
 MAX_THEMES = 7
@@ -139,10 +139,10 @@ def _tokens(title):
     return out
 
 
-def themes(cards, project_name="", owner=DEFAULT_OWNER):
-    """Split a project's cards into work areas: a word that several titles share names an area; the rest is 'Other'."""
+def themes(cards, group_name="", owner=DEFAULT_OWNER):
+    """Split a group's cards into work areas: a word that several titles share names an area; the rest is 'Other'."""
     n = len(cards)
-    skip = {k for k, _w in _tokens(project_name)} | {re.sub(r"[^a-z0-9]", "", project_name.lower()), owner.lower()}
+    skip = {k for k, _w in _tokens(group_name)} | {re.sub(r"[^a-z0-9]", "", group_name.lower()), owner.lower()}
     toks = [[kw for kw in _tokens(c["title"]) if kw[0] not in skip] for c in cards]
     df, casing = {}, {}
     for ts in toks:
@@ -169,22 +169,22 @@ def themes(cards, project_name="", owner=DEFAULT_OWNER):
     return out
 
 
-def collect(tasks, projects, since="7d", project=None, today=None, owner=DEFAULT_OWNER):
-    """{'projects': [{id, name, count, cards, themes: [{name, cards}], kinds: {kind: n}}], 'kinds': {kind: n}, 'total',
-    'prev' (the same-length window before this one, or None), 'facts': [str], 'first', 'today', 'n_days'}"""
+def collect(tasks, since="7d", agent=None, today=None, owner=DEFAULT_OWNER):
+    """{'groups': [{id, name, count, cards, themes: [{name, cards}], kinds: {kind: n}}] (one group per agent, 'Unassigned' for
+    cards with none), 'kinds': {kind: n}, 'total', 'prev' (the same-length window before this one, or None), 'facts': [str],
+    'first', 'today', 'n_days'}"""
     today = today or date.today()
     first = parse_since(since, today)
-    names = {p["id"]: p.get("name") or p["id"] for p in projects}
-    if project and project not in names and not any(t.get("project_id") == project for t in tasks):
-        raise BoardError(f"no such project '{project}'")
+    if agent and not any(t.get("agent") == agent for t in tasks):
+        raise BoardError(f"no such agent '{agent}'")
     n_days = (today - first).days + 1 if first else None
     prev_lo = first - timedelta(days=n_days) if first else None
-    by_proj, prev = {}, 0
+    by_agent, prev = {}, 0
     for t in tasks:
         if t.get("status") != "done" or t.get("parent_id"):
             continue
-        pid = t.get("project_id") or ""
-        if project and pid != project:
+        pid = t.get("agent") or ""
+        if agent and pid != agent:
             continue
         at = hud._marked_at(t) or hud._t(t.get("updated"))
         if not at or at.date() > today:
@@ -193,18 +193,18 @@ def collect(tasks, projects, since="7d", project=None, today=None, owner=DEFAULT
             if prev_lo and at.date() >= prev_lo:
                 prev += 1
             continue
-        by_proj.setdefault(pid, []).append(_card(t, at, owner))
+        by_agent.setdefault(pid, []).append(_card(t, at, owner))
     out, kinds = [], {}
-    for pid, cards in by_proj.items():
+    for pid, cards in by_agent.items():
         cards.sort(key=lambda c: c["at"], reverse=True)
         pk = {}
         for c in cards:
             pk[c["kind"]] = pk.get(c["kind"], 0) + 1
             kinds[c["kind"]] = kinds.get(c["kind"], 0) + 1
-        name = names.get(pid) or ("No project" if not pid else pid)
+        name = pid or "Unassigned"
         out.append({"id": pid, "name": name, "cards": cards, "count": len(cards), "themes": themes(cards, name, owner), "kinds": pk})
     out.sort(key=lambda p: (-p["count"], p["name"].lower()))
-    data = {"since": since, "first": first, "today": today, "n_days": n_days, "projects": out, "kinds": kinds,
+    data = {"since": since, "first": first, "today": today, "n_days": n_days, "groups": out, "kinds": kinds,
             "total": sum(p["count"] for p in out), "prev": prev if first else None, "owner": owner}
     data["facts"] = facts(data)
     return data
@@ -228,14 +228,14 @@ def facts(data):
     out, total = [], data["total"]
     if not total:
         return out
-    if len(data["projects"]) > 1:
-        p = data["projects"][0]
+    if len(data["groups"]) > 1:
+        p = data["groups"][0]
         out.append(f"Most of it: {p['name']} ({_pct(p['count'], total)}%).")
     ks = [k for k in kind_order(data["kinds"]) if k != CHANGED]
     if len(ks) > 1:
         a, b = ks[0], ks[1]
         out.append(f"Mostly {a.lower()} ({_pct(data['kinds'][a], total)}%) and {b.lower()} ({_pct(data['kinds'][b], total)}%).")
-    areas = [(th, p) for p in data["projects"] for th in p["themes"] if th["name"] and th["name"] != "Other"]
+    areas = [(th, p) for p in data["groups"] for th in p["themes"] if th["name"] and th["name"] != "Other"]
     if areas:
         th, p = max(areas, key=lambda tp: len(tp[0]["cards"]))
         out.append(f"Biggest area: {th['name']} in {p['name']} ({len(th['cards'])}).")
@@ -248,14 +248,14 @@ def _span(data):
 
 
 def to_text(data):
-    """The same summary as plain text (markdown-ish), for a message or a daily log: project, work area, one line per card."""
+    """The same summary as plain text (markdown-ish), for a message or a daily log: agent, work area, one line per card."""
     lines = [f"# Done: {_span(data)}", ""]
     if not data["total"]:
         return "\n".join(lines + ["Nothing finished in this window.", ""])
-    n_pr = len(data["projects"])
-    lines.append(f"**{data['total']} card{_s(data['total'])}** finished across {n_pr} project{_s(n_pr)}." + (" " + " ".join(data["facts"]) if data["facts"] else ""))
+    n_pr = len(data["groups"])
+    lines.append(f"**{data['total']} card{_s(data['total'])}** finished by {n_pr} agent{_s(n_pr)}." + (" " + " ".join(data["facts"]) if data["facts"] else ""))
     lines.append("")
-    for p in data["projects"]:
+    for p in data["groups"]:
         lines += [f"## {p['name']} ({p['count']})", " · ".join(f"{k} {n}" for k, n in ((k, p["kinds"][k]) for k in kind_order(p["kinds"]))), ""]
         left = TEXT_MAX
         for th in p["themes"]:
@@ -278,9 +278,9 @@ def _mm(text):
 
 
 def to_mermaid(data):
-    """The shape of the work as a Mermaid mindmap (window, projects, work areas with counts): paste into GitHub, Obsidian or Notion."""
+    """The shape of the work as a Mermaid mindmap (window, agents, work areas with counts): paste into GitHub, Obsidian or Notion."""
     lines = ["mindmap", f"  root(({_mm('Done ' + _span(data))} {data['total']}))"]
-    for p in data["projects"]:
+    for p in data["groups"]:
         lines.append(f"    {_mm(p['name'])} {p['count']}")
         for th in p["themes"]:
             if th["name"]:
@@ -328,7 +328,7 @@ MAP_W, MAP_H, PAD, BAND = 760, 300, 3, 18
 
 
 def _aid(pid, i):
-    return f"area-{_pid(pid)[5:]}-{i}"
+    return f"area-{_pid(pid)[4:]}-{i}"
 
 
 def _dominant(cards):
@@ -339,14 +339,14 @@ def _dominant(cards):
 
 
 def _map(data):
-    """The work map: one tile per project, split into its work areas, each sized by cards and washed with its main kind of change."""
+    """The work map: one tile per agent, split into its work areas, each sized by cards and washed with its main kind of change."""
     e = html.escape
-    rows = [(p["id"], p["count"]) for p in data["projects"]]
+    rows = [(p["id"], p["count"]) for p in data["groups"]]
     if data["total"] < 2:
         return ""
     h = MAP_H if len(rows) > 1 else 200
-    out = [f'<svg class="map" viewBox="0 0 {MAP_W} {h}" role="img" aria-label="Work map: projects and their work areas, sized by cards finished">']
-    for p, (px, py, pw, ph) in ((p, squarify(rows, 0, 0, MAP_W, h)[p["id"]]) for p in data["projects"]):
+    out = [f'<svg class="map" viewBox="0 0 {MAP_W} {h}" role="img" aria-label="Work map: agents and their work areas, sized by cards finished">']
+    for p, (px, py, pw, ph) in ((p, squarify(rows, 0, 0, MAP_W, h)[p["id"]]) for p in data["groups"]):
         out.append(f'<g class="ptile"><rect x="{px:.1f}" y="{py:.1f}" width="{pw:.1f}" height="{ph:.1f}" rx="6"/>')
         label = p["name"] if pw > 7.5 * len(p["name"]) + 12 else (p["name"][:max(1, int((pw - 12) / 7.5)) - 1] + "…" if pw > 40 else "")
         if label and ph > BAND + 6:
@@ -401,21 +401,21 @@ body.filtered .facts{{opacity:.45}}
 h2{{font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--mut);margin:0 0 10px}}h2 small{{text-transform:none;letter-spacing:0;font-weight:400;margin-left:8px}}
 .box{{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin:16px 0 0}}
 .kbar{{display:flex;gap:2px;height:14px;border-radius:4px;overflow:hidden;background:var(--bg)}}.kbar i{{display:block;background:var(--c);min-width:2px}}
-.kbar i:hover{{filter:brightness(1.12)}}.proj .kbar{{height:8px;flex:1;min-width:8rem;max-width:22rem}}
+.kbar i:hover{{filter:brightness(1.12)}}.grp .kbar{{height:8px;flex:1;min-width:8rem;max-width:22rem}}
 .legend{{display:flex;gap:4px 6px;flex-wrap:wrap;margin:10px 0 0}}.lg{{display:inline-flex;gap:7px;align-items:center;font:inherit;font-size:14px;min-height:36px;padding:4px 12px 4px 10px;border:1px solid var(--line);border-radius:99px;background:none;color:var(--fg);cursor:pointer}}
 .lg:hover{{background:var(--bg)}}.lg.on{{border-color:var(--ac);background:var(--bg);font-weight:600}}.lg i{{display:block;width:10px;height:10px;border-radius:3px;background:var(--c)}}
 .lg .n{{color:var(--mut);font-variant-numeric:tabular-nums}}.hint{{font-size:12px;color:var(--mut);margin:8px 0 0}}
 .mark.off{{background:var(--dim)!important}}
-.proj{{margin:18px 0 0;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;scroll-margin-top:12px}}
-.proj header{{display:flex;gap:8px 16px;align-items:center;flex-wrap:wrap}}.proj h3{{margin:0;font-size:19px}}.proj h3 .n{{font-size:14px;color:var(--mut);font-weight:400;margin-left:8px;font-variant-numeric:tabular-nums}}
-.proj header .mix{{display:flex;align-items:center;gap:10px;flex:1;min-width:12rem;font-size:12px;color:var(--mut)}}
+.grp{{margin:18px 0 0;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 16px;scroll-margin-top:12px}}
+.grp header{{display:flex;gap:8px 16px;align-items:center;flex-wrap:wrap}}.grp h3{{margin:0;font-size:19px}}.grp h3 .n{{font-size:14px;color:var(--mut);font-weight:400;margin-left:8px;font-variant-numeric:tabular-nums}}
+.grp header .mix{{display:flex;align-items:center;gap:10px;flex:1;min-width:12rem;font-size:12px;color:var(--mut)}}
 .mapwrap{{overflow-x:auto}}.map{{width:100%;height:auto;display:block;font-size:12px}}@media(max-width:600px){{.map{{min-width:600px}}}}.ptile>rect{{fill:none;stroke:var(--line);stroke-width:1}}.ptile>text{{fill:var(--fg);font-weight:600;font-size:13px}}
 .tile rect{{fill:var(--c);fill-opacity:.3;stroke:var(--card);stroke-width:2}}.tile:hover rect,.tile:focus rect{{fill-opacity:.55}}.tile text{{fill:var(--fg);pointer-events:none}}
 .map .cnt{{fill:var(--mut);font-size:11px;font-weight:400}}.tile.off rect{{fill:var(--dim);fill-opacity:.5}}.tile.off text{{fill:var(--mut)}}
 details.theme{{margin:10px 0 0;border-top:1px solid var(--line)}}details.theme>summary{{list-style:none;display:grid;grid-template-columns:auto auto 1fr 7rem;gap:12px;align-items:center;min-height:44px;cursor:pointer;padding:4px 0}}
 details.theme>summary:hover{{background:var(--bg)}}details.theme>summary::before{{content:"▸";color:var(--mut);font-size:12px;position:absolute;margin-left:-14px}}details.theme[open]>summary::before{{content:"▾"}}
 .theme .an{{font-size:14px;font-weight:600}}.theme .n{{color:var(--mut);font-variant-numeric:tabular-nums;font-size:14px}}.theme .tb{{height:6px;border-radius:0 3px 3px 0;background:var(--s0,#2a78d6);opacity:.4;max-width:14rem}}
-.theme>summary .kbar{{height:6px}}.proj .theme{{padding-left:14px}}
+.theme>summary .kbar{{height:6px}}.grp .theme{{padding-left:14px}}
 @media(max-width:600px){{details.theme>summary{{grid-template-columns:auto auto 1fr}}.theme>summary .kbar{{display:none}}}}
 details.cd{{border-top:1px solid var(--line)}}details.cd summary{{list-style:none;display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:baseline;padding:7px 0;cursor:pointer;min-height:40px}}
 summary::-webkit-details-marker{{display:none}}.cd summary:hover{{background:var(--bg)}}
@@ -459,7 +459,7 @@ function apply() {
   $$('.cd').forEach(d => { const ok = (!focus || d.dataset.kind === focus) && (!qq || d.dataset.q.includes(qq)); d.hidden = !ok; if (ok) shown++; });
   $$('details.more').forEach(d => { d.open = on; const k = d.querySelectorAll('.cd:not([hidden])').length; d.hidden = !k; d.querySelector('summary').textContent = k + ' more'; });
   $$('.theme').forEach(g => { const k = g.querySelectorAll('.cd:not([hidden])').length; g.hidden = !k; g.querySelector('.n').textContent = k; if (on) g.open = true; else if (!g.dataset.user) g.open = false; });
-  $$('.proj').forEach(p => { const k = p.querySelectorAll('.cd:not([hidden])').length; p.hidden = !k; p.querySelector('h3 .n').textContent = k; });
+  $$('.grp').forEach(p => { const k = p.querySelectorAll('.cd:not([hidden])').length; p.hidden = !k; p.querySelector('h3 .n').textContent = k; });
   $$('a.tile').forEach(a => { const k = focus ? (JSON.parse(a.dataset.kinds)[focus] || 0) : Number(a.dataset.n); a.classList.toggle('off', !!focus && !k); const c = a.querySelector('.cnt'); if (c) c.textContent = k; });
   $('#big').textContent = shown; $('#of').textContent = on && shown !== total ? ' of ' + total : '';
 }
@@ -640,7 +640,7 @@ def _legend(kinds):
 
 
 def _pid(pid):
-    return "proj-" + (re.sub(r"[^A-Za-z0-9_-]", "-", pid) or "none")
+    return "who-" + (re.sub(r"[^A-Za-z0-9_-]", "-", pid) or "none")
 
 
 def _row(c, base, owner=DEFAULT_OWNER):
@@ -662,9 +662,9 @@ def _row(c, base, owner=DEFAULT_OWNER):
             f'<div class="body">{"".join(body)}<div class="links">{links}</div></div></details>')
 
 
-def _project(p, base, owner=DEFAULT_OWNER):
+def _group(p, base, owner=DEFAULT_OWNER):
     e = html.escape
-    parts = [f'<section class="proj" id="{_pid(p["id"])}"><header><h3>{e(p["name"])}<span class="n">{p["count"]}</span></h3>'
+    parts = [f'<section class="grp" id="{_pid(p["id"])}"><header><h3>{e(p["name"])}<span class="n">{p["count"]}</span></h3>'
              f'<div class="mix">{_kbar(p["kinds"], p["count"], "Kinds of change in " + p["name"])}</div></header>']
     for i, th in enumerate(p["themes"]):
         cards, shown = th["cards"], THEME_SHOWN if th["name"] and th["name"] != "Other" else OTHER_SHOWN
@@ -682,34 +682,34 @@ def _project(p, base, owner=DEFAULT_OWNER):
 def build_html(data, base=""):
     e = html.escape
     cur = data["since"] or DEFAULT_SINCE
-    proj = data.get("project") or ""
-    qp = f"&project={e(proj)}" if proj else ""
+    who = data.get("agent") or ""
+    qp = f"&agent={e(who)}" if who else ""
     seg = "".join(f'<a href="{e(base)}/summary?since={v}{qp}"{" class=on" if v == cur else ""}>{lab}</a>'
                   for v, lab in (("1d", "Today"), ("7d", "7 days"), ("30d", "30 days"), ("all", "All")))
     parts = ['<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex">',
              f'<title>Done summary</title><style>{CSS}{nav.CSS}</style></head><body data-total="{data["total"]}">{nav.top_bar(base, "summary", _span(data))}<main>',
              f'<div class="top"><div><h1>Done summary</h1><p class="meta">{e(_span(data))}</p></div>'
-             '<div class="acts"><button id="copy" type="button">Copy text</button><button id="copymm" type="button" title="A Mermaid mindmap of projects and work areas">Copy Mermaid</button><button id="save" type="button">Save as HTML</button>'
+             '<div class="acts"><button id="copy" type="button">Copy text</button><button id="copymm" type="button" title="A Mermaid mindmap of agents and work areas">Copy Mermaid</button><button id="save" type="button">Save as HTML</button>'
              '</div></div><p id="msg" role="status"></p>'
              f'<div class="filters"><div class="seg">{seg}</div><input id="q" type="search" placeholder="Search the work" aria-label="Search the work"><button id="clear" type="button">Clear</button></div>']
     if not data["total"]:
         parts.append('<p class="none">Nothing finished in this window.</p>')
     else:
-        n_pr = len(data["projects"])
+        n_pr = len(data["groups"])
         parts.append(f'<div class="hero"><span class="big"><span id="big">{data["total"]}</span><span id="of"></span></span>'
-                     f'<span class="lab"><b>cards finished</b> across {n_pr} project{_s(n_pr)}</span></div>')
+                     f'<span class="lab"><b>cards finished</b> by {n_pr} agent{_s(n_pr)}</span></div>')
         if data["facts"]:
             parts.append('<div class="facts">' + "".join(f'<span class="fact">{e(f)}</span>' for f in data["facts"]) + "</div>")
         parts.append(f'<div class="box"><h2>What kind of work</h2>{_kbar(data["kinds"], data["total"], "Kinds of change")}{_legend(data["kinds"])}</div>')
         m = _map(data)
         if m:
             parts.append(f'<div class="box"><h2>Where the work went<small>bigger is more; the colour is the main kind of change; click an area for its cards</small></h2><div class="mapwrap">{m}</div></div>')
-        parts += [_project(p, base, data.get("owner", DEFAULT_OWNER)) for p in data["projects"]]
+        parts += [_group(p, base, data.get("owner", DEFAULT_OWNER)) for p in data["groups"]]
     parts.append(f'<template id="txt">{e(to_text(data))}</template><template id="mmd">{e(to_mermaid(data))}</template><script>{JS}</script></main></body></html>')
     return "".join(parts)
 
 
-def build(store, since=DEFAULT_SINCE, project=None, today=None):
-    data = collect(store.load(), store.load_projects(), since, project, today, store.owner)
-    data["project"] = project or ""
+def build(store, since=DEFAULT_SINCE, agent=None, today=None):
+    data = collect(store.load(), since, agent, today, store.owner)
+    data["agent"] = agent or ""
     return data

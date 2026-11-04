@@ -247,48 +247,6 @@ class ReviewTests(unittest.TestCase):
             self.assertEqual(hud.build(s.load())["totals"]["done_today"], 1)
 
 
-class ProjectTests(unittest.TestCase):
-    def test_add_and_assign(self):
-        with tempfile.TemporaryDirectory() as d:
-            s = Store(Path(d) / ".agentboard")
-            p = s.add_project("Kitchen Remodel", "#ff0000")
-            s.add("Pick tile", status="todo", project_id=p["id"])
-            t = Store.get(s.load(), "pick-tile")
-            self.assertEqual(t["project_id"], p["id"])
-            self.assertEqual(s.load_projects()[0]["name"], "Kitchen Remodel")
-
-    def test_assign_unknown_project_raises(self):
-        with tempfile.TemporaryDirectory() as d:
-            s = Store(Path(d) / ".agentboard")
-            s.add("A", status="todo")
-            with self.assertRaises(BoardError):
-                s.set_project("a", "nope")
-
-    def test_unassign_clears_project_id(self):
-        with tempfile.TemporaryDirectory() as d:
-            s = Store(Path(d) / ".agentboard")
-            p = s.add_project("Taxes")
-            s.add("A", status="backlog", project_id=p["id"])
-            s.set_project("a", None)
-            self.assertNotIn("project_id", Store.get(s.load(), "a"))
-
-    def test_delete_project_unties_its_tasks(self):
-        with tempfile.TemporaryDirectory() as d:
-            s = Store(Path(d) / ".agentboard")
-            p = s.add_project("Taxes")
-            s.add("A", status="backlog", project_id=p["id"])
-            s.delete_project(p["id"])
-            self.assertEqual(s.load_projects(), [])
-            self.assertNotIn("project_id", Store.get(s.load(), "a"))
-
-    def test_update_project_fields(self):
-        with tempfile.TemporaryDirectory() as d:
-            s = Store(Path(d) / ".agentboard")
-            p = s.add_project("Taxes", "#111111")
-            updated = s.update_project(p["id"], name="2026 Taxes", color="#222222")
-            self.assertEqual((updated["name"], updated["color"]), ("2026 Taxes", "#222222"))
-
-
 class BodyTests(unittest.TestCase):
     def test_ask_and_review_store_body_md_and_clear_it_on_next_transition(self):
         with tempfile.TemporaryDirectory() as d:
@@ -648,12 +606,10 @@ class SubtaskTests(unittest.TestCase):
     def get(self, tid):
         return Store.get(self.s.load(), tid)
 
-    def test_subtask_follows_parent_column_and_inherits_project(self):
-        self.s.add_project("P", project_id="p")
-        self.s.set_project("big", "p")
+    def test_subtask_follows_parent_column(self):
         self.s.add("five", parent_id="big", task_id="five")
         five = self.get("five")
-        self.assertEqual((five["status"], five["parent_id"], five.get("project_id")), ("todo", "big", "p"))
+        self.assertEqual((five["status"], five["parent_id"]), ("todo", "big"))
         with self.assertRaises(BoardError):
             self.s.add("x", status="doing", parent_id="big")   # contradicts the parent's column
 
@@ -802,15 +758,12 @@ class SubtaskTests(unittest.TestCase):
         self.s.update("one", 100)
         self.assertEqual(self.s.claim("tail", "atlas")["status"], "doing")
 
-    def test_start_with_parent_and_archive_and_project_cascade(self):
+    def test_start_with_parent_and_archive_cascade(self):
         self.s.claim("big", "atlas")
         k = self.s.start("extra", "atlas", parent_id="big", task_id="extra")
         self.assertEqual(k["parent_id"], "big")
         self.assertEqual(self.get("big")["progress"], 1)   # the new subtask starts at 5%: mean of (0, 0, 0, 0, 5)
         self.assertEqual(set(self.s.bulk_archive(["big"])), {"big", "one", "two", "three", "four", "extra"})
-        self.s.add_project("P", project_id="p")
-        self.s.bulk_set_project(["big"], "p")
-        self.assertEqual({t.get("project_id") for t in self.s.load()}, {"p"})
 
     def test_restore_puts_cascaded_children_back(self):
         self.s.claim("big", "atlas")

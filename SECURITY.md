@@ -55,7 +55,7 @@ setuptools from PyPI (the build backend) when building from source. After instal
 
 - Still no dependencies (`dependencies = []`), still `127.0.0.1` only, still no outbound code
   outside the two opt-in providers. New code since v0.2.0 (HUD grid and actions, detail panel
-  formatting, subtasks, projects, chat, wait, tail, report, notifications) adds no network path:
+  formatting, subtasks, chat, wait, tail, report, notifications) adds no network path:
   `grep -n "urllib.request\|subprocess\|socket\|webbrowser" src/agentboard/*.py` still lists only
   `providers.py` (opt-in `http` / `command`), `server.py` (the local listener and the browser open)
   and `cli.py` (`osascript` for the opt-in `[notify]` banners, `agentboard spawn`).

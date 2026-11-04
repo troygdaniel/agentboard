@@ -159,15 +159,15 @@ a card's column is its agent. On a phone it is one column per screen, swipe side
 
 ### Done summary
 
-**Summary** on the Done column header (and `/summary?since=1d|7d|30d|all&project=<id>`) turns the finished cards into one page about the work
+**Summary** on the Done column header (and `/summary?since=1d|7d|30d|all&agent=<name>`) turns the finished cards into one page about the work
 itself, not the management of it: one number and three plain facts; a bar of the kinds of change (added, fixed, improved, tested, documented,
-explored, found from the card titles and asks); a **work map** (projects split into work areas found from shared title words, sized by cards,
-washed with the main kind of change; click an area for its cards); then each project as collapsed work areas. A card row is the title and the
+explored, found from the card titles and asks); a **work map** (each agent's cards split into work areas found from shared title words, sized by cards,
+washed with the main kind of change; click an area for its cards); then each agent as collapsed work areas. A card row is the title and the
 outcome in one line (numbers in bold) and opens to what was asked, the full result, the timeline and links to the board card and its report.
 The search box and a click on a kind scope the whole page. Everything is drawn in the page itself (inline SVG, no outside scripts), both themes,
-phone width. **Copy text** puts the summary on the clipboard as markdown, **Copy Mermaid** a mindmap of projects and areas to paste where
+phone width. **Copy text** puts the summary on the clipboard as markdown, **Copy Mermaid** a mindmap of agents and areas to paste where
 Mermaid renders (GitHub, Obsidian, Notion), **Save as HTML** downloads the page.
-On the command line: `agentboard summary [--since 7d] [--project <id>] [--html <path>] [--mermaid]`.
+On the command line: `agentboard summary [--since 7d] [--agent <name>] [--html <path>] [--mermaid]`.
 
 **Keep it simple.** The ORCH prompt carries a named `Keep it simple` block (one sentence, one idea, detail on demand) that ORCH copies into every card description and assignment it writes. It is instructed, not checked. `update`, `ask` and `review` take `--body` / `--body-file`, or a multi-line text whose first line is the sentence and the rest the body; the card shows the sentence large and the rest behind a collapsed **Details** fold.
 
@@ -215,22 +215,6 @@ each a Claude Code / Codex / Devin terminal in the same repo.
 `agentboard instructions` prints the agent snippet for your `CLAUDE.md` / `AGENTS.md`; the repository's own
 [`CLAUDE.md`](CLAUDE.md) is a worked example.
 
-## Projects
-
-Group related tasks under a named, colored project so they stand out together on the board:
-
-    ID=$(agentboard project add "Q4 migration" --color "#3b82f6" --description "...")   # prints its id
-    agentboard project list
-    agentboard project edit "$ID" --name "..." --color "..." --description "..."
-    agentboard project rm "$ID"                              # unties any tasks, doesn't delete them
-    agentboard add "Title" --project "$ID"                   # tie at creation
-    agentboard start "Title" --name atlas --project "$ID"
-    agentboard project assign <task_id> "$ID"                # tie an existing task
-    agentboard project unassign <task_id>                    # untie it
-
-On the board, a card tied to a project shows a colored project pill (board and the Later drawer); the header has a
-project filter dropdown; the card detail panel has a Project select to reassign or untie a task on the fly.
-
 ## Dependencies
 
 Declare a task is blocked by another so parallel agents don't collide on ordering:
@@ -245,7 +229,7 @@ The card shows a lock with a link to each unresolved blocker; it clears on its o
 
 Split a big card into subtasks (one level deep). A subtask is a normal task with a parent:
 
-    agentboard add "Title" --parent <parent_id>                  # follows the parent's column, inherits its project
+    agentboard add "Title" --parent <parent_id>                  # follows the parent's column
     agentboard start "Title" --name atlas --parent <parent_id>   # an agent adding one mid-flight
     agentboard claim <parent_id> --name atlas                    # takes the parent AND all its open subtasks
     agentboard update <sub_id> 60 "wiring it up"                 # each subtask has its own %, status line and log
@@ -273,8 +257,8 @@ marker instead — a crashed or forgotten agent session doesn't just sit there q
 is auto-moved or auto-released, so a human still decides what to do (see `agentboard list --stale` below). **needs input**
 and **ready for review** cards pulse and bubble to the top. Click a card for its question, result and activity history.
 Drag to move; keyboard: arrows or `j`/`k`, Enter opens, `/` filters, `n` new task, `?` lists shortcuts. Shift-click (or
-focus a card and Shift+↑/↓) to range-select, ⌘/Ctrl-click to add/remove one — a toolbar appears to move, archive, or
-assign a project to the whole selection at once. Light, dark, or system theme; optional sounds.
+focus a card and Shift+↑/↓) to range-select, ⌘/Ctrl-click to add/remove one — a toolbar appears to move or archive
+the whole selection at once. Light, dark, or system theme; optional sounds.
 
 ## Chat
 
@@ -509,22 +493,20 @@ Providers run only when a task lists one with `--ctx` and a prompt is built.
 | For you | |
 |---|---|
 | `init` / `serve [--port N] [--no-open]` | create the board / run it |
-| `add "Title" [--status todo\|backlog] [-d TEXT] [--ctx NAME] [--project ID] [--blocked-by ID] [--parent ID]` , `list [--all] [--stale]`, `rm <id>` | manage tasks (`--parent` makes a subtask) |
+| `add "Title" [--status todo\|backlog] [-d TEXT] [--ctx NAME] [--blocked-by ID] [--parent ID]` , `list [--all] [--stale]`, `rm <id>` | manage tasks (`--parent` makes a subtask) |
 | `tail [-n LINES] [--interval SECS]` | watch activity live in the terminal — same feed as the HUD, for CLI-only sessions |
 | `run CARD [--name N] [--cwd DIR] [--budget USD] [--max-minutes M] [--detach]`, `runs [--kill CARD]` | run a card with a one-shot `claude -p`; list and stop runs |
 | `sms serve [--port N]`, `sms try TEXT` | the text-message endpoint (opt-in); run a command text locally |
 | `answer ID [--wait] [--timeout S]` | print the reply you left on a card (agents use it to read your answer) |
 | `reports [--purge] [--hours N]` | list card reports; remove the old ones now |
 | `report [--date YYYY-MM-DD]` | markdown recap of what got done that day, by agent — for a standup or daily log |
-| `project add "Name" [--color C] [-d TEXT]`, `project list`, `project edit <id> [...]`, `project rm <id>` | manage projects |
-| `project assign <task_id> <project_id>`, `project unassign <task_id>` | tie/untie a task |
 | `clear` | archive all Done cards (history and HUD counts kept) |
 | `demo [--live]`, `rm --demo` | sample tasks / simulated agents |
 | `prompt <id> [--public]`, `rebuild [id] [--all]`, `instructions` | prompts and the agent snippet |
 
 | For agents | |
 |---|---|
-| `start "Title" --name N [--project ID] [--blocked-by ID] [--parent ID] [--force]` | create a task already in Doing; prints its id |
+| `start "Title" --name N [--blocked-by ID] [--parent ID] [--force]` | create a task already in Doing; prints its id |
 | `claim <id> --name N [--force]` | take an existing task and its subtasks (refuses while blocked, unless `--force`) |
 | `update <id> <0-100> ["text"]` , `ask <id> "q" [--body MD]`, `review <id> "result" [--body MD]` | report |
 | `done <id>` | user-approved only |

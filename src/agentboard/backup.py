@@ -76,7 +76,7 @@ def check(text: str) -> tuple[bool, str, dict]:
     bad = sorted({t.get("status") for t in data["tasks"] if t.get("status") not in ("backlog", "todo", "doing", "done")}, key=str)
     if bad:
         return False, f"unknown status: {bad}", {}
-    counts = {"tasks": len(ids), "projects": len(data.get("projects") or []), "chat": len(data.get("chat") or [])}
+    counts = {"tasks": len(ids), "chat": len(data.get("chat") or [])}
     return True, "ok", counts
 
 

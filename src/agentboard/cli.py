@@ -135,7 +135,7 @@ def _gitignore_board(root):
 
 
 def cmd_add(a):
-    t = _store().add(a.title, a.description or "", a.status, a.ctx, a.id, a.project, blocked_by=a.blocked_by,
+    t = _store().add(a.title, a.description or "", a.status, a.ctx, a.id, blocked_by=a.blocked_by,
                      parent_id=a.parent)
     print(f"added {t['id']} ({t['status']})")
     if not a.parent:   # stderr, so a script reading the line above is unaffected
@@ -282,8 +282,8 @@ def cmd_report(a):
 
 
 def cmd_summary(a):
-    """The Done cards by project and work area: plain text on stdout, a Mermaid mindmap with --mermaid, or a self-contained HTML page with --html."""
-    data = summarylib.build(_store(), a.since, a.project)
+    """The Done cards by agent and work area: plain text on stdout, a Mermaid mindmap with --mermaid, or a self-contained HTML page with --html."""
+    data = summarylib.build(_store(), a.since, a.agent)
     if a.html:
         path = Path(a.html).expanduser()
         path.write_text(summarylib.build_html(data))
@@ -328,36 +328,6 @@ def cmd_dictate(a):
                 print(f"could not paste ({why or 'Accessibility not allowed for this terminal'}); it is on the clipboard: press Cmd+V", file=sys.stderr)
         else:
             print("(copied: press Cmd+V where you want it)", file=sys.stderr)
-
-
-def cmd_project_add(a):
-    p = _store().add_project(a.name, a.color, a.description or "", a.id)
-    print(f"added project {p['id']}")
-
-
-def cmd_project_list(a):
-    for p in _store().load_projects():
-        print(f"{p['id']:30} {p['name']}")
-
-
-def cmd_project_edit(a):
-    p = _store().update_project(a.id, a.name, a.color, a.description)
-    print(f"updated project {p['id']}")
-
-
-def cmd_project_rm(a):
-    _store().delete_project(a.id)
-    print(f"removed project {a.id}")
-
-
-def cmd_project_assign(a):
-    t = _store().set_project(a.task_id, a.project_id)
-    print(f"{t['id']}: tied to project {a.project_id}")
-
-
-def cmd_project_unassign(a):
-    t = _store().set_project(a.task_id, None)
-    print(f"{t['id']}: untied from its project")
 
 
 _chat_line = agentchat.chat_line
@@ -750,7 +720,7 @@ def cmd_spawn(a):
 def cmd_start(a):
     hookslib.remember_session(_store().dir, _agent_name(a))
     t, created = _store().start_card(a.title, _agent_name(a), None,   # --color is accepted and ignored
-                                     a.description or "", a.id, a.project, blocked_by=a.blocked_by, force=a.force,
+                                     a.description or "", a.id, blocked_by=a.blocked_by, force=a.force,
                                      parent_id=a.parent)
     if not created:
         print(f"agentboard: you already hold {t['id']}; logged on it, no twin made", file=sys.stderr)
@@ -798,17 +768,6 @@ Before claiming or starting a card, if anything about it is ambiguous, ask your 
 session a one-line question (e.g. via SendMessage) and wait for its answer first. It has visibility into
 the whole board and can often answer without bothering the user; it escalates to them if it can't. This
 is a one-time check before you start, not an ongoing back-and-forth once work is underway.
-
-## Projects
-
-Group related tasks under a project so they show up together on the board:
-
-    agentboard project add "<name>" [--color <color>] [--description "..."]   # prints its id
-    agentboard project list
-    agentboard project assign <task_id> <project_id>     # tie any existing card to a project
-    agentboard project unassign <task_id>                 # untie it
-    agentboard add "<title>" --project <project_id>       # or tie it at creation time
-    agentboard start "<title>" --name "<you>" --project <project_id>
 
 ## Subtasks
 
@@ -1116,7 +1075,7 @@ def cmd_restore(a):
     if not ok:
         raise BoardError(f"{src.name} is not a good board file: {msg}")
     now_ok, _, now_n = backuplib.verify_file(s.path)
-    print(f"restore {src.name}: {n['tasks']} tasks, {n['projects']} projects, {n['chat']} chat messages (the board has " + (f"{now_n['tasks']} tasks now)" if now_ok else "an unreadable file now)"))
+    print(f"restore {src.name}: {n['tasks']} tasks, {n['chat']} chat messages (the board has " + (f"{now_n['tasks']} tasks now)" if now_ok else "an unreadable file now)"))
     if not a.yes:
         if not sys.stdin.isatty():
             raise BoardError("restore replaces the board; add --yes to do it (the board as it is now is kept first as a before-restore snapshot)")
@@ -1299,7 +1258,6 @@ def main(argv=None):
                     help="column to add to (default: backlog; a subtask follows its parent)")
     sp.add_argument("--ctx", action="append", default=[], metavar="PROVIDER[:ARG]")
     sp.add_argument("--id")
-    sp.add_argument("--project", help="project id to tie this task to (a subtask inherits its parent's)")
     sp.add_argument("--parent", metavar="ID", help="make this a subtask of that task (one level deep)")
     sp.add_argument("--blocked-by", action="append", dest="blocked_by", metavar="ID",
                      help="task id this depends on; repeat for multiple")
@@ -1325,11 +1283,11 @@ def main(argv=None):
     sp.add_argument("--apply", action="store_true", help="merge them (a snapshot is taken first); without it only lists them")
     sp = add("report", cmd_report, "markdown recap of what was completed today (or --date), by agent — for a standup or daily log")
     sp.add_argument("--date", help="YYYY-MM-DD (default: today)")
-    sp = add("summary", cmd_summary, "the finished (Done) cards by project and work area, as text, a Mermaid mindmap or a shareable HTML page")
+    sp = add("summary", cmd_summary, "the finished (Done) cards by agent and work area, as text, a Mermaid mindmap or a shareable HTML page")
     sp.add_argument("--since", default=summarylib.DEFAULT_SINCE, help="1d (today), 7d (default), 30d or all")
-    sp.add_argument("--project", help="only this project id")
+    sp.add_argument("--agent", help="only this agent's cards")
     sp.add_argument("--html", metavar="PATH", help="write a self-contained HTML page to PATH instead of printing text")
-    sp.add_argument("--mermaid", action="store_true", help="print a Mermaid mindmap (projects and work areas) instead of text")
+    sp.add_argument("--mermaid", action="store_true", help="print a Mermaid mindmap (agents and work areas) instead of text")
     sp = add("dictate", cmd_dictate, "speak instead of type: records the mic, transcribes on this Mac (whisper.cpp), puts the text on the clipboard")
     sp.add_argument("--paste", action="store_true", help="after 3 seconds press Cmd+V in the window you click (needs Accessibility for the terminal)")
     sp.add_argument("--file", help="transcribe this audio file instead of recording")
@@ -1362,7 +1320,6 @@ def main(argv=None):
     sp.add_argument("--name", help="your session name (or $AGENTBOARD_NAME)")
     sp.add_argument("--color", help="ignored: the board colours an agent by name")
     sp.add_argument("--id")
-    sp.add_argument("--project", help="project id to tie this task to")
     sp.add_argument("--parent", metavar="ID", help="start it as a subtask of that task (one level deep)")
     sp.add_argument("--blocked-by", action="append", dest="blocked_by", metavar="ID",
                      help="task id this depends on; repeat for multiple")
@@ -1467,33 +1424,6 @@ def main(argv=None):
     bp = bsub.add_parser("rm", help="forget a board (never deletes its cards)")
     bp.add_argument("name")
     bp.set_defaults(fn=cmd_board_rm)
-
-    sp = sub.add_parser("project", help="manage projects (groups of tasks)")
-    psub = sp.add_subparsers(dest="project_cmd", required=True)
-
-    def padd(name, fn, help):
-        psp = psub.add_parser(name, help=help)
-        psp.set_defaults(fn=fn)
-        return psp
-
-    psp = padd("add", cmd_project_add, "create a project")
-    psp.add_argument("name")
-    psp.add_argument("-d", "--description")
-    psp.add_argument("--color")
-    psp.add_argument("--id")
-    padd("list", cmd_project_list, "list projects")
-    psp = padd("edit", cmd_project_edit, "rename/recolor/describe a project")
-    psp.add_argument("id")
-    psp.add_argument("--name")
-    psp.add_argument("--color")
-    psp.add_argument("--description")
-    psp = padd("rm", cmd_project_rm, "delete a project (untying any tasks from it)")
-    psp.add_argument("id")
-    psp = padd("assign", cmd_project_assign, "tie an existing task to a project")
-    psp.add_argument("task_id")
-    psp.add_argument("project_id")
-    psp = padd("unassign", cmd_project_unassign, "untie a task from its project")
-    psp.add_argument("task_id")
 
     sp = sub.add_parser("chat", help="shared channel for agents (and you) to self-organize, visible on the board")
     csub = sp.add_subparsers(dest="chat_cmd", required=True)

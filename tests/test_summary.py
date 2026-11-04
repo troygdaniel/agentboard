@@ -1,4 +1,5 @@
-"""Done summary: the window, the kinds of change, the work areas, the one-line outcome, the text, Mermaid and HTML renderings, the route and the CLI."""
+"""Done summary: the window, the kinds of change, the work areas, the one-line outcome, the text, Mermaid and HTML renderings, the route and the CLI.
+Cards group by agent (4 Nov: projects are gone), 'Unassigned' for a card with none."""
 import contextlib
 import io
 import unittest
@@ -13,12 +14,10 @@ from tests.test_reports import HttpTests as ReportsHttp
 TODAY = date(2026, 10, 28)
 
 
-def task(tid, title, done_on, agent="AGENT-1", project="p1", result="", description="", parent=None, report=None):
+def task(tid, title, done_on, agent="AGENT-1", result="", description="", parent=None, report=None):
     t = {"id": tid, "title": title, "status": "done", "progress": 100, "agent": agent, "color": "green", "result": result, "description": description,
          "created": f"{done_on}T09:00:00", "updated": f"{done_on}T10:00:00",
          "log": [{"at": f"{done_on}T09:30:00", "status": "doing", "progress": 50, "text": "halfway"}, {"at": f"{done_on}T10:00:00", "status": "done", "progress": 100, "text": "Marked done"}]}
-    if project:
-        t["project_id"] = project
     if parent:
         t["parent_id"] = parent
     if report:
@@ -26,14 +25,13 @@ def task(tid, title, done_on, agent="AGENT-1", project="p1", result="", descript
     return t
 
 
-PROJECTS = [{"id": "p1", "name": "Atlas"}, {"id": "p2", "name": "Quartz"}]
 TASKS = [
     task("a", "Fix the relay", "2026-10-28", result="ACTION you: reinstall. STATUS a done-ready, pushed. WHY nothing.", report="a-1.html"),
-    task("b", "Add a relay health check", "2026-10-27", agent="AGENT-2", result="Pushed; 12 tests pass. More words here.", description="(your worktree), relay slice. Make the relay report its own health every minute."),
+    task("b", "Add a relay health check", "2026-10-27", result="Pushed; 12 tests pass. More words here.", description="(your worktree), relay slice. Make the relay report its own health every minute."),
     task("c", "Old card", "2026-10-01"),
-    task("d", "Quartz books", "2026-10-28", project="p2", result="you: try ./tb add", description="Keep the books for Quartz in one file."),
+    task("d", "Quartz books", "2026-10-28", agent="AGENT-2", result="you: try ./tb add", description="Keep the books for Quartz in one file."),
     task("e", "A subtask", "2026-10-28", parent="a"),
-    task("f", "No project", "2026-10-27", project=None, agent="GENERAL"),
+    task("f", "No agent", "2026-10-27", agent=""),
     task("g", "Relay: the live call screen", "2026-10-26", result="pushed (checked)."),
     {"id": "h", "title": "Still doing", "status": "doing", "progress": 40, "agent": "AGENT-1", "created": "2026-10-28T09:00:00", "updated": "2026-10-28T09:30:00", "log": []},
 ]
@@ -48,23 +46,23 @@ class Collect(unittest.TestCase):
             with self.assertRaises(BoardError):
                 summary.parse_since(bad, TODAY)
 
-    def test_groups_by_project_and_area_and_skips_subtasks_and_open_cards(self):
-        d = summary.collect(TASKS, PROJECTS, "7d", today=TODAY)
+    def test_groups_by_agent_and_area_and_skips_subtasks_and_open_cards(self):
+        d = summary.collect(TASKS, "7d", today=TODAY)
         self.assertEqual(d["total"], 5)
-        self.assertEqual([p["name"] for p in d["projects"]], ["Atlas", "No project", "Quartz"])
-        pak = d["projects"][0]
-        self.assertEqual([c["id"] for c in pak["cards"]], ["a", "b", "g"])
-        self.assertEqual([(th["name"], len(th["cards"])) for th in pak["themes"]], [("Relay", 3)])
+        self.assertEqual([p["name"] for p in d["groups"]], ["AGENT-1", "AGENT-2", "Unassigned"])
+        one = d["groups"][0]
+        self.assertEqual([c["id"] for c in one["cards"]], ["a", "b", "g"])
+        self.assertEqual([(th["name"], len(th["cards"])) for th in one["themes"]], [("Relay", 3)])
         self.assertEqual(d["kinds"], {"Fixed": 1, "Added": 1, "Changed": 3})
         self.assertEqual(d["prev"], 0)       # "Old card" is older than the 7 days before this window
-        self.assertEqual(summary.collect(TASKS, PROJECTS, "14d", today=TODAY)["prev"], 1)   # 15 Oct window; 1 Oct is in the 14 days before
+        self.assertEqual(summary.collect(TASKS, "14d", today=TODAY)["prev"], 1)   # 15 Oct window; 1 Oct is in the 14 days before
 
-    def test_all_and_project_filter(self):
-        self.assertEqual(summary.collect(TASKS, PROJECTS, "all", today=TODAY)["total"], 6)
-        d = summary.collect(TASKS, PROJECTS, "7d", project="p2", today=TODAY)
-        self.assertEqual([p["id"] for p in d["projects"]], ["p2"])
+    def test_all_and_agent_filter(self):
+        self.assertEqual(summary.collect(TASKS, "all", today=TODAY)["total"], 6)
+        d = summary.collect(TASKS, "7d", agent="AGENT-2", today=TODAY)
+        self.assertEqual([p["id"] for p in d["groups"]], ["AGENT-2"])
         with self.assertRaises(BoardError):
-            summary.collect(TASKS, PROJECTS, "7d", project="nope", today=TODAY)
+            summary.collect(TASKS, "7d", agent="nope", today=TODAY)
 
     def test_one_line_prefers_status_and_first_sentence(self):
         self.assertEqual(summary.one_line("ACTION you: reinstall. STATUS a done-ready, pushed. WHY nothing."), "pushed.")
@@ -79,7 +77,7 @@ class Collect(unittest.TestCase):
             self.assertEqual(summary.kind_of(title), kind, title)
         self.assertEqual(summary.asked("(your worktree), relay slice. Make the relay report its own health every minute.", "x"), "Make the relay report its own health every minute.")
         self.assertEqual(summary.asked("Fix the relay.", "Fix the relay"), "")
-        cards = summary.collect(TASKS, PROJECTS, "7d", today=TODAY)["projects"][0]["cards"]
+        cards = summary.collect(TASKS, "7d", today=TODAY)["groups"][0]["cards"]
         self.assertEqual(cards[1]["asked"], "Make the relay report its own health every minute.")
 
     def test_areas_come_from_shared_title_words(self):
@@ -89,37 +87,40 @@ class Collect(unittest.TestCase):
         self.assertEqual([th["name"] for th in summary.themes([{"title": "Call one", "at": TODAY, "kind": "Changed"}, {"title": "Two calls", "at": TODAY, "kind": "Changed"}], "")], ["Call"])
 
     def test_text_mermaid_and_html(self):
-        d = summary.collect(TASKS, PROJECTS, "7d", today=TODAY)
-        d["project"] = ""
+        d = summary.collect(TASKS, "7d", today=TODAY)
+        d["agent"] = ""
         txt = summary.to_text(d)
         self.assertIn("# Done: 22 Oct to 28 Oct", txt)
-        self.assertIn("**5 cards** finished across 3 projects.", txt)
+        self.assertIn("**5 cards** finished by 3 agents.", txt)
         self.assertIn("- Fix the relay — pushed.", txt)
         self.assertIn("**Relay**", txt)
         self.assertNotIn("Old card", txt)
         mm = summary.to_mermaid(d)
         self.assertTrue(mm.startswith("mindmap\n  root(("))
-        self.assertIn("    Atlas 3\n      Relay 3", mm)
+        self.assertIn("    AGENT-1 3\n      Relay 3", mm)
         page = summary.build_html(d, "/b/x")
         for s in ("Done summary", "Fix the relay", "What kind of work", "Where the work went", 'class="map"', 'id="copy"', 'id="copymm"', 'id="save"',
-                  "/b/x/summary?since=30d", "data-theme", "/b/x/#a", "/b/x/reports/a-1.html", "<h4>Asked</h4>", "<h4>How it went</h4>", "doing 30 min", "<summary>Timeline</summary>", "halfway"):
+                  "/b/x/summary?since=30d", "data-theme", "/b/x/#a", "/b/x/reports/a-1.html", "<h4>Asked</h4>", "<h4>How it went</h4>", "doing 30 min", "<summary>Timeline</summary>", "halfway",
+                  'class="grp" id="who-AGENT-1"'):
             self.assertIn(s, page)
-        self.assertIn("Nothing finished", summary.build_html({**summary.collect([], [], "1d", today=TODAY), "project": ""}))
+        self.assertNotIn("project", page.lower())
+        self.assertIn("&agent=AGENT-2", summary.build_html({**summary.collect(TASKS, "7d", agent="AGENT-2", today=TODAY), "agent": "AGENT-2"}, "/b/x"))
+        self.assertIn("Nothing finished", summary.build_html({**summary.collect([], "1d", today=TODAY), "agent": ""}))
 
     def test_everything_the_agent_wrote_is_escaped(self):
         bad = task("z", "<b>t</b>", "2026-10-28", result="<script>alert(1)</script>", description="<img onerror=x>")
-        d = summary.collect([bad], [], "1d", today=TODAY)
-        page = summary.build_html({**d, "project": ""})
+        d = summary.collect([bad], "1d", today=TODAY)
+        page = summary.build_html({**d, "agent": ""})
         self.assertNotIn("<script>alert", page)
         self.assertNotIn("<img onerror", page)
         self.assertIn("&lt;script&gt;", page)
-        self.assertNotIn("(", summary.to_mermaid(summary.collect([task("y", "Quartz (books) [x]", "2026-10-28", project="p2")], PROJECTS, "1d", today=TODAY)).split("\n")[2])
+        self.assertNotIn("(", summary.to_mermaid(summary.collect([task("y", "Quartz (books) [x]", "2026-10-28", agent="AG (2)")], "1d", today=TODAY)).split("\n")[2])
 
     def test_more_fold_past_the_shown_cards(self):
         many = [task(f"m{i}", f"Card {i}", "2026-10-28") for i in range(9)]
-        page = summary.build_html({**summary.collect(many, [], "1d", today=TODAY), "project": ""})
+        page = summary.build_html({**summary.collect(many, "1d", today=TODAY), "agent": ""})
         self.assertIn(f"<summary>{9 - summary.OTHER_SHOWN} more</summary>", page)
-        txt = summary.to_text(summary.collect([task(f"m{i}", f"Card {i}", "2026-10-28") for i in range(15)], [], "1d", today=TODAY))
+        txt = summary.to_text(summary.collect([task(f"m{i}", f"Card {i}", "2026-10-28") for i in range(15)], "1d", today=TODAY))
         self.assertIn("...and 3 more.", txt)
 
     def test_the_owner_name_is_the_boards_not_a_fixed_one(self):
@@ -127,7 +128,7 @@ class Collect(unittest.TestCase):
         self.assertEqual(summary.one_line("Alex: try ./tb add"), "Alex: try ./tb add")   # a name that is not the owner's stays text
         self.assertIn('<span class="who-chip">Alex</span>', summary._inline("Alex: edit it", "Alex"))
         self.assertNotIn("who-chip", summary._inline("Alex: edit it"))
-        self.assertEqual(summary.collect(TASKS, PROJECTS, "7d", today=TODAY, owner="Alex")["owner"], "Alex")
+        self.assertEqual(summary.collect(TASKS, "7d", today=TODAY, owner="Alex")["owner"], "Alex")
 
     def test_blobs_become_steps_bands_or_lines(self):
         steps = summary.blocks("Let Alex speak: 1) a mic button on the board (local only); 2) dictate into a terminal; 3) keep replies short. Nothing bought without Alex's words.")
@@ -176,6 +177,7 @@ class RouteAndCli(ReportsHttp):
         page = self.get("/summary?since=7d")[1].decode()
         self.assertIn("Fix the relay", page)
         self.assertIn("Pushed; done.", page)
+        self.assertIn("Fix the relay", self.get("/summary?since=7d&agent=AGENT-1")[1].decode())
         with self.assertRaises(urllib.error.HTTPError) as cm:
             self.get("/summary?since=bad")
         self.assertEqual(cm.exception.code, 400)
@@ -187,7 +189,7 @@ class RouteAndCli(ReportsHttp):
         self.assertIn("- Fix the relay — Pushed; done.", out.getvalue())
         out = io.StringIO()
         with contextlib.redirect_stdout(out):
-            cli.main(["summary", "--mermaid"])
+            cli.main(["summary", "--mermaid", "--agent", "AGENT-1"])
         self.assertIn("mindmap", out.getvalue())
         path = self.root / "s.html"
         with contextlib.redirect_stdout(io.StringIO()):

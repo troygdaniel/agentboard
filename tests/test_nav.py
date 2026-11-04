@@ -107,8 +107,8 @@ class PagesTests(_ReportsBase):
         self.assertNotIn("tab on", lst)
         self.assertNotIn('href="/b/work/summary"', lst)
         self.assertIn('href="/b/work/"', lst)
-        data = summary.collect(self.s.load(), [], "7d", today=date.today())
-        data["project"] = ""
+        data = summary.collect(self.s.load(), "7d", today=date.today())
+        data["agent"] = ""
         sm = summary.build_html(data, "/b/work")
         self.assertNotIn("tab on", sm)
         self.assertNotIn('href="/b/work/reports"', sm)

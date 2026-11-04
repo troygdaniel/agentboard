@@ -262,7 +262,7 @@ def actions(tasks, now=None, abandoned_min=None, owner=DEFAULT_OWNER):
         age = max(0, int((now - since).total_seconds() // 60)) if since else None
         out.append({
             "id": t["id"], "title": t["title"], "agent": agent,
-            "project_id": t.get("project_id"), "kind": kind, "who": who, "what": what,
+            "kind": kind, "who": who, "what": what,
             "status": parsed["status"], "why": parsed["why"], "text": text,
             "since": since.strftime(FMT) if since else None, "age_min": age,
         })

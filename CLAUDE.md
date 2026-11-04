@@ -27,17 +27,6 @@ session a one-line question (e.g. via SendMessage) and wait for its answer first
 the whole board and can often answer without bothering the user; it escalates to them if it can't. This
 is a one-time check before you start, not an ongoing back-and-forth once work is underway.
 
-## Projects
-
-Group related tasks under a project so they show up together on the board:
-
-    agentboard project add "<name>" [--color <color>] [--description "..."]   # prints its id
-    agentboard project list
-    agentboard project assign <task_id> <project_id>     # tie any existing card to a project
-    agentboard project unassign <task_id>                 # untie it
-    agentboard add "<title>" --project <project_id>       # or tie it at creation time
-    agentboard start "<title>" --name "<you>" --project <project_id>
-
 ## Subtasks
 
 Every card gets subtasks, always (one level deep). As soon as you start or claim a card, read the work and

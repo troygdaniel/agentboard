@@ -110,11 +110,11 @@ class Store:
         try:
             data = json.loads(self.path.read_text())
         except FileNotFoundError:
-            return {"tasks": [], "projects": [], "chat": [], "chat_seq": 0}
+            return {"tasks": [], "chat": [], "chat_seq": 0}
         except ValueError as e:
             raise BoardError(f"{self.path} is not valid JSON ({e}); restore the last good copy with `agentboard restore latest` (or `agentboard restore previous` for the version before the last save)") from e
         data.setdefault("tasks", [])
-        data.setdefault("projects", [])
+        data.pop("projects", None)   # projects were removed on 4 Nov 2026: an old file's list is dropped on the next save
         data.setdefault("chat", [])
         data.setdefault("chat_seq", 0)
         data.setdefault("chat_agents", False)   # the board-wide switch for agents talking to each other; off until the owner turns it on
@@ -141,14 +141,6 @@ class Store:
             yield data["tasks"]
             self._write(data)
 
-    @contextlib.contextmanager
-    def project_transaction(self):
-        """Yield the project list; saved on clean exit."""
-        with self._lock():
-            data = self._read()
-            yield data["projects"]
-            self._write(data)
-
     # -- helpers used by CLI and server ------------------------------------
 
     @staticmethod
@@ -158,10 +150,9 @@ class Store:
                 return t
         raise BoardError(f"no such task: {task_id}")
 
-    def add(self, title, description="", status=None, ctx=None, task_id=None, project_id=None, blocked_by=None,
+    def add(self, title, description="", status=None, ctx=None, task_id=None, blocked_by=None,
             parent_id=None):
-        """Add a task. With parent_id it becomes a subtask: it follows its parent's column and owner and
-        inherits its project (one level only)."""
+        """Add a task. With parent_id it becomes a subtask: it follows its parent's column and owner (one level only)."""
         if status is not None and status not in STATUSES:
             raise BoardError(f"status must be one of {STATUSES}")
         title = _clean_title(title)
@@ -173,7 +164,6 @@ class Store:
                 if status is not None and status != parent["status"]:
                     raise BoardError(f"a subtask follows its parent ({parent['status']}); drop --status")
                 status = parent["status"]
-                project_id = project_id or parent.get("project_id")
             status = status or "backlog"
             tid = task_id or _unique_id(title, {t["id"] for t in tasks})
             if any(t["id"] == tid for t in tasks):
@@ -194,8 +184,6 @@ class Store:
                 "created": _now(),
                 "updated": _now(),
             }
-            if project_id:
-                task["project_id"] = project_id
             if blocked_by:
                 task["blocked_by"] = list(blocked_by)
             if parent:
@@ -212,15 +200,15 @@ class Store:
                 _touch_parent(tasks, parent)
             return task
 
-    def start(self, title, name, color=None, description="", task_id=None, project_id=None,
+    def start(self, title, name, color=None, description="", task_id=None,
               blocked_by=None, force=False, parent_id=None):
         """Agent announces new work: create the task already in doing, owned by name.
 
-        With parent_id it is a subtask of that card (inherits its project). If the same agent already holds a card for this work
+        With parent_id it is a subtask of that card. If the same agent already holds a card for this work
         (same title, or the title is that card's id) it is logged on that card instead of making a "-2" twin (see start_card)."""
-        return self.start_card(title, name, color, description, task_id, project_id, blocked_by, force, parent_id)[0]
+        return self.start_card(title, name, color, description, task_id, blocked_by, force, parent_id)[0]
 
-    def start_card(self, title, name, color=None, description="", task_id=None, project_id=None,
+    def start_card(self, title, name, color=None, description="", task_id=None,
                    blocked_by=None, force=False, parent_id=None):
         """Like start, but returns (task, created): created is False when the agent already held a card for this work and it was reused."""
         title = _clean_title(title)
@@ -235,7 +223,6 @@ class Store:
             if parent:
                 if not force:
                     _parent_must_be_doing(parent, {"id": "a new subtask"}, "start")
-                project_id = project_id or parent.get("project_id")
             tid = task_id or _unique_id(title, {t["id"] for t in tasks})
             existing = next((t for t in tasks if t["id"] == tid), None)
             if existing:  # same agent re-announcing the same work is a no-op
@@ -257,8 +244,6 @@ class Store:
                 "created": _now(), "updated": _now(),
             }
             # `color` is accepted and ignored: the board colours an agent by name, never a card (see agentColor in index.html)
-            if project_id:
-                task["project_id"] = project_id
             if blocked_by:
                 task["blocked_by"] = list(blocked_by)
             if parent:
@@ -674,97 +659,6 @@ class Store:
                         touched.append(t["id"])
             return touched
 
-    def bulk_set_project(self, ids, project_id):
-        """Tie (or untie, with project_id=None) several tasks to a project at once.
-
-        Returns {id: previous project_id or None} so the caller can offer an undo.
-        """
-        with self._lock():
-            data = self._read()
-            if project_id:
-                self.get_project(data["projects"], project_id)  # raises if missing
-            prev = {}
-            for tid in ids:
-                t = self.get(data["tasks"], tid)
-                for x in (t, *_kids(data["tasks"], tid)):   # subtasks inherit the parent's project
-                    prev.setdefault(x["id"], x.get("project_id"))
-                    if project_id:
-                        x["project_id"] = project_id
-                    else:
-                        x.pop("project_id", None)
-                    x["updated"] = _now()
-            self._write(data)
-            return prev
-
-    # -- projects -------------------------------------------------------
-
-    def load_projects(self):
-        with self._lock():
-            return self._read()["projects"]
-
-    @staticmethod
-    def get_project(projects, project_id):
-        for p in projects:
-            if p["id"] == project_id:
-                return p
-        raise BoardError(f"no such project: {project_id}")
-
-    def add_project(self, name, color=None, description="", project_id=None):
-        with self.project_transaction() as projects:
-            pid = project_id or _unique_id(name, {p["id"] for p in projects})
-            if any(p["id"] == pid for p in projects):
-                raise BoardError(f"project id already exists: {pid}")
-            project = {
-                "id": pid,
-                "name": name,
-                "description": description,
-                "created": _now(),
-                "updated": _now(),
-            }
-            if color:
-                project["color"] = color
-            projects.append(project)
-            return project
-
-    def update_project(self, project_id, name=None, color=None, description=None):
-        with self.project_transaction() as projects:
-            p = self.get_project(projects, project_id)
-            if name is not None:
-                p["name"] = name
-            if color is not None:
-                p["color"] = color
-            if description is not None:
-                p["description"] = description
-            p["updated"] = _now()
-            return p
-
-    def delete_project(self, project_id):
-        """Remove the project and clear it off any tasks that referenced it."""
-        with self._lock():
-            data = self._read()
-            self.get_project(data["projects"], project_id)  # raises if missing
-            data["projects"] = [p for p in data["projects"] if p["id"] != project_id]
-            for t in data["tasks"]:
-                if t.get("project_id") == project_id:
-                    t.pop("project_id", None)
-            self._write(data)
-
-    def set_project(self, task_id, project_id):
-        """Tie (or untie, with project_id=None) a task to a project."""
-        with self._lock():
-            data = self._read()
-            t = self.get(data["tasks"], task_id)
-            if project_id:
-                self.get_project(data["projects"], project_id)  # raises if missing
-            for x in (t, *_kids(data["tasks"], task_id)):
-                if project_id:
-                    x["project_id"] = project_id
-                else:
-                    x.pop("project_id", None)
-                x["updated"] = _now()
-            self._write(data)
-            return t
-
     # -- shared chat (agents self-organizing, visible to the user) ----------
 
     def chat_agents(self):
@@ -1147,9 +1041,8 @@ def merge_twin(tasks, keeper, twin):
             else:
                 keeper.pop(f, None)
         keeper["updated"] = twin["updated"]
-    for f in ("description", "project_id"):
-        if not keeper.get(f) and twin.get(f):
-            keeper[f] = twin[f]
+    if not keeper.get("description") and twin.get("description"):
+        keeper["description"] = twin["description"]
     keeper["created"] = min(keeper.get("created") or "9", twin.get("created") or "9")
     if twin.get("blocked_by"):
         keeper["blocked_by"] = sorted(({*keeper.get("blocked_by", []), *twin["blocked_by"]}) - {keeper["id"], twin["id"]}) or None

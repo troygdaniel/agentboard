@@ -151,7 +151,7 @@ def make_handler(default_store, port):
                 self._send(200, voice.status(self.store.dir))
             elif url.path in ("/summary", "/summary/"):
                 try:
-                    data = summary.build(self.store, (q.get("since") or [summary.DEFAULT_SINCE])[0], (q.get("project") or [None])[0])
+                    data = summary.build(self.store, (q.get("since") or [summary.DEFAULT_SINCE])[0], (q.get("agent") or [None])[0])
                 except BoardError as e:
                     self._send(400, {"error": str(e)})
                     return
@@ -186,8 +186,6 @@ def make_handler(default_store, port):
                         d["subs"] = lists[t["id"]]
                     slim.append(d)
                 self._send(200, {"tasks": slim})
-            elif url.path == "/api/projects":
-                self._send(200, {"projects": self.store.load_projects()})
             elif url.path == "/api/hud":
                 conf = _config(self.store)
                 data = hud.build(self.store.load(), abandoned_min=hud.stale_minutes(conf), retired=hud.retired(conf), roster=hud.roster(conf), owner=self.store.owner)
@@ -240,22 +238,10 @@ def make_handler(default_store, port):
                 elif path == "/api/tasks":
                     t = self.store.add(body["title"], body.get("description", ""),
                                   body.get("status"), body.get("ctx", []),
-                                  project_id=body.get("project_id"), parent_id=body.get("parent_id"))
+                                  parent_id=body.get("parent_id"))
                     self._send(200, t)
-                elif path == "/api/projects":
-                    p = self.store.add_project(body["name"], body.get("color"), body.get("description", ""))
-                    self._send(200, p)
-                elif path == "/api/project-update":
-                    p = self.store.update_project(body["id"], body.get("name"), body.get("color"), body.get("description"))
-                    self._send(200, p)
-                elif path == "/api/project-delete":
-                    self.store.delete_project(body["id"])
-                    self._send(200, {"ok": True})
                 elif path == "/api/edit":
                     self._send(200, self.store.edit(body["id"], body.get("title"), body.get("description"), body.get("blocked_by")))
-                elif path == "/api/task-project":
-                    t = self.store.set_project(body["id"], body.get("project_id"))
-                    self._send(200, t)
                 elif path == "/api/move":
                     loaded = self.store.load()
                     prev = Store.get(loaded, body["id"])
@@ -274,9 +260,6 @@ def make_handler(default_store, port):
                     self._send(200, {"tasks": moved, "prev": prev})
                 elif path == "/api/bulk-archive":
                     self._send(200, {"ids": self.store.bulk_archive(_ids(body))})
-                elif path == "/api/bulk-project":
-                    prev = self.store.bulk_set_project(_ids(body), body.get("project_id"))
-                    self._send(200, {"prev": prev})
                 elif path == "/api/clear-done":
                     self._send(200, {"ids": self.store.clear_done()})
                 elif path == "/api/unarchive":
