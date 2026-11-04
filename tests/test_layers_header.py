@@ -71,5 +71,14 @@ class SettingsAndRowsTests(unittest.TestCase):
         self.assertIn("document.body.classList.toggle('snd-off', !on);", HTML)
 
 
+class CalmCardsTests(unittest.TestCase):
+    def test_calm_cards_is_a_look_switch_off_by_default_with_no_level(self):
+        self.assertIn("{ id: 'calm', kind: 'fx', look: true, plain: true, name: 'Calm cards', about: '", HTML)
+        self.assertIn("apply(lvl) { document.body.classList.toggle('calm', lvl > 0); } },", HTML)
+        self.assertEqual(re.search(r"const LAYER_ON = \{([^}]*)\}", HTML).group(1).strip(), "touch: true")   # off until chosen: the current look stays
+        self.assertIn("(L.plain ? '<span></span><span></span>' : `<input type=\"range\"", HTML)                 # no level slider, nothing to hear
+        self.assertIn("body.calm :is(.col.doing, .col.acol, .h-one) .card:not(.done):not(.ask):not(.review):not(.abandoned) { background: var(--surface); border-color: var(--line);", HTML)
+
+
 if __name__ == "__main__":
     unittest.main()

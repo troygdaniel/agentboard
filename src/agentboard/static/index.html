@@ -1003,6 +1003,11 @@
     .empty { min-height: 100px; }
   }
   @media (prefers-reduced-motion: reduce) { .bar b, .card { transition: none; } .card.enter, .card.flash, .card.ask, .card.review, .card.abandoned, .card.livebar::after, .col.acol.enter, .card.rev-in::after, .sub.live .g::after, .av.live, .pres i, .col h2 .cnt.tick { animation: none; } .card.ask { box-shadow: 0 0 0 2px var(--err); } .card.review { box-shadow: 0 0 0 2px var(--ok); } .card.abandoned { box-shadow: 0 0 0 2px var(--err); } .card.livebar .bar::after { animation: none; opacity: 0; } }
+  /* Look > Calm cards (off until chosen): a Doing or lane card is a plain card with the agent's stripe and the status word; the
+     orange/green/red fill, border and coloured shadow go. An ask, review or abandoned card keeps its coloured edge: that one carries meaning. */
+  body.calm :is(.col.doing, .col.acol, .h-one) .card:not(.done):not(.ask):not(.review):not(.abandoned) { background: var(--surface); border-color: var(--line); box-shadow: inset 0 1px 0 var(--card-hi), var(--shadow); }
+  body.calm :is(.col.doing, .col.acol, .h-one) .card:not(.done):not(.ask):not(.review):not(.abandoned):hover { box-shadow: inset 0 1px 0 var(--card-hi), var(--shadow-hover); }
+  body.calm :is(.col.doing, .col.acol, .h-one) .card:not(.done):not(.ask):not(.review):not(.abandoned)::after { box-shadow: none; animation: none; }
 </style>
 </head>
 <body>
@@ -2551,6 +2556,8 @@ const LAYERS = [
       TOUCH.focus(t); TOUCH.open(t + .3, 'AGENT-2'); TOUCH.lift(t + .9); TOUCH.drop(t + 1.25, 'done', 'AGENT-2');
       TOUCH.toggle(t + 1.8, true); TOUCH.copy(t + 2.3); TOUCH.close(t + 2.8, 'AGENT-2');
     } },
+  { id: 'calm', kind: 'fx', look: true, plain: true, name: 'Calm cards', about: 'a Doing card is a plain card: no orange fill, border or glow while it runs; an ask, review or abandoned card keeps its coloured edge',
+    apply(lvl) { document.body.classList.toggle('calm', lvl > 0); } },
   { id: 'motion', kind: 'fx', look: true, name: 'Motion', about: 'look and sound move together: a settle when an agent\'s card lands in a lane (a new By agent lane slides in with it), the green edge drawing itself in when a card reaches review, the check drawing itself when a card reaches Done, a crossfade between views',
     apply(lvl) { document.body.classList.toggle('motion', lvl > 0); },   // the look follows the switch (the check, the crossfade); the level is the settle's
     demo(ctx) {
@@ -2655,9 +2662,9 @@ function hearLayer(L) {                         // the Hear button: the layer al
   demoTimer = setTimeout(stopDemo, 6000);
 }
 function renderMix() {
-  const row = L => `<div class="mix-row"><input type="checkbox" id="mix-${L.id}" data-mix="${L.id}"${layerOn(L.id) ? ' checked' : ''}><label for="mix-${L.id}">${L.name}</label>`
-    + `<input type="range" min="0" max="100" value="${Math.round(layerLvl(L.id) * 100)}" data-lvl="${L.id}" aria-label="${L.name} level">`
-    + `<button class="btn" data-hear="${L.id}">Hear it</button><span class="mix-about">${L.about}</span></div>`;
+  const row = L => `<div class="mix-row${L.plain ? ' plain' : ''}"><input type="checkbox" id="mix-${L.id}" data-mix="${L.id}"${layerOn(L.id) ? ' checked' : ''}><label for="mix-${L.id}">${L.name}</label>`
+    + (L.plain ? '<span></span><span></span>' : `<input type="range" min="0" max="100" value="${Math.round(layerLvl(L.id) * 100)}" data-lvl="${L.id}" aria-label="${L.name} level">`   // a look switch has no level and nothing to hear
+    + `<button class="btn" data-hear="${L.id}">Hear it</button>`) + `<span class="mix-about">${L.about}</span></div>`;
   $('cfg-sound').innerHTML = `<div class="mix-row"><input type="checkbox" id="cfg-snd"${sndOn ? ' checked' : ''}><label for="cfg-snd">Sound</label><span class="mix-about">the cues, Touch and the layers; <kbd>s</kbd> flips it on any view</span></div>`
     + `<div class="mix-row"><input type="checkbox" id="cfg-amb"${ambOn ? ' checked' : ''}><label for="cfg-amb">Ambient bed</label><span class="mix-about">the quiet bed under everything, on every view</span></div>`
     + `<div class="mix-row cfg-vol"><span></span><label for="cfg-vol">Volume</label><input type="range" id="cfg-vol" min="100" max="${VOL_MAX * 100}" step="5" value="${Math.round(vol * 100)}" aria-label="Volume"><b id="cfg-vol-n">${Math.round(vol * 100)}%</b>`

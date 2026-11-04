@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Calm cards, a Look switch (Nov 4)
+- **Settings > Look > Calm cards**, off until you choose it: a Doing or lane card is a plain card (the agent's stripe and the status word stay) with no orange fill, border or glow while it runs. An ask, review or abandoned card keeps its coloured edge, since that one carries meaning. The current look is the default; the switch is there to compare the two in one click (the card-colours question).
+
 ### Polls no longer steal, reset or wipe; nothing hides without a way to read it (Nov 4)
 - **Typing in a reply box no longer freezes the rest of the page**: only the board's redraw waits for you; the status pill, the asks, the open card and the chat keep running.
 - **The open card is not rebuilt under your hand**: a focused control inside it (an armed "Click again to delete", a "copied" label, the subtask or blocker field, a picker) and any text you have selected hold the once-a-minute rebuild, and a change arriving while a field is in use waits for the next poll. The minute tick on the board waits while text is selected too.
