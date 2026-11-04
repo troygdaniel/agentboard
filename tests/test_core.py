@@ -259,7 +259,7 @@ class BodyTests(unittest.TestCase):
             t = s.review("deploy", "Shipped", "## Recap\nDone.")
             self.assertEqual(t["body_md"], "## Recap\nDone.")
             t = s.move("deploy", "done")
-            self.assertNotIn("body_md", t)
+            self.assertEqual(t["body_md"], "## Recap\nDone.")   # done keeps the account of the work: the Done panel is built from it
 
     def test_body_md_is_optional(self):
         with tempfile.TemporaryDirectory() as d:

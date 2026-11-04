@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### The finished card reads in one glance (Nov 4)
+- **A Done card's panel is laid out, not dumped**: the agent's sentence first, large, with chips that answer the glance (Next: who, the test count it found, commits · files), then **Changed / Checked / Next**, then the diagram, then the subtasks as ticks, your decisions as question → answer ("Go ahead"), where it changed as one bar from git, and the card's path as a strip of states with times. The description, the full note, the activity log and the prompt sit under a closed Details.
+- **Agents write a short shape on review** (`## Changed`, `## Checked`, `## Next`, an optional ```` ```flow ```` block); every card prompt and `agentboard instructions` show it. A card without the shape still renders from what the board has: the sentence, the note (faded only where it is cut off), the ticks, the tests it can find, git.
+- **```flow draws a small diagram with no library and no outside request**: `A -> B -> C` is boxes and arrows, `label: 12` is a bar; escaped inline SVG in the page's own colours, so it follows light and dark. Works in any body and in reports.
+- **Marking done keeps the body.** It used to be wiped on done (and the panel had nothing to show); now it stays, and reopening keeps it until the agent reports again.
+- `/api/task` carries `sections`, `checks` and (for done cards) a cached `git` summary; the task list stays light.
+
 ### The agent hears when you close its card (Nov 4)
 - **Closing a held card tells its agent.** Mark done (the button, `d`, a drag, a multi-select or `agentboard done`) leaves a reply on the card in the same slot a typed answer uses: "Done by Troy: the card is closed, you are free to go idle or take the next card." An agent waiting with `agentboard answer <id> --wait` wakes with it (who and when on stderr); one that is not waiting finds it, unread, with `answer`.
 - **The other changes that left an agent guessing say so the same way**: undo of a close ("Reopened by Troy: the card is back in review, not closed"), a drag back to Doing, send back (now opens with the state, then your note), a move out of Doing ("no longer yours, stop work on it"), undo of a move or a removal ("back in Doing and yours again"), and a removal (`answer --wait` prints a Removed line and exits; a wrong id still errors).

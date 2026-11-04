@@ -750,6 +750,21 @@ for the details behind your sentence: a recap, diff, or report. The first line o
 reads; the body sits under "Details" on the card and in the detail panel. A multi-line text splits the
 same way: its first line is the sentence, the rest becomes the body.
 
+On `review`, write the body in this shape; the board lays it out on the finished card (keep what you have, skip the rest):
+
+    ## Changed
+    - up to four bullets: what is different now
+    ## Checked
+    - 675 tests pass · render-check wide and narrow
+    ## Next
+    - what {owner} must do, or: nothing
+    ```flow
+    You mark done -> Card gets a reply -> Agent wakes
+    ```
+
+A ```flow block is a small diagram (`A -> B -> C` is boxes and arrows, `label: 12` a bar). A card without the shape still
+shows what the board knows: subtasks, the tests it can find, commits.
+
 NEVER mark your own task done. Finish with `review`, then wait (below). Run
 `agentboard done "$ID"` only if the user explicitly tells you to.
 

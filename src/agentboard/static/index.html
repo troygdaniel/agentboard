@@ -337,6 +337,34 @@
   .fold { margin: 0 0 8px; font-size: var(--fs-sm); color: var(--muted); }
   .fold summary { cursor: pointer; width: max-content; }
   .fold .fold-body { white-space: pre-wrap; overflow-wrap: anywhere; margin-top: 6px; max-height: 220px; overflow: auto; color: var(--text); }
+  /* the Done panel (Nov 4): sentence, chips, Changed / Checked / Next, the diagram, ticked subtasks, your call, where it changed, the path; the rest folds */
+  .dchips { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 0; }
+  .dchip { font-size: var(--fs-sm); font-weight: 600; padding: 2px 9px; border-radius: 999px; background: var(--chip); color: var(--muted); white-space: nowrap; }
+  .dchip.ok { color: var(--ok); background: color-mix(in srgb, var(--ok) 12%, var(--surface)); }
+  .dchip.bad { color: var(--err); background: color-mix(in srgb, var(--err) 12%, var(--surface)); }
+  .dchip.next { color: var(--run); background: color-mix(in srgb, var(--run) 14%, var(--surface)); }
+  .dgrid { display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 10px 12px; margin-top: 18px; }
+  .dsec { display: contents; }
+  .dlab { font-size: var(--fs-xs); font-weight: 700; letter-spacing: var(--tr-label); text-transform: uppercase; color: var(--muted); padding-top: 3px; }
+  .dsec.changed .dlab { color: var(--info); } .dsec.checked .dlab { color: var(--ok); } .dsec.next .dlab { color: var(--run); }
+  .dbody.rich-body { margin-top: 0; font-size: var(--fs-base); line-height: 1.5; }
+  .dbody.rich-body ul, .dbody.rich-body ol { margin: 0; padding-left: 18px; } .dbody.rich-body p { margin: 0 0 6px; } .dbody.rich-body li { margin: 2px 0; }
+  .dfree { margin-top: 14px; max-height: 190px; overflow: hidden; mask-image: linear-gradient(#000 72%, transparent); -webkit-mask-image: linear-gradient(#000 72%, transparent); }
+  .dsec-h { margin: 18px 0 8px; font-size: var(--fs-xs); letter-spacing: var(--tr-label); text-transform: uppercase; color: var(--muted); display: flex; justify-content: space-between; gap: 8px; }
+  .dsec-h .n { font-weight: 400; }
+  .flow { margin: 4px 0 0; } .rich-body .flow { margin: 10px 0; }
+  .dticks li { cursor: pointer; align-items: center; } .dticks .tick { flex: none; width: 16px; color: var(--ok); font-weight: 700; text-align: center; } .dticks li:not(.sdone) .tick { color: var(--neutral); }
+  .dqa { margin-top: 18px; padding: 10px 12px; border: 1px dashed var(--line); border-radius: 10px; display: flex; flex-direction: column; gap: 4px; }
+  .dqa .dq { color: var(--muted); overflow-wrap: anywhere; } .dqa .da { display: flex; gap: 8px; align-items: center; color: var(--neutral); }
+  .dqa .da b { color: var(--ok); background: color-mix(in srgb, var(--ok) 12%, var(--surface)); padding: 2px 9px; border-radius: 999px; font-weight: 600; overflow-wrap: anywhere; }
+  .dbar { display: flex; height: 10px; border-radius: 999px; overflow: hidden; gap: 2px; } .dbar i { display: block; min-width: 4px; background: var(--c); }
+  .dlegend { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 6px; font-size: var(--fs-sm); color: var(--muted); }
+  .dlegend span::before { content: ''; display: inline-block; width: 8px; height: 8px; border-radius: 2px; background: var(--c); margin-right: 5px; }
+  .dpath .dp-line { display: flex; align-items: center; } .dp-dot { width: 10px; height: 10px; border-radius: 999px; background: var(--neutral); flex: none; } .dp-seg { flex: 1; height: 2px; background: var(--line); }
+  .dp-dot.doing { background: var(--run); } .dp-dot.ask { background: var(--err); } .dp-dot.review { background: var(--ok); } .dp-dot.done { background: var(--text); }
+  .dp-labels { display: flex; justify-content: space-between; margin-top: 4px; font-size: var(--fs-xs); color: var(--muted); font-variant-numeric: tabular-nums; }
+  .dfold { margin-top: 22px; border-top: 1px solid var(--line); padding-top: 10px; } .dfold > summary { cursor: pointer; color: var(--muted); font-size: var(--fs-md); width: max-content; }
+  .dfold > summary small { color: var(--neutral); margin-left: 8px; }
   .card-reply { margin-top: 10px; display: grid; gap: 6px; }
   .card-reply .rr { display: flex; flex-wrap: wrap; gap: 6px; }   /* in a narrow card (a By agent lane) Send drops under the field instead of running off the edge */
   .card-reply .rr input { flex: 1 1 150px; }
@@ -2167,6 +2195,59 @@ const entryHtml = text => { const p = parseArw(text); return p.has ? arwHtml(p, 
 let replyOpen = false, replyDraft = '', openEntries = new Set(), resetScroll = false;
 let panelEdit = null, panelDraft = '';   // 'title' | 'description' while one of them is being edited in place, and the text so far
 
+// ---- the Done panel: what was done, did it work, what you must do next; then the picture, the ticks, your call; the rest folds ----
+const hhmm = at => String(at || '').slice(11, 16);
+function qaPairs(log) {   // your decisions on the card: each "Needs input" question with the first reply you left after it
+  const out = []; let q = null;
+  for (const e of log || []) {
+    const m = /^Needs input:\s*(.*)$/.exec(e.text || '');
+    if (m) { q = { q: m[1], at: e.at, a: null }; out.push(q); continue; }
+    if (q && !q.a && e.by && !/^(Sent back|Title changed|Description )/.test(e.text || '')) { q.a = e.text; q.by = e.by; q.at2 = e.at; }
+  }
+  return out.filter(p => p.a).slice(-3);
+}
+function pathStrip(t) {   // the card's path, one dot per state it passed through, with the time: the timeline without its noise
+  const st = [], add = (k, label, at) => { if (!st.some(x => x.k === k)) st.push({ k, label, at }); };
+  add('todo', 'created', t.created);
+  for (const e of t.log || []) {
+    const x = e.text || '';
+    if (/^(Claimed by|Started by)/.test(x)) add('doing', 'started', e.at);
+    else if (/^Needs input:/.test(x)) add('ask', 'asked', e.at);
+    else if (/^Ready for review:/.test(x)) add('review', 'review', e.at);
+    else if (/^(Moved to done|Marked done)/.test(x)) add('done', 'done', e.at);
+  }
+  if (!st.some(x => x.k === 'done')) add('done', 'done', t.updated);
+  return `<div class="dsec-h"><span>Path</span></div><div class="dpath"><div class="dp-line">${st.map((s, i) => `<span class="dp-dot ${s.k}"></span>${i < st.length - 1 ? '<span class="dp-seg"></span>' : ''}`).join('')}</div>
+    <div class="dp-labels">${st.map(s => `<span>${s.label} ${esc(hhmm(s.at))}</span>`).join('')}</div></div>`;
+}
+const PALETTE = ['--a1', '--a2', '--a4', '--a3', '--a6', '--a5'];
+function doneHtml(t, parsed, sawText, kids) {
+  const sec = t.sections || {}, checks = t.checks || [], g = t.git || {};
+  if (sec.arw) parsed = parseArw(sawText + '\n' + sec.arw);   // STATUS / WHY lines of a multi-line summary sit with the sentence
+  const chips = [];
+  const who = parsed.has ? (parsed.action.match(/^([^:|]{1,16}):/) || [])[1] : '';
+  if (parsed.has && /^<?none/i.test(parsed.action)) chips.push('<span class="dchip">Nothing for you</span>');
+  else if (who) chips.push(`<span class="dchip next">Next: ${esc(who)}</span>`);
+  for (const c of checks.slice(0, 2)) { const bad = /fail/i.test(c); chips.push(`<span class="dchip ${bad ? 'bad' : 'ok'}">${esc(c)}${bad ? '' : ' ✓'}</span>`); }
+  if (g.commits) chips.push(`<span class="dchip">${g.commits} commit${g.commits === 1 ? '' : 's'} · ${g.files} file${g.files === 1 ? '' : 's'}</span>`);
+  const sentence = parsed.has ? arwHtml(parsed) : sawText ? `<div class="said">${esc(sawText)}</div>` : '';
+  const row = (k, label, html) => html ? `<div class="dsec ${k}"><span class="dlab">${label}</span><div class="dbody rich-body">${html}</div></div>` : '';
+  const grid = sec.has ? `<div class="dgrid">${row('changed', 'Changed', sec.changed)}${row('checked', 'Checked', sec.checked)}${row('next', 'Next', sec.next)}</div>`
+    : t.body_html ? `<div class="rich-body dfree">${t.body_html}</div>` : '';
+  const diagram = sec.flow ? `<div class="dsec-h"><span>How it works</span></div>${sec.flow}` : '';
+  const ticks = kids.length ? `<div class="dsec-h"><span>Subtasks</span><span class="n">${kids.filter(subDone).length}/${kids.length}</span></div><ul class="p-subs dticks">${kids.map(k =>
+    `<li class="${subDone(k) ? 'sdone' : ''}" data-sub-id="${esc(k.id)}"><span class="tick">${subDone(k) ? '✓' : '·'}</span><span class="sn">${esc(k.title)}</span></li>`).join('')}</ul>` : '';
+  const qa = qaPairs(t.log).map(p => `<div class="dqa"><span class="dlab">Your call · ${esc(hhmm(p.at2))}</span><div class="dq">${esc(p.q)}</div><div class="da">→ <b>${esc(p.a)}</b></div></div>`).join('');
+  const groups = g.groups || [];
+  const where = groups.length ? `<div class="dsec-h"><span>Where it changed</span><span class="n">${g.files} file${g.files === 1 ? '' : 's'} · ${g.commits} commit${g.commits === 1 ? '' : 's'}</span></div>
+    <div class="dbar">${groups.map(([k, n], i) => `<i style="flex:${n};--c:var(${PALETTE[i % PALETTE.length]})" title="${esc(k)}: ${n}"></i>`).join('')}</div>
+    <div class="dlegend">${groups.map(([k, n], i) => `<span style="--c:var(${PALETTE[i % PALETTE.length]})">${esc(k)} ${n}</span>`).join('')}</div>` : '';
+  const rest = sec.has && sec.rest ? `<div class="rich-body">${sec.rest}</div>` : (!sec.has && t.body_html ? `<div class="rich-body">${t.body_html}</div>` : '');
+  return `<div class="lat"><div class="lat-h"><b>Result</b><span>${esc(t.agent || '')} ${ago(t.updated).text}</span></div>${sentence}${chips.length ? `<div class="dchips">${chips.join('')}</div>` : ''}</div>
+    ${grid}${diagram}${ticks}${qa}${where}${pathStrip(t)}`
+    + `<details class="dfold"><summary>Details<small>${[rest ? 'full note' : '', t.description ? 'description' : '', 'activity', 'prompt'].filter(Boolean).join(' · ')}</small></summary>${rest}`;
+}
+
 function panelHtml(t) {
   const doing = t.status === 'doing', stale = doing && ago(t.updated).min >= STALE_MIN;
   const abandoned = doing && ago(t.updated).min >= (cfg.stale_minutes || DEFAULT_STALE_MIN);
@@ -2222,6 +2303,11 @@ function panelHtml(t) {
   const titleHtml = panelEdit === 'title'
     ? `<form class="ed-form" data-ed="title"><input id="ed-field" class="title" value="${esc(panelDraft).replace(/"/g, '&quot;')}" aria-label="Title" maxlength="200" autocomplete="off">${edActs}</form>`
     : `<h2 class="ed" data-ed-open="title" tabindex="0" role="button" title="Click to edit (e)">${esc(t.title)}<span class="pen">edit</span></h2>`;
+  if (t.status === 'done' && !t.parent_id) {   // a finished card reads top down: result, what changed, the picture, the ticks; everything else under Details
+    return `${titleHtml}${who}${doneHtml(t, parsed, sawText, kids)}
+    ${desc}${tl}${details}${prompt}</details>
+    <div class="p-actions">${copy}<button class="btn danger" id="p-del">Delete</button></div>`;
+  }
   return `${titleHtml}${who}${askC}${revC}${prog}${result}
     <div class="p-actions">${copy}<button class="btn danger" id="p-del">Delete</button></div>
     ${par}${subsList}${blocked}${tl}${desc}${details}${prompt}`;
@@ -2266,6 +2352,8 @@ function renderPanel(t) {
       const btn = el.nextElementSibling;
       if (btn?.dataset.more) btn.hidden = !openEntries.has(el.dataset.at) && el.scrollHeight <= el.clientHeight + 1;
     });
+    const free = $('p-body').querySelector('.dfree');   // the Done panel's untemplated note fades only when it is actually cut off
+    if (free && free.scrollHeight <= free.clientHeight + 1) free.classList.remove('dfree');
     const d = $('p-desc'), more = $('p-desc-more');      // only offer "Show more" when text is actually cut off
     if (d && more) more.hidden = !descOpen && d.scrollHeight <= d.clientHeight + 1;
   }
