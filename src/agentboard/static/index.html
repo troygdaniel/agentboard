@@ -1008,6 +1008,58 @@
   body.calm :is(.col.doing, .col.acol, .h-one) .card:not(.done):not(.ask):not(.review):not(.abandoned) { background: var(--surface); border-color: var(--line); box-shadow: inset 0 1px 0 var(--card-hi), var(--shadow); }
   body.calm :is(.col.doing, .col.acol, .h-one) .card:not(.done):not(.ask):not(.review):not(.abandoned):hover { box-shadow: inset 0 1px 0 var(--card-hi), var(--shadow-hover); }
   body.calm :is(.col.doing, .col.acol, .h-one) .card:not(.done):not(.ask):not(.review):not(.abandoned)::after { box-shadow: none; animation: none; }
+  /* Look > Lively (off until chosen): the small moments move. A card settles where it was moved with a ring of the column's colour; a count
+     rolls to its new number; a finished subtask ticks itself in; a changed % pops and its bar flashes; an empty column breathes and its line
+     arrives; the toast springs up; the open card's sections step in; the drop line pulses and the column under a drag lights. Nothing on
+     the page changes while it is off, and reduced motion turns every one of these off (the last rule). */
+  .col.todo { --ring: var(--info); } .col.doing, .col.acol { --ring: var(--run); } .col.done { --ring: var(--ok); }
+  body.lively .card { transition: border-color .12s, box-shadow .22s cubic-bezier(.2,.8,.2,1), transform .22s cubic-bezier(.2,.8,.2,1), background-color .15s ease, color .15s ease; }
+  body.lively .card:hover::after { opacity: 1; box-shadow: 0 0 14px 2px var(--c, var(--neutral)); }
+  body.lively .card.dragging { transform: scale(.985) rotate(-.6deg); }
+  body.lively .card.landed::before { content: ''; position: absolute; inset: -1px; border-radius: inherit; pointer-events: none; animation: landring .8s ease-out forwards; }
+  @keyframes landring { from { box-shadow: 0 0 0 0 color-mix(in srgb, var(--ring, var(--accent)) 55%, transparent); } to { box-shadow: 0 0 0 16px transparent; } }
+  body.lively .col h2 .cnt.roll { position: relative; overflow: hidden; }
+  body.lively .col h2 .cnt.roll .rn { display: inline-block; animation: rollin .4s cubic-bezier(.2,.8,.2,1); }
+  body.lively .col h2 .cnt.roll::before { content: attr(data-from); position: absolute; inset: 0; text-align: center; animation: rollout .4s cubic-bezier(.2,.8,.2,1) forwards; }
+  body.lively .col h2 .cnt.roll.down .rn { animation-name: rollin-d; } body.lively .col h2 .cnt.roll.down::before { animation-name: rollout-d; }
+  @keyframes rollin { from { transform: translateY(100%); opacity: 0; } }
+  @keyframes rollout { to { transform: translateY(-100%); opacity: 0; } }
+  @keyframes rollin-d { from { transform: translateY(-100%); opacity: 0; } }
+  @keyframes rollout-d { to { transform: translateY(100%); opacity: 0; } }
+  body.lively .summary .bump { display: inline-block; animation: bump .5s cubic-bezier(.2,.8,.2,1); }
+  @keyframes bump { 30% { transform: scale(1.14); } }
+  body.lively .sub.just-done .g { animation: subpop .5s cubic-bezier(.2,.9,.3,1.4); }
+  body.lively .sub.just-done .check path { stroke-dasharray: 12; stroke-dashoffset: 12; animation: checkdraw .4s .15s ease-out forwards; }
+  body.lively .sub.just-done { animation: subrow 1.2s ease-out; border-radius: 6px; }
+  @keyframes subpop { 40% { transform: scale(1.35); box-shadow: 0 0 0 4px color-mix(in srgb, var(--ok) 30%, transparent), inset 0 0 0 1.5px var(--ok); } }
+  @keyframes subrow { from { background: color-mix(in srgb, var(--ok) 12%, transparent); } }
+  body.lively .note .pct.pop, body.lively .subs-count.pop { display: inline-block; animation: pctpop .45s cubic-bezier(.2,.9,.3,1.3); }
+  @keyframes pctpop { 40% { transform: scale(1.18); color: var(--c, var(--text)); } }
+  body.lively .bar b.pop { animation: barflash .7s ease-out; }
+  @keyframes barflash { 30% { filter: brightness(1.7); box-shadow: 0 0 12px 1px var(--c, var(--neutral)); } }
+  body.lively .empty { position: relative; isolation: isolate; background: none; }
+  body.lively .empty::before { content: ''; position: absolute; inset: 0; border-radius: inherit; z-index: -1; background: radial-gradient(60% 55% at 50% 100%, var(--glow1), transparent 70%); animation: breathe 7s ease-in-out infinite; }
+  @keyframes breathe { 50% { opacity: .3; } }
+  body.lively .empty.arrive { animation: arrive .6s cubic-bezier(.2,.8,.2,1); }
+  @keyframes arrive { from { opacity: 0; transform: translateY(8px); } }
+  body.lively #toast.on { animation: toastin .4s cubic-bezier(.2,.9,.3,1.25); }
+  @keyframes toastin { from { transform: translate(-50%, 28px) scale(.94); opacity: 0; } }
+  body.lively #panel.fresh .p-body > * { animation: stepin .3s cubic-bezier(.2,.8,.2,1) both; }
+  body.lively #panel.fresh .p-body > :nth-child(2) { animation-delay: .04s; } body.lively #panel.fresh .p-body > :nth-child(3) { animation-delay: .08s; }
+  body.lively #panel.fresh .p-body > :nth-child(4) { animation-delay: .12s; } body.lively #panel.fresh .p-body > :nth-child(5) { animation-delay: .16s; }
+  body.lively #panel.fresh .p-body > :nth-child(n+6) { animation-delay: .2s; }
+  @keyframes stepin { from { opacity: 0; transform: translateY(6px); } }
+  body.lively .drop { animation: droppulse 1s ease-in-out infinite; }
+  @keyframes droppulse { 50% { box-shadow: 0 0 10px 2px color-mix(in srgb, var(--accent) 45%, transparent); } }
+  body.lively .col { transition: box-shadow .2s ease, border-color .18s ease, background-color .18s ease, color .18s ease; }
+  body.lively .col.over { box-shadow: inset 0 1px 0 var(--panel-hi), var(--panel-sh), 0 0 0 3px color-mix(in srgb, var(--ring, var(--accent)) 16%, transparent); border-color: color-mix(in srgb, var(--ring, var(--accent)) 45%, var(--line)); }
+  body.lively .col.over .cards { outline-color: var(--ring, var(--neutral)); }
+  body.lively .col.over.nodrop { box-shadow: inset 0 1px 0 var(--panel-hi), var(--panel-sh), 0 0 0 3px color-mix(in srgb, var(--err) 16%, transparent); border-color: var(--err); }
+  @media (prefers-reduced-motion: reduce) {   /* a pseudo-element cannot sit inside :is(), so those three are listed on their own */
+    body.lively :is(.cnt.roll .rn, .summary .bump, .sub.just-done, .sub.just-done .g, .sub.just-done .check path, .pct.pop, .bar b.pop, .subs-count.pop, .empty.arrive, #toast.on, #panel.fresh .p-body > *, .drop),
+    body.lively .card.landed::before, body.lively .cnt.roll::before, body.lively .empty::before { animation: none; }
+    body.lively .card.dragging { transform: none; }
+  }
 </style>
 </head>
 <body>
@@ -1181,6 +1233,9 @@ let hudPane = false;            // true while the Doing cards are being drawn fo
 const glideFrom = new Map();    // card id -> rect: where a card was on the view we just left, so it glides into place on the next render
 const copied = new Map();   // Todo card id -> its copied-state label; this page-load only (in-memory on purpose: a refresh clears it)
 let selected = new Set(), selectAnchor = null;   // multi-select: shift-click/shift-arrows range, ⌘/ctrl-click toggle
+const lastSubDone = new Map(), subCountNow = new Map(), lastSubCount = new Map(), lastSum = {};   // Lively: what was finished, and the counts, on the last render
+let landedId = null, landedTo = null, freshTimer = null;   // the card you just moved by hand and where to: it settles with a ring once it is drawn there
+const lively = () => layerOn('lively');
 let hoverAgent = null;   // the pill under the pointer: re-applied after a redraw so the highlight does not flicker on a poll. Declared here, before the
                          // first render: a page opened at #/hud or at a card's hash renders at once, and reading this below the script's end threw
 
@@ -1300,10 +1355,11 @@ function card(t) {
   const queued = todo ? `<span class="when" title="queued ${esc(a.text)}"><svg width="11" height="11" viewBox="0 0 16 16" fill="none" aria-hidden="true" style="vertical-align:-1px;margin-right:4px"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5"/><path d="M8 5v3l2 1.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>queued ${a.text}</span>` : when;
   const nSubs = t.subs_total || 0;   // a parent's % is the computed mean of its subtasks (shown as "overall"), and its one bar is the segmented toggle
   const line = doing && nSubs && !t.needs_input && !t.review ? parentLine(t) : t.status_text;   // a question or review request is never replaced by a subtask's note
-  const note = doing ? `<div class="note"><span title="${esc(line)}">${esc(line)}</span><span class="pct ${nSubs ? 'computed' : ''}">${t.progress || 0}%</span></div>`
+  const pctUp = !firstRender && lastPct.has(t.id) && lastPct.get(t.id) !== (t.progress || 0);   // Lively: the number pops and the bar flashes once
+  const note = doing ? `<div class="note"><span title="${esc(line)}">${esc(line)}</span><span class="pct ${nSubs ? 'computed' : ''}${pctUp ? ' pop' : ''}">${t.progress || 0}%</span></div>`
     : (done && t.result ? `<div class="note"><span title="${esc(t.result)}">${esc(t.result)}</span></div>` : '');
   const bar = nSubs ? subsBlock(t, live) : doing
-    ? `<div class="bar" role="progressbar" aria-valuenow="${t.progress || 0}" aria-valuemin="0" aria-valuemax="100" aria-label="Progress"><b style="width:${lastPct.has(t.id) ? lastPct.get(t.id) : t.progress || 0}%;background:${colorOf(t)}" data-to="${t.progress || 0}"></b></div>` : '';
+    ? `<div class="bar" role="progressbar" aria-valuenow="${t.progress || 0}" aria-valuemin="0" aria-valuemax="100" aria-label="Progress"><b class="${pctUp ? 'pop' : ''}" style="width:${lastPct.has(t.id) ? lastPct.get(t.id) : t.progress || 0}%;background:${colorOf(t)}" data-to="${t.progress || 0}"></b></div>` : '';
   // every card gets subtasks as soon as its agent starts: a Doing card with none says so, until the first one is added
   const noSubs = doing && !nSubs && !t.needs_input && !t.review ? `<div class="nosubs" title="Agents add subtasks as soon as they start a card">No subtasks yet</div>` : '';
   const desc = t.status === 'todo' || t.status === 'backlog'
@@ -1350,14 +1406,16 @@ function subsBlock(t, live) {
   const tick = '<svg class="check" width="9" height="9" viewBox="0 0 10 10" aria-hidden="true"><path d="M1.5 5.5l2.5 2.5 4.5-5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>';
   const html = rows.map(k => {
     const kdone = subDone(k), klive = !kdone && (k.progress || 0) > 0, kask = !kdone && !!k.needs_input;
+    const kjust = kdone && !firstRender && lastSubDone.get(k.id) === false;   // Lively: finished since the last render, so it ticks itself in
     const blocked = kdone ? null : unresolvedBlockers(k)[0];
     const st = kask ? (k.question || k.status_text) : blocked ? 'blocked by ' + blocked.title : (klive ? k.status_text : '');
-    return `<div class="sub ${kdone ? 'done' : klive ? 'live' : 'queued'} ${kask ? 'ask' : ''}" data-sub-id="${esc(k.id)}" role="button" tabindex="0" style="--c:${colorOf(k)}"><span class="g">${kdone ? tick : ''}</span>` +
+    return `<div class="sub ${kdone ? 'done' : klive ? 'live' : 'queued'} ${kask ? 'ask' : ''}${kjust ? ' just-done' : ''}" data-sub-id="${esc(k.id)}" role="button" tabindex="0" style="--c:${colorOf(k)}"><span class="g">${kdone ? tick : ''}</span>` +
       `<span class="name" title="${esc(k.title + (st ? ' · ' + st : ''))}">${esc(k.title)}${st ? `<span class="st">${esc(st)}</span>` : ''}</span><span class="p">${kdone ? 100 : (k.progress || 0)}%</span></div>`;
   }).join('');
   const sid = 'subs-' + t.id;
+  const dUp = !firstRender && lastSubCount.has(t.id) && lastSubCount.get(t.id) !== d; subCountNow.set(t.id, d);   // Lively: the count pops when it changes
   return `<button class="subs-toggle" type="button" data-toggle-subs="${esc(t.id)}" aria-expanded="${open}" aria-controls="${esc(sid)}" aria-label="${d} of ${n} subtasks done, ${open ? 'hide' : 'show'} subtasks">` +
-    `<span class="bar" aria-hidden="true"><b style="width:${t.progress || 0}%;background:${t.status === 'done' ? 'var(--ok)' : colorOf(t)}"></b></span><span class="subs-count ${d === n ? 'all' : ''}">${d}/${n}</span>` +
+    `<span class="bar" aria-hidden="true"><b class="${!firstRender && lastPct.has(t.id) && lastPct.get(t.id) !== (t.progress || 0) ? 'pop' : ''}" style="width:${t.progress || 0}%;background:${t.status === 'done' ? 'var(--ok)' : colorOf(t)}"></b></span><span class="subs-count ${d === n ? 'all' : ''}${dUp ? ' pop' : ''}">${d}/${n}</span>` +
     `<svg class="chev" width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M3 1l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6"/></svg></button>` +
     `<div class="subs" id="${esc(sid)}" ${open ? '' : 'hidden'}>${html}</div>`;
 }
@@ -1544,6 +1602,8 @@ function render() {
   const cols = COLUMNS.filter(([k]) => k !== 'backlog');
   // each column scrolls on its own, and the rebuild below replaces those scrollers: remember where they were
   const scrolls = Object.fromEntries([...$('board').querySelectorAll('.col')].map(c => [c.dataset.status, c.querySelector('.cards')?.scrollTop || 0]));
+  const cntBefore = new Map();   // Lively: every column's count and whether it was empty, before the rebuild (the board's, By agent's lanes, Load's)
+  if (!firstRender) document.querySelectorAll('.col').forEach(c => cntBefore.set(c.dataset.status, [+c.querySelector('.cnt')?.textContent, !!c.querySelector('.empty')]));
   $('board').style.setProperty('--tracks', cols.map(([k]) => k === 'todo' ? 'var(--todo-w)' : k === 'doing' ? 'minmax(0, 1.4fr)' : 'minmax(0, 1fr)').join(' '));
   $('board').classList.remove('hl');   // a re-render drops the hover highlight with the cards it lit
   $('board').innerHTML = BYAGENT ? byAgentHtml(by, q || flagFilter) : cols.map(([k, label]) => {
@@ -1591,10 +1651,12 @@ function render() {
     if (n !== undefined && lastCounts[k] !== undefined && lastCounts[k] !== n) col.querySelector('.cnt')?.classList.add('tick');
   });
   COLUMNS.forEach(([k]) => { lastCounts[k] = by[k].length; });
+  if (!firstRender && lively()) livelyCounts(cntBefore);
   // glide cards from their old position to the new one
   // only a card whose column or order changed glides (or one handed over from the view just left); a card that merely shifted
   // because the card above it grew (a reply box arriving, a note going) stays still, so a background poll moves nothing
   const orderNow = Object.fromEntries([...shown.all('.card')].map((c, i) => [c.dataset.id, (c.closest('.col')?.dataset.status || '') + ':' + i]));
+  const justDroppedWas = justDropped;
   before.forEach((r, id) => {
     if (id === justDropped) return;                       // the user already moved this one by hand
     const c = shown.one(`.card[data-id="${CSS.escape(id)}"]`); if (!c) return;
@@ -1610,10 +1672,15 @@ function render() {
     if (c && was !== undefined && c.closest('.col')?.dataset.status !== was) landed(c);
   });
   justDropped = null;
+  if (landedId) {   // Lively: the card you moved by hand settles with a ring once it is drawn in the column you sent it to
+    const c = shown.one(`.card[data-id="${CSS.escape(landedId)}"]`), col = c?.closest('.col')?.dataset.status;
+    if (c && (col === landedTo || (landedTo === 'doing' && col?.startsWith('agent:')))) { landedId = null; settle(c, before.has(c.dataset.id) && c.dataset.id !== justDroppedWas); }
+  }
   // progress bars ease from their last width to the new one
   requestAnimationFrame(() => requestAnimationFrame(() =>
     document.querySelectorAll('#board .bar b[data-to], #h-cards-box .bar b[data-to]').forEach(b => { b.style.width = b.dataset.to + '%'; })));
   tasks.forEach(t => lastPct.set(t.id, t.progress || 0));
+  tasks.forEach(t => lastSubDone.set(t.id, subDone(t))); subCountNow.forEach((d, id) => lastSubCount.set(id, d)); subCountNow.clear();
   firstRender = false;
   const parked = top.filter(t => t.status === 'backlog');   // the drawer and its count ignore the filter: an idea is parked whether or not it matches
   $('later-n').textContent = parked.length ? '(' + parked.length + ')' : '';
@@ -1624,6 +1691,7 @@ function render() {
     + (asks ? `<span class="warn sum-link ${flagFilter === 'needs_input' ? 'active' : ''}" data-flag="needs_input" role="button" tabindex="0" title="Show only ${asks} needs-input card${asks === 1 ? '' : 's'}">⚠ ${asks} needs input</span> · ` : '')
     + (revs ? `<span class="ok sum-link ${flagFilter === 'review' ? 'active' : ''}" data-flag="review" role="button" tabindex="0" title="Show only ${revs} card${revs === 1 ? '' : 's'} ready for review">✓ ${revs} to review</span> · ` : '')
     + (working.length ? `<b>${working.length}</b> working` + (quiet ? ` · <span class="warn">${quiet} quiet</span>` : '') : '');
+  livelySummary({ needs_input: asks, review: revs, working: working.length });
   document.title = (abandoned ? `⚠ ${abandoned} abandoned · ` : '') + (asks ? `⚠ ${asks} input · ` : '') + (revs ? `✓ ${revs} review · ` : '') + (working.length ? `${APP} · ${working.length} working${quiet ? ' · ' + quiet + ' quiet' : ''}` : APP) + (BYAGENT ? ' · by agent' : '');
   // restore focus after the innerHTML rebuild above — preventScroll because this runs on every
   // background poll tick, not a deliberate user navigation; a plain focus() would silently drag
@@ -1633,6 +1701,35 @@ function render() {
   [...selected].forEach(id => { if (!tasks.some(t => t.id === id)) selected.delete(id); });
   renderSelection();
   if (hoverAgent) applyHover();
+}
+
+// Lively (a Look switch, off until chosen): the counts roll to their new number and a column that just emptied has its line arrive;
+// the header's counts bump; the card you moved settles with a ring. Each is a class the CSS above animates; reduced motion turns them off.
+function livelyCounts(cntBefore) {
+  document.querySelectorAll('.col').forEach(col => {
+    const was = cntBefore.get(col.dataset.status); if (!was) return;
+    const c = col.querySelector('.cnt'), n = +c?.textContent;
+    if (c && !isNaN(n) && !isNaN(was[0]) && was[0] !== n) rollCount(c, was[0], n);
+    const e = col.querySelector('.empty'); if (e && !was[1]) e.classList.add('arrive');
+  });
+}
+function rollCount(c, from, to) {
+  if (!c || RM) return;
+  c.dataset.from = from; c.classList.remove('roll', 'up', 'down'); void c.offsetWidth;
+  c.classList.add('roll', to > from ? 'up' : 'down'); c.innerHTML = `<span class="rn">${to}</span>`;   // the text stays the number; only the look rolls
+}
+function livelySummary(now) {
+  if (!firstRender && lively()) Object.entries(now).forEach(([k, v]) => {
+    if (lastSum[k] === undefined || lastSum[k] === v) return;
+    const el = k === 'working' ? $('summary').querySelector('b') : $('summary').querySelector(`[data-flag="${k}"]`);
+    el?.classList.add('bump');
+  });
+  Object.assign(lastSum, now);
+}
+function settle(c, glided) {   // the ring at once; a breath of scale once any glide has ended
+  if (!lively() || RM) return;
+  c.classList.add('landed'); setTimeout(() => c.classList.remove('landed'), 900);
+  c.animate([{ transform: 'scale(1.02)' }, { transform: 'none' }], { duration: 240, delay: glided ? 400 : 0, easing: 'ease-out' });
 }
 
 async function load() {
@@ -1840,6 +1937,7 @@ async function move(id, status, before, note = '') {
   try {
     const r = await api('/api/move', { id, status, before: before || null });
     showError(''); ok = true;
+    if (t && t.status !== status) { landedId = id; landedTo = status; }   // Lively: it settles with a ring once it is drawn there
     if (t && t.status !== status) toast(`Moved “${t.title}” to ${LABELS[status]}${note}`, { prev: r.prev, before: r.prev_before, kids: r.prev_kids });
   } catch (e) { showError('Could not move task: ' + e.message); }
   raw = ''; detailRaw = ''; load();
@@ -2098,6 +2196,7 @@ function openPanel(id, quiet) {
   openId = id;
   history.replaceState(null, '', '#' + encodeURIComponent(id));
   $('panel').classList.add('open'); document.body.classList.add('panel-open');
+  if (lively() && !RM) { $('panel').classList.add('fresh'); clearTimeout(freshTimer); freshTimer = setTimeout(() => $('panel').classList.remove('fresh'), 800); }   // Lively: the sections step in
   refreshPanel().then(() => focusSoon(() => $('p-close')));
 }
 // #panel slides in with a visibility transition, so nothing inside it can take focus in the same frame it opens:
@@ -2556,6 +2655,8 @@ const LAYERS = [
     } },
   { id: 'calm', kind: 'fx', look: true, plain: true, name: 'Calm cards', about: 'a Doing card is a plain card: no orange fill, border or glow while it runs; an ask, review or abandoned card keeps its coloured edge',
     apply(lvl) { document.body.classList.toggle('calm', lvl > 0); } },
+  { id: 'lively', kind: 'fx', look: true, plain: true, name: 'Lively', about: 'the small moments move: a card settles where you moved it with a ring of the column colour, a count rolls to its new number, a finished subtask ticks itself in, a changed percent pops and its bar flashes, an empty column breathes, the toast springs up, the open card steps in, the column under a drag lights up',
+    apply(lvl) { document.body.classList.toggle('lively', lvl > 0); } },
   { id: 'motion', kind: 'fx', look: true, name: 'Motion', about: 'look and sound move together: a settle when an agent\'s card lands in a lane (a new By agent lane slides in with it), the green edge drawing itself in when a card reaches review, the check drawing itself when a card reaches Done, a crossfade between views',
     apply(lvl) { document.body.classList.toggle('motion', lvl > 0); },   // the look follows the switch (the check, the crossfade); the level is the settle's
     demo(ctx) {
