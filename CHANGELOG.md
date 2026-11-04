@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Load no longer looks selected after you close it (Nov 3)
+- **Closing Load with Esc or `h` no longer puts a whitish focus ring round the Load tab.** It sat there while Board or By agent was the open tab, so it read as if Load were selected. Only the open tab is lit now.
+
 ### `d` marks a card done and `u` undoes (Nov 3)
 - **Press `d` to mark a card done**: the same move the Mark done button makes, on the card `c` would copy (the one you pointed at or focused last, else the selected one, else the open one), in any view and any column. A card with subtasks takes them along; a subtask says it goes with its parent; a done card says it is already done. One settle sound once it has landed. Ignored while typing, with Cmd or Ctrl held, and behind an open sheet.
 - **Press `u` to undo what the toast offers**, for as long as its toast shows (7 seconds): a move between columns, a done, a **delete** (the card and its subtasks come back, new), Archive and Clear, and the bulk move and project changes. The toast now says `Undone: …`, with one short falling sound, whether you pressed `u` or the Undo button. With nothing on offer it does nothing, quietly. Not covered: a reply, an edit, a copy, a send-back (made on the report page).

@@ -2881,7 +2881,7 @@ function closeHud() {
   clearInterval(hudTimer);
   renderKeepingCardFocus();
   if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
-  $('hud-btn').focus();
+  // no focus() on the Load tab here: after Esc or h it drew a focus ring round Load while Board or By agent was the lit tab, which read as Load being selected
 }
 function toggleHudFull() {
   const on = $('hud').classList.toggle('full');
