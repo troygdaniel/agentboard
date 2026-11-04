@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Load's Doing column sits where Board's does (Nov 3)
+- **The Live bar under the tabs is gone from Load**, with its alert chips (backup age, abandoned, needs input, to review, quiet, average time to ship). It pushed Load's Doing column 42px lower than Board and By agent draw theirs, so switching to Load jumped. The overlay now uses the board's own gutters, and the Doing column has the same top, left edge and bottom on all three views at every width, down to a phone. The header's summary and its Disconnected chip carry the counts and the connection state; `f` still toggles fullscreen.
+
 ### Load no longer looks selected after you close it (Nov 3)
 - **Closing Load with Esc or `h` no longer puts a whitish focus ring round the Load tab.** It sat there while Board or By agent was the open tab, so it read as if Load were selected. Only the open tab is lit now.
 

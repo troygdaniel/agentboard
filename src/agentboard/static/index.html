@@ -510,38 +510,20 @@
       linear-gradient(90deg, rgba(94,231,255,.035) 1px, transparent 1px) 0 0 / 40px 40px,
       var(--hbg);
     box-shadow: 0 0 0 1px rgba(94,231,255,.06), 0 30px 120px rgba(0,0,0,.6), inset 0 0 120px rgba(94,231,255,.04);
-    display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); gap: 12px; padding: 14px 18px 18px;
+    display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); padding: 18px 28px 22px;   /* .wrap's padding: the Doing column sits where Board's does */
   }
   .hud::after { content: ''; position: absolute; inset: 0; pointer-events: none; opacity: .1;
     background: repeating-linear-gradient(transparent 0 2px, rgba(0,0,0,.22) 2px 3px); }
   #hud.full { padding: 0; }
   #hud.full .hud { max-width: none; border-radius: 0; border: 0; }
-  /* wraps instead of overflowing: with several alert chips the bar outgrew 1440px and the title/buttons
-     broke onto two lines, the ticker collapsed to 0 and (half-screen) the clock/buttons clipped off-screen */
-  .h-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding: 0 10px; min-height: 32px; box-sizing: content-box; }   /* Load's own controls, under the board's nav; its left edge lines up with the brand above (see the 900px rule) */
-  @media (max-width: 600px) { .h-bar { padding: 0 6px; } }   /* .hud has 10px of its own here: 16px in */
-  /* Load has no top bar of its own (Nov 2: nothing may shift between Board, By agent and Load): the board's header stays on screen and the
-     overlay starts under it (--hdr-b, set by placeHud). Its own controls sit in .h-bar, lined up with the brand: the board goes to 16px in at 900px. */
-  @media (max-width: 900px) { .hud { padding-left: 10px; padding-right: 10px; } .h-bar { padding-left: 6px; padding-right: 6px; } }
-  .h-live, .h-btn { white-space: nowrap; }
-  .h-btn { background: none; border: 1px solid var(--hline); color: var(--hdim); border-radius: 6px; padding: 3px 10px; font: inherit; cursor: pointer; }
+  /* Load has no bar of its own (Nov 3: the Live bar and its alert chips went; they pushed the Doing column 42px under where Board and By agent
+     draw theirs, so the switch jumped). The board's header stays on screen, the overlay starts under it (--hdr-b, set by placeHud), and the
+     Doing column sits at the same height and left edge as on the other two views. The header's summary and Disconnected chip carry the counts. */
+  @media (max-width: 900px) { .hud { padding-left: 16px; padding-right: 16px; } }   /* .wrap goes to 16px in at 900px too */
+  .h-btn { white-space: nowrap; background: none; border: 1px solid var(--hline); color: var(--hdim); border-radius: 6px; padding: 3px 10px; font: inherit; cursor: pointer; }
   .h-btn:hover { color: var(--hcy); border-color: rgba(94,231,255,.5); }
-  .h-live { display: inline-flex; align-items: center; gap: 6px; color: var(--hok); letter-spacing: var(--tr-label); font-size: var(--fs-xs); }
-  .h-live::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--hok); box-shadow: 0 0 10px var(--hok); animation: hblink 1.6s ease-in-out infinite; }
-  .h-live.off { color: var(--hbad); }
-  .h-live.off::before { background: var(--hbad); box-shadow: 0 0 10px var(--hbad); animation: none; }
-  @keyframes hblink { 50% { opacity: .35; } }
   .h-btn[aria-pressed="false"] { opacity: .86; }
-  .h-alerts { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; flex: 1 1 160px; justify-content: flex-end; }
   #h-full { display: none; }   /* the overlay already fills the viewport; 'f' still toggles browser fullscreen */
-  @media (min-width: 981px) { .h-alerts { flex-wrap: nowrap; min-width: 0; overflow: hidden; } }   /* header stays one line */
-  .h-chip { border: 1px solid; border-radius: 999px; padding: 1px 10px; font-size: var(--fs-sm); letter-spacing: var(--tr-tight); white-space: nowrap; }
-  .h-chip.warn { color: var(--hwarn); border-color: rgba(255,200,87,.45); background: rgba(255,200,87,.08); animation: hqblink 2.6s ease-in-out infinite; }
-  .h-chip.ok { color: var(--hok); border-color: rgba(93,255,176,.4); background: rgba(93,255,176,.07); }
-  .h-chip.dim { color: var(--hwarn); border-color: rgba(255,200,87,.25); opacity: .8; }
-  .h-chip.err { color: var(--hbad); border-color: rgba(255,107,107,.45); background: rgba(255,107,107,.1); animation: hqblink 2.6s ease-in-out infinite; }
-  .h-chip.today small { color: var(--hdim); font-size: var(--fs-xs); margin-left: 6px; }
-  .h-chip.today { font-size: var(--fs-md); padding: 2px 14px; color: var(--hcy); border-color: rgba(94,231,255,.35); background: rgba(94,231,255,.06); }
   /* ONE grid (2026-10-24: "the division between left and right is too jarring; more like a grid").
      Every agent is one full-width row: badge, name + state, task, open/done, progress, age, and the
      60-minute load bar as the last, widest column. Header, rows, the queue row and the time-axis
@@ -823,7 +805,7 @@
   @media (max-width: 980px) { .h-grid { overflow-y: auto; } }
   /* a phone: tighter columns and type, names on one line, the idle chips wrap */
   @media (max-width: 600px) {
-    .hud { --fs-xs: 11px; --fs-sm: 12px; --fs-md: 14px; --fs-lg: 16px; --fs-xl: 18px; padding: 10px 10px 12px; font-size: 14px; }
+    .hud { --fs-xs: 11px; --fs-sm: 12px; --fs-md: 14px; --fs-lg: 16px; --fs-xl: 18px; padding: 18px 16px 12px; font-size: 14px; }   /* the board's 18px down and 16px in on a phone too */
     .h-one { --cols: 32px minmax(0, 1fr) 54px; --gap: 10px; }
     .h-one .h-row { padding: 8px 8px 8px 12px; min-height: 0; }
     .h-name { white-space: nowrap; }
@@ -1213,11 +1195,7 @@
 
 <div id="hud" role="dialog" aria-label="Load">
   <div class="hud" id="hud-inner" tabindex="-1">
-    <div class="h-bar">
-      <span class="h-live">LIVE</span>
-      <span class="h-alerts" id="h-alerts"></span>
-      <button class="h-btn" id="h-full" aria-label="Toggle fullscreen (f)">Fullscreen</button>
-    </div>
+    <button class="h-btn" id="h-full" aria-label="Toggle fullscreen (f)">Fullscreen</button>
     <div class="h-grid">
       <section class="col doing" id="h-cards" aria-label="Doing"><h2>Doing <span class="cnt" id="h-cards-n">0</span></h2><div class="cards" id="h-cards-box"></div></section>
       <section class="hp h-one" aria-label="Telemetry and agent load">
@@ -2905,7 +2883,6 @@ async function hudLoad() {
     const res = await fetch('/api/hud', { cache: 'no-store' });
     if (!res.ok) throw new Error(res.status);
     const d = await res.json();
-    setHudLive(true);
     // Open lane segments end at the server's "now" and waiting_s grows every second, so the raw payload
     // differed on every poll: the lanes were rebuilt once a second, restarting every glow/sheen
     // animation partway (a visible stutter) and resetting the idle block's scroll. Normalise them out;
@@ -2918,13 +2895,7 @@ async function hudLoad() {
     const key = JSON.stringify({ ...rest, lanes: steady }) + Math.floor(Date.now() / 15000);
     if (key === hudKey) return;
     hudKey = key; hudRender(d);
-  } catch (e) { setHudLive(false); }   // the board's own status pill is hidden in the pop-out window, so the HUD says so itself
-}
-// A dead server used to leave the HUD frozen on stale numbers under a blinking green LIVE.
-function setHudLive(on) {
-  const el = document.querySelector('.h-live');
-  if (!el || el.classList.contains('off') === !on) return;
-  el.classList.toggle('off', !on); el.textContent = on ? 'LIVE' : 'OFFLINE';
+  } catch (e) { /* the header's Disconnected chip (setStatus, from the board's own poll) says so */ }
 }
 
 // ---- HUD rendering: incremental updates, so animations glide instead of restarting ----
@@ -2938,7 +2909,6 @@ function hudRender(d) {
   lastHud = d;
   OWNER = d.owner || OWNER;
   hudSounds(d);
-  renderTiles(d.totals, d.backup);
   if (SOLO) {
     const t0 = d.totals, mine = (d.actions || []).filter(a => isOwner(a.who)).length;
     document.title = (mine ? `● ${mine} for you · ` : '') + (t0.abandoned ? `⚠ ${t0.abandoned} abandoned · ` : '') + (t0.waiting ? `⚠ ${t0.waiting} input · ` : '') + (t0.review ? `✓ ${t0.review} review · ` : '') + `Load · ${t0.working} working`;
@@ -2947,19 +2917,6 @@ function hudRender(d) {
 }
 
 const KIND_WORD = { ask: 'needs an answer', review: 'ready for sign-off', stale: 'gone quiet' };
-function renderTiles(t, bk) {   // alert chips in the top bar
-  const bkAge = !bk ? null : bk.last_backup_min == null ? 'no backup yet' : (bk.last_backup_min < 1 ? 'just now' : bk.last_backup_min < 90 ? bk.last_backup_min + ' min ago' : Math.floor(bk.last_backup_min / 60) + ' h ago');
-  const chips = [
-    bk ? [(bk.last_backup_min == null || bk.last_backup_min > 120) ? 'err' : 'dim', `backup ${bkAge}`] : null,
-    t.abandoned ? ['err', `⚠ ${t.abandoned} abandoned`] : null,
-    t.waiting ? ['warn', `⚠ ${t.waiting} needs input`] : null,
-    t.review ? ['ok', `✓ ${t.review} to review`] : null,
-    t.quiet ? ['dim', `${t.quiet} quiet`] : null,
-    t.avg_minutes != null ? ['today', `avg ${dur(Math.round(t.avg_minutes))} to ship${t.done_today ? ` <small>${t.done_today} done</small>` : ''}`] : (t.done_today ? ['today', `${t.done_today} done`] : null),
-  ].filter(Boolean);
-  const html = chips.map(([c, txt]) => `<span class="h-chip ${c}">${txt}</span>`).join('');
-  if ($('h-alerts').innerHTML !== html) $('h-alerts').innerHTML = html;
-}
 
 // Agents often share a colour, so avatars carry the number in the name (AGENT-2 -> 2), else the initial.
 function nodeGlyph(n) { const m = /(\d{1,2})\s*$/.exec(n); return m ? m[1] : [...n][0].toUpperCase(); }

@@ -9,7 +9,7 @@ from agentboard import nav
 HTML = (Path(nav.__file__).parent / "static" / "index.html").read_text()
 HEADER = HTML[HTML.index("<header>"):HTML.index("</header>")]
 ICONS = re.search(r'<span class="hicons">(.*?)</span>\s*</header>', HTML, re.S).group(1)
-HBAR = HTML[HTML.index('<div class="h-bar">'):HTML.index('<div class="h-grid">')]
+HBAR = HTML[HTML.index('<div class="hud" id="hud-inner"'):HTML.index('<div class="h-grid">')]   # Load's own top, above its grid (Nov 3: the bar itself went; see test_load_align)
 
 
 def body(fn):
@@ -91,11 +91,9 @@ class SettingsTests(unittest.TestCase):
 
 
 class LoadBarTests(unittest.TestCase):
-    def test_loads_bar_keeps_live_and_the_alert_chips_only(self):
+    def test_loads_top_has_no_buttons_but_the_hidden_fullscreen(self):
         for gone in ("h-pop", "h-close", "h-mix", "h-snd", "h-amb", "Pop out", "SND ON", "AMB ON"):
             self.assertNotIn(gone, HBAR, gone)
-        self.assertIn('<span class="h-live">LIVE</span>', HBAR)
-        self.assertIn('<span class="h-alerts" id="h-alerts"></span>', HBAR)
         self.assertIn('id="h-full"', HBAR)                                 # hidden; f still toggles fullscreen
         self.assertIn("$('hud-inner').focus();", body("openHud"))
         self.assertIn('<div class="hud" id="hud-inner" tabindex="-1">', HTML)
