@@ -10,7 +10,7 @@ HTML = (Path(nav.__file__).parent / "static" / "index.html").read_text()
 class DrawerTests(unittest.TestCase):
     def test_the_drawer_is_later_in_both_views_with_no_view_switch(self):
         self.assertNotIn("DRAWER", HTML)
-        self.assertIn("renderLater(by.backlog)", HTML)
+        self.assertIn("renderLater(parked)", HTML)   # everything parked, whatever the filter says (Nov 4)
         self.assertIn("t.status === 'backlog' && !isKid(t)", HTML)
         self.assertIn('<button class="btn" id="later-btn" aria-controls="later">Later <span id="later-n"></span></button>', HTML)
 

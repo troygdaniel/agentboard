@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+### Polls no longer steal, reset or wipe; nothing hides without a way to read it (Nov 4)
+- **Typing in a reply box no longer freezes the rest of the page**: only the board's redraw waits for you; the status pill, the asks, the open card and the chat keep running.
+- **The open card is not rebuilt under your hand**: a focused control inside it (an armed "Click again to delete", a "copied" label, the subtask or blocker field, a picker) and any text you have selected hold the once-a-minute rebuild, and a change arriving while a field is in use waits for the next poll. The minute tick on the board waits while text is selected too.
+- **The Later box is built once**: what you typed, the caret and a composition in progress survive the list below it updating. **The drawer and its count show everything parked** whatever the filter says (they said "Nothing parked" under an agent filter).
+- **Hovering an agent pill no longer flickers** on every changed poll: the highlight is put back after a redraw.
+- **Clipped text carries its full text as a tooltip**: the card's time and stale text, the queued time, a subtask row, the toast, a chat card chip, the agent pill on Load.
+- **The Report chip shows whenever a report exists**, not only on ask, review and done cards. **Done folds back**: "Show N more" becomes "Show fewer".
+- **By agent shows Doing cards that have no agent** in an Unassigned lane, last; they were shown on no view but the Board.
+
 ### Nothing hides under Load, nothing in the header moves (Nov 4)
 - **The toast shows on Load** (it was drawn under the overlay, so "Moved… Undo" and its countdown were invisible there), and **the error strip too**: it floats under the header on every view, has an × to dismiss it, and no longer pushes the board down when it appears.
 - **The header stays put.** Above the phone width it never wraps to a second line (the counts appearing or changing used to push the board and Load's top edge down), the counts shrink with an ellipsis before anything else gives, their numbers are tabular, the Later button fits three digits, and ORCH keeps its slot from the first paint instead of appearing a moment later.

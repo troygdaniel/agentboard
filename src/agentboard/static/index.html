@@ -1284,12 +1284,13 @@ function card(t) {
   const who = t.agent
     ? `<button class="who" data-agent="${esc(t.agent)}" data-tip="Show only ${esc(t.agent)}" aria-label="Show only ${esc(t.agent)}"><span class="av ${live ? 'live' : ''}" style="--c:${colorOf(t)}" aria-hidden="true">${esc(nodeGlyph(t.agent))}</span><span class="nm">${esc(t.agent)}</span></button>` : '';
   const checkIcon = done ? `<svg class="check" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-label="Done"><path d="M3.5 8.5l3 3 6-7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>` : '';
-  const when = a.text ? `<span class="when ${abandoned ? 'abandoned' : stale ? 'stale' : ''}">${abandoned ? '⚠ abandoned? no update ' : stale ? 'no update ' : ''}${a.text}</span>` : '';
+  const whenText = a.text ? `${abandoned ? '⚠ abandoned? no update ' : stale ? 'no update ' : ''}${a.text}` : '';
+  const when = a.text ? `<span class="when ${abandoned ? 'abandoned' : stale ? 'stale' : ''}" title="${esc(whenText)}">${whenText}</span>` : '';
   const runChip = t.run && t.run.status === 'running' && t.run.alive !== false ? `<span class="run-chip" title="A one-shot run is working on this card">▶ run</span>` : '';
   const todo = t.status === 'todo', backlog = t.status === 'backlog';
   const laterBtn = todo ? `<button class="card-act" data-later="${esc(t.id)}" title="Move to Later (backlog)"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 3v7m0 0L5 7m3 3l3-3M3 13h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Later</button>` : '';
   const toTodoBtn = backlog ? `<button class="card-act" data-to-todo="${esc(t.id)}" title="Move to Todo"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 13V6m0 0L5 9m3-3l3 3M3 3h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Move to Todo</button>` : '';
-  const queued = todo ? `<span class="when"><svg width="11" height="11" viewBox="0 0 16 16" fill="none" aria-hidden="true" style="vertical-align:-1px;margin-right:4px"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5"/><path d="M8 5v3l2 1.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>queued ${a.text}</span>` : when;
+  const queued = todo ? `<span class="when" title="queued ${esc(a.text)}"><svg width="11" height="11" viewBox="0 0 16 16" fill="none" aria-hidden="true" style="vertical-align:-1px;margin-right:4px"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5"/><path d="M8 5v3l2 1.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>queued ${a.text}</span>` : when;
   const nSubs = t.subs_total || 0;   // a parent's % is the computed mean of its subtasks (shown as "overall"), and its one bar is the segmented toggle
   const line = doing && nSubs && !t.needs_input && !t.review ? parentLine(t) : t.status_text;   // a question or review request is never replaced by a subtask's note
   const note = doing ? `<div class="note"><span title="${esc(line)}">${esc(line)}</span><span class="pct ${nSubs ? 'computed' : ''}">${t.progress || 0}%</span></div>`
@@ -1311,7 +1312,7 @@ function card(t) {
   const meta = (todo || backlog || !who) && (copy || queued || laterBtn || toTodoBtn) ? `<div class="meta">${copy}${laterBtn}${toTodoBtn}${who && !todo ? '' : queued}</div>` : '';
   const asking = !!t.needs_input && doing;
   const reviewing = !!t.review && doing && !asking;
-  const reportLink = t.report && (asking || reviewing || done) ? `<a class="report-link" href="${BASE}/reports/${esc(t.report.file)}" target="_blank" rel="noopener" title="Open this card's report in a new tab" aria-label="Open report"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 1.5h5.5L12.5 5v9.5H4z"/><path d="M9.5 1.5V5h3M6 8.5h4.5M6 11h4.5"/></svg>Report</a>` : '';
+  const reportLink = t.report ? `<a class="report-link" href="${BASE}/reports/${esc(t.report.file)}" target="_blank" rel="noopener" title="Open this card's report in a new tab" aria-label="Open report"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 1.5h5.5L12.5 5v9.5H4z"/><path d="M9.5 1.5V5h3M6 8.5h4.5M6 11h4.5"/></svg>Report</a>` : '';
   const top = who ? `<div class="top">${who}${runChip}${reportLink}${todo ? '' : when}</div>` : `<div class="top">${todo || backlog ? '' : '<span class="unas">Unassigned</span>'}</div>`;   // the holder is always the first row, same place on every card
   const askFlag = asking ? `<div class="ask-flag"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 2a4 4 0 0 0-4 4v3L2.8 11h10.4L12 9V6a4 4 0 0 0-4-4z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M6.5 13a1.5 1.5 0 0 0 3 0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Needs your input</div>` : reviewing ? `<div class="ask-flag rev"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>Ready for review</div>` : '';
   // ask / review: the agent's one sentence is the card's first line, large, with a reply box the owner can answer in (stored on the card; the agent reads it with `agentboard answer`)
@@ -1345,7 +1346,7 @@ function subsBlock(t, live) {
     const blocked = kdone ? null : unresolvedBlockers(k)[0];
     const st = kask ? (k.question || k.status_text) : blocked ? 'blocked by ' + blocked.title : (klive ? k.status_text : '');
     return `<div class="sub ${kdone ? 'done' : klive ? 'live' : 'queued'} ${kask ? 'ask' : ''}" data-sub-id="${esc(k.id)}" role="button" tabindex="0" style="--c:${colorOf(k)}"><span class="g">${kdone ? tick : ''}</span>` +
-      `<span class="name">${esc(k.title)}${st ? `<span class="st">${esc(st)}</span>` : ''}</span><span class="p">${kdone ? 100 : (k.progress || 0)}%</span></div>`;
+      `<span class="name" title="${esc(k.title + (st ? ' · ' + st : ''))}">${esc(k.title)}${st ? `<span class="st">${esc(st)}</span>` : ''}</span><span class="p">${kdone ? 100 : (k.progress || 0)}%</span></div>`;
   }).join('');
   const sid = 'subs-' + t.id;
   return `<button class="subs-toggle" type="button" data-toggle-subs="${esc(t.id)}" aria-expanded="${open}" aria-controls="${esc(sid)}" aria-label="${d} of ${n} subtasks done, ${open ? 'hide' : 'show'} subtasks">` +
@@ -1389,12 +1390,13 @@ function byAgentHtml(by, filtered) {
   const names = new Set([...doingBy.keys()].filter(Boolean));
   const sorted = [...names].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base', numeric: true }));
   const active = sorted.filter(n => doingBy.has(n));
+  if (doingBy.has('')) active.push('');   // Doing cards with no agent: an Unassigned lane last, so no card is shown nowhere
   const colorFor = n => { const t = (doingBy.get(n) || [])[0]; return t ? colorOf(t) : 'var(--neutral)'; };
   const stateFor = n => agentState(doingBy.get(n) || []);
   const agentCol = n => {
     const st = stateFor(n), cards = doingBy.get(n) || [];
     const fresh = lanesKnown && !firstRender && !lanesBefore.has(n);   // Motion: a lane that was not up on the last By agent render slides in (a view switch is not that)
-    return `<section class="col acol${fresh ? ' enter' : ''}" data-status="agent:${esc(n)}" style="--c:${colorFor(n)}"><h2><span class="av" style="--c:${colorFor(n)}" aria-hidden="true">${esc(nodeGlyph(n))}</span><span class="nm" title="${esc(n)}">${esc(n)}</span><span class="cnt">${cards.length}</span><em class="${st}">${esc(st)}</em></h2>`
+    return `<section class="col acol${fresh ? ' enter' : ''}" data-status="agent:${esc(n)}" style="--c:${colorFor(n)}"><h2><span class="av" style="--c:${colorFor(n)}" aria-hidden="true">${esc(nodeGlyph(n))}</span><span class="nm" title="${esc(n || 'Unassigned')}">${esc(n || 'Unassigned')}</span><span class="cnt">${cards.length}</span><em class="${st}">${esc(st)}</em></h2>`
       + `<div class="cards">${cards.map(card).join('')}</div></section>`;
   };
   const n = active.length;
@@ -1543,9 +1545,9 @@ function render() {
     if (k === 'done') {
       ribbon = ribbonHtml(list);
       if (doneDay != null) list = list.filter(t => daysAgo(t.updated) === doneDay);   // one day from the ribbon: all of it, no fold
-      else if (!showAllDone && list.length > DONE_SHOWN) {
-        more = `<button class="more" id="more">Show ${list.length - DONE_SHOWN} more</button>`;
-        list = list.slice(0, DONE_SHOWN);
+      else if (list.length > DONE_SHOWN) {
+        if (showAllDone) more = `<button class="more" id="more">Show fewer</button>`;
+        else { more = `<button class="more" id="more">Show ${list.length - DONE_SHOWN} more</button>`; list = list.slice(0, DONE_SHOWN); }
       }
     }
     let body;
@@ -1610,8 +1612,9 @@ function render() {
     document.querySelectorAll('#board .bar b[data-to], #h-cards-box .bar b[data-to]').forEach(b => { b.style.width = b.dataset.to + '%'; })));
   tasks.forEach(t => lastPct.set(t.id, t.progress || 0));
   firstRender = false;
-  $('later-n').textContent = by.backlog.length ? '(' + by.backlog.length + ')' : '';
-  renderLater(by.backlog);
+  const parked = top.filter(t => t.status === 'backlog');   // the drawer and its count ignore the filter: an idea is parked whether or not it matches
+  $('later-n').textContent = parked.length ? '(' + parked.length + ')' : '';
+  renderLater(parked);
   const quiet = working.filter(t => ago(t.updated).min >= STALE_MIN && ago(t.updated).min < (cfg.stale_minutes || DEFAULT_STALE_MIN)).length;
   const abandoned = working.filter(t => ago(t.updated).min >= (cfg.stale_minutes || DEFAULT_STALE_MIN)).length;
   $('summary').innerHTML = (abandoned ? `<span class="err">⚠ ${abandoned} abandoned</span> · ` : '')
@@ -1626,6 +1629,7 @@ function render() {
   // drop selections for cards that no longer exist (archived/deleted elsewhere), then reapply highlight
   [...selected].forEach(id => { if (!tasks.some(t => t.id === id)) selected.delete(id); });
   renderSelection();
+  if (hoverAgent) applyHover();
 }
 
 async function load() {
@@ -1635,13 +1639,14 @@ async function load() {
     if (!r.ok) throw new Error('HTTP ' + r.status);
     const text = await r.text();
     const ae = document.activeElement;   // never re-render under something being typed (an empty add box is fine to redraw: focus is put back)
-    if (ae?.id === 'p-reply-text' || ae?.closest?.('.card-reply, .qr-free, .ed-form') || ((ae?.id === 'p-sub-add' || ae?.id === 'p-block-add') && ae.value)) return;
+    const hold = ae?.id === 'p-reply-text' || ae?.closest?.('.card-reply, .qr-free, .ed-form') || ((ae?.id === 'p-sub-add' || ae?.id === 'p-block-add') && ae.value);
     const minute = Math.floor(Date.now() / 60000);
-    let changed = false;
-    if (text !== raw || minute !== tick) {
-      raw = text; tick = minute; tasks = JSON.parse(text).tasks; changed = true;
+    if (!hold) {   // the redraw waits for the typing; the status pill, the asks, the open card and the chat below do not
+      let changed = false;
+      if (text !== raw) { raw = text; tick = minute; tasks = JSON.parse(text).tasks; changed = true; }
+      else if (minute !== tick && !selectionInside($('board'))) { tick = minute; changed = true; }   // the minute tick ("3 min ago") waits while you have text selected
+      if (changed) render();
     }
-    if (changed) render();
     setStatus(true);
     checkAsks();
     maybeAutoOpen();
@@ -1712,7 +1717,7 @@ function chatBubble(m) {
   const toggle = long ? `<button class="p-more cmsg-more" data-seq="${m.seq}">${open ? 'Show less' : 'Show more'}</button>` : '';
   const to = m.to ? `<span class="to">→ ${esc(m.to)}</span>` : '';
   const topic = m.topic && m.topic !== 'status' ? `<span class="topic ${esc(m.topic)}">${esc(TOPIC_WORD[m.topic] || m.topic)}</span>` : '';
-  const chips = [m.card ? `<span class="chip card" data-chat-card="${esc(m.card)}" role="button" tabindex="0" title="Open the card">${esc(byId.get(m.card)?.title || m.card)}</span>` : '',
+  const chips = [m.card ? `<span class="chip card" data-chat-card="${esc(m.card)}" role="button" tabindex="0" title="${esc(byId.get(m.card)?.title || m.card)}">${esc(byId.get(m.card)?.title || m.card)}</span>` : '',
     ...(m.files || []).map(f => `<span class="chip file" title="${esc(f)}">${esc(f.split('/').pop())}</span>`),
     m.reply_to ? `<span class="chip">re #${m.reply_to}</span>` : '',
     m.via === 'idle' ? `<span class="chip auto" title="Drafted by the board for this agent while it was idle, on the cheaper model">auto</span>` : '',
@@ -1799,7 +1804,7 @@ const TOAST_MS = 7000;
 let toastTimer = null, undoInfo = null;
 function toast(text, undo) {
   undoInfo = undo || null;
-  $('toast-text').textContent = text;
+  $('toast-text').textContent = text; $('toast-text').title = text;
   $('toast-undo').style.display = undo ? '' : 'none';
   $('toast-cd').style.animationDuration = TOAST_MS + 'ms';
   // restart the countdown bar's animation even if a toast is already showing (remove+reflow+add)
@@ -2036,6 +2041,9 @@ async function refreshPanel() {
     const text = await r.text();
     const minute = Math.floor(Date.now() / 60000);
     if (text === detailRaw && minute === panelRefreshTick) return;
+    const ae = document.activeElement, inBody = !!ae?.closest?.('#p-body');
+    if (text === detailRaw && (inBody || selectionInside($('p-body')))) return;   // the minute tick waits: a focused control, an armed Delete, a copied label, selected text all stay
+    if (text !== detailRaw && inBody && /^(SELECT|INPUT)$/.test(ae.tagName)) return;   // a change waits while a picker or field is in use; the next poll brings it
     detailRaw = text; panelRefreshTick = minute;
     renderPanel(JSON.parse(text));
   } catch (e) { /* the status indicator already reports connectivity */ }
@@ -2787,7 +2795,7 @@ function hudRender(d) {
 
 
 // Agents often share a colour, so avatars carry the number in the name (AGENT-2 -> 2), else the initial.
-function nodeGlyph(n) { const m = /(\d{1,2})\s*$/.exec(n); return m ? m[1] : [...n][0].toUpperCase(); }
+function nodeGlyph(n) { if (!n) return '?'; const m = /(\d{1,2})\s*$/.exec(n); return m ? m[1] : [...n][0].toUpperCase(); }   // no name (the Unassigned lane): a question mark
 const dur = m => m < 60 ? m + 'm' : Math.floor(m / 60) + 'h' + String(m % 60).padStart(2, '0');
 
 // A color means exactly one thing on this screen: the agent's CURRENT state, not who they are
@@ -2855,7 +2863,7 @@ function renderGrid(d) {
   const key = agents.map(a => a.name).join('|');
   if (key !== teleKey) {
     teleKey = key;
-    const card = a => `<div class="card h-row" data-agent="${hh(a.name)}"><div class="top"><span class="who"><span class="av" aria-hidden="true">${hh(nodeGlyph(a.name))}</span><span class="nm">${hh(a.name)}</span></span><span class="when h-since"></span></div><div class="ln-track"></div></div>`;
+    const card = a => `<div class="card h-row" data-agent="${hh(a.name)}"><div class="top"><span class="who" title="${hh(a.name)}"><span class="av" aria-hidden="true">${hh(nodeGlyph(a.name))}</span><span class="nm">${hh(a.name)}</span></span><span class="when h-since"></span></div><div class="ln-track"></div></div>`;
     box.innerHTML = agents.map(card).join('')
       + `<div class="card h-q" data-status="queue"><div class="top"><span class="nm" id="h-qlab">Queue</span></div><div class="ln-track" id="h-qtrack" title="unclaimed cards in Todo over the hour"></div></div>`;
   }
@@ -2888,12 +2896,10 @@ function renderGrid(d) {
 function renderLater(list) {
   const body = $('later-body');
   if (!body || !$('later').classList.contains('open')) return;
-  const typed = document.getElementById('later-input')?.value || '';
-  const hadFocus = document.activeElement?.id === 'later-input', keepScroll = body.scrollTop;
-  body.innerHTML = `<form class="later-add" id="later-form"><input id="later-input" placeholder="Park an idea…" aria-label="Park an idea" required><button class="btn primary">Add</button></form>` +
-    (list.length ? `<div class="cards">${list.map(card).join('')}</div>` : `<div class="empty">${LATER_EMPTY}</div>`);
+  const keepScroll = body.scrollTop;
+  if (!$('later-form')) body.innerHTML = `<form class="later-add" id="later-form"><input id="later-input" placeholder="Park an idea…" aria-label="Park an idea" required><button class="btn primary">Add</button></form><div id="later-list"></div>`;   // built once: what you typed, the caret and a composition in progress stay
+  $('later-list').innerHTML = list.length ? `<div class="cards">${list.map(card).join('')}</div>` : `<div class="empty">${LATER_EMPTY}</div>`;
   body.scrollTop = keepScroll;
-  const inp = $('later-input'); if (inp) { inp.value = typed; if (hadFocus) inp.focus(); }
 }
 function setSide(which) {            // one surface at a time
   if (which !== 'later') $('later').classList.remove('open');
@@ -3179,6 +3185,10 @@ function checkAsks() {
 
 // a card that just needs input or is ready for review opens its own detail panel — but
 // never mid-keystroke, and never out from under the HUD or the shortcuts sheet
+function selectionInside(el) {   // text the user has selected inside el (a redraw would wipe it)
+  const sel = window.getSelection(); if (!sel || sel.isCollapsed || !sel.rangeCount) return false;
+  return el.contains(sel.getRangeAt(0).commonAncestorContainer);
+}
 function isTyping() {   // a field that takes text; a checkbox, radio, slider or button is a control, not typing
   const el = document.activeElement;
   return !!el && (el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || (el.tagName === 'INPUT' && !/^(checkbox|radio|range|button|submit)$/.test(el.type)));
@@ -3292,7 +3302,7 @@ CARD_HOMES.forEach(h => h.addEventListener('click', async e => {
   if (tg) { toggleSubs(tg); return; }
   const sr = e.target.closest('[data-sub-id]');
   if (sr) { openPanel(sr.dataset.subId); return; }
-  if (e.target.id === 'more') { showAllDone = true; return render(); }
+  if (e.target.id === 'more') { showAllDone = !showAllDone; render(); $('more')?.focus({ preventScroll: true }); return; }
   const rb = e.target.closest('[data-day]');
   if (rb) { const n = +rb.dataset.day; doneDay = doneDay === n ? null : n; render(); $('board').querySelector(`[data-day="${n}"]`)?.focus({ preventScroll: true }); return; }
   if (e.target.id === 'clear-done') {
@@ -3425,17 +3435,21 @@ else if (location.hash.length > 1) openPanel(decodeURIComponent(location.hash.sl
 
 // hover a name on any card: every card of that agent stays lit, the rest step back
 const boardEl = $('board');
-boardEl.addEventListener('mouseover', e => {
-  const w = e.target.closest('.who'); if (!w) return;
-  const n = w.dataset.agent;
-  boardEl.classList.add('hl');
+let hoverAgent = null;   // the pill under the pointer: re-applied after a redraw so the highlight does not flicker on a poll
+function applyHover() {
+  const n = hoverAgent;
+  boardEl.classList.toggle('hl', !!n);
   // that agent's cards light; only OTHER agents' cards step back. A card with no agent (all of Todo) stays as it is:
   // dimming those faded the whole Todo column to near nothing whenever the pointer crossed a pill (Nov 3)
-  boardEl.querySelectorAll('.card').forEach(c => { c.classList.toggle('hl', c.dataset.agent === n); c.classList.toggle('dim', !!c.dataset.agent && c.dataset.agent !== n); });
+  boardEl.querySelectorAll('.card').forEach(c => { c.classList.toggle('hl', !!n && c.dataset.agent === n); c.classList.toggle('dim', !!n && !!c.dataset.agent && c.dataset.agent !== n); });
+}
+boardEl.addEventListener('mouseover', e => {
+  const w = e.target.closest('.who'); if (!w) return;
+  hoverAgent = w.dataset.agent; applyHover();
 });
 boardEl.addEventListener('mouseout', e => {
   if (!e.target.closest('.who') || e.relatedTarget?.closest?.('.who')) return;
-  boardEl.classList.remove('hl'); boardEl.querySelectorAll('.card.hl, .card.dim').forEach(c => c.classList.remove('hl', 'dim'));
+  hoverAgent = null; applyHover();
 });
 </script>
 </body>

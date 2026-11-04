@@ -20,7 +20,7 @@ class AgentsColumnTests(unittest.TestCase):
     def test_the_column_is_a_board_column_with_board_cards(self):
         self.assertIn('<section class="col h-one" aria-label="Agents">\n        <h2>Agents <span class="cnt" id="h-tele-n">0</span><span class="ln-wait" id="ln-wait"></span></h2>\n        <div class="cards h-scroll" id="h-tele"></div>', HTML)
         r = body("renderGrid")
-        self.assertIn('const card = a => `<div class="card h-row" data-agent="${hh(a.name)}"><div class="top"><span class="who"><span class="av" aria-hidden="true">${hh(nodeGlyph(a.name))}</span><span class="nm">${hh(a.name)}</span></span><span class="when h-since"></span></div><div class="ln-track"></div></div>`;', r)
+        self.assertIn('const card = a => `<div class="card h-row" data-agent="${hh(a.name)}"><div class="top"><span class="who" title="${hh(a.name)}"><span class="av" aria-hidden="true">${hh(nodeGlyph(a.name))}</span><span class="nm">${hh(a.name)}</span></span><span class="when h-since"></span></div><div class="ln-track"></div></div>`;', r)
         self.assertIn(':is(.col.doing, .col.acol, .h-one) .card:not(.done) {', CSS)   # the Doing tint, border and glow by state
         self.assertIn("r.className = `card h-row ${a.state} ${CARD_STATE[a.state] || ''}`", r)
         for gone in ("h-name", "h-status", "h-ask", "h-recent", "h-card", "h-prgw", "KIND_WORD", "stepsHtml(ask.what"):   # nothing the Doing card says
@@ -48,8 +48,8 @@ class AgentsColumnTests(unittest.TestCase):
 
 class BoardHoverTests(unittest.TestCase):
     def test_a_pill_hover_dims_only_other_agents_cards(self):
-        self.assertIn("boardEl.querySelectorAll('.card').forEach(c => { c.classList.toggle('hl', c.dataset.agent === n); c.classList.toggle('dim', !!c.dataset.agent && c.dataset.agent !== n); });", HTML)
-        self.assertIn("boardEl.querySelectorAll('.card.hl, .card.dim').forEach(c => c.classList.remove('hl', 'dim'));", HTML)
+        self.assertIn("boardEl.querySelectorAll('.card').forEach(c => { c.classList.toggle('hl', !!n && c.dataset.agent === n); c.classList.toggle('dim', !!n && !!c.dataset.agent && c.dataset.agent !== n); });", HTML)
+        self.assertIn("hoverAgent = null; applyHover();", HTML)   # leaving the pill clears it; the same function re-applies it after a redraw (Nov 4)
         self.assertIn(".board.hl .card.dim { opacity: .4; }", CSS)
         self.assertNotIn(".board.hl .card:not(.hl) { opacity: .4; }", CSS)
 
