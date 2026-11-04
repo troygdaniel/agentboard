@@ -342,16 +342,18 @@ for, since both mean progress is stalled on a human, not on more waiting.
 
 ## The HUD (the Load tab)
 
-Press `h`, or open `/hud` in its own window (second monitor). One grid, one row per agent:
+Press `h`, or open `/hud` in its own window (second monitor). The board's Todo and Doing columns on the left, the same
+cards as Board and By agent (they glide across on the switch), then one grid, one row per agent:
 
-- **Left:** the agent, its state (`WORKING`, `WAITING`, `REVIEW`, `QUIET`, `ABANDONED`, `IDLE`), then the one text
-  that matters: the ask or result in full when the card needs a person, otherwise the agent's own status line, and
+- **Left of the row:** the agent, its state (`WORKING`, `WAITING`, `REVIEW`, `QUIET`, `ABANDONED`, `IDLE`), then the one
+  text that matters: the ask or result in full when the card needs a person, otherwise the agent's own status line, and
   under it the agent's last few notes with times (on screens taller than 820px).
-- **Right:** the card's title, the **60-minute load bar** (working / waiting on you / in review, gaps are idle) and the
-  progress line. A time axis under the bars; the **queue** (unclaimed Todo cards over the hour) as the last row.
+- **Right:** the **60-minute load bar** (working / waiting on you / in review, gaps are idle). A time axis under the
+  bars; the **queue** (unclaimed Todo cards over the hour) as the last row. The card's title, bar and % are on the Doing
+  card beside the row, not repeated; an idle agent's row names its last card instead.
 - **Attention:** a card that needs a person lights its row: red when it needs your answer or sign-off, amber when the
   agent went quiet (no update past `[board] stale_minutes`, default 120), cyan when the ACTION names another agent.
-  Those rows sort to the top; click one to open the card. The top bar counts asks, reviews, abandoned and done today,
+  Those rows sort to the top; click one to open the card. The header's summary counts asks, reviews and abandoned,
   and the window title says "● 2 for you".
 - `[hud] retired = ["AGENT-5"]` in `config.toml` hides agents you no longer run (their cards and history stay).
 - Optional synthesized sound cues (Sound and Ambient bed switches in Settings, the gear on every view; `s` turns sound on or off anywhere). The sounds, ambient bed included, play on every view (Board, By agent and Load), one bed at a time even with several pages open; a fresh page waits for your first click or key, as browsers require. Settings (`m`) also has a Volume slider: 100% is the usual level, and up to 300% goes through a limiter so it cannot clip; and the extra layers, each with its own switch and level and off until you choose it: Rain, Wind, Pad, Pulse, Echo, Signatures, All clear, Hourly chime. Touch, the one layer that starts on, is the quiet set of UI sounds for what your hands do (focus, open, drag and drop, tabs, drawers, switches, select, copy, errors). Motion pairs a look with a sound (a settle when an agent's card lands in a lane and, on By agent, a new lane sliding in with it; the green edge drawing in at review; the check drawing in at Done; a crossfade between views), off until you choose it. Stacks on narrow windows, bars under the text.
