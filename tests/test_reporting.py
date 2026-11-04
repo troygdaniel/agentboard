@@ -90,9 +90,10 @@ class ReplyTests(Base):
         self.s.ask("ask-me", "Retry 3 or 5?")
         self.assertIsNone(self.s.answer("ask-me"))
         self.s.reply("ask-me", "  five  ")
+        self.assertTrue(Store.get(self.s.load(), "ask-me")["needs_input"])       # replying changes no state
         self.assertEqual(self.s.answer("ask-me")["text"], "five")
         self.assertEqual(self.s.answer("ask-me")["by"], "you")
-        self.assertTrue(Store.get(self.s.load(), "ask-me")["needs_input"])       # replying changes no state
+        self.assertNotIn("needs_input", Store.get(self.s.load(), "ask-me"))      # ...reading it ends the question
         self.assertEqual(self.cli("answer", "ask-me").strip(), "five")
 
     def test_a_read_reply_is_cleared_when_the_agent_moves_on(self):

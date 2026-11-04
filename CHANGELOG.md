@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### "Needs your input" clears once the agent has your answer (Nov 4)
+- **The red state ends at the first of two things**: the agent reads your reply (`agentboard answer`), or it next reports on the card, which now includes an update on any of its subtasks. Before, only an update on the card itself cleared it, and an agent's progress arrives as subtask updates, so a question asked on the card stayed red (card, header count, By agent lane, Load, right panel) for as long as the agent kept working, long after it had read "Go ahead".
+- **Until then nothing changes**: your reply alone leaves it red with "You replied Go ahead, AGENT-1 reads it next", and an agent that neither reads nor reports keeps it red. A state note ("Restored by you") never ends a question by being read. A question asked on a subtask clears as before, when that subtask updates, and now also when its answer is read.
+- **The card's history says why**: "Reply read", or the subtask's note when its update ended the question, so the panel's Latest no longer says "Needs input" after the red is gone.
+
 ### The agent hears when you close its card (Nov 4)
 - **Closing a held card tells its agent.** Mark done (the button, `d`, a drag, a multi-select or `agentboard done`) leaves a reply on the card in the same slot a typed answer uses: "Done by Troy: the card is closed, you are free to go idle or take the next card." An agent waiting with `agentboard answer <id> --wait` wakes with it (who and when on stderr); one that is not waiting finds it, unread, with `answer`.
 - **The other changes that left an agent guessing say so the same way**: undo of a close ("Reopened by Troy: the card is back in review, not closed"), a drag back to Doing, send back (now opens with the state, then your note), a move out of Doing ("no longer yours, stop work on it"), undo of a move or a removal ("back in Doing and yours again"), and a removal (`answer --wait` prints a Removed line and exits; a wrong id still errors).

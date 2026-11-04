@@ -423,8 +423,8 @@ class Store:
             return t
 
     def reply(self, task_id, text, by=None):
-        """The user answers a card from the board: one log entry, no state change (the agent clears
-        its own ask/review). Read by agents through `agentboard prompt`/the card log."""
+        """The user answers a card from the board: one log entry, no state change. The card stays "needs input" until the agent
+        reads the reply (`answer`) or next reports on the card, whichever comes first. Read by agents through `agentboard answer`."""
         by = by or self.owner
         text = (text or "").strip()
         if not text:
@@ -510,16 +510,24 @@ class Store:
     def answer(self, task_id):
         """The latest reply the user left on the card, or None. Reading it marks it read (`read_at`): until then the agent's
         update and review keep it, so a status line sent before reading cannot erase it; after, they clear it as before.
+        Reading an answer to a question also ends the question (the red "needs input"): the agent has it, so the card is
+        no longer waiting on the user. A state note ("Restored by ...") is not an answer and settles nothing.
         Only the first read writes, so polling for a reply does not touch the board file."""
         r = self.get(self.load(), task_id).get("reply")
         if not (isinstance(r, dict) and r.get("text")):
             return None
         if not r.get("read_at"):
             with self.transaction() as tasks:
-                r = self.get(tasks, task_id).get("reply")
+                t = self.get(tasks, task_id)
+                r = t.get("reply")
                 if not (isinstance(r, dict) and r.get("text")):
                     return None
-                r.setdefault("read_at", _now())
+                if not r.get("read_at"):
+                    r["read_at"] = _now()
+                    if t.get("needs_input") and not r.get("state"):
+                        _settle_ask(tasks, t, "Read your reply")
+                        _log(t, "Reply read")
+                        t["updated"] = r["read_at"]
         return dict(r)
 
     @_reports_after()
@@ -536,6 +544,7 @@ class Store:
         if progress and open_kids:   # 0 is the documented "status line only" form, so it never claims to set a %
             raise BoardError(parent_pct_hint(t["id"], open_kids))
         resumed = bool(t.get("needs_input") or t.get("review"))
+        settled = False   # a subtask's report ended the card's own question
         for f in ("needs_input", "question", "review", "body_md"):
             t.pop(f, None)
         _drop_read_reply(t)   # the agent has moved on from what the reply answered, once it has read it
@@ -543,6 +552,11 @@ class Store:
         if parent and parent.get("ask_child") == t["id"]:   # this was the question the parent was showing
             for f in ("needs_input", "question", "ask_child"):
                 parent.pop(f, None)
+        elif parent and parent.get("needs_input") and not parent.get("ask_child"):
+            _settle_ask(tasks, parent, "Back at work")   # the card's own question: an agent works its subtasks, so this is the agent reporting on the card
+            settled = True
+        if parent:
+            _drop_read_reply(parent)   # ...and, as on the card's own update, a reply it has read is done with
         t.pop("ask_child", None)
         if t["status"] == "done" and not status:   # finished work stays at 100%, whatever a late update says
             progress = None
@@ -571,6 +585,8 @@ class Store:
         t["updated"] = _now()
         if parent:
             _touch_parent(tasks, parent, text)
+            if settled:   # the card's history closes the question's run, as a card's own update does
+                _log(parent, f"{t['title']}: {text}" if text else "Resumed")
         return t
 
     @_reports_after()
@@ -862,6 +878,21 @@ CHAT_MAX = 500
 def _who(owner):
     """How an agent reads the owner's name in a state note: the configured name, else "the user"."""
     return "the user" if owner == DEFAULT_OWNER else owner
+
+
+def _settle_ask(tasks, t, note):
+    """The question on card `t` is over (its reply was read, or the agent went back to work): drop the flag, the question and the
+    Details that went with it, and the copy a subtask was showing. A status line that still reads as the question becomes `note`."""
+    if t.get("status_text") and t.get("status_text") == t.get("question"):
+        t["status_text"] = note
+    for x in tasks:
+        if x["id"] == t.get("ask_child") and x is not t:
+            for f in ("needs_input", "question"):
+                x.pop(f, None)
+    for f in ("needs_input", "question", "ask_child"):
+        t.pop(f, None)
+    if not t.get("review"):
+        t.pop("body_md", None)
 
 
 def _drop_read_reply(t):
