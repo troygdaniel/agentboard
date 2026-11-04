@@ -1181,6 +1181,8 @@ let hudPane = false;            // true while the Doing cards are being drawn fo
 const glideFrom = new Map();    // card id -> rect: where a card was on the view we just left, so it glides into place on the next render
 const copied = new Map();   // Todo card id -> its copied-state label; this page-load only (in-memory on purpose: a refresh clears it)
 let selected = new Set(), selectAnchor = null;   // multi-select: shift-click/shift-arrows range, ⌘/ctrl-click toggle
+let hoverAgent = null;   // the pill under the pointer: re-applied after a redraw so the highlight does not flicker on a poll. Declared here, before the
+                         // first render: a page opened at #/hud or at a card's hash renders at once, and reading this below the script's end threw
 
 const $ = id => document.getElementById(id);
 const esc = s => { const d = document.createElement('div'); d.textContent = s ?? ''; return d.innerHTML; };
@@ -3460,7 +3462,6 @@ else if (location.hash.length > 1) openPanel(decodeURIComponent(location.hash.sl
 
 // hover a name on any card: every card of that agent stays lit, the rest step back
 const boardEl = $('board');
-let hoverAgent = null;   // the pill under the pointer: re-applied after a redraw so the highlight does not flicker on a poll
 function applyHover() {
   const n = hoverAgent;
   boardEl.classList.toggle('hl', !!n);
