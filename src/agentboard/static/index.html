@@ -2769,6 +2769,15 @@ const LAYERS = [
       else if (kind === 'toast') tone(1319, t, .04, { vol: .009 * lvl, verb: .5 });
     },
     demo() { const v = layerLvl('chimes'), L = this; L.play('sub', v, 'AGENT-2'); setTimeout(() => L.play('milestone', v, 'AGENT-2', 2), 900); setTimeout(() => L.play('count', v), 1500); setTimeout(() => L.play('toast', v), 1900); setTimeout(() => L.play('empty', v), 2400); } },
+  { id: 'futsnd', kind: 'fx', name: 'Future sound', about: 'the sounds of From the future, and silent while that look is off: a sweep and a rising chord as the page boots, a scan blip on a view change, a holographic shhk as a card opens and the reverse as it closes',
+    play(kind, lvl) {
+      const t = sndNow(); if (t == null) return;
+      if (kind === 'boot') { hush(t, .6, { from: 200, to: 5000, q: 1.5, v: 2.2, verb: 1, lvl }); [523.3, 659.3, 784, 1046.5].forEach((f, i) => tone(f, t + .35 + i * .09, .7, { type: 'triangle', vol: .018 * lvl, verb: 1.4 })); }
+      else if (kind === 'scan') { hush(t, .22, { from: 3000, to: 600, q: 2, v: 1.4, verb: .6, lvl }); tone(1568, t, .05, { vol: .012 * lvl, verb: .8 }); }
+      else if (kind === 'open') hush(t, .12, { from: 1500, to: 6000, q: 1.5, v: 1.3, verb: .5, lvl });
+      else if (kind === 'close') hush(t, .12, { from: 6000, to: 1500, q: 1.5, v: 1.3, verb: .5, lvl });
+    },
+    demo() { this.play('boot', layerLvl('futsnd')); } },
   { id: 'hour', kind: 'fx', name: 'Hourly chime', about: 'two soft notes on the hour',
     tick(lvl) { const d = new Date(); if (d.getMinutes() || d.getSeconds() > 2 || this.last === d.getHours()) return; this.last = d.getHours(); this.ring(lvl); },
     ring(lvl) { const t = sndNow(); if (t == null) return; tone(1319, t, .5, { vol: .03 * lvl, verb: 1.3 }); tone(988, t + .5, .9, { vol: .028 * lvl, verb: 1.5 }); },
@@ -2821,8 +2830,7 @@ function futBoot() {
   const b = $('boot'); b.classList.add('on');
   const end = () => { if (!b.classList.contains('on')) return; b.classList.add('out'); setTimeout(() => b.classList.remove('on', 'out'), 320); };
   setTimeout(end, 1500);
-  ['pointerdown', 'keydown'].forEach(ev => document.addEventListener(ev, end, { once: true, capture: true }));   // a hand on the board ends it at once
-  futSound('boot');
+  ['pointerdown', 'keydown'].forEach(ev => document.addEventListener(ev, end, { once: true, capture: true }));   // a hand on the board ends it at once; the sweep sounds with that first gesture (wakeSound)
 }
 function futScan() {   // a view change: one line sweeps down the page, in Full and without reduced motion; nothing else moves
   if (!document.body.classList.contains('future-full') || RM) return;
@@ -2871,13 +2879,13 @@ function touchAt(after) {   // when to play, or null: the layer or SND off, no c
   return sndNow();
 }
 function tap(f, t, dur, v, o = {}) { tone(f, t, dur, { atk: .003, verb: .35, ...o, vol: v * TV * (o.lvl ?? layerLvl('touch')) }); }   // v: a share of the ceiling; lvl: another layer's level
-function hush(t0, dur, { from = 700, to = 3200, q = 1.2, v = 1, verb = .5, atk = .01 } = {}) {   // a filtered breath of noise: swishes and slides
+function hush(t0, dur, { from = 700, to = 3200, q = 1.2, v = 1, verb = .5, atk = .01, lvl } = {}) {   // a filtered breath of noise: swishes and slides; lvl: another layer's level in place of Touch's
   const ctx = ac(); if (!ctx) return;
   touchNoise = touchNoise || noiseBuf(ctx, .5, true);
   const n = ctx.createBufferSource(); n.buffer = touchNoise;
   const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = q;
   f.frequency.setValueAtTime(from, t0); f.frequency.exponentialRampToValueAtTime(to, t0 + dur);
-  const g = ctx.createGain(); g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(v * TV * layerLvl('touch'), t0 + atk); g.gain.exponentialRampToValueAtTime(.0001, t0 + dur);
+  const g = ctx.createGain(); g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(lvl != null ? v * TV * lvl : v * TV * layerLvl('touch'), t0 + atk); g.gain.exponentialRampToValueAtTime(.0001, t0 + dur);
   n.connect(f); f.connect(g); g.connect(dry);
   const w = ctx.createGain(); w.gain.value = verb; g.connect(w); w.connect(send);
   if (echo) g.connect(echo);
@@ -2984,7 +2992,9 @@ LAYERS.forEach(L => { if (L.apply) L.apply(layerOn(L.id) ? layerLvl(L.id) : 0); 
 // every page: the buttons show the saved state at load, and the first click or key brings the sound online (browsers wait for one)
 setSnd(sndOn, true); setAmb(ambOn, true);
 const wakeSound = () => { if (sndOn) { ac(); startAmb(true); } };
+const wakeBoot = () => { if (sndOn && Date.now() - T0 < 20000 && document.body.classList.contains('future-full')) setTimeout(() => futSound('boot'), 60); };   // From the future's boot sweep waits for that same first gesture
 ['pointerdown', 'keydown'].forEach(ev => document.addEventListener(ev, wakeSound, { once: true, capture: true }));
+['pointerdown', 'keydown'].forEach(ev => document.addEventListener(ev, wakeBoot, { once: true, capture: true }));
 
 // --- HUD ---
 let hudTimer = null, hudKey = '';

@@ -73,3 +73,26 @@ class AmbientAndBalanceTests(unittest.TestCase):
         self.assertIn("g.linearRampToValueAtTime(Math.max(.15, 1 - .7 * lvl), t + .06); g.linearRampToValueAtTime(1, t + 1.6);", d)
         self.assertIn("const g = ambNodes.gain.gain", d)                                            # the bed's own gain, which every ambient layer also feeds
         self.assertNotIn("master", d)                                                              # the cues, the volume and the limiter are untouched
+
+
+class FutureSoundTests(unittest.TestCase):
+    def test_future_sound_is_its_own_row_off_until_chosen_and_silent_while_the_look_is_off(self):
+        self.assertIn("{ id: 'futsnd', kind: 'fx', name: 'Future sound', about: '", LAYERS)
+        self.assertIn("function futSound(kind) { if (sndOn && layerOn('futsnd') && layerOn('future')) LAYERS.find(L => L.id === 'futsnd').play(kind, layerLvl('futsnd')); }", PAGE)
+        self.assertIn("demo() { this.play('boot', layerLvl('futsnd')); } },", layer("futsnd"))
+        for kind in ("'boot'", "'scan'", "'open'", "'close'"):
+            self.assertIn(f"kind === {kind}", layer("futsnd"))
+
+    def test_it_follows_its_own_level_through_the_shared_buses(self):
+        self.assertIn("lvl } = {}) {", body("hush"))
+        self.assertIn("lvl != null ? v * TV * lvl : v * TV * layerLvl('touch')", body("hush"))   # Touch's level stays Touch's
+        self.assertEqual(layer("futsnd").count("lvl })"), 4)                                   # every hush in the layer passes its own
+        self.assertNotIn("createOscillator", layer("futsnd"))
+
+    def test_the_boot_sweep_waits_for_the_first_gesture_and_the_hooks_sit_beside_touch(self):
+        self.assertIn("const wakeBoot = () => { if (sndOn && Date.now() - T0 < 20000 && document.body.classList.contains('future-full')) setTimeout(() => futSound('boot'), 60); };", PAGE)
+        self.assertIn("document.addEventListener(ev, wakeBoot, { once: true, capture: true })", PAGE)
+        self.assertNotIn("futSound", body("futBoot"))
+        self.assertIn("futSound('scan');", body("futScan"))
+        self.assertIn("futSound('open');", body("openPanel"))
+        self.assertIn("futSound('close');", body("closePanel"))
