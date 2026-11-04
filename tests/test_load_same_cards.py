@@ -16,7 +16,7 @@ def body(fn):
 
 class LoadSameCardsTests(unittest.TestCase):
     def test_load_has_a_doing_column_on_the_left_in_the_boards_own_column_markup(self):
-        grid = HTML[HTML.index('<div class="h-grid">'):HTML.index('<section class="hp h-one"')]
+        grid = HTML[HTML.index('<div class="h-grid">'):HTML.index('<section class="col h-one"')]
         self.assertIn('<section class="col doing" id="h-cards" aria-label="Doing"><h2>Doing <span class="cnt" id="h-cards-n">0</span></h2><div class="cards" id="h-cards-box"></div></section>', grid)
         # two columns: the cards, then the agent load; a narrow window stacks them, cards first
         self.assertIn(".h-grid { --todo-w: clamp(220px, 17vw, 270px); display: grid; grid-template-columns: var(--todo-w) minmax(0, 1.4fr) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); gap: 18px;", HTML)   # the Board's own tracks (Nov 3)   # Todo, Doing, telemetry (Nov 3)
@@ -36,7 +36,7 @@ class LoadSameCardsTests(unittest.TestCase):
     def test_the_pane_takes_the_boards_type_scale_and_follows_the_theme(self):
         self.assertIn(':root[data-theme="dark"] {', HTML)
         self.assertNotIn('#h-cards, #h-todo-wrap {   /* #h-cards', HTML)   # Nov 3: Load follows the theme like Board and By agent (test_load_tele_width)
-        self.assertIn("#h-cards, #h-todo-wrap { --fs-xs: 11px; --fs-sm: 12px; --fs-md: 13px; --fs-base: 14px; --fs-lg: 15px; --fs-xl: 23px;", HTML)
+        self.assertIn("    --fs-xs: 11px; --fs-sm: 12px; --fs-md: 13px; --fs-base: 14px; --fs-lg: 15px; --fs-xl: 23px;   /* the board's scale (Nov 4)", HTML)   # the whole of Load is in the board's type now
 
     def test_cards_glide_between_the_board_and_load(self):
         o, c, r = body("openHud"), body("closeHud"), body("render")

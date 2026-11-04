@@ -30,8 +30,9 @@ class FullWidthTests(unittest.TestCase):
         self.assertNotIn("--card-max", HTML)               # a card is as wide as its column on the Board and on By agent (Troy, Nov 3)
         self.assertNotIn(".col:not(.todo) .cards >", HTML)
 
-    def test_the_load_text_column_stops_growing_on_ultrawide(self):
-        self.assertIn("@media (min-width: 1800px) { .h-one { --cols: 40px minmax(0, 760px) 100px minmax(200px, 1fr); } }", HTML)
+    def test_the_load_agents_column_is_cards_so_no_text_column_needs_a_cap(self):   # Nov 4: Board cards in Done's track; the Board's own cap applies
+        self.assertNotIn("@media (min-width: 1800px) { .h-one", HTML)
+        self.assertIn('<section class="col h-one" aria-label="Agents">', HTML)
 
 
 if __name__ == "__main__":

@@ -19,13 +19,11 @@ class TracksTests(unittest.TestCase):
         self.assertIn(".board { --todo-w: clamp(220px, 17vw, 270px); display: grid; grid-template-columns: var(--tracks, repeat(3, minmax(0, 1fr))); gap: 18px;", CSS)
         self.assertIn("grid-template-rows: minmax(0, 1fr); padding: 18px 28px 22px;", CSS)   # .hud keeps .wrap's padding, so the edges match too
 
-    def test_the_telemetry_reflows_by_its_own_width(self):
-        self.assertIn(".h-one { container-type: inline-size; }", CSS)
-        self.assertIn('@container (max-width: 760px) {\n    .h-one .h-head, .h-one .h-row, .h-one .h-foot { --cols: 40px minmax(0, 1fr) 90px; grid-template-areas: "av who since" "av load load"; }', CSS)
-        self.assertIn("    .h-one .h-head .h-h2 { display: none; }", CSS)
-        self.assertIn("@container (max-width: 480px) {\n    .h-one .h-head, .h-one .h-row, .h-one .h-foot { --cols: 32px minmax(0, 1fr) 64px; --gap: 10px; }", CSS)
-        self.assertNotIn("@media (max-width: 1100px)", CSS)   # the window's width no longer decides it
-        self.assertIn(".h-one .h-row { flex: 1 0 auto; min-height: 108px; }", CSS)
+    def test_the_telemetry_is_board_cards_that_fit_any_width(self):   # Nov 4: cards, so no column template to re-flow
+        self.assertNotIn("@container", CSS)
+        self.assertNotIn("@media (max-width: 1100px)", CSS)
+        self.assertNotIn("--cols:", CSS)
+        self.assertIn('<section class="col h-one" aria-label="Agents">', HTML)
 
 
 class ThemeTests(unittest.TestCase):
@@ -47,7 +45,8 @@ class ThemeTests(unittest.TestCase):
         self.assertIn("    --hbg: var(--bg); --hline: var(--line); --htext: var(--text); --hdim: var(--muted);\n    --hcy: var(--info, #5ee7ff); --hok: var(--ok); --hwarn: var(--warn); --hbad: var(--err);\n    --c0: var(--run);", CSS)
         self.assertIn("--run: #ff9a3c; --warn: var(--hwarn); --ok: var(--hok); --err: var(--hbad); --neutral: #4b5f75; --info: var(--hcy);", CSS)   # dark maps onto the neons: unchanged
         self.assertIn("--run: #c2570c; --warn: #b45309; --ok: #15803d; --err: #b42318; --neutral: #a8a29e; --info: #1d4ed8;", CSS)                  # light: the board's set
-        self.assertIn("background: var(--panel); box-shadow: inset 0 1px 0 var(--panel-hi), var(--panel-sh);   /* the Board's column panel", CSS)
+        self.assertIn('<section class="col h-one" aria-label="Agents">', HTML)   # the Board's own column panel (Nov 4: the section is a .col)
+        self.assertNotIn(".hp {", CSS)
         self.assertNotIn("rgba(110,190,255,.17)", CSS); self.assertNotIn("rgba(110,190,255,.14)", CSS)
         self.assertIn("? c : 'var(--hcy)'; }", HTML)   # hudColor's fallback
         self.assertNotIn('#h-cards, #h-todo-wrap {   /* #h-cards', CSS)   # the Todo and Doing columns follow the theme like the Board's

@@ -8,15 +8,15 @@ PAGE = (Path(cli.__file__).parent / "static" / "index.html").read_text()
 
 
 class LoadTests(unittest.TestCase):
-    def test_idle_rows_are_quiet_by_colour_not_by_stacked_opacity(self):
-        self.assertIn(".h-row.idle { opacity: .92; filter: saturate(.4); }", PAGE)
-        self.assertIn(".h-row.idle .h-name { color: var(--hdim); }", PAGE)
-        self.assertIn(".h-row.idle .h-status { opacity: 1; color: var(--hdim); }", PAGE)
-        self.assertNotIn(".h-row.idle .h-recent { opacity: .6; }", PAGE)   # .55 x .55 left the status at 30%
+    def test_idle_agents_are_quiet_cards_not_stacked_opacity(self):   # Nov 4: the rows are Board cards; an idle one dims only its hour bar
+        self.assertIn(".h-row.idle .ln-track { opacity: .55; }", PAGE)
+        self.assertNotIn(".h-row.idle { opacity:", PAGE)
+        self.assertNotIn(".h-row.idle .h-recent { opacity: .6; }", PAGE)
         self.assertNotIn(".h-row.idle .h-card { opacity: .7; }", PAGE)
 
-    def test_the_queue_row_is_pinned_to_the_bottom_of_the_scrolling_list(self):
-        self.assertIn("position: sticky; bottom: 0; z-index: 2; background: var(--hbg); }", PAGE)
+    def test_the_queue_is_the_last_card_of_the_agents_column(self):   # Nov 4: a card after the agents, not a pinned row
+        self.assertIn('+ `<div class="card h-q" data-status="queue"><div class="top"><span class="nm" id="h-qlab">Queue</span></div><div class="ln-track" id="h-qtrack"', PAGE)
+        self.assertNotIn("position: sticky; bottom: 0; z-index: 2; background: var(--hbg); }", PAGE)
 
 
 class BoardTests(unittest.TestCase):
