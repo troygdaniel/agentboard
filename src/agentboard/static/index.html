@@ -103,7 +103,7 @@
   .summary { font-size: var(--fs-md); color: var(--muted); }
   header .btn { white-space: nowrap; }   /* "Later (1)" must not wrap onto two lines when the header gets tight */
   /* unlike #summary (whose chips are clickable filters and must stay reachable, not ellipsized away),
-     #filter-summary is plain text — safe to cap and truncate so a long project name can't push the
+     #filter-summary is plain text — safe to cap and truncate so a long agent name can't push the
      HUD/sound/theme buttons out of the header at narrow widths */
   #filter-summary { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; max-width: 360px; }
   .summary b { color: var(--text); font-weight: 500; }
@@ -112,7 +112,7 @@
   .status { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-sm); color: var(--warn); border: 1px solid color-mix(in srgb, var(--warn) 45%, transparent); border-radius: 999px; padding: 3px 10px; white-space: nowrap; }
   .status[hidden] { display: none; }
   .status i { width: 6px; height: 6px; border-radius: 50%; background: var(--warn); }
-  #filter, #project-filter { display: none; }   /* the filters are driven by the who chips and the attention counts, not typed */
+  #filter { display: none; }   /* the filter is driven by the who chips and the attention counts, not typed */
   .filter-clear { width: 28px; height: 28px; min-height: 0; padding: 0; display: inline-grid; place-items: center; margin-left: -4px; }
   .filter-clear[hidden] { display: none; }
   .spacer { flex: 1; }
@@ -240,10 +240,9 @@
   .top .who .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   /* less noise (2026-10-28): a card reads as one row, agent + title + its mark. The description, status line,
      result and Details are still in the DOM and in the detail panel (tap the card); a doing card keeps its bar and % */
-  .card .desc, .card .fold, .card .proj-row, .card .note > span:first-child, .card.done .note { display: none; }
+  .card .desc, .card .fold, .card .note > span:first-child, .card.done .note { display: none; }
   .card .note { justify-content: flex-end; margin-top: 4px; }
   .card .said { font-size: var(--fs-md); margin: 2px 0 8px; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
-  .top .pdot { width: 7px; height: 7px; border-radius: 50%; background: var(--c); flex: none; }
   .top .unas { color: var(--muted); font-size: var(--fs-base); font-weight: 650; letter-spacing: .02em; }   /* same type as a name, no opacity: .7 dropped it to 3.0-3.5:1 */
   .card .top:empty { display: none; }
   /* hovering a name lights every card that agent holds; the rest step back */
@@ -362,7 +361,7 @@
   #notif-btn[hidden] { display: none; }
 
   /* The Todo card: one narrow design on the Board, in By agent and in the drawer. The queue number sits left of the first row, an
-     unassigned card has no name row (its project dot rides the corner), and Copy prompt, Later and the queued time share one
+     unassigned card has no name row, and Copy prompt, Later and the queued time share one
      wrapping row at the foot instead of floating over the title. */
   .card[data-status="todo"] {
     padding: 12px 12px 10px;
@@ -370,10 +369,9 @@
     border-color: color-mix(in srgb, var(--text) 9%, var(--line));
   }
   .card[data-status="todo"] .top, .card[data-status="todo"] .title, .card[data-status="todo"] .desc,
-  .card[data-status="todo"] .proj-row, .card[data-status="todo"] .blocked-row { padding-left: 28px; }
+  .card[data-status="todo"] .blocked-row { padding-left: 28px; }
   .card[data-status="todo"] .top:not(:has(.who)) { position: absolute; top: 15px; right: 12px; margin: 0; padding: 0; min-height: 0; }
   .card[data-status="todo"] .title { padding-right: 0; font-size: var(--fs-base); }
-  .card[data-status="todo"]:has(.top:not(:has(.who)) .pdot) .title { padding-right: 14px; }   /* clear of the corner dot */
   .card[data-status="todo"] .meta { flex-wrap: wrap; gap: 6px 8px; margin-top: 10px; }
   .card[data-status="todo"] .meta .when { margin-left: 0; }
   .qnum {
@@ -433,16 +431,6 @@
   .rb-sum { flex: none; align-self: center; margin-left: 4px; font-size: var(--fs-xs); color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
   .rb-sum b { color: var(--text); font-weight: 600; }
 
-  .proj-row { margin-bottom: 8px; }
-  .proj {
-    display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-xs); font-weight: 500;
-    color: var(--muted); background: var(--chip); border-radius: 999px; padding: 2px 9px 2px 7px;
-    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c, var(--neutral)) 35%, var(--line));
-  }
-  .proj::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--c, var(--neutral)); flex: none; }
-  #project-filter { width: 150px; }
-  /* (No project stripe along the top of cards: the pill carries project membership; the agent's
-     color owns the left bar.) */
 
   /* ---- subtasks: a parent's ONE progress bar is segmented (a cell per subtask) and is also the
      expand toggle; every subtask is a quiet row inside the parent, finished ones shown as completed ---- */
@@ -1008,7 +996,6 @@
     <span class="spacer"></span>
     <select class="btn" id="board-switch" aria-label="Board" hidden></select>
     <!-- the filters left the header (Nov 3); the who chips and the attention counts still filter through these, and the summary shows what is on with a way to clear it -->
-    <select class="filter btn" id="project-filter" aria-label="Filter by project" hidden><option value="">All projects</option></select>
     <input class="filter" id="filter" aria-label="Filter tasks" hidden>
     <span class="summary" id="filter-summary" role="status"></span><button class="btn filter-clear" id="filter-clear" hidden aria-label="Clear the filter" title="Clear the filter"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
     <span class="summary" id="summary"></span>
@@ -1030,9 +1017,6 @@
       <option value="todo">Todo</option>
       <option value="doing">Doing</option>
       <option value="done">Done</option>
-    </select>
-    <select class="btn" id="bulk-project" aria-label="Assign selected cards to a project">
-      <option value="">Project…</option>
     </select>
     <button class="btn" id="bulk-archive">Archive</button>
     <button class="btn" id="bulk-clear">Clear selection</button>
@@ -1159,7 +1143,6 @@ const STALE_MIN = 10, DONE_SHOWN = 5;
 const DEFAULT_STALE_MIN = 120;   // fallback until /api/config's stale_minutes loads; keep in sync with hud.py's ABANDONED_MIN
 let raw = '', tasks = [], dragging = null, showAllDone = false, tick = 0;
 let flagFilter = null;   // 'needs_input' | 'review' | null — set by clicking the header's attention counts
-let projectsRaw = '', projects = [];
 const seen = new Set(), lastUpdated = new Map(), lastPct = new Map(), lastCounts = {};
 const revBefore = new Set(), lanesBefore = new Set(); let lanesKnown = false;   // Motion: the review cards and By agent lanes the last render drew
 // subtasks: a parent's open subtasks live inside its card; each finished one gets its own card in Done
@@ -1188,15 +1171,6 @@ const agentColor = name => {
   return `var(--a${AGENT_SLOT[name] || (m ? (Math.max(m[1], 1) - 1) % 4 + 1 : 1 + [...name].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) >>> 0, 7) % 6)})`;
 };
 const colorOf = t => agentColor(t.agent);
-const projectOf = id => projects.find(p => p.id === id) || null;
-const projColor = p => /^[#\w(),.% -]{1,32}$/.test(p?.color || '') ? p.color : 'var(--neutral)';
-function renderProjectFilter() {
-  const sel = $('project-filter'), cur = sel.value;
-  sel.classList.toggle('on', projects.length > 0);
-  sel.innerHTML = '<option value="">All projects</option>' +
-    projects.map(p => `<option value="${esc(p.id)}">${esc(p.name)}</option>`).join('');
-  if (projects.some(p => p.id === cur)) sel.value = cur;
-}
 
 const unresolvedBlockers = t => (t.blocked_by || [])
   .map(id => tasks.find(x => x.id === id))
@@ -1266,8 +1240,6 @@ function card(t) {
   const stale = doing && a.min >= STALE_MIN;
   const abandoned = doing && a.min >= (cfg.stale_minutes || DEFAULT_STALE_MIN);
   const live = doing && !stale;
-  const proj = t.project_id ? projectOf(t.project_id) : null;
-  const projPill = proj ? `<div class="proj-row"><span class="proj" style="--c:${projColor(proj)}" title="Project: ${esc(proj.name)}">${esc(proj.name)}</span></div>` : '';
   const blockers = unresolvedBlockers(t);
   const blockedRow = blockers.length ? `<div class="blocked-row" title="Blocked until done">` +
     `<svg width="11" height="11" viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="3.5" y="7" width="9" height="6.5" rx="1.3" stroke="currentColor" stroke-width="1.4"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>` +
@@ -1303,8 +1275,7 @@ function card(t) {
   const asking = !!t.needs_input && doing;
   const reviewing = !!t.review && doing && !asking;
   const reportLink = t.report && (asking || reviewing || done) ? `<a class="report-link" href="${BASE}/reports/${esc(t.report.file)}" target="_blank" rel="noopener" title="Open this card's report in a new tab" aria-label="Open report"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 1.5h5.5L12.5 5v9.5H4z"/><path d="M9.5 1.5V5h3M6 8.5h4.5M6 11h4.5"/></svg>Report</a>` : '';
-  const pdot = proj ? `<i class="pdot" style="--c:${projColor(proj)}" title="Project: ${esc(proj.name)}"></i>` : '';
-  const top = who ? `<div class="top">${who}${pdot}${runChip}${reportLink}${todo ? '' : when}</div>` : `<div class="top">${todo || backlog ? '' : '<span class="unas">Unassigned</span>'}${pdot}</div>`;   // the holder is always the first row, same place on every card
+  const top = who ? `<div class="top">${who}${runChip}${reportLink}${todo ? '' : when}</div>` : `<div class="top">${todo || backlog ? '' : '<span class="unas">Unassigned</span>'}</div>`;   // the holder is always the first row, same place on every card
   const askFlag = asking ? `<div class="ask-flag"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 2a4 4 0 0 0-4 4v3L2.8 11h10.4L12 9V6a4 4 0 0 0-4-4z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M6.5 13a1.5 1.5 0 0 0 3 0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Needs your input</div>` : reviewing ? `<div class="ask-flag rev"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>Ready for review</div>` : '';
   // ask / review: the agent's one sentence is the card's first line, large, with a reply box the owner can answer in (stored on the card; the agent reads it with `agentboard answer`)
   const said = (asking || reviewing) ? (t.question || t.result || t.status_text || '') : '';
@@ -1320,8 +1291,8 @@ function card(t) {
   const revIn = reviewing && !firstRender && seen.has(t.id) && !revBefore.has(t.id);   // Motion: just reached review; the edge bar draws itself in
   seen.add(t.id); lastUpdated.set(t.id, t.updated);
   return `<div class="card ${done ? 'done' : ''} ${asking ? 'ask' : ''} ${reviewing ? 'review' : ''} ${revIn ? 'rev-in' : ''} ${abandoned && !asking && !reviewing ? 'abandoned' : ''} ${live && !asking && !reviewing ? 'livebar' : ''} ${fresh ? 'enter' : ''} ${flash ? 'flash' : ''} ${selected.has(t.id) ? 'selected' : ''} " style="--c:${colorOf(t)}" data-agent="${esc(t.agent || '')}" draggable="${backlog ? 'false' : 'true'}" tabindex="0" data-id="${esc(t.id)}" data-status="${t.status}"
-      aria-label="${esc(t.title)}, ${t.status}${asking ? ', needs your input' : reviewing ? ', ready for review' : abandoned ? ', no update in a long time, possibly abandoned' : ''}${t.agent ? ', ' + esc(t.agent) : ''}${proj ? ', project ' + esc(proj.name) : ''}${blockers.length ? ', blocked by ' + blockers.map(b => esc(b.title)).join(', ') : ''}">
-    ${top}${askFlag}${saidRow}${foldRow}${blockedRow}${projPill}${todo && t._q ? `<span class="qnum" aria-label="Queue position ${t._q}">${t._q}</span>` : ''}<div class="title ${done ? 'has-check' : ''}" title="${esc((done ? t.result : t.status_text) || '')}">${checkIcon}${done ? `<span>${esc(t.title)}</span>` : esc(t.title)}</div>${desc}${asking || reviewing ? '' : note}${bar}${noSubs}${meta}${who ? '' : reportLink}${replyRow}${reviewing ? `<button class="btn markdone" data-done="${esc(t.id)}">Mark done</button>` : ''}</div>`;
+      aria-label="${esc(t.title)}, ${t.status}${asking ? ', needs your input' : reviewing ? ', ready for review' : abandoned ? ', no update in a long time, possibly abandoned' : ''}${t.agent ? ', ' + esc(t.agent) : ''}${blockers.length ? ', blocked by ' + blockers.map(b => esc(b.title)).join(', ') : ''}">
+    ${top}${askFlag}${saidRow}${foldRow}${blockedRow}${todo && t._q ? `<span class="qnum" aria-label="Queue position ${t._q}">${t._q}</span>` : ''}<div class="title ${done ? 'has-check' : ''}" title="${esc((done ? t.result : t.status_text) || '')}">${checkIcon}${done ? `<span>${esc(t.title)}</span>` : esc(t.title)}</div>${desc}${asking || reviewing ? '' : note}${bar}${noSubs}${meta}${who ? '' : reportLink}${replyRow}${reviewing ? `<button class="btn markdone" data-done="${esc(t.id)}">Mark done</button>` : ''}</div>`;
 }
 
 // the parent's segmented bar (one cell per subtask), which doubles as the expand toggle, plus its quiet rows
@@ -1450,7 +1421,6 @@ function render() {
   const by = Object.fromEntries(COLUMNS.map(([k]) => [k, []]));
   const rawQ = ($('filter').value || '').trim(), q = rawQ.toLowerCase();
   $('filter').classList.toggle('on', tasks.length > 8 || !!q);
-  const pf = $('project-filter').value;
   byId = new Map(tasks.map(t => [t.id, t])); kidsMap = new Map();
   [...copied.keys()].forEach(id => { if (byId.get(id)?.status !== 'todo') copied.delete(id); });   // claimed/moved/deleted: a later return to Todo starts clean
   tasks.forEach(t => { if (isKid(t)) { if (!kidsMap.has(t.parent_id)) kidsMap.set(t.parent_id, []); kidsMap.get(t.parent_id).push(t); } });
@@ -1471,14 +1441,12 @@ function render() {
   if (flagFilter === 'review' && !revs) flagFilter = null;
   const textHit = t => [t.title, t.agent, t.description, t.status_text].some(x => (x || '').toLowerCase().includes(q));
   const matches = t => (!q || textHit(t) || (kidsMap.get(t.id) || []).some(textHit))   // a parent also matches on its subtasks
-    && (!pf || t.project_id === pf)
     && (!flagFilter || (t.status === 'doing' && (flagFilter === 'needs_input' ? t.needs_input : (!t.needs_input && t.review))));
   const filtered = top.filter(matches);
   filtered.forEach(t => by[t.status] && by[t.status].push(t));
   // "Systems should explain themselves": confirm what a combined filter found, not just how many cards survived
-  if (q || pf || flagFilter) {
-    const proj = pf ? projectOf(pf) : null;
-    const parts = [rawQ && `"${rawQ}"`, proj && `in ${proj.name}`, flagFilter && FLAG_LABEL[flagFilter]].filter(Boolean);
+  if (q || flagFilter) {
+    const parts = [rawQ && `"${rawQ}"`, flagFilter && FLAG_LABEL[flagFilter]].filter(Boolean);
     const summaryText = `${filtered.length} of ${top.length}` + (parts.length ? ` · ${parts.join(' · ')}` : '');
     $('filter-summary').textContent = summaryText;
     $('filter-summary').title = summaryText;   // full text on hover if it's long enough to get ellipsized
@@ -1520,8 +1488,8 @@ function render() {
   let paneHtml = null, todoPaneHtml = null;
   if (inHud) {
     hudPane = true;
-    todoPaneHtml = todoColHtml(by.todo, q || pf || flagFilter);   // the one Todo column, as Board and By agent draw it
-    paneHtml = by.doing.length ? by.doing.map(card).join('') : `<div class="empty">${(q || pf || flagFilter) ? 'No matches' : EMPTY.doing}</div>`;
+    todoPaneHtml = todoColHtml(by.todo, q || flagFilter);   // the one Todo column, as Board and By agent draw it
+    paneHtml = by.doing.length ? by.doing.map(card).join('') : `<div class="empty">${(q || flagFilter) ? 'No matches' : EMPTY.doing}</div>`;
     hudPane = false;
   }
   const activeNow = by.doing.filter(t => t.agent && !t.needs_input && !t.review && ago(t.updated).min < STALE_MIN);
@@ -1532,8 +1500,8 @@ function render() {
   const scrolls = Object.fromEntries([...$('board').querySelectorAll('.col')].map(c => [c.dataset.status, c.querySelector('.cards')?.scrollTop || 0]));
   $('board').style.setProperty('--tracks', cols.map(([k]) => k === 'todo' ? 'var(--todo-w)' : k === 'doing' ? 'minmax(0, 1.4fr)' : 'minmax(0, 1fr)').join(' '));
   $('board').classList.remove('hl');   // a re-render drops the hover highlight with the cards it lit
-  $('board').innerHTML = BYAGENT ? byAgentHtml(by, q || pf || flagFilter) : cols.map(([k, label]) => {
-    if (k === 'todo') return todoColHtml(by.todo, q || pf || flagFilter);
+  $('board').innerHTML = BYAGENT ? byAgentHtml(by, q || flagFilter) : cols.map(([k, label]) => {
+    if (k === 'todo') return todoColHtml(by.todo, q || flagFilter);
     let list = by[k], more = '', ribbon = '';
     if (k === 'done') {
       ribbon = ribbonHtml(list);
@@ -1557,7 +1525,7 @@ function render() {
         return div + card(t);
       }).join('');
     } else {
-      body = list.length ? list.map(card).join('') : `<div class="empty">${(q || pf || flagFilter) ? 'No matches' : doneDay != null ? 'Nothing finished ' + dayLabel(doneDay).toLowerCase() : EMPTY[k]}</div>`;
+      body = list.length ? list.map(card).join('') : `<div class="empty">${(q || flagFilter) ? 'No matches' : doneDay != null ? 'Nothing finished ' + dayLabel(doneDay).toLowerCase() : EMPTY[k]}</div>`;
     }
     const clr = k === 'done' ? `<span class="done-acts"><a class="clear-done sum-link" href="${(window.AB_BASE || '')}/summary" target="_blank" rel="noopener" title="Summary of finished work, to read or share">Summary</a><a class="clear-done sum-link" href="${(window.AB_BASE || '')}/reports" target="_blank" rel="noopener" title="Card reports, newest first">Reports</a>` + (by.done.length ? `<button class="clear-done" id="clear-done" title="Archive all Done cards">Clear</button>` : '') + `</span>` : '';
     const p = k === 'doing' && pres ? `<b class="pres" aria-hidden="true">${pres}</b>` : '';
@@ -1623,20 +1591,13 @@ function render() {
 async function load() {
   if (dragging) return;
   try {
-    const [r, rp] = await Promise.all([
-      fetch('/api/tasks', { cache: 'no-store' }),
-      fetch('/api/projects', { cache: 'no-store' }),
-    ]);
+    const r = await fetch('/api/tasks', { cache: 'no-store' });
     if (!r.ok) throw new Error('HTTP ' + r.status);
     const text = await r.text();
     const ae = document.activeElement;   // never re-render under something being typed (an empty add box is fine to redraw: focus is put back)
     if (ae?.id === 'p-reply-text' || ae?.closest?.('.card-reply, .qr-free, .ed-form') || ((ae?.id === 'p-sub-add' || ae?.id === 'p-block-add') && ae.value)) return;
     const minute = Math.floor(Date.now() / 60000);
     let changed = false;
-    if (rp.ok) {
-      const ptext = await rp.text();
-      if (ptext !== projectsRaw) { projectsRaw = ptext; projects = JSON.parse(ptext).projects; renderProjectFilter(); renderBulkProjectOptions(); changed = true; }
-    }
     if (text !== raw || minute !== tick) {
       raw = text; tick = minute; tasks = JSON.parse(text).tasks; changed = true;
     }
@@ -1806,7 +1767,7 @@ function toast(text, undo) {
 }
 // What Undo can take back is whatever the toast on screen offers it for, for as long as that toast shows (7 s): a move between
 // columns (drag, buttons, Alt+arrows, the d key), a card marked done, a delete (the card and its subtasks come back), Archive and
-// Clear, and the bulk move and bulk project changes. Not offered: a reply, an edit, a copy, a send-back (that is made on the report page).
+// Clear, and the bulk move. Not offered: a reply, an edit, a copy, a send-back (that is made on the report page).
 // The toast button and the u key both come here, so every undo says what it undid and plays the same one sound.
 async function undoLast() {
   const u = undoInfo, label = $('toast-text').textContent; $('toast').classList.remove('on'); if (!u) return false;
@@ -1836,13 +1797,7 @@ async function move(id, status, before) {
   return ok;
 }
 
-// --- bulk toolbar: move/archive/assign-project a multi-selection in one action ---
-function renderBulkProjectOptions() {
-  const sel = $('bulk-project'), cur = sel.value;
-  sel.innerHTML = '<option value="">Project…</option><option value="__none__">No project</option>' +
-    projects.map(p => `<option value="${esc(p.id)}">${esc(p.name)}</option>`).join('');
-  sel.value = cur;
-}
+// --- bulk toolbar: move/archive a multi-selection in one action ---
 $('bulk-move').onchange = async e => {
   const status = e.target.value; e.target.value = '';
   if (!status || !selected.size) return;
@@ -1863,20 +1818,6 @@ $('bulk-archive').onclick = async () => {
     if (r.ids.length) toast(`Archived ${r.ids.length} task${r.ids.length === 1 ? '' : 's'}`, { ids: r.ids });
     showError('');
   } catch (err) { showError('Could not archive: ' + err.message); }
-  clearSelection(); raw = ''; detailRaw = ''; load();
-};
-$('bulk-project').onchange = async e => {
-  const v = e.target.value; e.target.value = '';
-  if (!v || !selected.size) return;
-  const project_id = v === '__none__' ? null : v;
-  const ids = [...selected];
-  try {
-    const r = await api('/api/bulk-project', { ids, project_id });
-    const name = project_id ? (projectOf(project_id)?.name || 'project') : 'no project';
-    toast(`Assigned ${ids.length} task${ids.length === 1 ? '' : 's'} to ${name}`,
-          { replay: Object.entries(r.prev).map(([id, pid]) => ({ path: '/api/task-project', body: { id, project_id: pid } })) });
-    showError('');
-  } catch (err) { showError('Could not assign project: ' + err.message); }
   clearSelection(); raw = ''; detailRaw = ''; load();
 };
 $('bulk-clear').onclick = clearSelection;
@@ -2004,10 +1945,6 @@ function panelHtml(t) {
     <div class="reply" ${replyOpen ? '' : 'hidden'}><textarea id="p-reply-text" placeholder="Reply${OWNER === 'you' ? '' : ' as ' + esc(OWNER)} — saved to this card's log (⌘↵ to send)">${esc(replyDraft)}</textarea><div class="lat-btns" style="margin:0"><button class="btn primary" id="p-reply-send">Send reply</button></div></div>` : '');
   const latest = sawText || bodyHtml ? `<div class="lat${t.needs_input ? ' ask' : rv ? ' rev' : ''}">${'<div class="lat-h">' + head + '</div>'}${parsed.has ? arwHtml(parsed) : `<div class="fmt">${fmt(sawText)}</div>`}${bodyHtml}${btns}</div>` : '';
   const askC = latest, revC = '', result = '';
-  const projectSel = `<div class="p-sec"><h3>Project</h3><select class="btn" id="p-project" style="width:100%" aria-label="Project">
-    <option value="">No project</option>
-    ${projects.map(p => `<option value="${esc(p.id)}" ${t.project_id === p.id ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}
-  </select></div>`;
   const edActs = `<div class="ed-acts"><button class="btn primary" type="submit">Save</button><button class="btn" type="button" data-ed-cancel>Cancel</button><small>⌘↵ saves · Esc cancels</small></div>`;
   const desc = panelEdit === 'description'
     ? `<div class="p-sec"><h3>Description</h3><form class="ed-form" data-ed="description"><textarea id="ed-field" aria-label="Description">${esc(panelDraft)}</textarea>${edActs}</form></div>`
@@ -2047,7 +1984,7 @@ function panelHtml(t) {
     : `<h2 class="ed" data-ed-open="title" tabindex="0" role="button" title="Click to edit (e)">${esc(t.title)}<span class="pen">edit</span></h2>`;
   return `${titleHtml}${who}${askC}${revC}${prog}${result}
     <div class="p-actions">${copy}<button class="btn danger" id="p-del">Delete</button></div>
-    ${par}${subsList}${blocked}${projectSel}${tl}${desc}${details}${prompt}`;
+    ${par}${subsList}${blocked}${tl}${desc}${details}${prompt}`;
 }
 
 async function refreshPanel() {
@@ -2158,12 +2095,6 @@ async function sendReply() {
 }
 $('p-body').addEventListener('input', e => { if (e.target.id === 'p-reply-text') replyDraft = e.target.value; });
 $('p-body').addEventListener('keydown', e => { if (e.target.id === 'p-reply-text' && e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); sendReply(); } });
-$('p-body').addEventListener('change', async e => {
-  if (e.target.id !== 'p-project') return;
-  try { await api('/api/task-project', { id: openId, project_id: e.target.value || null }); showError(''); }
-  catch (err) { showError('Could not set project: ' + err.message); }
-  raw = ''; detailRaw = ''; load();
-});
 function startEdit(field) {
   if (!lastDetail) return;
   panelEdit = field; panelDraft = field === 'title' ? lastDetail.title : (lastDetail.description || '');
@@ -2259,8 +2190,7 @@ $('p-body').addEventListener('click', async e => {
 
 const shownCards = () => $('board').querySelectorAll('.card').length;
 $('filter').oninput = () => { const was = shownCards(); render(); if (shownCards() !== was) touch('match'); };
-$('project-filter').onchange = render;
-$('filter-clear').onclick = () => { $('filter').value = ''; $('project-filter').value = ''; flagFilter = null; render(); };   // one control clears whatever is filtering
+$('filter-clear').onclick = () => { $('filter').value = ''; flagFilter = null; render(); };   // one control clears whatever is filtering
 
 // header attention counts: click (or Enter/Space) to jump straight to just those cards — toggles off on a second hit
 function toggleFlagFilter(flag) { flagFilter = flagFilter === flag ? null : flag; render(); }

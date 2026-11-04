@@ -12,7 +12,7 @@ class TodoColumnTests(unittest.TestCase):
     def test_one_function_draws_the_column_for_both_views(self):
         self.assertEqual(HTML.count("function todoColHtml("), 1)
         self.assertIn("return todoColHtml(by.todo, filtered) +", HTML)                       # By agent: Todo, then the agent lanes
-        self.assertIn("if (k === 'todo') return todoColHtml(by.todo, q || pf || flagFilter);", HTML)   # the Board
+        self.assertIn("if (k === 'todo') return todoColHtml(by.todo, q || flagFilter);", HTML)   # the Board
         self.assertEqual(HTML.count('<section class="col todo" data-status="todo">'), 1)     # nowhere else builds it
 
     def test_both_views_give_todo_the_same_narrow_track(self):

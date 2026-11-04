@@ -1,5 +1,5 @@
 """Settings (Nov 3): a gear on every view opens the sheet that was Mix, now with sound, ambient bed and volume; the header lost
-the project dropdown, the Filter field and the Live block; Load's bar lost Pop out, Close, Mix, SND and AMB."""
+the Filter field and the Live block (and, since 4 Nov, projects altogether); Load's bar lost Pop out, Close, Mix, SND and AMB."""
 import re
 import unittest
 from pathlib import Path
@@ -21,9 +21,9 @@ def body(fn):
 class HeaderTests(unittest.TestCase):
     def test_the_header_lost_the_filters_and_the_live_block(self):
         self.assertNotIn('placeholder="Filter  /"', HEADER)
-        self.assertIn('id="project-filter" aria-label="Filter by project" hidden', HEADER)
+        self.assertNotIn('id="project-filter"', HEADER)   # projects are gone (4 Nov)
         self.assertIn('id="filter" aria-label="Filter tasks" hidden', HEADER)
-        self.assertIn("#filter, #project-filter { display: none; }", HTML)
+        self.assertIn("#filter { display: none; }", HTML)
         self.assertNotIn("<span>Live</span>", HEADER)
         self.assertNotIn("<dt><kbd>/</kbd></dt>", HTML)                 # the / shortcut only served the field
         self.assertNotIn("e.key === '/'", HTML)
@@ -32,7 +32,7 @@ class HeaderTests(unittest.TestCase):
         self.assertIn('<span class="summary" id="filter-summary" role="status"></span><button class="btn filter-clear" id="filter-clear" hidden aria-label="Clear the filter"', HEADER)
         self.assertIn("$('filter-clear').hidden = false;", body("render"))
         self.assertIn("$('filter-clear').hidden = true;", body("render"))
-        self.assertIn("$('filter-clear').onclick = () => { $('filter').value = ''; $('project-filter').value = ''; flagFilter = null; render(); };", HTML)
+        self.assertIn("$('filter-clear').onclick = () => { $('filter').value = ''; flagFilter = null; render(); };", HTML)
         # the who chip and the attention counts still drive the hidden field
         self.assertIn("const f = $('filter'); f.value = f.value === w.dataset.agent ? '' : w.dataset.agent;", HTML)
         self.assertIn("function toggleFlagFilter(flag) { flagFilter = flagFilter === flag ? null : flag; render(); }", HTML)

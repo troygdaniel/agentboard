@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Projects are gone (Nov 4)
+- **Projects are removed entirely**: the coloured pill and dot on cards, the project filter, the panel's Project select, the bulk Assign, `agentboard project …`, `--project` on `add` and `start`, and the project routes. Cards are coloured by status and by agent only. A board file from before still loads; its project list is dropped on the next save and a card's old `project_id` is ignored.
+- **The Done summary groups by agent** instead of by project (`/summary?agent=<name>`, `agentboard summary --agent`): one tile per agent on the work map, the mindmap by agent, "Unassigned" for a card with none.
+
 ### Load's telemetry is Board cards; the Board's Todo no longer fades on a pill hover (Nov 4)
 - **The Agents column on Load**: each agent is a Board card, the same pill, type, spacing and colours as a Doing card, holding only what telemetry alone knows: the age and the agent's hour of load (the bar). The card's border and edge take the agent's state the Board's way (ask, review, abandoned, working). Nothing the Doing card beside it says is repeated: no big name, no state word, no status or ask text, no notes, no title, no %. Every agent shows, idle ones too (a quiet card with a dimmed bar); the idle fold, its toggle and its remembered collapse are gone. The Queue is the last card with its chart; the legend and the time axis sit in the column's foot. The whole of Load is in the Board's type now, no monospace.
 - **Board: hovering an agent pill no longer fades the Todo column.** The hover lights that agent's cards and dims only *other agents'* cards; a card with no agent (all of Todo) stays as it is. It dimmed every card that was not that agent's, so the pointer crossing a pill faded Todo to near nothing. The "Show only AGENT-2" hint is now the page's own, above the pill, instead of the browser's tooltip under the pointer over the card's next line.

@@ -30,7 +30,7 @@ class LoadSameCardsTests(unittest.TestCase):
         self.assertIn("[box, tw].forEach(h => h.querySelectorAll('.card').forEach(c => { c.draggable = false; }));", r)
         # subtasks stay folded on Load
         self.assertIn("const open = hudPane ? false : subsOpen.has(t.id) ? subsOpen.get(t.id) : t.status === 'doing';", HTML)
-        self.assertIn("    hudPane = true;\n    todoPaneHtml = todoColHtml(by.todo, q || pf || flagFilter);", r)
+        self.assertIn("    hudPane = true;\n    todoPaneHtml = todoColHtml(by.todo, q || flagFilter);", r)
         self.assertIn("paneHtml = by.doing.length ? by.doing.map(card).join('')", r)
 
     def test_the_pane_takes_the_boards_type_scale_and_follows_the_theme(self):
