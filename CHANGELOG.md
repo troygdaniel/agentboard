@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+### Every shortcut works on every view (Nov 4)
+- **On Load the arrows and `j` / `k` walk the Todo column as well as Doing**, `←` / `→` cross between them, and **`Alt` + `←` / `→` move the card you are on between Todo and Doing** (there was no way to move a card to Todo from Load). The same on By agent: `Alt` + `←` takes a lane card to Todo, `→` brings a Todo card into Doing, `↑` / `↓` reorder within the column.
+- **The arrows no longer crash** when the card under focus is not in the grid (a Later card, a chat chip, the board under Load): they start the walk instead.
+- **A poll no longer steals keyboard focus**: on Load, focus stays on the card in the pane you were in instead of jumping to the board's copy underneath; on any view, focus on a control inside a card (Copy prompt, Later, Mark done, a name chip, a quick reply, a subtask row) comes back to that same control after a redraw.
+- **The selection works on Load**: shift-click and `Shift` + `↑` / `↓` paint there too, the bulk bar floats above Load (and over the board's foot, so opening it no longer shrinks every column), and `Esc` clears the selection before it closes Load.
+- **`Alt` + arrows never fire while you type** in a reply box (`Option` + `←` moves the cursor again). **`Esc` peels one layer at a time**: a field inside the open card loses focus first, a sheet over the card closes first, then the card, then the selection, then Load; `Esc` in the new-task field no longer closes the open card with it.
+- **`m` and `s` work inside Settings** (a switch or a slider is not typing); `c` checks for an open sheet like `d` does, and a telemetry row on Load no longer counts as a card for either; the pop-out window keeps `?`, `e` and the arrows; opening a card closes Chat like it closes Later.
+- The shortcuts sheet says what the handlers do (Space, `⌘` + `Enter`, the editor's keys, where `Alt` + arrows work) and a test keeps it so.
+
 ### Projects are gone (Nov 4)
 - **Projects are removed entirely**: the coloured pill and dot on cards, the project filter, the panel's Project select, the bulk Assign, `agentboard project …`, `--project` on `add` and `start`, and the project routes. Cards are coloured by status and by agent only. A board file from before still loads; its project list is dropped on the next save and a card's old `project_id` is ignored.
 - **The Done summary groups by agent** instead of by project (`/summary?agent=<name>`, `agentboard summary --agent`): one tile per agent on the work map, the mindmap by agent, "Unassigned" for a card with none.

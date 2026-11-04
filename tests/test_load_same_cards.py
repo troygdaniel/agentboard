@@ -58,7 +58,7 @@ class LoadSameCardsTests(unittest.TestCase):
         self.assertIn("CARD_HOMES.forEach(h => h.addEventListener('click'", HTML)
         self.assertIn("CARD_HOMES.forEach(h => h.addEventListener('keydown'", HTML)
         self.assertIn("CARD_HOMES.forEach(quickEvents);", HTML)
-        self.assertIn("|| BYAGENT || h !== $('board')) return;", HTML)   # Alt+arrows move cards on the board only
+        self.assertIn("|| /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;", HTML)   # Alt+arrows work in every pane, never while typing
 
 
 if __name__ == "__main__":

@@ -150,7 +150,7 @@
   #add input::placeholder { color: var(--muted); }
 
   /* ----- multi-select bulk toolbar (shift-click / shift+arrows to build a selection) ----- */
-  #bulkbar { display: none; align-items: center; gap: 8px; margin-bottom: 24px; padding: 8px 12px;
+  #bulkbar { display: none; align-items: center; gap: 8px; padding: 8px 12px; position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 35; max-width: calc(100vw - 32px); box-shadow: var(--panel-sh);   /* floats: opening it moves nothing, and it sits above Load */
     background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
   #bulkbar.open { display: flex; }
   #bulkbar .n { font-size: var(--fs-md); color: var(--text); font-weight: 500; }
@@ -890,6 +890,7 @@
     transition: opacity .15s, transform .15s, background-color .18s ease, color .18s ease; z-index: 20; max-width: calc(100vw - 32px);
   }
   #toast.on { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
+  body:has(#bulkbar.open) #toast { bottom: 84px; }   /* the toast steps up over the floating bulk bar */
   .toast-row { display: flex; align-items: center; gap: 14px; padding: 9px 10px 9px 16px; }
   .toast-row span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .toast-row button { background: none; border: 0; color: inherit; font-weight: 600; cursor: pointer; padding: 4px 8px; border-radius: 6px; text-decoration: underline; text-underline-offset: 3px; }
@@ -1066,7 +1067,7 @@
 <div id="keys" role="dialog" aria-label="Keyboard shortcuts"><div class="sheet">
   <h2>Keyboard shortcuts</h2>
   <dl>
-    <dt><kbd>n</kbd></dt><dd id="key-new">New task (leaves Load)</dd>
+    <dt><kbd>n</kbd></dt><dd id="key-new">New task (leaves Load; not in the pop-out window, nor <kbd>l</kbd> or <kbd>a</kbd>)</dd>
     <dt><kbd>l</kbd></dt><dd id="key-later">Later list</dd>
     <dt><kbd>c</kbd></dt><dd id="key-copy">Copy a card's prompt: the one you pointed at or focused last, else the selected or open one</dd>
     <dt><kbd>d</kbd></dt><dd id="key-done">Mark that same card done</dd>
@@ -1074,18 +1075,19 @@
     <dt><kbd>h</kbd></dt><dd>Load</dd>
     <dt><kbd>a</kbd></dt><dd>By agent / back to the board</dd>
     <dt><kbd>[</kbd> <kbd>]</kbd></dt><dd>Previous / next view: Board, By agent, Load</dd>
-    <dt><kbd>↑ ↓ ← →</kbd></dt><dd>Move between cards</dd>
+    <dt><kbd>↑ ↓ ← →</kbd></dt><dd>Move between cards (on Load: Todo and Doing)</dd>
     <dt><kbd>j</kbd> <kbd>k</kbd></dt><dd>Next / previous card</dd>
-    <dt><kbd>Enter</kbd></dt><dd>Open card</dd>
-    <dt><kbd>e</kbd></dt><dd>Edit the open card's title</dd>
+    <dt><kbd>Enter</kbd> / <kbd>Space</kbd></dt><dd>Open card</dd>
+    <dt><kbd>e</kbd></dt><dd>Edit the open card's title (<kbd>Enter</kbd> or <kbd>⌘/Ctrl</kbd> + <kbd>Enter</kbd> saves, <kbd>Esc</kbd> cancels)</dd>
+    <dt><kbd>⌘/Ctrl</kbd> + <kbd>Enter</kbd></dt><dd>Send the reply you are typing on the open card; <kbd>Enter</kbd> adds the subtask or blocker you typed</dd>
     <dt><kbd>s</kbd></dt><dd>Sound on or off</dd>
     <dt><kbd>f</kbd></dt><dd>Load: fullscreen</dd>
     <dt><kbd>m</kbd></dt><dd>Settings: sound, volume, layers</dd>
-    <dt><kbd>Alt</kbd> + arrows</dt><dd id="key-alt">Move the card (Board only)</dd>
+    <dt><kbd>Alt</kbd> + arrows</dt><dd id="key-alt">Move the card: ← → between columns (Todo, Doing, Done; on Load and By agent, Todo and Doing), ↑ ↓ within one</dd>
     <dt><kbd>Shift</kbd> + click</dt><dd>Select a range of cards</dd>
     <dt><kbd>⌘/Ctrl</kbd> + click</dt><dd>Add/remove one card from the selection</dd>
-    <dt><kbd>Shift</kbd> + <kbd>↑ ↓</kbd></dt><dd id="key-shiftarrows">Extend the selection (not on Load)</dd>
-    <dt><kbd>Esc</kbd></dt><dd>Close / clear selection</dd>
+    <dt><kbd>Shift</kbd> + <kbd>↑ ↓</kbd></dt><dd id="key-shiftarrows">Extend the selection</dd>
+    <dt><kbd>Esc</kbd></dt><dd>Close the top layer: a sheet, a drawer, a field, the card, the selection, then Load</dd>
     <dt><kbd>?</kbd></dt><dd>This list</dd>
   </dl>
 </div></div>
@@ -1219,10 +1221,26 @@ function ribbonHtml(done) {
 
 // render() only restores focus to a focused card itself; the badge and Copy button live inside one, so
 // a keyboard user would drop to <body> when their button is rebuilt. Put them back on the card.
-function renderKeepingCardFocus() {
-  const id = document.activeElement?.closest?.('.card')?.dataset.id;
-  render();
-  if (id) $('board').querySelector(`.card[data-id="${CSS.escape(id)}"]`)?.focus({ preventScroll: true });
+function renderKeepingCardFocus() { render(); }   // render() puts focus back itself (focusSnapshot / focusRestore)
+// Focus across a rebuild: the focused card (or a control inside it: Copy prompt, Later, Mark done, a who chip, a quick reply,
+// a subtask row, a ribbon day) is found again by the same card id and the same attributes, in the same pane it was in (the
+// board, or Load's Todo or Doing), so a poll never drops a keyboard user to <body> or to the board's copy under Load.
+function focusSnapshot() {
+  const el = document.activeElement; if (!el || el === document.body) return null;
+  const card = el.closest('.card'), home = homeOf(el);
+  if (!home) return null;
+  const id = card?.dataset.id || null, inner = card && el !== card ? el : (!card ? el : null);
+  if (!card && !el.dataset.toggleSubs && !el.dataset.day) return null;
+  const sel = inner ? inner.tagName.toLowerCase() + [...inner.classList].map(c => '.' + CSS.escape(c)).join('') + Object.entries(inner.dataset).map(([k, v]) => `[data-${k.replace(/[A-Z]/g, m => '-' + m.toLowerCase())}="${CSS.escape(v)}"]`).join('') : null;
+  return { home: home.id, id, sel };
+}
+function focusRestore(f) {
+  if (!f) return;
+  const home = document.getElementById(f.home) || $('board');
+  const card = f.id ? home.querySelector(`.card[data-id="${CSS.escape(f.id)}"]`) : null;
+  let el = null;
+  try { el = f.sel ? (card || home).querySelector(f.sel) : card; } catch (e) { el = card; }
+  (el || card)?.focus({ preventScroll: true });
 }
 
 // A Doing parent's status line: when a live subtask changed more recently than the parent's own text, show
@@ -1465,8 +1483,7 @@ function render() {
   $('welcome').style.display = tasks.length ? 'none' : 'block';
   $('board').style.display = tasks.length ? '' : 'none';
 
-  const focusId = document.activeElement?.dataset?.id;
-  const focusToggle = document.activeElement?.dataset?.toggleSubs;
+  const focusBack = focusSnapshot();   // the card, or the control inside it, that has focus: put it back after the rebuild
   // FLIP: remember where every card was, so moves and reorders glide instead of snapping. The cards you can see are the board's,
   // or under Load the Doing cards in its left pane; a view change hands over where they were on the view just left (glideFrom)
   const before = new Map(), beforeCol = new Map(), inHud = hudIsOpen();
@@ -1581,8 +1598,7 @@ function render() {
   // restore focus after the innerHTML rebuild above — preventScroll because this runs on every
   // background poll tick, not a deliberate user navigation; a plain focus() would silently drag
   // the viewport to wherever this card now sits (the reported "page auto-scrolls" bug)
-  if (focusId) $('board').querySelector(`.card[data-id="${CSS.escape(focusId)}"]`)?.focus({ preventScroll: true });
-  else if (focusToggle) $('board').querySelector(`[data-toggle-subs="${CSS.escape(focusToggle)}"]`)?.focus({ preventScroll: true });
+  focusRestore(focusBack);
   // drop selections for cards that no longer exist (archived/deleted elsewhere), then reapply highlight
   [...selected].forEach(id => { if (!tasks.some(t => t.id === id)) selected.delete(id); });
   renderSelection();
@@ -2042,7 +2058,7 @@ function openPanel(id, quiet) {
   if (!quiet && (openId !== id || !$('panel').classList.contains('open'))) touch('open', agentOf(id));
   if (openId !== id) { detailRaw = ''; promptText = ''; promptOpen = false; descOpen = false; actAll = false; replyOpen = false; replyDraft = ''; openEntries = new Set(); resetScroll = true; panelEdit = null; panelDraft = ''; }
   lastFocus = document.activeElement;
-  $('later').classList.remove('open');
+  $('later').classList.remove('open'); $('chat').classList.remove('open');   // a card opens alone: the drawers go
   openId = id;
   history.replaceState(null, '', '#' + encodeURIComponent(id));
   $('panel').classList.add('open'); document.body.classList.add('panel-open');
@@ -2073,7 +2089,13 @@ $('p-move').addEventListener('click', async e => {
   await move(openId, to);
   if (to === 'done') closePanel();
 });
-document.addEventListener('keydown', e => { if (e.key === 'Escape' && openId && !panelEdit && !$('add').classList.contains('open')) { closePanel(); e.tookPanel = true; } });   // tookPanel: the Esc below leaves Load alone
+document.addEventListener('keydown', e => {   // Esc on an open card: a field inside it blurs first, a sheet over it closes first, then the card closes. tookPanel: the Esc below leaves Load alone
+  if (e.key !== 'Escape' || !openId || panelEdit || $('add').classList.contains('open')) return;
+  if ($('keys').classList.contains('on') || mixIsOpen()) return;
+  const el = document.activeElement;
+  if (el && el.closest('#p-body') && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)) { el.blur(); e.tookPanel = true; return; }
+  closePanel(); e.tookPanel = true;
+});
 document.addEventListener('click', e => {
   if (!e.target.isConnected) return;    // the click re-rendered its own button; not an outside click
   if (openId && !e.target.closest('#panel, .card, #theme, #add, #toast')) closePanel();
@@ -2901,15 +2923,18 @@ $('later-body').addEventListener('keydown', e => {
 });
 
 // --- keyboard: n l h / ? and arrow navigation ---
-function cardsGrid() {   // the columns the arrows walk: the board's, or Load's one Doing column while Load is open
-  if (hudIsOpen()) return [[...$('h-cards-box').querySelectorAll('.card')]];
+function cardsGrid() {   // the columns the arrows walk: the board's, or Load's Todo and Doing while Load is open
+  if (hudIsOpen()) return [[...$('h-todo-wrap').querySelectorAll('.card')], [...$('h-cards-box').querySelectorAll('.card')]];
   return [...$('board').querySelectorAll('.col')].map(c => [...c.querySelectorAll('.card')]);
 }
+const homeOf = el => el?.closest?.('#board, #h-cards-box, #h-todo-wrap') || null;   // the pane a card is shown in (null: a Later card, a chat chip)
 function focusCard(el) { el?.focus({ preventScroll: false }); }
 function navigate(key) {
-  const grid = cardsGrid(), cur = document.activeElement?.closest?.('.card');
-  if (!cur) { const first = grid.find(col => col.length); return focusCard(first?.[0]); }
-  let ci = grid.findIndex(col => col.includes(cur)), ri = grid[ci].indexOf(cur);
+  const grid = cardsGrid();
+  let cur = document.activeElement?.closest?.('.card');
+  let ci = cur ? grid.findIndex(col => col.includes(cur)) : -1;
+  if (ci < 0) { const first = grid.find(col => col.length); return focusCard(first?.[0]); }   // no card, or one outside the grid (a Later card, a chat chip, the board under Load): start at the first
+  let ri = grid[ci].indexOf(cur);
   if (key === 'down') ri = Math.min(grid[ci].length - 1, ri + 1);
   else if (key === 'up') ri = Math.max(0, ri - 1);
   else {
@@ -2924,7 +2949,7 @@ function navigate(key) {
 
 // --- multi-select: shift-click / ⌘-ctrl-click range + toggle, shift+up/down extends it ---
 function renderSelection() {
-  $('board').querySelectorAll('.card').forEach(c => c.classList.toggle('selected', selected.has(c.dataset.id)));
+  CARD_HOMES.forEach(h => h.querySelectorAll('.card').forEach(c => c.classList.toggle('selected', selected.has(c.dataset.id))));
   const n = selected.size;
   $('bulkbar').classList.toggle('open', n > 0);
   $('bulk-n').textContent = n ? `${n} selected` : '';
@@ -2993,15 +3018,15 @@ function goView(i) {
 }
 document.addEventListener('keydown', e => {
   if (e.metaKey || e.ctrlKey) return;
-  const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName);
+  const typing = isTyping();
   if (e.key === 'Escape') {
     if (e.tookPanel) return;   // that press closed the open card; Load under it stays
     if ($('keys').classList.contains('on')) { toggleKeys(false); return; }
     if (mixIsOpen()) { toggleMix(false); return; }
     if ($('later').classList.contains('open')) { closeLater(); return; }   // the drawers open over Load, so they close first
     if ($('chat').classList.contains('open')) { closeChat(); return; }
+    if (selected.size) { clearSelection(); return; }   // a selection is the lighter layer: it clears before Load closes
     if (hudIsOpen()) { closeHud(); return; }
-    if (selected.size) { clearSelection(); return; }
     return;
   }
   if (typing) return;
@@ -3015,7 +3040,7 @@ document.addEventListener('keydown', e => {
   if (hudIsOpen()) {
     if (e.key === 'f') { toggleHudFull(); return; }
     if (e.key === 'h') { closeHud(); return; }
-    if (SOLO) return;   // the pop-out window has no board, no Later list and no new-task field
+    if (SOLO && 'nla'.includes(e.key)) return;   // the pop-out window has no board, no Later list and no new-task field; ?, e and the arrows work
   }
   if (e.key === '?') { toggleKeys(); return; }
   if (e.key === 'n') { e.preventDefault(); if (hudIsOpen()) closeHud(); toggleAdd(true); return; }   // the new-task field is on the board, under Load
@@ -3023,13 +3048,10 @@ document.addEventListener('keydown', e => {
   if (e.key === 'l') { $('later-btn').click(); return; }
   if (e.key === 'h') { $('hud-btn').click(); return; }
   if (e.key === 'a') { goView(BYAGENT ? 0 : 1); return; }
-  if (e.shiftKey && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
-    if (hudIsOpen()) return;   // the selection bar is on the board, under Load
-    e.preventDefault(); extendSelectionVertical(e.key === 'ArrowDown' ? 'down' : 'up'); return;
-  }
+  if (e.shiftKey && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) { e.preventDefault(); extendSelectionVertical(e.key === 'ArrowDown' ? 'down' : 'up'); return; }   // on Load too: the bar floats above it
   const map = { ArrowDown: 'down', j: 'down', ArrowUp: 'up', k: 'up', ArrowLeft: 'left', ArrowRight: 'right' };
   if (map[e.key]) {
-    if (hudIsOpen() && !cardsGrid()[0].length) return;   // no Doing card on Load: the arrows scroll it as before
+    if (hudIsOpen() && !cardsGrid().some(col => col.length)) return;   // no card on Load: the arrows scroll it as before
     e.preventDefault(); navigate(map[e.key]);
   }
 });
@@ -3128,9 +3150,9 @@ function checkAsks() {
 
 // a card that just needs input or is ready for review opens its own detail panel — but
 // never mid-keystroke, and never out from under the HUD or the shortcuts sheet
-function isTyping() {
+function isTyping() {   // a field that takes text; a checkbox, radio, slider or button is a control, not typing
   const el = document.activeElement;
-  return !!el && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName);
+  return !!el && (el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || (el.tagName === 'INPUT' && !/^(checkbox|radio|range|button|submit)$/.test(el.type)));
 }
 function maybeAutoOpen() {
   if (!pendingAutoOpen.length || isTyping() || hudIsOpen() || $('keys').classList.contains('on')) return;
@@ -3152,7 +3174,7 @@ $('add').onsubmit = async e => {
   catch (err) { showError('Could not add task: ' + err.message); }
   raw = ''; load();
 };
-$('title').onkeydown = e => { if (e.key === 'Escape') { toggleAdd(false); $('title').blur(); } };
+$('title').onkeydown = e => { if (e.key === 'Escape') { e.stopPropagation(); toggleAdd(false); $('title').blur(); } };   // one Esc closes the field, not the open card too
 
 // --- card actions ---
 // the cards' own controls (reply, Mark done, subtasks, who, Copy prompt) work the same wherever the card is drawn: the board or Load's pane
@@ -3199,7 +3221,7 @@ window.addEventListener('pointermove', e => {   // only a real move counts: the 
 }, { passive: true });
 window.addEventListener('keydown', e => { if (!['c', 'd', 'u'].includes(e.key)) aimedBy = 'key'; }, true);   // the keys that act on a card do not change where you are aiming
 function aimedCard() {
-  const idOf = el => el?.closest?.('.card')?.dataset.id || null;
+  const idOf = el => { const c = el?.closest?.('.card'); return c && !c.classList.contains('h-row') ? c.dataset.id : null; };   // Load's telemetry rows are not cards
   const under = idOf([...document.querySelectorAll('.card:hover')].pop());
   const focused = idOf(document.activeElement);
   const picked = selected.size === 1 ? [...selected][0] : null;
@@ -3292,9 +3314,10 @@ CARD_HOMES.forEach(h => h.addEventListener('keydown', e => {
   if (c && e.target === c && (e.key === 'Enter' || e.key === ' ') && !e.altKey) { e.preventDefault(); openPanel(c.dataset.id); return; }
   const row = e.target.closest?.('[data-sub-id]');
   if (row && e.target === row && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openPanel(row.dataset.subId); return; }
-  if (!c || !e.altKey || !e.key.startsWith('Arrow') || BYAGENT || h !== $('board')) return;
+  if (!c || !e.altKey || !e.key.startsWith('Arrow') || /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;   // typing in a reply box: the cursor moves, not the card
   e.preventDefault();
-  const keys = [...$('board').querySelectorAll('.col')].map(x => x.dataset.status);
+  // the columns a card can move between: the Board's three; Load's and By agent's Todo and Doing (a lane is Doing)
+  const keys = h === $('board') && !BYAGENT ? [...$('board').querySelectorAll('.col')].map(x => x.dataset.status) : ['todo', 'doing'];
   const i = keys.indexOf(c.dataset.status), sibs = [...c.parentElement.children].filter(x => x.classList.contains('card'));   // not the Done column's day dividers
   const at = sibs.indexOf(c);
   if (e.key === 'ArrowLeft' && i > 0) move(c.dataset.id, keys[i - 1]);
