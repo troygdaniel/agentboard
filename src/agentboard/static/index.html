@@ -880,6 +880,9 @@
   #keys.on { display: grid; }
   #keys .sheet { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 22px 26px; width: min(420px, calc(100vw - 32px)); box-shadow: 0 20px 60px rgba(0,0,0,.35); }
   #keys h2 { font-size: var(--fs-lg); margin-bottom: 14px; }
+  /* a close button on both sheets (Nov 4): on a phone the only way out was Esc or a tap on the dim edge */
+  #keys .sheet, #mix .sheet { position: relative; }
+  .sheet-x { position: absolute; top: 14px; right: 14px; }
   #keys dl { grid-template-columns: 110px 1fr; gap: 8px 12px; }
   /* Mix: the extra sound layers, the same sheet as the shortcuts. One row per layer: its switch, its level, a Hear button */
   #mix { position: fixed; inset: 0; z-index: 40; display: none; place-items: center; background: rgba(0,0,0,.35); }
@@ -891,6 +894,10 @@
   .mix-row { display: grid; grid-template-columns: auto 1fr 72px auto; align-items: center; gap: 2px 10px; padding: 7px 0; border-top: 1px solid var(--line); }
   .mix-row.cfg-vol { grid-template-columns: auto 1fr 160px auto; }   /* the volume slider gets room; its number sits where Hear it would */
   .mix-row.cfg-vol b { font-variant-numeric: tabular-nums; min-width: 4ch; text-align: right; font-weight: 500; }
+  .mix-row.lv > span:first-child { width: 13px; }   /* where the other rows' switch sits, so the names line up */
+  .mix-row.lv .seg { grid-column: 3 / -1; justify-self: end; display: inline-flex; gap: 2px; padding: 2px; border: 1px solid var(--line); border-radius: 8px; }   /* Off / Subtle / Full */
+  .mix-row.lv .seg .btn { min-height: 26px; padding: 2px 10px; border: 0; font-size: var(--fs-sm); color: var(--muted); }
+  .mix-row.lv .seg .btn[aria-pressed="true"] { background: var(--chip); color: var(--text); box-shadow: inset 0 0 0 1px var(--line); }
   #hud-inner:focus { outline: none; }
   .mix-row label { font-weight: 600; cursor: pointer; }
   .mix-row input[type=range] { width: 72px; margin: 0; }
@@ -1008,6 +1015,133 @@
   body.calm :is(.col.doing, .col.acol, .h-one) .card:not(.done):not(.ask):not(.review):not(.abandoned) { background: var(--surface); border-color: var(--line); box-shadow: inset 0 1px 0 var(--card-hi), var(--shadow); }
   body.calm :is(.col.doing, .col.acol, .h-one) .card:not(.done):not(.ask):not(.review):not(.abandoned):hover { box-shadow: inset 0 1px 0 var(--card-hi), var(--shadow-hover); }
   body.calm :is(.col.doing, .col.acol, .h-one) .card:not(.done):not(.ask):not(.review):not(.abandoned)::after { box-shadow: none; animation: none; }
+  /* Look > Lively (off until chosen): the small moments move. A card settles where it was moved with a ring of the column's colour; a count
+     rolls to its new number; a finished subtask ticks itself in; a changed % pops and its bar flashes; an empty column breathes and its line
+     arrives; the toast springs up; the open card's sections step in; the drop line pulses and the column under a drag lights. Nothing on
+     the page changes while it is off, and reduced motion turns every one of these off (the last rule). */
+  .col.todo { --ring: var(--info); } .col.doing, .col.acol { --ring: var(--run); } .col.done { --ring: var(--ok); }
+  body.lively .card { transition: border-color .12s, box-shadow .22s cubic-bezier(.2,.8,.2,1), transform .22s cubic-bezier(.2,.8,.2,1), background-color .15s ease, color .15s ease; }
+  body.lively .card:hover::after { opacity: 1; box-shadow: 0 0 14px 2px var(--c, var(--neutral)); }
+  body.lively .card.dragging { transform: scale(.985) rotate(-.6deg); }
+  body.lively .card.landed::before { content: ''; position: absolute; inset: -1px; border-radius: inherit; pointer-events: none; animation: landring .8s ease-out forwards; }
+  @keyframes landring { from { box-shadow: 0 0 0 0 color-mix(in srgb, var(--ring, var(--accent)) 55%, transparent); } to { box-shadow: 0 0 0 16px transparent; } }
+  body.lively .col h2 .cnt.roll { position: relative; overflow: hidden; }
+  body.lively .col h2 .cnt.roll .rn { display: inline-block; animation: rollin .4s cubic-bezier(.2,.8,.2,1); }
+  body.lively .col h2 .cnt.roll::before { content: attr(data-from); position: absolute; inset: 0; text-align: center; animation: rollout .4s cubic-bezier(.2,.8,.2,1) forwards; }
+  body.lively .col h2 .cnt.roll.down .rn { animation-name: rollin-d; } body.lively .col h2 .cnt.roll.down::before { animation-name: rollout-d; }
+  @keyframes rollin { from { transform: translateY(100%); opacity: 0; } }
+  @keyframes rollout { to { transform: translateY(-100%); opacity: 0; } }
+  @keyframes rollin-d { from { transform: translateY(-100%); opacity: 0; } }
+  @keyframes rollout-d { to { transform: translateY(100%); opacity: 0; } }
+  body.lively .summary .bump { display: inline-block; animation: bump .5s cubic-bezier(.2,.8,.2,1); }
+  @keyframes bump { 30% { transform: scale(1.14); } }
+  body.lively .sub.just-done .g { animation: subpop .5s cubic-bezier(.2,.9,.3,1.4); }
+  body.lively .sub.just-done .check path { stroke-dasharray: 12; stroke-dashoffset: 12; animation: checkdraw .4s .15s ease-out forwards; }
+  body.lively .sub.just-done { animation: subrow 1.2s ease-out; border-radius: 6px; }
+  @keyframes subpop { 40% { transform: scale(1.35); box-shadow: 0 0 0 4px color-mix(in srgb, var(--ok) 30%, transparent), inset 0 0 0 1.5px var(--ok); } }
+  @keyframes subrow { from { background: color-mix(in srgb, var(--ok) 12%, transparent); } }
+  body.lively .note .pct.pop, body.lively .subs-count.pop { display: inline-block; animation: pctpop .45s cubic-bezier(.2,.9,.3,1.3); }
+  @keyframes pctpop { 40% { transform: scale(1.18); color: var(--c, var(--text)); } }
+  body.lively .bar b.pop { animation: barflash .7s ease-out; }
+  @keyframes barflash { 30% { filter: brightness(1.7); box-shadow: 0 0 12px 1px var(--c, var(--neutral)); } }
+  body.lively .empty { position: relative; isolation: isolate; background: none; }
+  body.lively .empty::before { content: ''; position: absolute; inset: 0; border-radius: inherit; z-index: -1; background: radial-gradient(60% 55% at 50% 100%, var(--glow1), transparent 70%); animation: breathe 7s ease-in-out infinite; }
+  @keyframes breathe { 50% { opacity: .3; } }
+  body.lively .empty.arrive { animation: arrive .6s cubic-bezier(.2,.8,.2,1); }
+  @keyframes arrive { from { opacity: 0; transform: translateY(8px); } }
+  body.lively #toast.on { animation: toastin .4s cubic-bezier(.2,.9,.3,1.25); }
+  @keyframes toastin { from { transform: translate(-50%, 28px) scale(.94); opacity: 0; } }
+  body.lively #panel.fresh .p-body > * { animation: stepin .3s cubic-bezier(.2,.8,.2,1) both; }
+  body.lively #panel.fresh .p-body > :nth-child(2) { animation-delay: .04s; } body.lively #panel.fresh .p-body > :nth-child(3) { animation-delay: .08s; }
+  body.lively #panel.fresh .p-body > :nth-child(4) { animation-delay: .12s; } body.lively #panel.fresh .p-body > :nth-child(5) { animation-delay: .16s; }
+  body.lively #panel.fresh .p-body > :nth-child(n+6) { animation-delay: .2s; }
+  @keyframes stepin { from { opacity: 0; transform: translateY(6px); } }
+  body.lively .drop { animation: droppulse 1s ease-in-out infinite; }
+  @keyframes droppulse { 50% { box-shadow: 0 0 10px 2px color-mix(in srgb, var(--accent) 45%, transparent); } }
+  body.lively .col { transition: box-shadow .2s ease, border-color .18s ease, background-color .18s ease, color .18s ease; }
+  body.lively .col.over { box-shadow: inset 0 1px 0 var(--panel-hi), var(--panel-sh), 0 0 0 3px color-mix(in srgb, var(--ring, var(--accent)) 16%, transparent); border-color: color-mix(in srgb, var(--ring, var(--accent)) 45%, var(--line)); }
+  body.lively .col.over .cards { outline-color: var(--ring, var(--neutral)); }
+  body.lively .col.over.nodrop { box-shadow: inset 0 1px 0 var(--panel-hi), var(--panel-sh), 0 0 0 3px color-mix(in srgb, var(--err) 16%, transparent); border-color: var(--err); }
+  @media (prefers-reduced-motion: reduce) {   /* a pseudo-element cannot sit inside :is(), so those three are listed on their own */
+    body.lively :is(.cnt.roll .rn, .summary .bump, .sub.just-done, .sub.just-done .g, .sub.just-done .check path, .pct.pop, .bar b.pop, .subs-count.pop, .empty.arrive, #toast.on, #panel.fresh .p-body > *, .drop),
+    body.lively .card.landed::before, body.lively .cnt.roll::before, body.lively .empty::before { animation: none; }
+    body.lively .card.dragging { transform: none; }
+  }
+  /* ===== Look > From the future (Off / Subtle / Full; off until chosen) =====
+     A HUD from a game set some years on. Subtle: the panels go holographic (a tint of the page's info colour, a lit edge, corner
+     brackets), a faint scanline veil lies over the page, the column heads become monospace readouts, the lit tab and the bars glow.
+     Full adds a light that travels the live columns' top edge, a header readout (the clock, who works, who waits, the link), the
+     background glows following the pointer, a tilt on a hovered card, a boot sequence on a page load and a scan sweep on a view
+     change. Nothing is hidden and nothing new polls the server: every animation is transform, opacity or a 2px strip, the readout is a
+     one-second clock while Full is on, and reduced motion stops every one of them (the last block). */
+  body.future { --holo: var(--info); --holo-a: color-mix(in srgb, var(--holo) 55%, transparent); }
+  body.future::after { content: ''; position: fixed; inset: 0; z-index: 70; pointer-events: none; opacity: .08;
+    background: repeating-linear-gradient(0deg, transparent 0 3px, color-mix(in srgb, var(--holo) 40%, var(--text)) 3px 4px); }   /* the veil: a 4px scanline, at 8%, never over the reading */
+  body.future .col { border-radius: 8px; border-color: color-mix(in srgb, var(--holo) 38%, var(--line));
+    background: linear-gradient(180deg, color-mix(in srgb, var(--holo) 9%, var(--surface) 30%), color-mix(in srgb, var(--holo) 3%, transparent));
+    box-shadow: inset 0 1px 0 color-mix(in srgb, var(--holo) 25%, var(--panel-hi)), 0 0 28px -14px var(--holo-a), var(--panel-sh); }
+  body.future .col::before { border-radius: 8px; }
+  body.future .col::after { content: ''; position: absolute; inset: 5px; border-radius: 4px; pointer-events: none; z-index: 1; opacity: .75; --b: linear-gradient(var(--holo), var(--holo));
+    background: var(--b) 0 0 / 14px 1.5px, var(--b) 0 0 / 1.5px 14px, var(--b) 100% 0 / 14px 1.5px, var(--b) 100% 0 / 1.5px 14px,
+                var(--b) 0 100% / 14px 1.5px, var(--b) 0 100% / 1.5px 14px, var(--b) 100% 100% / 14px 1.5px, var(--b) 100% 100% / 1.5px 14px; background-repeat: no-repeat; }   /* corner brackets */
+  body.future .col h2 { font-family: ui-monospace, Menlo, monospace; letter-spacing: .2em; color: color-mix(in srgb, var(--holo) 70%, var(--text)); text-shadow: 0 0 8px var(--holo-a); }
+  body.future .col.acol h2 { letter-spacing: .04em; }
+  body.future .col h2 .cnt { background: color-mix(in srgb, var(--holo) 12%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--holo) 45%, transparent); color: inherit; border-radius: 4px; min-width: 2.4ch; text-align: center; }
+  body.future .col h2 .cnt.roll { border-radius: 4px; }
+  body.future .card { border-radius: 8px; border-color: color-mix(in srgb, var(--holo) 24%, var(--line)); }
+  body.future .card::after { box-shadow: 0 0 12px 1px var(--c, var(--neutral)); }
+  body.future .bar { box-shadow: inset 0 1px 2px var(--well), inset 0 0 0 1px color-mix(in srgb, var(--holo) 25%, transparent); }
+  body.future .bar b { box-shadow: 0 0 10px -1px var(--c, var(--neutral)); }
+  body.future header { border-bottom-color: color-mix(in srgb, var(--holo) 40%, var(--line)); }
+  body.future .ab-tabs { border-radius: 6px; border-color: color-mix(in srgb, var(--holo) 35%, var(--line)); }
+  body.future .ab-tabs .tab { border-radius: 4px; }
+  body.future .ab-tabs .tab.on { color: var(--holo); box-shadow: inset 0 0 0 1px var(--holo-a), 0 0 12px -4px var(--holo); text-shadow: 0 0 10px var(--holo-a); }
+  body.future :is(.btn, .card-act, #add input, .card-reply input, .later-add input, .chat-form input, .sheet) { border-radius: 6px; }
+  body.future :is(#panel, #chat) { border-left-color: var(--holo-a); box-shadow: inset 1px 0 0 var(--holo-a), -12px 0 40px rgba(0,0,0,.2); }
+  body.future #later { border-right-color: var(--holo-a); box-shadow: inset -1px 0 0 var(--holo-a), 12px 0 40px rgba(0,0,0,.2); }
+  body.future .p-head { border-bottom-color: color-mix(in srgb, var(--holo) 35%, var(--line)); }
+  body.future #toast { border-radius: 6px; box-shadow: 0 0 0 1px var(--holo-a), 0 0 24px -8px var(--holo); }
+  body.future .empty { border-color: color-mix(in srgb, var(--holo) 35%, var(--line)); font-family: ui-monospace, Menlo, monospace; font-size: var(--fs-sm); letter-spacing: .06em; text-transform: uppercase; color: color-mix(in srgb, var(--holo) 50%, var(--muted)); }
+  /* the header readout (Full): the clock, who works, who waits, the link. Real numbers from the board's own poll, nothing new asked */
+  .fut-ro { display: none; flex: 0 20 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; font: var(--fs-xs) ui-monospace, Menlo, monospace; letter-spacing: .14em; color: color-mix(in srgb, var(--holo) 75%, var(--text)); text-shadow: 0 0 8px var(--holo-a); white-space: nowrap; font-variant-numeric: tabular-nums; }   /* the first thing to give: the counts keep their words */
+  .fut-ro i { font-style: normal; opacity: .55; margin: 0 7px; }
+  .fut-ro .ok { color: var(--ok); } .fut-ro .warn { color: var(--err); }
+  .fut-ro::after { content: '▌'; margin-left: 4px; animation: futblink 1.1s steps(1) infinite; }
+  @keyframes futblink { 50% { opacity: 0; } }
+  @media (min-width: 1500px) { body.future-full .fut-ro { display: inline; } }   /* a narrower header keeps its counts and buttons; the readout is the first to go */
+  /* Full: a light travels the live columns' top edge (a 2px strip; a repaint of that strip only) */
+  body.future-full .col h2 { position: relative; }
+  body.future-full :is(.col.doing, .col.acol) h2::before { content: ''; position: absolute; top: -15px; left: -8px; right: -8px; height: 2px; border-radius: 2px; pointer-events: none; opacity: .85;
+    background: linear-gradient(90deg, transparent, var(--holo), transparent) no-repeat; background-size: 35% 100%; animation: futsweep 3.6s linear infinite; }
+  @keyframes futsweep { from { background-position: -60% 0; } to { background-position: 160% 0; } }
+  /* Full: depth. The far glows ride a fixed layer that the pointer moves a little (transform only); a hovered card tilts towards you */
+  body.future-full::before { content: ''; position: fixed; inset: -48px; z-index: -1; pointer-events: none; will-change: transform; transform: translate(var(--px, 0px), var(--py, 0px));
+    background: radial-gradient(640px 420px at 18% 8%, color-mix(in srgb, var(--holo) 14%, transparent), transparent 70%), radial-gradient(520px 380px at 84% 92%, color-mix(in srgb, var(--holo) 10%, transparent), transparent 70%); }
+  body.future-full .card:hover { transform: perspective(700px) translateY(-2px) rotateX(1.4deg); }
+  body.future-full .card.dragging { transform: none; }
+  /* Full: the boot sequence (a page load) and the scan sweep (a view change). Neither takes the pointer or dims the board; a key or a click ends the boot at once */
+  #boot { position: fixed; inset: 0; z-index: 66; display: none; place-items: end center; padding-bottom: 36px; pointer-events: none; }   /* at the foot, where the toast lives: never over a card */
+  #boot.on { display: grid; }
+  #boot.out { animation: bootout .3s ease-out forwards; }
+  @keyframes bootout { to { opacity: 0; } }
+  .boot-box { padding: 14px 22px; border: 1px solid var(--holo-a); border-radius: 6px; background: color-mix(in srgb, var(--holo) 8%, var(--bg) 70%); box-shadow: 0 0 0 1px color-mix(in srgb, var(--holo) 12%, transparent), 0 0 40px -10px var(--holo), inset 0 1px 0 var(--holo-a);
+    font: var(--fs-md) ui-monospace, Menlo, monospace; letter-spacing: .16em; color: color-mix(in srgb, var(--holo) 75%, var(--text)); text-shadow: 0 0 10px var(--holo-a); animation: bootbox .35s cubic-bezier(.2,.9,.3,1.2) both; }
+  @keyframes bootbox { from { opacity: 0; transform: scale(.94); } }
+  .boot-box div { opacity: 0; animation: bootline .18s steps(1) forwards; white-space: pre; }
+  .boot-box div:nth-child(2) { animation-delay: .22s; } .boot-box div:nth-child(3) { animation-delay: .46s; } .boot-box div:nth-child(4) { animation-delay: .7s; }
+  @keyframes bootline { to { opacity: 1; } }
+  .boot-box .ok { color: var(--ok); }
+  #scan { position: fixed; left: 0; right: 0; top: 0; height: 2px; z-index: 65; pointer-events: none; display: none; background: linear-gradient(90deg, transparent, var(--holo), transparent); box-shadow: 0 0 14px 3px var(--holo-a); }
+  #scan.on, #boot.on #scan { display: block; }
+  #boot #scan { animation: bootscan 1s .15s ease-in-out both; }
+  @keyframes bootscan { from { transform: translateY(0); } to { transform: translateY(100vh); } }
+  @media (max-width: 900px) { body.future .col::after { inset: 4px; } }
+  @media (prefers-reduced-motion: reduce) {
+    body.future-full :is(.col.doing, .col.acol) h2::before, .fut-ro::after, #boot, #boot.out, .boot-box, .boot-box div, #boot #scan { animation: none; }
+    body.future-full::before { transform: none; }
+    body.future-full .card:hover { transform: translateY(-2px); }
+    .boot-box div { opacity: 1; }
+  }
 </style>
 </head>
 <body>
@@ -1023,6 +1157,7 @@
     <input class="filter" id="filter" aria-label="Filter tasks" hidden>
     <span class="summary" id="filter-summary" role="status"></span><button class="btn filter-clear" id="filter-clear" hidden aria-label="Clear the filter" title="Clear the filter"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
     <span class="summary" id="summary"></span>
+    <span class="fut-ro" id="fut-ro" aria-hidden="true"></span>
     <span class="hicons">
     <span class="status off" id="status" role="status" hidden><i></i><span>Disconnected; retrying</span></span>
     <button class="btn" id="chat-btn" aria-controls="chat" aria-label="Chat" title="Chat"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 2.5h10a1 1 0 0 1 1 1v6.5a1 1 0 0 1-1 1H8.2L5 13.5V11H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg><span id="chat-n"></span></button>
@@ -1066,6 +1201,7 @@
 
 
 
+<div id="boot" aria-hidden="true"><div id="scan"></div><div class="boot-box"><div>AGENTBOARD // BOOT</div><div>LINK ········ <span class="ok">OK</span></div><div>BOARD ······· <span class="ok">ONLINE</span></div><div>HUD ········· <span class="ok">READY</span></div></div></div>
 <div id="toast" role="status" aria-live="polite">
   <div class="toast-row"><span id="toast-text"></span><button id="toast-undo">Undo</button></div>
   <div class="toast-bar"><b id="toast-cd"></b></div>
@@ -1088,7 +1224,7 @@
 </div>
 
 <div id="keys" role="dialog" aria-label="Keyboard shortcuts"><div class="sheet">
-  <h2>Keyboard shortcuts</h2>
+  <h2>Keyboard shortcuts</h2><button class="icon-btn sheet-x" id="keys-close" type="button" aria-label="Close"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>
   <dl>
     <dt><kbd>n</kbd></dt><dd id="key-new">New task (leaves Load; not in the pop-out window, nor <kbd>l</kbd> or <kbd>a</kbd>)</dd>
     <dt><kbd>l</kbd></dt><dd id="key-later">Later list</dd>
@@ -1097,6 +1233,7 @@
     <dt><kbd>u</kbd></dt><dd id="key-undo">Undo what the toast offers: a move, a done, a delete, Archive or Clear, a bulk change</dd>
     <dt><kbd>h</kbd></dt><dd>Load</dd>
     <dt><kbd>a</kbd></dt><dd>By agent / back to the board</dd>
+    <dt><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></dt><dd>Board, By agent, Load</dd>
     <dt><kbd>[</kbd> <kbd>]</kbd></dt><dd>Previous / next view: Board, By agent, Load</dd>
     <dt><kbd>↑ ↓ ← →</kbd></dt><dd>Move between cards (on Load: Todo and Doing)</dd>
     <dt><kbd>j</kbd> <kbd>k</kbd></dt><dd>Next / previous card</dd>
@@ -1116,7 +1253,7 @@
 </div></div>
 
 <div id="mix" role="dialog" aria-label="Settings"><div class="sheet">
-  <h2>Settings</h2>
+  <h2>Settings</h2><button class="icon-btn sheet-x" id="mix-close" type="button" aria-label="Close"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>
   <p class="mix-note">Sound and look, for every view. The usual sound is the default: the volume can go above it through a limiter, and the layers are extras, each off until you switch it on; Touch, the sounds of using the board, starts on. Hear one first; the level is yours too.</p>
   <h3>Sound</h3><div id="cfg-sound"></div>
   <h3>Touch (what your hands do, on every view)</h3><div id="mix-touch"></div>
@@ -1181,6 +1318,12 @@ let hudPane = false;            // true while the Doing cards are being drawn fo
 const glideFrom = new Map();    // card id -> rect: where a card was on the view we just left, so it glides into place on the next render
 const copied = new Map();   // Todo card id -> its copied-state label; this page-load only (in-memory on purpose: a refresh clears it)
 let selected = new Set(), selectAnchor = null;   // multi-select: shift-click/shift-arrows range, ⌘/ctrl-click toggle
+const lastSubDone = new Map(), subCountNow = new Map(), lastSubCount = new Map(), lastSum = {};   // Lively: what was finished, and the counts, on the last render
+let landedId = null, landedTo = null, freshTimer = null;   // the card you just moved by hand and where to: it settles with a ring once it is drawn there
+const lively = () => layerOn('lively');
+let chimeQ = [], cueAt = 0;   // Chimes (a sound layer, off until chosen): the moments a render found, played once it is drawn; when the last cue played
+let hoverAgent = null;   // the pill under the pointer: re-applied after a redraw so the highlight does not flicker on a poll. Declared here, before the
+                         // first render: a page opened at #/hud or at a card's hash renders at once, and reading this below the script's end threw
 
 const $ = id => document.getElementById(id);
 const esc = s => { const d = document.createElement('div'); d.textContent = s ?? ''; return d.innerHTML; };
@@ -1298,10 +1441,12 @@ function card(t) {
   const queued = todo ? `<span class="when" title="queued ${esc(a.text)}"><svg width="11" height="11" viewBox="0 0 16 16" fill="none" aria-hidden="true" style="vertical-align:-1px;margin-right:4px"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.5"/><path d="M8 5v3l2 1.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>queued ${a.text}</span>` : when;
   const nSubs = t.subs_total || 0;   // a parent's % is the computed mean of its subtasks (shown as "overall"), and its one bar is the segmented toggle
   const line = doing && nSubs && !t.needs_input && !t.review ? parentLine(t) : t.status_text;   // a question or review request is never replaced by a subtask's note
-  const note = doing ? `<div class="note"><span title="${esc(line)}">${esc(line)}</span><span class="pct ${nSubs ? 'computed' : ''}">${t.progress || 0}%</span></div>`
+  const pctUp = !firstRender && lastPct.has(t.id) && lastPct.get(t.id) !== (t.progress || 0);   // Lively: the number pops and the bar flashes once
+  if (pctUp && doing && (t.progress || 0) < 100 && Math.floor((t.progress || 0) / 25) > Math.floor(lastPct.get(t.id) / 25)) chimeQ.push(['milestone', t.agent, Math.floor((t.progress || 0) / 25)]);   // Chimes: 25, 50, 75
+  const note = doing ? `<div class="note"><span title="${esc(line)}">${esc(line)}</span><span class="pct ${nSubs ? 'computed' : ''}${pctUp ? ' pop' : ''}">${t.progress || 0}%</span></div>`
     : (done && t.result ? `<div class="note"><span title="${esc(t.result)}">${esc(t.result)}</span></div>` : '');
   const bar = nSubs ? subsBlock(t, live) : doing
-    ? `<div class="bar" role="progressbar" aria-valuenow="${t.progress || 0}" aria-valuemin="0" aria-valuemax="100" aria-label="Progress"><b style="width:${lastPct.has(t.id) ? lastPct.get(t.id) : t.progress || 0}%;background:${colorOf(t)}" data-to="${t.progress || 0}"></b></div>` : '';
+    ? `<div class="bar" role="progressbar" aria-valuenow="${t.progress || 0}" aria-valuemin="0" aria-valuemax="100" aria-label="Progress"><b class="${pctUp ? 'pop' : ''}" style="width:${lastPct.has(t.id) ? lastPct.get(t.id) : t.progress || 0}%;background:${colorOf(t)}" data-to="${t.progress || 0}"></b></div>` : '';
   // every card gets subtasks as soon as its agent starts: a Doing card with none says so, until the first one is added
   const noSubs = doing && !nSubs && !t.needs_input && !t.review ? `<div class="nosubs" title="Agents add subtasks as soon as they start a card">No subtasks yet</div>` : '';
   const desc = t.status === 'todo' || t.status === 'backlog'
@@ -1348,14 +1493,17 @@ function subsBlock(t, live) {
   const tick = '<svg class="check" width="9" height="9" viewBox="0 0 10 10" aria-hidden="true"><path d="M1.5 5.5l2.5 2.5 4.5-5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>';
   const html = rows.map(k => {
     const kdone = subDone(k), klive = !kdone && (k.progress || 0) > 0, kask = !kdone && !!k.needs_input;
+    const kjust = kdone && !firstRender && lastSubDone.get(k.id) === false;   // Lively: finished since the last render, so it ticks itself in
+    if (kjust) chimeQ.push(['sub', k.agent || t.agent]);
     const blocked = kdone ? null : unresolvedBlockers(k)[0];
     const st = kask ? (k.question || k.status_text) : blocked ? 'blocked by ' + blocked.title : (klive ? k.status_text : '');
-    return `<div class="sub ${kdone ? 'done' : klive ? 'live' : 'queued'} ${kask ? 'ask' : ''}" data-sub-id="${esc(k.id)}" role="button" tabindex="0" style="--c:${colorOf(k)}"><span class="g">${kdone ? tick : ''}</span>` +
+    return `<div class="sub ${kdone ? 'done' : klive ? 'live' : 'queued'} ${kask ? 'ask' : ''}${kjust ? ' just-done' : ''}" data-sub-id="${esc(k.id)}" role="button" tabindex="0" style="--c:${colorOf(k)}"><span class="g">${kdone ? tick : ''}</span>` +
       `<span class="name" title="${esc(k.title + (st ? ' · ' + st : ''))}">${esc(k.title)}${st ? `<span class="st">${esc(st)}</span>` : ''}</span><span class="p">${kdone ? 100 : (k.progress || 0)}%</span></div>`;
   }).join('');
   const sid = 'subs-' + t.id;
+  const dUp = !firstRender && lastSubCount.has(t.id) && lastSubCount.get(t.id) !== d; subCountNow.set(t.id, d);   // Lively: the count pops when it changes
   return `<button class="subs-toggle" type="button" data-toggle-subs="${esc(t.id)}" aria-expanded="${open}" aria-controls="${esc(sid)}" aria-label="${d} of ${n} subtasks done, ${open ? 'hide' : 'show'} subtasks">` +
-    `<span class="bar" aria-hidden="true"><b style="width:${t.progress || 0}%;background:${t.status === 'done' ? 'var(--ok)' : colorOf(t)}"></b></span><span class="subs-count ${d === n ? 'all' : ''}">${d}/${n}</span>` +
+    `<span class="bar" aria-hidden="true"><b class="${!firstRender && lastPct.has(t.id) && lastPct.get(t.id) !== (t.progress || 0) ? 'pop' : ''}" style="width:${t.progress || 0}%;background:${t.status === 'done' ? 'var(--ok)' : colorOf(t)}"></b></span><span class="subs-count ${d === n ? 'all' : ''}${dUp ? ' pop' : ''}">${d}/${n}</span>` +
     `<svg class="chev" width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M3 1l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6"/></svg></button>` +
     `<div class="subs" id="${esc(sid)}" ${open ? '' : 'hidden'}>${html}</div>`;
 }
@@ -1542,6 +1690,8 @@ function render() {
   const cols = COLUMNS.filter(([k]) => k !== 'backlog');
   // each column scrolls on its own, and the rebuild below replaces those scrollers: remember where they were
   const scrolls = Object.fromEntries([...$('board').querySelectorAll('.col')].map(c => [c.dataset.status, c.querySelector('.cards')?.scrollTop || 0]));
+  const cntBefore = new Map();   // Lively: every column's count and whether it was empty, before the rebuild (the board's, By agent's lanes, Load's)
+  if (!firstRender) document.querySelectorAll('.col').forEach(c => cntBefore.set(colKey(c), [+c.querySelector('.cnt')?.textContent, !!c.querySelector('.empty')]));
   $('board').style.setProperty('--tracks', cols.map(([k]) => k === 'todo' ? 'var(--todo-w)' : k === 'doing' ? 'minmax(0, 1.4fr)' : 'minmax(0, 1fr)').join(' '));
   $('board').classList.remove('hl');   // a re-render drops the hover highlight with the cards it lit
   $('board').innerHTML = BYAGENT ? byAgentHtml(by, q || flagFilter) : cols.map(([k, label]) => {
@@ -1589,10 +1739,12 @@ function render() {
     if (n !== undefined && lastCounts[k] !== undefined && lastCounts[k] !== n) col.querySelector('.cnt')?.classList.add('tick');
   });
   COLUMNS.forEach(([k]) => { lastCounts[k] = by[k].length; });
+  if (!firstRender) livelyCounts(cntBefore);
   // glide cards from their old position to the new one
   // only a card whose column or order changed glides (or one handed over from the view just left); a card that merely shifted
   // because the card above it grew (a reply box arriving, a note going) stays still, so a background poll moves nothing
   const orderNow = Object.fromEntries([...shown.all('.card')].map((c, i) => [c.dataset.id, (c.closest('.col')?.dataset.status || '') + ':' + i]));
+  const justDroppedWas = justDropped;
   before.forEach((r, id) => {
     if (id === justDropped) return;                       // the user already moved this one by hand
     const c = shown.one(`.card[data-id="${CSS.escape(id)}"]`); if (!c) return;
@@ -1608,10 +1760,16 @@ function render() {
     if (c && was !== undefined && c.closest('.col')?.dataset.status !== was) landed(c);
   });
   justDropped = null;
+  if (landedId) {   // Lively: the card you moved by hand settles with a ring once it is drawn in the column you sent it to
+    const c = shown.one(`.card[data-id="${CSS.escape(landedId)}"]`), col = c?.closest('.col')?.dataset.status;
+    if (c && (col === landedTo || (landedTo === 'doing' && col?.startsWith('agent:')))) { landedId = null; settle(c, before.has(c.dataset.id) && c.dataset.id !== justDroppedWas); }
+  }
   // progress bars ease from their last width to the new one
   requestAnimationFrame(() => requestAnimationFrame(() =>
     document.querySelectorAll('#board .bar b[data-to], #h-cards-box .bar b[data-to]').forEach(b => { b.style.width = b.dataset.to + '%'; })));
   tasks.forEach(t => lastPct.set(t.id, t.progress || 0));
+  tasks.forEach(t => lastSubDone.set(t.id, subDone(t))); subCountNow.forEach((d, id) => lastSubCount.set(id, d)); subCountNow.clear();
+  flushChimes();
   firstRender = false;
   const parked = top.filter(t => t.status === 'backlog');   // the drawer and its count ignore the filter: an idea is parked whether or not it matches
   $('later-n').textContent = parked.length ? '(' + parked.length + ')' : '';
@@ -1622,6 +1780,7 @@ function render() {
     + (asks ? `<span class="warn sum-link ${flagFilter === 'needs_input' ? 'active' : ''}" data-flag="needs_input" role="button" tabindex="0" title="Show only ${asks} needs-input card${asks === 1 ? '' : 's'}">⚠ ${asks} needs input</span> · ` : '')
     + (revs ? `<span class="ok sum-link ${flagFilter === 'review' ? 'active' : ''}" data-flag="review" role="button" tabindex="0" title="Show only ${revs} card${revs === 1 ? '' : 's'} ready for review">✓ ${revs} to review</span> · ` : '')
     + (working.length ? `<b>${working.length}</b> working` + (quiet ? ` · <span class="warn">${quiet} quiet</span>` : '') : '');
+  livelySummary({ needs_input: asks, review: revs, working: working.length });
   document.title = (abandoned ? `⚠ ${abandoned} abandoned · ` : '') + (asks ? `⚠ ${asks} input · ` : '') + (revs ? `✓ ${revs} review · ` : '') + (working.length ? `${APP} · ${working.length} working${quiet ? ' · ' + quiet + ' quiet' : ''}` : APP) + (BYAGENT ? ' · by agent' : '');
   // restore focus after the innerHTML rebuild above — preventScroll because this runs on every
   // background poll tick, not a deliberate user navigation; a plain focus() would silently drag
@@ -1631,6 +1790,38 @@ function render() {
   [...selected].forEach(id => { if (!tasks.some(t => t.id === id)) selected.delete(id); });
   renderSelection();
   if (hoverAgent) applyHover();
+}
+
+// Lively (a Look switch, off until chosen): the counts roll to their new number and a column that just emptied has its line arrive;
+// the header's counts bump; the card you moved settles with a ring. Each is a class the CSS above animates; reduced motion turns them off.
+const colKey = col => (col.closest('#hud') ? 'hud:' : '') + col.dataset.status;   // the board's Doing and Load's Doing pane share a status: two keys
+function livelyCounts(cntBefore) {   // the look only with Lively on; the Chimes layer hears a count change or a column emptying either way
+  let rolled = 0, emptied = 0;
+  document.querySelectorAll('.col').forEach(col => {
+    const was = cntBefore.get(colKey(col)); if (!was) return;
+    const c = col.querySelector('.cnt'), n = +c?.textContent;
+    if (c && !isNaN(n) && !isNaN(was[0]) && was[0] !== n) { rolled++; if (lively()) rollCount(c, was[0], n); }
+    const e = col.querySelector('.empty'); if (e && !was[1]) { emptied++; if (lively()) e.classList.add('arrive'); }
+  });
+  if (Date.now() - lastGestureAt > 1000) { if (emptied) chimeQ.push(['empty']); else if (rolled) chimeQ.push(['count']); }   // a move of yours sounded already (the drop)
+}
+function rollCount(c, from, to) {
+  if (!c || RM) return;
+  c.dataset.from = from; c.classList.remove('roll', 'up', 'down'); void c.offsetWidth;
+  c.classList.add('roll', to > from ? 'up' : 'down'); c.innerHTML = `<span class="rn">${to}</span>`;   // the text stays the number; only the look rolls
+}
+function livelySummary(now) {
+  if (!firstRender && lively()) Object.entries(now).forEach(([k, v]) => {
+    if (lastSum[k] === undefined || lastSum[k] === v) return;
+    const el = k === 'working' ? $('summary').querySelector('b') : $('summary').querySelector(`[data-flag="${k}"]`);
+    el?.classList.add('bump');
+  });
+  Object.assign(lastSum, now);
+}
+function settle(c, glided) {   // the ring at once; a breath of scale once any glide has ended
+  if (!lively() || RM) return;
+  c.classList.add('landed'); setTimeout(() => c.classList.remove('landed'), 900);
+  c.animate([{ transform: 'scale(1.02)' }, { transform: 'none' }], { duration: 240, delay: glided ? 400 : 0, easing: 'ease-out' });
 }
 
 async function load() {
@@ -1810,6 +2001,7 @@ function toast(text, undo) {
   $('toast-cd').style.animationDuration = TOAST_MS + 'ms';
   // restart the countdown bar's animation even if a toast is already showing (remove+reflow+add)
   $('toast').classList.remove('on'); void $('toast').offsetWidth; $('toast').classList.add('on');
+  chime('toast');
   clearTimeout(toastTimer); toastTimer = setTimeout(() => $('toast').classList.remove('on'), TOAST_MS);
 }
 // What Undo can take back is whatever the toast on screen offers it for, for as long as that toast shows (7 s): a move between
@@ -1838,6 +2030,7 @@ async function move(id, status, before, note = '') {
   try {
     const r = await api('/api/move', { id, status, before: before || null });
     showError(''); ok = true;
+    if (t && t.status !== status) { landedId = id; landedTo = status; }   // Lively: it settles with a ring once it is drawn there
     if (t && t.status !== status) toast(`Moved “${t.title}” to ${LABELS[status]}${note}`, { prev: r.prev, before: r.prev_before, kids: r.prev_kids });
   } catch (e) { showError('Could not move task: ' + e.message); }
   raw = ''; detailRaw = ''; load();
@@ -2090,12 +2283,14 @@ async function loadPrompt() {
 
 function openPanel(id, quiet) {
   if (!quiet && (openId !== id || !$('panel').classList.contains('open'))) touch('open', agentOf(id));
+  if (!quiet && (openId !== id || !$('panel').classList.contains('open'))) futSound('open');   // From the future's own sound, only while that look and its row are on
   if (openId !== id) { detailRaw = ''; promptText = ''; promptOpen = false; descOpen = false; actAll = false; replyOpen = false; replyDraft = ''; openEntries = new Set(); resetScroll = true; panelEdit = null; panelDraft = ''; }
   lastFocus = document.activeElement;
   $('later').classList.remove('open'); $('chat').classList.remove('open');   // a card opens alone: the drawers go
   openId = id;
   history.replaceState(null, '', '#' + encodeURIComponent(id));
   $('panel').classList.add('open'); document.body.classList.add('panel-open');
+  if (lively() && !RM) { $('panel').classList.add('fresh'); clearTimeout(freshTimer); freshTimer = setTimeout(() => $('panel').classList.remove('fresh'), 800); }   // Lively: the sections step in
   refreshPanel().then(() => focusSoon(() => $('p-close')));
 }
 // #panel slides in with a visibility transition, so nothing inside it can take focus in the same frame it opens:
@@ -2109,6 +2304,7 @@ function focusSoon(getEl) {
   })();
 }
 function closePanel(skipFocus, quiet) {
+  if (!quiet && openId) futSound('close');
   if (!quiet && openId) touch('close', agentOf(openId));   // before the focus goes back to the card: the close is the sound, not the focus tick
   openId = null; detailRaw = ''; panelEdit = null; panelDraft = '';
   history.replaceState(null, '', location.pathname);
@@ -2523,8 +2719,34 @@ const LAYERS = [
       return { stops: [], end: () => clearTimeout(timer) };
     },
     demo(ctx) { const t = ctx.currentTime + .05, v = layerLvl('pulse'); [0, .16, 1.4, 1.56, 2.8, 2.96].forEach((d, i) => thump(ctx, dry, t + d, (i % 2 ? .6 : .9) * v)); } },
+  { id: 'space', kind: 'amb', name: 'Deep space', about: 'a low drone far below, a thin shimmer far above, and now and then a distant ping',
+    start(ctx, out, lv) {
+      const stops = [];
+      [[72, .011], [72.5, .011], [108, .0035]].forEach(([f, v]) => { const o = ctx.createOscillator(); o.frequency.value = f; const g = ctx.createGain(); g.gain.value = v; o.connect(g); g.connect(out); o.start(); stops.push(o, slow(ctx, .03, v * .35, g.gain)); });
+      const sh = noisePath(ctx, out, 'bandpass', 6000, 2.5, .003, true); stops.push(sh.n, slow(ctx, .05, 1500, sh.f.frequency));
+      let timer = null;
+      const ping = () => { const t = sndNow(); if (t != null) tone(1800 + Math.random() * 800, t, .5, { vol: .006 * lv(), verb: 1.6, pan: Math.random() * 1.2 - .6 }); timer = setTimeout(ping, 9000 + Math.random() * 13000); };
+      timer = setTimeout(ping, 2000 + Math.random() * 4000);
+      return { stops, end: () => clearTimeout(timer) };
+    } },
+  { id: 'tide', kind: 'amb', name: 'Tide', about: 'slow swells that build and draw back, wandering from side to side',
+    start(ctx, out) {
+      const w = noisePath(ctx, out, 'lowpass', 600, .5, .014, true);
+      const stops = [w.n, slow(ctx, .055, .011, w.g.gain), slow(ctx, .037, .005, w.g.gain), slow(ctx, .05, 250, w.f.frequency)];
+      if (w.p.pan) stops.push(slow(ctx, .03, .5, w.p.pan));
+      const o = ctx.createOscillator(); o.frequency.value = 50; const g = ctx.createGain(); g.gain.value = .004; o.connect(g); g.connect(out); o.start();   // the weight under a swell
+      stops.push(o, slow(ctx, .055, .003, g.gain));
+      return { stops };
+    } },
   { id: 'echo', kind: 'fx', name: 'Echo', about: 'every cue answers itself, softer and off to one side',
     apply(lvl) { if (echo) echo.gain.value = .35 * lvl; },
+    demo() { cue.review(); } },
+  { id: 'duck', kind: 'fx', name: 'Duck the bed', about: 'the ambient bed and its layers dip for a moment under every cue, so the cue stands clear of them; the level is how deep the dip goes',
+    fx(kind, agent, lvl) {
+      if (!ambNodes || !audio) return;
+      const g = ambNodes.gain.gain, t = audio.currentTime;
+      g.cancelScheduledValues(t); g.setValueAtTime(g.value, t); g.linearRampToValueAtTime(Math.max(.15, 1 - .7 * lvl), t + .06); g.linearRampToValueAtTime(1, t + 1.6);
+    },
     demo() { cue.review(); } },
   { id: 'sig', kind: 'fx', name: 'Signatures', about: 'each agent has its own three-note call, heard when it starts or finishes',
     fx(kind, agent, lvl) {
@@ -2541,6 +2763,25 @@ const LAYERS = [
       [523.3, 659.3, 784, 1046.5].forEach((f, i) => tone(f, t + i * .04, .9 - i * .1, { vol: .022 * lvl, verb: 1.4 }));
     },
     demo() { this.fx('clear', null, layerLvl('clear')); } },
+  { id: 'chimes', kind: 'fx', name: 'Chimes', about: 'small sounds for the small moments: a tick per finished subtask in its agent voice, a rising note at 25, 50 and 75 percent, a settle when a column empties, a tiny tick when a count changes, a blip when the toast arrives',
+    play(kind, lvl, agent, n) {
+      const t = sndNow(); if (t == null) return; const p = agentPitch(agent);
+      if (kind === 'sub') { tone(p, t + .4, .05, { type: 'triangle', vol: .014 * lvl, verb: .7 }); tone(p * 1.5, t + .46, .09, { type: 'triangle', vol: .012 * lvl, verb: .9 }); }   // after the done cue, as its answer
+      else if (kind === 'milestone') { const f = [587, 587, 659, 784][n] || 784; tone(f, t, .12, { vol: .015 * lvl, verb: 1 }); tone(f * 1.25, t + .11, .18, { vol: .011 * lvl, verb: 1.2 }); }
+      else if (kind === 'empty') tone(660, t, .22, { glide: 440, type: 'triangle', vol: .012 * lvl, verb: 1.3 });
+      else if (kind === 'count') tone(1760, t, .025, { vol: .007 * lvl, verb: .4 });
+      else if (kind === 'toast') tone(1319, t, .04, { vol: .009 * lvl, verb: .5 });
+    },
+    demo() { const v = layerLvl('chimes'), L = this; L.play('sub', v, 'AGENT-2'); setTimeout(() => L.play('milestone', v, 'AGENT-2', 2), 900); setTimeout(() => L.play('count', v), 1500); setTimeout(() => L.play('toast', v), 1900); setTimeout(() => L.play('empty', v), 2400); } },
+  { id: 'futsnd', kind: 'fx', name: 'Future sound', about: 'the sounds of From the future, and silent while that look is off: a sweep and a rising chord as the page boots, a scan blip on a view change, a holographic shhk as a card opens and the reverse as it closes',
+    play(kind, lvl) {
+      const t = sndNow(); if (t == null) return;
+      if (kind === 'boot') { hush(t, .6, { from: 200, to: 5000, q: 1.5, v: 2.2, verb: 1, lvl }); [523.3, 659.3, 784, 1046.5].forEach((f, i) => tone(f, t + .35 + i * .09, .7, { type: 'triangle', vol: .018 * lvl, verb: 1.4 })); }
+      else if (kind === 'scan') { hush(t, .22, { from: 3000, to: 600, q: 2, v: 1.4, verb: .6, lvl }); tone(1568, t, .05, { vol: .012 * lvl, verb: .8 }); }
+      else if (kind === 'open') hush(t, .12, { from: 1500, to: 6000, q: 1.5, v: 1.3, verb: .5, lvl });
+      else if (kind === 'close') hush(t, .12, { from: 6000, to: 1500, q: 1.5, v: 1.3, verb: .5, lvl });
+    },
+    demo() { this.play('boot', layerLvl('futsnd')); } },
   { id: 'hour', kind: 'fx', name: 'Hourly chime', about: 'two soft notes on the hour',
     tick(lvl) { const d = new Date(); if (d.getMinutes() || d.getSeconds() > 2 || this.last === d.getHours()) return; this.last = d.getHours(); this.ring(lvl); },
     ring(lvl) { const t = sndNow(); if (t == null) return; tone(1319, t, .5, { vol: .03 * lvl, verb: 1.3 }); tone(988, t + .5, .9, { vol: .028 * lvl, verb: 1.5 }); },
@@ -2554,6 +2795,10 @@ const LAYERS = [
     } },
   { id: 'calm', kind: 'fx', look: true, plain: true, name: 'Calm cards', about: 'a Doing card is a plain card: no orange fill, border or glow while it runs; an ask, review or abandoned card keeps its coloured edge',
     apply(lvl) { document.body.classList.toggle('calm', lvl > 0); } },
+  { id: 'lively', kind: 'fx', look: true, plain: true, name: 'Lively', about: 'the small moments move: a card settles where you moved it with a ring of the column colour, a count rolls to its new number, a finished subtask ticks itself in, a changed percent pops and its bar flashes, an empty column breathes, the toast springs up, the open card steps in, the column under a drag lights up',
+    apply(lvl) { document.body.classList.toggle('lively', lvl > 0); } },
+  { id: 'future', kind: 'fx', look: true, levels: ['Off', 'Subtle', 'Full'], name: 'From the future', about: 'a HUD from a game set some years on. Subtle: holographic panels with corner brackets, a faint scanline veil, monospace readouts for the column heads. Full adds a light that travels the live columns, a header readout, glows that follow the pointer, a tilt on a hovered card, a boot sequence on a page load and a scan sweep on a view change. Nothing is hidden, nothing polls more, and reduced motion stops every one of them',
+    apply(lvl) { document.body.classList.toggle('future', lvl > 0); document.body.classList.toggle('future-full', lvl >= 1); futureRuntime(lvl >= 1); } },
   { id: 'motion', kind: 'fx', look: true, name: 'Motion', about: 'look and sound move together: a settle when an agent\'s card lands in a lane (a new By agent lane slides in with it), the green edge drawing itself in when a card reaches review, the check drawing itself when a card reaches Done, a crossfade between views',
     apply(lvl) { document.body.classList.toggle('motion', lvl > 0); },   // the look follows the switch (the check, the crossfade); the level is the settle's
     demo(ctx) {
@@ -2563,6 +2808,41 @@ const LAYERS = [
       TOUCH.drop(t, 'doing', 'AGENT-2', lvl); TOUCH.drop(t + .7, 'done', 'AGENT-2', lvl);
     } },
 ];
+// From the future, Full: the one-second readout, the pointer parallax, the boot on a page load and the scan on a view change.
+// All of it starts with the level and stops with it; reduced motion keeps the readout (text) and drops every movement.
+const T0 = Date.now();
+let futTimer = null, futRaf = 0, futBooted = false;
+function futureRuntime(full) {
+  const ro = $('fut-ro');
+  clearInterval(futTimer); futTimer = null;
+  if (!full) { ro.textContent = ''; document.documentElement.style.removeProperty('--px'); document.documentElement.style.removeProperty('--py'); return; }
+  const tickRo = () => {
+    const d = new Date(), hh = String(d.getHours()).padStart(2, '0'), mm = String(d.getMinutes()).padStart(2, '0'), ss = String(d.getSeconds()).padStart(2, '0');
+    const working = tasks.filter(t => t.status === 'doing' && !isKid(t)).length, waiting = tasks.filter(t => t.status === 'doing' && !isKid(t) && t.needs_input).length;   // the header's own counts
+    ro.innerHTML = `${hh}:${mm}:${ss}<i>·</i>${working} WORKING<i>·</i>${waiting ? `<span class="warn">${waiting} WAITING</span>` : '0 WAITING'}<i>·</i>LINK <span class="${statusOk ? 'ok' : 'warn'}">${statusOk ? 'OK' : 'LOST'}</span>`;
+  };
+  tickRo(); futTimer = setInterval(tickRo, 1000);
+  if (!futBooted && !RM && Date.now() - T0 < 3000) futBoot();   // a page load with Full saved: the boot, once
+  futBooted = true;
+}
+window.addEventListener('pointermove', e => {   // the far glows follow the pointer a little: one transform on one fixed layer, at most once a frame
+  if (!document.body.classList.contains('future-full') || RM || futRaf) return;
+  futRaf = requestAnimationFrame(() => { futRaf = 0; if (!document.body.classList.contains('future-full')) return; const x = (e.clientX / innerWidth - .5) * -28, y = (e.clientY / innerHeight - .5) * -20;   // Off since the move: leave it
+    document.documentElement.style.setProperty('--px', x.toFixed(1) + 'px'); document.documentElement.style.setProperty('--py', y.toFixed(1) + 'px'); });
+}, { passive: true });
+function futBoot() {
+  const b = $('boot'); b.classList.add('on');
+  const end = () => { if (!b.classList.contains('on')) return; b.classList.add('out'); setTimeout(() => b.classList.remove('on', 'out'), 320); };
+  setTimeout(end, 1500);
+  ['pointerdown', 'keydown'].forEach(ev => document.addEventListener(ev, end, { once: true, capture: true }));   // a hand on the board ends it at once; the sweep sounds with that first gesture (wakeSound)
+}
+function futScan() {   // a view change: one line sweeps down the page, in Full and without reduced motion; nothing else moves
+  if (!document.body.classList.contains('future-full') || RM) return;
+  const el = $('scan'); el.classList.add('on');
+  el.animate([{ transform: 'translateY(0)', opacity: 1 }, { transform: 'translateY(100vh)', opacity: .5 }], { duration: 450, easing: 'ease-in' }).onfinish = () => el.classList.remove('on');
+  futSound('scan');
+}
+function futSound(kind) { if (sndOn && layerOn('futsnd') && layerOn('future')) LAYERS.find(L => L.id === 'futsnd').play(kind, layerLvl('futsnd')); }   // the Future sound row, only while the look is on
 function landed(c) {   // Motion: the settle at the end of a card's glide into another column, and a breath of scale as it lands
   const status = c.dataset.status, agent = c.dataset.agent;
   setTimeout(() => {
@@ -2570,7 +2850,18 @@ function landed(c) {   // Motion: the settle at the end of a card's glide into a
     const t = sndNow(); if (t != null && layerOn('motion')) TOUCH.drop(t, status, agent, layerLvl('motion'));
   }, RM ? 0 : 380);
 }
-function fx(kind, agent) { if (!sndOn) return; LAYERS.forEach(L => { if (L.fx && layerOn(L.id)) L.fx(kind, agent, layerLvl(L.id)); }); }
+function fx(kind, agent) { cueAt = Date.now(); if (!sndOn) return; LAYERS.forEach(L => { if (L.fx && layerOn(L.id)) L.fx(kind, agent, layerLvl(L.id)); }); }   // every cue passes here: Chimes reads cueAt
+// Chimes: the small moments a render finds (a subtask finished, a % past 25/50/75, a column emptied, a count changed) queue up while
+// the cards are drawn and one plays once they are, the most telling first; a first render and your own moves queue nothing. A count
+// tick stays quiet when a cue played in the same breath (the cue said it). The toast's blip comes straight from toast().
+const CHIME_RANK = { sub: 0, milestone: 1, empty: 2, count: 3 };
+function chime(kind, agent, n) { if (!sndOn || !layerOn('chimes') || firstRender) return; LAYERS.find(L => L.id === 'chimes').play(kind, layerLvl('chimes'), agent, n); }
+function flushChimes() {
+  const q = chimeQ; chimeQ = [];
+  if (!q.length || firstRender) return;
+  const [kind, agent, n] = q.sort((a, b) => CHIME_RANK[a[0]] - CHIME_RANK[b[0]])[0];
+  setTimeout(() => { if (kind === 'count' && Date.now() - cueAt < 300) return; chime(kind, agent, n); }, 40);   // after checkAsks has had its say
+}
 Object.keys(cue).forEach(k => { const f = cue[k]; cue[k] = agent => { f(agent); fx(k, agent); }; });   // the default cue first, then any layer
 setInterval(() => { if (sndOn) LAYERS.forEach(L => { if (L.tick && layerOn(L.id)) L.tick(layerLvl(L.id)); }); }, 1000);
 
@@ -2592,13 +2883,13 @@ function touchAt(after) {   // when to play, or null: the layer or SND off, no c
   return sndNow();
 }
 function tap(f, t, dur, v, o = {}) { tone(f, t, dur, { atk: .003, verb: .35, ...o, vol: v * TV * (o.lvl ?? layerLvl('touch')) }); }   // v: a share of the ceiling; lvl: another layer's level
-function hush(t0, dur, { from = 700, to = 3200, q = 1.2, v = 1, verb = .5, atk = .01 } = {}) {   // a filtered breath of noise: swishes and slides
+function hush(t0, dur, { from = 700, to = 3200, q = 1.2, v = 1, verb = .5, atk = .01, lvl } = {}) {   // a filtered breath of noise: swishes and slides; lvl: another layer's level in place of Touch's
   const ctx = ac(); if (!ctx) return;
   touchNoise = touchNoise || noiseBuf(ctx, .5, true);
   const n = ctx.createBufferSource(); n.buffer = touchNoise;
   const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = q;
   f.frequency.setValueAtTime(from, t0); f.frequency.exponentialRampToValueAtTime(to, t0 + dur);
-  const g = ctx.createGain(); g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(v * TV * layerLvl('touch'), t0 + atk); g.gain.exponentialRampToValueAtTime(.0001, t0 + dur);
+  const g = ctx.createGain(); g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(lvl != null ? v * TV * lvl : v * TV * layerLvl('touch'), t0 + atk); g.gain.exponentialRampToValueAtTime(.0001, t0 + dur);
   n.connect(f); f.connect(g); g.connect(dry);
   const w = ctx.createGain(); w.gain.value = verb; g.connect(w); w.connect(send);
   if (echo) g.connect(echo);
@@ -2658,7 +2949,8 @@ function hearLayer(L) {                         // the Hear button: the layer al
   demoTimer = setTimeout(stopDemo, 6000);
 }
 function renderMix() {
-  const row = L => `<div class="mix-row${L.plain ? ' plain' : ''}"><input type="checkbox" id="mix-${L.id}" data-mix="${L.id}"${layerOn(L.id) ? ' checked' : ''}><label for="mix-${L.id}">${L.name}</label>`
+  const levelAt = L => !layerOn(L.id) ? 0 : layerLvl(L.id) >= 1 ? 2 : 1;   // Off / Subtle / Full from the saved switch and level
+  const row = L => L.levels ? `<div class="mix-row plain lv"><span></span><label>${L.name}</label><span class="seg" role="group" aria-label="${L.name}">${L.levels.map((n, i) => `<button class="btn" type="button" data-level="${L.id}" data-val="${i / (L.levels.length - 1)}" aria-pressed="${levelAt(L) === i}">${n}</button>`).join('')}</span><span class="mix-about">${L.about}</span></div>` : `<div class="mix-row${L.plain ? ' plain' : ''}"><input type="checkbox" id="mix-${L.id}" data-mix="${L.id}"${layerOn(L.id) ? ' checked' : ''}><label for="mix-${L.id}">${L.name}</label>`
     + (L.plain ? '<span></span><span></span>' : `<input type="range" min="0" max="100" value="${Math.round(layerLvl(L.id) * 100)}" data-lvl="${L.id}" aria-label="${L.name} level">`   // a look switch has no level and nothing to hear
     + `<button class="btn" data-hear="${L.id}">Hear it</button>`) + `<span class="mix-about">${L.about}</span></div>`;
   $('cfg-sound').innerHTML = `<div class="mix-row"><input type="checkbox" id="cfg-snd"${sndOn ? ' checked' : ''}><label for="cfg-snd">Sound</label><span class="mix-about">the cues, Touch and the layers; <kbd>s</kbd> flips it on any view</span></div>`
@@ -2680,8 +2972,14 @@ function toggleMix(on) {
 }
 $('cfg-btn').onclick = () => toggleMix();
 $('mix').addEventListener('click', e => {
-  if (e.target.id === 'mix') { toggleMix(false); return; }
+  if (e.target.id === 'mix' || e.target.closest('#mix-close')) { toggleMix(false); return; }
   const h = e.target.closest('[data-hear]'); if (h) hearLayer(LAYERS.find(L => L.id === h.dataset.hear));
+  const lv = e.target.closest('[data-level]');   // Off / Subtle / Full: one click each way
+  if (lv) {
+    const id = lv.dataset.level, val = +lv.dataset.val; mix[id] = { on: val > 0, lvl: val > 0 ? val : (mix[id]?.lvl ?? 1) };
+    saveMix(); applyLayer(LAYERS.find(L => L.id === id)); touch('toggle', val > 0 ? true : false);
+    lv.parentElement.querySelectorAll('[data-level]').forEach(b => b.setAttribute('aria-pressed', String(b === lv)));
+  }
 });
 $('mix').addEventListener('change', e => { if (e.target.id === 'cfg-vol') cue.added(); });   // let go of the slider: hear the new level once
 $('mix').addEventListener('input', e => {
@@ -2698,7 +2996,9 @@ LAYERS.forEach(L => { if (L.apply) L.apply(layerOn(L.id) ? layerLvl(L.id) : 0); 
 // every page: the buttons show the saved state at load, and the first click or key brings the sound online (browsers wait for one)
 setSnd(sndOn, true); setAmb(ambOn, true);
 const wakeSound = () => { if (sndOn) { ac(); startAmb(true); } };
+const wakeBoot = () => { if (sndOn && Date.now() - T0 < 20000 && document.body.classList.contains('future-full')) setTimeout(() => futSound('boot'), 60); };   // From the future's boot sweep waits for that same first gesture
 ['pointerdown', 'keydown'].forEach(ev => document.addEventListener(ev, wakeSound, { once: true, capture: true }));
+['pointerdown', 'keydown'].forEach(ev => document.addEventListener(ev, wakeBoot, { once: true, capture: true }));
 
 // --- HUD ---
 let hudTimer = null, hudKey = '';
@@ -2723,7 +3023,7 @@ function openHud() {
   if (!RM) $('board').querySelectorAll('.card[data-status="doing"], .card[data-status="todo"]').forEach(c => glideFrom.set(c.dataset.id, c.getBoundingClientRect()));
   hudScroll = { doing: $('h-cards-box').scrollTop, todo: $('h-todo-wrap').querySelector('.cards')?.scrollTop || 0 };
   $('h-cards-box').innerHTML = ''; $('h-todo-wrap').innerHTML = '';
-  $('hud').classList.add('open'); document.body.style.overflow = 'hidden'; litTab();
+  $('hud').classList.add('open'); document.body.style.overflow = 'hidden'; litTab(); futScan();
   if (!SOLO) renderKeepingCardFocus();
   hudKey = ''; sndSeenAt = null; hudPrevTiles = null; setSnd(sndOn, true); setAmb(ambOn, true);
   if (!SOLO) touch('swish');   // the one sound of a view change, the same as a Board/By agent flip
@@ -2735,7 +3035,7 @@ function closeHud() {
   touch('swish');   // the same one sound; the bed plays on under the board, it belongs to every view
   // and the cards glide back from Load's columns to their places on the board (or the By agent lanes)
   if (!RM) document.querySelectorAll('#h-todo-wrap .card, #h-cards-box .card').forEach(c => glideFrom.set(c.dataset.id, c.getBoundingClientRect()));
-  $('hud').classList.remove('open', 'full'); document.body.style.overflow = ''; litTab();
+  $('hud').classList.remove('open', 'full'); document.body.style.overflow = ''; litTab(); futScan();
   clearInterval(hudTimer);
   renderKeepingCardFocus();
   if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
@@ -3036,7 +3336,7 @@ function setView(agents, push = true) {
   if (SOLO || agents === BYAGENT) return;
   BYAGENT = agents;
   if (push) history.pushState({ view: agents ? 'agents' : 'board' }, '', BASE + (agents ? '/agents' : '/') + location.hash);
-  applyView(); renderKeepingCardFocus();
+  applyView(); renderKeepingCardFocus(); futScan();
   if (layerOn('motion') && !RM) $('board').animate([{ opacity: .3 }, { opacity: 1 }], { duration: 220, easing: 'ease-out' });   // Motion: the view crossfades for the swish
 }
 window.addEventListener('popstate', () => {   // Back and Forward: the same one swish when the view changes, nothing for a hash alone
@@ -3070,6 +3370,7 @@ document.addEventListener('keydown', e => {
   if (typing) return;
   if (e.altKey) return;
   if ((e.key === '[' || e.key === ']') && !SOLO) { e.preventDefault(); goView((curView() + (e.key === ']' ? 1 : VIEWS - 1)) % VIEWS); return; }   // SOLO: the Load window has no board to flip to
+  if ('123'.includes(e.key) && e.key && !SOLO) { e.preventDefault(); goView(+e.key - 1); return; }   // 1 Board, 2 By agent, 3 Load: the same ring, by number; the view you are on stays as it is
   if (e.key === 'm') { toggleMix(); return; }
   if (e.key === 's') { toggleSound(); return; }   // sound on or off, on every view
   if (e.key === 'c') { copyPromptByKey(); return; }   // any card, on every view
@@ -3093,7 +3394,7 @@ document.addEventListener('keydown', e => {
     e.preventDefault(); navigate(map[e.key]);
   }
 });
-$('keys').addEventListener('click', e => { if (e.target.id === 'keys') toggleKeys(false); });
+$('keys').addEventListener('click', e => { if (e.target.id === 'keys' || e.target.closest('#keys-close')) toggleKeys(false); });
 function toggleKeys(on) {   // the shortcuts sheet, with the same slide as the other sheets
   const open = on ?? !$('keys').classList.contains('on');
   if (open !== $('keys').classList.contains('on')) touch('slide', open);
@@ -3460,7 +3761,6 @@ else if (location.hash.length > 1) openPanel(decodeURIComponent(location.hash.sl
 
 // hover a name on any card: every card of that agent stays lit, the rest step back
 const boardEl = $('board');
-let hoverAgent = null;   // the pill under the pointer: re-applied after a redraw so the highlight does not flicker on a poll
 function applyHover() {
   const n = hoverAgent;
   boardEl.classList.toggle('hl', !!n);
