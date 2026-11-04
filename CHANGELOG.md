@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### The shortcuts work on Load (Nov 3)
+- **On Load the arrows and `j` / `k` walk the Doing cards, `Enter` opens one, and `c`, `d` and `u` act on the card you are on.** Only `[`, `]`, `m`, `s`, `c`, `d`, `u`, `f` and `h` did anything there before; the arrows, `j` / `k`, `?`, `l`, `a`, `e` and `n` were silent, because Load swallowed every other key.
+- **`?` and `l` open the shortcut list and the Later list over Load, `e` edits the open card's title, `a` goes to By agent, and `n` closes Load to show the new-task field** (the field lives on the board). `Shift` + arrows (the selection bar) and `Alt` + arrows (moving a card between columns) stay off on Load, and the list now says so. The pop-out Load window keeps its short list: it has no board.
+- **One `Esc` no longer closes a card and Load together**: it closes the card, and the next one closes Load. Typing in a reply box on Load fires none of these.
+
 ### By agent: review and ask cards fit a lane; two more Motion pairings (Nov 3)
 - **A review or ask card no longer runs off the edge of its By agent lane.** The Send button drops under the reply field when the card is narrow, and a long status line ("abandoned? no update 12h ago") ends in an ellipsis instead of past the card. By agent already draws the Board's Doing card design (the same tint, border and glow by state), so the cards match; this was the one visible gap.
 - **In a lane the card's status text sits on the left**, where the agent chip would be (the lane already names the agent), instead of floating alone at the right. With a Report chip in the row it stays to the right of that.

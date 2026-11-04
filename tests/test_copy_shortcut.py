@@ -30,7 +30,7 @@ class ChatLosesItsKeyTests(unittest.TestCase):
         handler = HTML[HTML.index("document.addEventListener('keydown', e => {\n  if (e.metaKey"):]
         handler = handler[: handler.index("\n});")]
         self.assertLess(handler.index("if (typing) return;"), handler.index("copyPromptByKey()"))
-        self.assertLess(handler.index("copyPromptByKey()"), handler.index("if (hudIsOpen()) { if (e.key === 'f')"))   # Load returns early for every other key
+        self.assertLess(handler.index("copyPromptByKey()"), handler.index("if (hudIsOpen()) {\n    if (e.key === 'f')"))   # Load's own keys (f, h) come after them
         self.assertLess(handler.index("if (e.key === 'Escape')"), handler.index("copyPromptByKey()"))
 
 

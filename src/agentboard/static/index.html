@@ -1224,7 +1224,7 @@
 <div id="keys" role="dialog" aria-label="Keyboard shortcuts"><div class="sheet">
   <h2>Keyboard shortcuts</h2>
   <dl>
-    <dt><kbd>n</kbd></dt><dd>New task</dd>
+    <dt><kbd>n</kbd></dt><dd id="key-new">New task (leaves Load)</dd>
     <dt><kbd>l</kbd></dt><dd id="key-later">Later list</dd>
     <dt><kbd>c</kbd></dt><dd id="key-copy">Copy a card's prompt: the one you pointed at or focused last, else the selected or open one</dd>
     <dt><kbd>d</kbd></dt><dd id="key-done">Mark that same card done</dd>
@@ -1239,10 +1239,10 @@
     <dt><kbd>s</kbd></dt><dd>Sound on or off</dd>
     <dt><kbd>f</kbd></dt><dd>Load: fullscreen</dd>
     <dt><kbd>m</kbd></dt><dd>Settings: sound, volume, layers</dd>
-    <dt><kbd>Alt</kbd> + arrows</dt><dd>Move the card</dd>
+    <dt><kbd>Alt</kbd> + arrows</dt><dd id="key-alt">Move the card (Board only)</dd>
     <dt><kbd>Shift</kbd> + click</dt><dd>Select a range of cards</dd>
     <dt><kbd>⌘/Ctrl</kbd> + click</dt><dd>Add/remove one card from the selection</dd>
-    <dt><kbd>Shift</kbd> + <kbd>↑ ↓</kbd></dt><dd>Extend the selection up/down</dd>
+    <dt><kbd>Shift</kbd> + <kbd>↑ ↓</kbd></dt><dd id="key-shiftarrows">Extend the selection (not on Load)</dd>
     <dt><kbd>Esc</kbd></dt><dd>Close / clear selection</dd>
     <dt><kbd>?</kbd></dt><dd>This list</dd>
   </dl>
@@ -2269,7 +2269,7 @@ $('p-move').addEventListener('click', async e => {
   await move(openId, to);
   if (to === 'done') closePanel();
 });
-document.addEventListener('keydown', e => { if (e.key === 'Escape' && openId && !panelEdit && !$('add').classList.contains('open')) closePanel(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && openId && !panelEdit && !$('add').classList.contains('open')) { closePanel(); e.tookPanel = true; } });   // tookPanel: the Esc below leaves Load alone
 document.addEventListener('click', e => {
   if (!e.target.isConnected) return;    // the click re-rendered its own button; not an outside click
   if (openId && !e.target.closest('#panel, .card, #theme, #add, #toast')) closePanel();
@@ -3153,7 +3153,10 @@ $('later-body').addEventListener('keydown', e => {
 });
 
 // --- keyboard: n l h / ? and arrow navigation ---
-function cardsGrid() { return [...$('board').querySelectorAll('.col')].map(c => [...c.querySelectorAll('.card')]); }
+function cardsGrid() {   // the columns the arrows walk: the board's, or Load's one Doing column while Load is open
+  if (hudIsOpen()) return [[...$('h-cards-box').querySelectorAll('.card')]];
+  return [...$('board').querySelectorAll('.col')].map(c => [...c.querySelectorAll('.card')]);
+}
 function focusCard(el) { el?.focus({ preventScroll: false }); }
 function navigate(key) {
   const grid = cardsGrid(), cur = document.activeElement?.closest?.('.card');
@@ -3244,6 +3247,7 @@ document.addEventListener('keydown', e => {
   if (e.metaKey || e.ctrlKey) return;
   const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName);
   if (e.key === 'Escape') {
+    if (e.tookPanel) return;   // that press closed the open card; Load under it stays
     if ($('keys').classList.contains('on')) { toggleKeys(false); return; }
     if (mixIsOpen()) { toggleMix(false); return; }
     if ($('later').classList.contains('open')) { closeLater(); return; }   // the drawers open over Load, so they close first
@@ -3260,18 +3264,26 @@ document.addEventListener('keydown', e => {
   if (e.key === 'c') { copyPromptByKey(); return; }   // any card, on every view
   if (e.key === 'd') { markDoneByKey(); return; }     // the same card as c
   if (e.key === 'u') { undoByKey(); return; }
-  if (hudIsOpen()) { if (e.key === 'f') toggleHudFull(); else if (e.key === 'h') closeHud(); return; }
+  if (hudIsOpen()) {
+    if (e.key === 'f') { toggleHudFull(); return; }
+    if (e.key === 'h') { closeHud(); return; }
+    if (SOLO) return;   // the pop-out window has no board, no Later list and no new-task field
+  }
   if (e.key === '?') { toggleKeys(); return; }
-  if (e.key === 'n') { e.preventDefault(); toggleAdd(true); return; }
+  if (e.key === 'n') { e.preventDefault(); if (hudIsOpen()) closeHud(); toggleAdd(true); return; }   // the new-task field is on the board, under Load
   if (e.key === 'e' && openId && !panelEdit) { e.preventDefault(); startEdit('title'); return; }
   if (e.key === 'l') { $('later-btn').click(); return; }
   if (e.key === 'h') { $('hud-btn').click(); return; }
   if (e.key === 'a') { goView(BYAGENT ? 0 : 1); return; }
   if (e.shiftKey && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+    if (hudIsOpen()) return;   // the selection bar is on the board, under Load
     e.preventDefault(); extendSelectionVertical(e.key === 'ArrowDown' ? 'down' : 'up'); return;
   }
   const map = { ArrowDown: 'down', j: 'down', ArrowUp: 'up', k: 'up', ArrowLeft: 'left', ArrowRight: 'right' };
-  if (map[e.key]) { e.preventDefault(); navigate(map[e.key]); }
+  if (map[e.key]) {
+    if (hudIsOpen() && !cardsGrid()[0].length) return;   // no Doing card on Load: the arrows scroll it as before
+    e.preventDefault(); navigate(map[e.key]);
+  }
 });
 $('keys').addEventListener('click', e => { if (e.target.id === 'keys') toggleKeys(false); });
 function toggleKeys(on) {   // the shortcuts sheet, with the same slide as the other sheets

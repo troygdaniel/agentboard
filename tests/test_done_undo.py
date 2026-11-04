@@ -107,7 +107,7 @@ class KeysTests(unittest.TestCase):
         for key, call in (("d", "markDoneByKey()"), ("u", "undoByKey()")):
             self.assertEqual(HTML.count(f"e.key === '{key}'"), 1, key)
             self.assertLess(h.index("if (typing) return;"), h.index(call))
-            self.assertLess(h.index(call), h.index("if (hudIsOpen()) { if (e.key === 'f')"))
+            self.assertLess(h.index(call), h.index("if (hudIsOpen()) {\n    if (e.key === 'f')"))
         self.assertIn("if (e.metaKey || e.ctrlKey) return;", h)   # Cmd/Ctrl+D and +U stay the browser's
 
     def test_no_single_key_is_handled_twice(self):
