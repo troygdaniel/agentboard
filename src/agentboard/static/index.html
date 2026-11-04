@@ -2632,8 +2632,34 @@ const LAYERS = [
       return { stops: [], end: () => clearTimeout(timer) };
     },
     demo(ctx) { const t = ctx.currentTime + .05, v = layerLvl('pulse'); [0, .16, 1.4, 1.56, 2.8, 2.96].forEach((d, i) => thump(ctx, dry, t + d, (i % 2 ? .6 : .9) * v)); } },
+  { id: 'space', kind: 'amb', name: 'Deep space', about: 'a low drone far below, a thin shimmer far above, and now and then a distant ping',
+    start(ctx, out, lv) {
+      const stops = [];
+      [[72, .011], [72.5, .011], [108, .0035]].forEach(([f, v]) => { const o = ctx.createOscillator(); o.frequency.value = f; const g = ctx.createGain(); g.gain.value = v; o.connect(g); g.connect(out); o.start(); stops.push(o, slow(ctx, .03, v * .35, g.gain)); });
+      const sh = noisePath(ctx, out, 'bandpass', 6000, 2.5, .003, true); stops.push(sh.n, slow(ctx, .05, 1500, sh.f.frequency));
+      let timer = null;
+      const ping = () => { const t = sndNow(); if (t != null) tone(1800 + Math.random() * 800, t, .5, { vol: .006 * lv(), verb: 1.6, pan: Math.random() * 1.2 - .6 }); timer = setTimeout(ping, 9000 + Math.random() * 13000); };
+      timer = setTimeout(ping, 2000 + Math.random() * 4000);
+      return { stops, end: () => clearTimeout(timer) };
+    } },
+  { id: 'tide', kind: 'amb', name: 'Tide', about: 'slow swells that build and draw back, wandering from side to side',
+    start(ctx, out) {
+      const w = noisePath(ctx, out, 'lowpass', 600, .5, .014, true);
+      const stops = [w.n, slow(ctx, .055, .011, w.g.gain), slow(ctx, .037, .005, w.g.gain), slow(ctx, .05, 250, w.f.frequency)];
+      if (w.p.pan) stops.push(slow(ctx, .03, .5, w.p.pan));
+      const o = ctx.createOscillator(); o.frequency.value = 50; const g = ctx.createGain(); g.gain.value = .004; o.connect(g); g.connect(out); o.start();   // the weight under a swell
+      stops.push(o, slow(ctx, .055, .003, g.gain));
+      return { stops };
+    } },
   { id: 'echo', kind: 'fx', name: 'Echo', about: 'every cue answers itself, softer and off to one side',
     apply(lvl) { if (echo) echo.gain.value = .35 * lvl; },
+    demo() { cue.review(); } },
+  { id: 'duck', kind: 'fx', name: 'Duck the bed', about: 'the ambient bed and its layers dip for a moment under every cue, so the cue stands clear of them; the level is how deep the dip goes',
+    fx(kind, agent, lvl) {
+      if (!ambNodes || !audio) return;
+      const g = ambNodes.gain.gain, t = audio.currentTime;
+      g.cancelScheduledValues(t); g.setValueAtTime(g.value, t); g.linearRampToValueAtTime(Math.max(.15, 1 - .7 * lvl), t + .06); g.linearRampToValueAtTime(1, t + 1.6);
+    },
     demo() { cue.review(); } },
   { id: 'sig', kind: 'fx', name: 'Signatures', about: 'each agent has its own three-note call, heard when it starts or finishes',
     fx(kind, agent, lvl) {

@@ -54,3 +54,22 @@ class ChimesTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class AmbientAndBalanceTests(unittest.TestCase):
+    def test_deep_space_and_tide_are_ambient_layers_off_until_chosen(self):
+        for id_, name in (("space", "Deep space"), ("tide", "Tide")):
+            self.assertIn(f"{{ id: '{id_}', kind: 'amb', name: '{name}', about: '", LAYERS)
+            self.assertIn("start(ctx, out", layer(id_))                                           # they ride the bed's gain like Rain and Wind
+            self.assertNotIn(id_, re.search(r"const LAYER_ON = \{([^}]*)\}", PAGE).group(1))
+        self.assertIn("end: () => clearTimeout(timer)", layer("space"))                            # the pings stop with the layer
+        self.assertIn("vol: .006 * lv()", layer("space"))                                            # the ping follows the row's level and stays far under a cue
+
+    def test_duck_the_bed_dips_the_bed_under_every_cue_and_only_the_bed(self):
+        d = layer("duck")
+        self.assertIn("{ id: 'duck', kind: 'fx', name: 'Duck the bed', about: '", LAYERS)
+        self.assertIn("fx(kind, agent, lvl) {", d)                                                 # fx(): after every cue, never after a Touch sound
+        self.assertIn("if (!ambNodes || !audio) return;", d)
+        self.assertIn("g.linearRampToValueAtTime(Math.max(.15, 1 - .7 * lvl), t + .06); g.linearRampToValueAtTime(1, t + 1.6);", d)
+        self.assertIn("const g = ambNodes.gain.gain", d)                                            # the bed's own gain, which every ambient layer also feeds
+        self.assertNotIn("master", d)                                                              # the cues, the volume and the limiter are untouched
