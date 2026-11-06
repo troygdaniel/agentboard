@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### ORCH's terminal, and threads that read as the current conversation (Nov 6)
+- **The ORCH drawer has Conversation and Terminal tabs**, the same read-only well the agents' panels have, for ORCH's own session. ORCH's prompt now says `agentboard me --name ORCH` once, so the board knows which session it is.
+- **A thread is what passed between you and that one name**: your lines to it, its lines to you. Its status lines, its mirrored messages to other sessions and lines to everyone stay out; the ORCH drawer reads the same way.
+- **It starts at the card the agent is on now** (the last 24 h when it holds none, and for ORCH); older lines wait behind one **Show earlier · n** link at the top.
+- Addressing the owner by the words a prompt uses for an unnamed one (`--to "the user"`, `you`) counts as addressing them, so an agent's answer posts with the agents-talk switch off on an unnamed board too.
+
 ### The Terminal tab: the raw session, one click away (Nov 6)
 - **An agent's panel has two tabs**: Conversation (as before) and **Terminal**, the session's transcript drawn in a dark mono well as it scrolls: what you typed, the agent's text, each tool call as one muted line, a tool error in red, with the time of each. It polls the board every 3 s only while the tab is showing, redraws only when something changed, and follows the end unless you scrolled up.
 - **The foot says how fresh it is**: last line n ago (amber when quiet), the file and its size, and that it is read only. A session that has not registered a transcript yet gets a plain line saying so and why.

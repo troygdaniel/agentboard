@@ -363,9 +363,11 @@ so {owner} answers you there, and in your terminal. Agents do the same on their 
 
 ## {owner} talks to you on the board
 
-The ORCH button on the Todo column opens a drawer: that is where {owner} talks to you, and where your answers show. From your
-first turn, keep this running as a background command, and start it again whenever it prints or times out:
+The ORCH button on the Todo column opens a drawer: that is where {owner} talks to you, and where your answers show. Its Terminal
+tab shows this session as it runs, once the board knows which session you are: say so once, then keep the wait running as a
+background command, starting it again whenever it prints or times out:
 
+    {ab} me --name ORCH
     {ab} chat inbox --name ORCH --wait 3600
 
 A line from {owner} there is a request. "add a card …": `{ab} add` (one card per deliverable, the Keep it simple block in its

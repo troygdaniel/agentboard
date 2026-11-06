@@ -135,9 +135,9 @@ class PanelMarkupTests(unittest.TestCase):
         self.assertNotIn("data-thread", card_fn)   # the chip on a card keeps its job: the filter
 
     def test_the_thread_shows_the_agents_lines_the_owners_lines_to_it_and_its_open_question(self):
-        self.assertIn("function inThread(m, name) { return sameName(m.sender, name) || (m.kind === 'user' && sameName(m.to, name)); }", HTML)
+        self.assertIn("function inThread(m, name) { return (m.kind === 'user' && sameName(m.to, name)) || (sameName(m.sender, name) && toOwner(m)); }", HTML)
         tb = body("threadBodyHtml")
-        self.assertIn("chatMsgs.filter(m => inThread(m, name)).map(chatBubble)", tb)
+        self.assertIn("recentOf(chatMsgs.filter(m => inThread(m, name)), name)", tb)
         self.assertIn("tasks.filter(t => t.needs_input && sameName(t.agent, name))", tb)
         self.assertIn("${quickHtml(t, false)}", tb)   # the card's own chips, answered on the card
         self.assertIn("quickEvents($('thread-body'));", HTML)

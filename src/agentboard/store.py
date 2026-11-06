@@ -794,7 +794,7 @@ class Store:
                 reply_to = int(reply_to)
             except (TypeError, ValueError):
                 raise BoardError("reply-to must be a message number") from None
-        to_owner = bool(to) and to != "all" and to.lower() == (self.owner or "").lower()   # answering the owner is not agent-to-agent talk: ORCH does it in the drawer
+        to_owner = _to_owner(to, self.owner)   # answering the owner is not agent-to-agent talk: ORCH and the agents do it in their threads
         talk = bool((to and not to_owner) or (topic and topic != "status") or detail or files or propose or reply_to)
         with self._lock():
             data = self._read()
@@ -889,6 +889,15 @@ class Store:
 
 LOG_MAX = 200
 CHAT_MAX = 500
+
+
+OWNER_WORDS = ("you", "the user", "user", "owner")   # how a prompt names an unnamed owner: --to "the user" still reaches them
+
+
+def _to_owner(to, owner):
+    """Is `to` the board's owner: the configured name, or one of the words a prompt uses when there is none."""
+    t = (to or "").strip().lower()
+    return bool(t) and t != "all" and (t == (owner or "").lower() or t in OWNER_WORDS)
 
 
 def _who(owner):

@@ -25,13 +25,14 @@ class TerminalTabTests(unittest.TestCase):
 
     def test_the_terminal_polls_the_route_only_while_it_is_showing(self):
         lt = body("loadTerm", "async function")
-        self.assertIn("if (!threadName || threadTab !== 'term' || !$('thread').classList.contains('open')) return;", lt)
-        self.assertIn("fetch('/api/transcript?agent=' + encodeURIComponent(threadName), { cache: 'no-store' })", lt)
-        self.assertIn("if (text === termRaw) return;", lt)   # no redraw when nothing changed
+        self.assertIn("if (!c || !c.name || !$(c.aside).classList.contains('open') || !$(c.aside).classList.contains('term')) return;", lt)
+        self.assertIn("fetch('/api/transcript?agent=' + encodeURIComponent(c.name), { cache: 'no-store' })", lt)
+        self.assertIn("if (text === termRaw || termCtx !== c) return;", lt)   # no redraw when nothing changed, or when the terminal moved on
         st = body("setThreadTab")
-        self.assertIn("clearInterval(termTimer); termTimer = null;", st)
-        self.assertIn("termTimer = setInterval(loadTerm, TERM_POLL_MS);", st)
-        self.assertIn("clearInterval(termTimer); termTimer = null; }", body("closeThread"))
+        self.assertIn("startTerm({ name: threadName, aside: 'thread', body: 'thread-body', foot: 'term-foot' })", st)
+        self.assertIn("function stopTerm() { clearInterval(termTimer); termTimer = null;", HTML)
+        self.assertIn("termTimer = setInterval(loadTerm, TERM_POLL_MS); }", body("startTerm"))
+        self.assertIn("if (termCtx?.aside === 'thread') stopTerm(); }", body("closeThread"))
         self.assertIn("if (threadTab === 'term') return;", body("renderThread"))   # the conversation's redraw never touches the well
 
     def test_lines_draw_by_kind_in_a_dark_mono_well_and_it_fails_soft(self):
@@ -40,13 +41,13 @@ class TerminalTabTests(unittest.TestCase):
         self.assertIn('<div class="term-line ${esc(e.kind)}">', tl)
         self.assertIn("${esc(e.text)}", tl)
         th = body("termHtml")
-        self.assertIn("No transcript for ${esc(threadName || '')} yet", th)
+        self.assertIn("No transcript for ${esc(termCtx?.name || '')} yet", th)
         self.assertIn("registers its transcript when it next claims or starts a card", th)
         self.assertIn(".term-well { flex: 1; min-height: 0; border-radius: 12px; background: #0f1722; color: #d6e9ff; font: var(--fs-sm)/1.6 ui-monospace, Menlo, monospace;", HTML)
         self.assertIn(".term-line.tool { color: #7f95ad; }", HTML)
 
     def test_it_is_read_only(self):
-        self.assertIn("#thread.term #thread-form { display: none; }", HTML)
+        self.assertIn("#thread.term #thread-form, #chat.term #chat-form { display: none; }", HTML)
         self.assertIn("read only, the same session as the window on your desk", body("termFoot"))
         self.assertNotIn("/api/terminal", HTML)   # nothing posts to the session
 

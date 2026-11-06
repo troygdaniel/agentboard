@@ -57,9 +57,9 @@ class DrawerMarkupTests(unittest.TestCase):
             self.assertNotIn(gone, HTML)
 
     def test_the_thread_is_what_passes_between_the_owner_and_orch(self):
-        self.assertIn("function inOrchThread(m) { return isOrch(m.sender) || m.via === 'board' || (m.kind === 'user' && (!m.to || m.to === 'all' || isOrch(m.to))); }", HTML)
+        self.assertIn("function inOrchThread(m) { return m.via === 'board' || (m.kind === 'user' && (!m.to || m.to === 'all' || isOrch(m.to))) || (isOrch(m.sender) && toOwner(m)); }", HTML)
         self.assertIn("const chatShows = inOrchThread;", HTML)
-        self.assertIn("chatMsgs.filter(m => !chatHold.has(m.seq) && chatShows(m))", body("renderChat"))
+        self.assertIn("recentOf(chatMsgs.filter(m => !chatHold.has(m.seq) && chatShows(m)), 'ORCH')", body("renderChat"))
         self.assertIn("m.seq > chatSeenSeq && chatShows(m)", HTML)   # the count is what the drawer would show
 
     def test_sending_addresses_orch_unless_an_at_name(self):

@@ -1019,13 +1019,14 @@
   .col.acol h2 .nm[data-thread] { background: none; border: 0; padding: 0; font: inherit; color: inherit; cursor: pointer; text-align: left; }
   .col.acol h2 .nm[data-thread]:hover { text-decoration: underline; text-underline-offset: 2px; }
   /* the Terminal tab (Nov 6): the same panel, the raw session read as it scrolls. Read only in this version */
-  #thread .p-head { flex-wrap: wrap; }
+  #thread .p-head, #chat .p-head { flex-wrap: wrap; }
   .th-tabs { display: flex; gap: 18px; width: 100%; margin-top: 8px; font-size: var(--fs-md); }
   .th-tabs button { background: none; border: 0; padding: 6px 0 8px; font: inherit; color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; }
   .th-tabs button[aria-selected="true"] { color: var(--text); font-weight: 600; border-bottom-color: var(--text); }
   .th-tabs button:hover { color: var(--text); }
-  #thread.term #thread-body { padding: 14px 14px 0; }
-  #thread.term #thread-form { display: none; }   /* nothing goes into the session from here yet */
+  #thread.term #thread-body, #chat.term #chat-body { padding: 14px 14px 0; }
+  #thread.term #thread-form, #chat.term #chat-form { display: none; }   /* nothing goes into the session from here yet */
+  .th-earlier { align-self: center; margin-bottom: 4px; }
   .term-well { flex: 1; min-height: 0; border-radius: 12px; background: #0f1722; color: #d6e9ff; font: var(--fs-sm)/1.6 ui-monospace, Menlo, monospace; padding: 14px 16px; overflow-y: auto; overflow-wrap: anywhere; }
   .term-well::-webkit-scrollbar { width: 6px; } .term-well::-webkit-scrollbar-thumb { background: #1c2a3a; border-radius: 3px; }
   .term-line { margin: 0 0 2px; white-space: pre-wrap; }
@@ -1362,8 +1363,10 @@
     <button class="icon-btn" id="chat-close" aria-label="Slide back to the board"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M10 3L5 8l5 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
     <strong id="chat-title"><span class="av" id="chat-av" aria-hidden="true">O</span>ORCH</strong><span class="spacer"></span>
     <button class="btn orch-copy" title="Copy a prompt that boots a fresh Claude session as ORCH, from the live board (paste it after /rename ORCH)">Copy prompt</button>
+    <div class="th-tabs" role="tablist" aria-label="View"><button type="button" role="tab" id="ch-tab-chat" aria-selected="true" data-th-tab="chat">Conversation</button><button type="button" role="tab" id="ch-tab-term" aria-selected="false" data-th-tab="term">Terminal</button></div>
   </div>
   <div class="p-body" id="chat-body"></div>
+  <div class="term-foot" id="chat-foot" hidden></div>
   <form id="chat-form" class="chat-form">
     <input id="chat-input" placeholder="Tell ORCH what you want… (@AGENT-2 to address someone else)" aria-label="Tell ORCH what you want" autocomplete="off">
     <button class="btn primary">Send</button>
@@ -2001,8 +2004,30 @@ const chatHold = new Set(), chatDetail = new Set(), chatShown = new Set();   // 
 // notices. The rest of the channel (agents' own lines) stays in the CLI: agentboard chat tail. The agents-talk setting is set
 // there too (agentboard chat agents on); the board only reflects it.
 const isOrch = n => String(n || '').toUpperCase() === 'ORCH';
-function inOrchThread(m) { return isOrch(m.sender) || m.via === 'board' || (m.kind === 'user' && (!m.to || m.to === 'all' || isOrch(m.to))); }
+// addressed to the owner: by the configured name, or by the words a prompt uses for an unnamed owner
+const toOwner = m => { const t = String(m.to || '').toLowerCase(); return !!t && (t === String(OWNER).toLowerCase() || ['you', 'the user', 'user', 'owner'].includes(t)); };
+// a thread is what passed between you and one name (the owner asked, Nov 6): your lines to it, its lines to you. Its status lines, its
+// mirrored messages to other sessions and lines to everyone stay out; the board's own notices stay in
+function inOrchThread(m) { return m.via === 'board' || (m.kind === 'user' && (!m.to || m.to === 'all' || isOrch(m.to))) || (isOrch(m.sender) && toOwner(m)); }
 const chatShows = inOrchThread;
+// how far back a thread reads (the owner asked, Nov 6): since the card the agent is on now was claimed, else the last 24 h; older lines
+// sit behind one Show earlier link at the top. ORCH holds no card: 24 h.
+const earlierOpen = new Set();   // names whose older lines were asked for
+function threadSince(name) {
+  const cards = (tasks || []).filter(t => t.status === 'doing' && sameName(t.agent, name) && !isKid(t));
+  const claimed = cards.map(t => (t.log || []).find(e => e.status === 'doing')?.at || t.created || '').filter(Boolean).sort();
+  if (claimed.length) return claimed[0].replace('T', ' ');
+  const d = new Date(Date.now() - 24 * 3600 * 1000);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`;
+}
+function recentOf(msgs, name) {   // [the lines to show, how many older ones wait]; a message's at is "YYYY-MM-DDTHH:MM:SS"
+  if (earlierOpen.has(name)) return [msgs, 0];
+  const since = threadSince(name);
+  const keep = msgs.filter(m => String(m.at || '').replace('T', ' ') >= since);
+  return [keep, msgs.length - keep.length];
+}
+const earlierHtml = (name, n) => n ? `<button class="p-more th-earlier" type="button" data-earlier="${esc(name)}">Show earlier · ${n}</button>` : '';
+document.addEventListener('click', e => { const b = e.target.closest('[data-earlier]'); if (!b) return; earlierOpen.add(b.dataset.earlier); renderChat(); });
 const TOPIC_WORD = { learn: 'learned', help: 'help', 'heads-up': 'heads-up', handoff: 'handoff' };
 function chatBubble(m) {
   const long = (m.said || m.text).length > CHAT_CLAMP_CHARS, open = chatExpanded.has(m.seq);
@@ -2032,10 +2057,11 @@ function chatBubble(m) {
     + `<div class="cmsg-txt ${long && !open ? 'clamp' : ''} ${spoken ? 'spoken' : ''}">${esc(body)}</div>${toggle}${meta}${detail}${act}</div>`;
 }
 function renderChat() {
+  if (chatTab === 'term') { renderThread(); return; }   // the drawer shows ORCH's terminal: its conversation waits
   const body = $('chat-body');
   const nearBottom = body.scrollTop + body.clientHeight >= body.scrollHeight - 48;
-  const shown = chatMsgs.filter(m => !chatHold.has(m.seq) && chatShows(m));
-  body.innerHTML = shown.length ? shown.map(chatBubble).join('')
+  const [shown, older] = recentOf(chatMsgs.filter(m => !chatHold.has(m.seq) && chatShows(m)), 'ORCH');
+  body.innerHTML = shown.length || older ? earlierHtml('ORCH', older) + shown.map(chatBubble).join('')
     : `<div class="empty">ORCH answers here once it is running (Copy prompt, top right, boots one). Tell it what you want: add a card, assign one, move one to Later, ask what everyone is doing.</div>`;
   if (nearBottom) body.scrollTop = body.scrollHeight;
   $('chat-av').style.setProperty('--c', agentColor('ORCH'));
@@ -2049,7 +2075,7 @@ function renderChat() {
 // --- the agent thread (Nov 6): one conversation with one agent, outside any card ---
 let threadName = null;
 const sameName = (a, b) => String(a || '').toUpperCase() === String(b || '').toUpperCase();
-function inThread(m, name) { return sameName(m.sender, name) || (m.kind === 'user' && sameName(m.to, name)); }
+function inThread(m, name) { return (m.kind === 'user' && sameName(m.to, name)) || (sameName(m.sender, name) && toOwner(m)); }
 function threadHeadHtml(name) {
   const cards = tasks.filter(t => t.status === 'doing' && sameName(t.agent, name) && !isKid(t));
   const last = cards.map(t => t.updated || '').sort().pop();
@@ -2060,7 +2086,8 @@ function threadHeadHtml(name) {
   return `<span class="av" style="--c:${agentColor(name)}" aria-hidden="true">${esc(nodeGlyph(name))}</span><div class="th-lines"><span class="th-name">${esc(name)}</span><span class="th-line">${line1}</span><span class="th-line">${line2}</span></div>`;
 }
 function threadBodyHtml(name) {
-  const msgs = chatMsgs.filter(m => inThread(m, name)).map(chatBubble);
+  const [recent, older] = recentOf(chatMsgs.filter(m => inThread(m, name)), name);
+  const msgs = [earlierHtml(name, older), ...recent.map(chatBubble)].filter(Boolean);
   // the agent's open question sits in the thread with the card's own chips: answered on the card, never lost here
   const asks = tasks.filter(t => t.needs_input && sameName(t.agent, name)).map(t =>
     `<div class="th-ask"><div class="lab">Needs input · on the card</div><div class="q">${esc(t.question || t.status_text || '')}</div>${quickHtml(t, false)}<button class="btn th-open" type="button" data-open="${esc(t.id)}">Open the card</button></div>`);
@@ -2068,7 +2095,8 @@ function threadBodyHtml(name) {
   return msgs.join('') + asks.join('') + empty;
 }
 // The Terminal tab (Nov 6): the session's transcript, tailed by the board (/api/transcript) and drawn as it scrolls. Read only.
-let threadTab = 'chat', termRaw = '', termTimer = null;
+// One terminal at a time: the agent panel's or the ORCH drawer's. termCtx says whose and where it draws.
+let threadTab = 'chat', chatTab = 'chat', termRaw = '', termTimer = null, termCtx = null;
 const TERM_POLL_MS = 3000;
 function termLineHtml(e) {
   const at = e.at ? `<span class="at">${esc(e.at.slice(11, 16))}</span>` : '';
@@ -2076,25 +2104,26 @@ function termLineHtml(e) {
   return `<div class="term-line ${esc(e.kind)}">${at}${mark}${esc(e.text)}</div>`;
 }
 function termHtml(d) {
-  if (!d || d.missing) return `<div class="term-well"><div class="term-empty">No transcript for ${esc(threadName || '')} yet${d?.why ? ` (${esc(d.why)})` : ''}. A session registers its transcript when it next claims or starts a card.</div></div>`;
+  if (!d || d.missing) return `<div class="term-well"><div class="term-empty">No transcript for ${esc(termCtx?.name || '')} yet${d?.why ? ` (${esc(d.why)})` : ''}. A session registers its transcript when it next claims or starts a card.</div></div>`;
   return `<div class="term-well">${(d.lines || []).map(termLineHtml).join('') || '<div class="term-empty">Nothing in the transcript yet.</div>'}</div>`;
 }
 function termFoot(d) {
-  const f = $('term-foot');
+  const f = $(termCtx?.foot || 'term-foot');
   if (!d || d.missing) { f.hidden = true; return; }
   const m = d.mtime ? ago(d.mtime) : null, quiet = m && m.min >= STALE_MIN;
   f.hidden = false;
   f.innerHTML = `<i class="${quiet ? 'quiet' : ''}" aria-hidden="true"></i>${m ? `last line ${esc(m.text)}` : ''} · ${esc(d.file || '')} · ${Math.round((d.size || 0) / 1024)} KB · read only, the same session as the window on your desk`;
 }
 async function loadTerm() {
-  if (!threadName || threadTab !== 'term' || !$('thread').classList.contains('open')) return;
+  const c = termCtx;
+  if (!c || !c.name || !$(c.aside).classList.contains('open') || !$(c.aside).classList.contains('term')) return;
   try {
-    const r = await fetch('/api/transcript?agent=' + encodeURIComponent(threadName), { cache: 'no-store' });
+    const r = await fetch('/api/transcript?agent=' + encodeURIComponent(c.name), { cache: 'no-store' });
     const text = await r.text();
-    if (text === termRaw) return;
+    if (text === termRaw || termCtx !== c) return;
     termRaw = text;
     const d = JSON.parse(text);
-    const body = $('thread-body'), well = body.querySelector('.term-well');
+    const body = $(c.body), well = body.querySelector('.term-well');
     const nearBottom = !well || well.scrollTop + well.clientHeight >= well.scrollHeight - 48;
     body.innerHTML = termHtml(d);
     termFoot(d);
@@ -2102,16 +2131,24 @@ async function loadTerm() {
     if (w && nearBottom) w.scrollTop = w.scrollHeight;
   } catch (e) { /* the status indicator already reports connectivity */ }
 }
+function stopTerm() { clearInterval(termTimer); termTimer = null; termRaw = ''; if (termCtx) $(termCtx.foot).hidden = true; termCtx = null; }
+function startTerm(ctx) { stopTerm(); termCtx = ctx; $(ctx.body).innerHTML = termHtml(null); loadTerm(); termTimer = setInterval(loadTerm, TERM_POLL_MS); }
 function setThreadTab(tab) {
   threadTab = tab === 'term' ? 'term' : 'chat';
   $('thread').classList.toggle('term', threadTab === 'term');
-  document.querySelectorAll('[data-th-tab]').forEach(b => b.setAttribute('aria-selected', String(b.dataset.thTab === threadTab)));
-  clearInterval(termTimer); termTimer = null; termRaw = '';
-  $('term-foot').hidden = true;
-  if (threadTab === 'term') { $('thread-body').innerHTML = termHtml(null); loadTerm(); termTimer = setInterval(loadTerm, TERM_POLL_MS); }
-  else renderThread();
+  document.querySelectorAll('#thread [data-th-tab]').forEach(b => b.setAttribute('aria-selected', String(b.dataset.thTab === threadTab)));
+  if (threadTab === 'term') startTerm({ name: threadName, aside: 'thread', body: 'thread-body', foot: 'term-foot' });
+  else { stopTerm(); renderThread(); }
 }
-document.addEventListener('click', e => { const b = e.target.closest('[data-th-tab]'); if (b) setThreadTab(b.dataset.thTab); });
+// the ORCH drawer's own tabs (Nov 6): the same well, ORCH's session
+function setChatTab(tab) {
+  chatTab = tab === 'term' ? 'term' : 'chat';
+  $('chat').classList.toggle('term', chatTab === 'term');
+  document.querySelectorAll('#chat [data-th-tab]').forEach(b => b.setAttribute('aria-selected', String(b.dataset.thTab === chatTab)));
+  if (chatTab === 'term') startTerm({ name: 'ORCH', aside: 'chat', body: 'chat-body', foot: 'chat-foot' });
+  else { stopTerm(); renderChat(); }
+}
+document.addEventListener('click', e => { const b = e.target.closest('[data-th-tab]'); if (!b) return; (b.closest('#chat') ? setChatTab : setThreadTab)(b.dataset.thTab); });
 function renderThread() {
   if (!threadName || !$('thread').classList.contains('open')) return;
   $('thread-head').innerHTML = threadHeadHtml(threadName);
@@ -2131,7 +2168,7 @@ function openThread(name) {
   if (!same) setThreadTab('chat'); else renderThread();   // another agent, or a fresh open: the conversation first
   focusSoon(() => $('thread-input'));
 }
-function closeThread() { touch('slide', false); $('thread').classList.remove('open'); threadName = null; clearInterval(termTimer); termTimer = null; }
+function closeThread() { touch('slide', false); $('thread').classList.remove('open'); threadName = null; if (termCtx?.aside === 'thread') stopTerm(); }
 $('thread-close').onclick = closeThread;
 document.addEventListener('click', e => {   // the ways in are redrawn with the board, so the click is caught on the document
   const b = e.target.closest('[data-thread]');
@@ -3478,6 +3515,7 @@ function setSide(which) {            // one surface at a time
   if (which !== 'panel' && openId) closePanel(true, true);   // the surface opening is the sound, not this
   if (which !== 'chat') $('chat').classList.remove('open');
   if (which !== 'thread') $('thread').classList.remove('open');
+  if (termCtx && termCtx.aside !== which) stopTerm();
 }
 function openLater() { setSide('later'); touch('slide', true); $('later').classList.add('open'); renderLater(tasks.filter(t => t.status === 'backlog' && !isKid(t))); $('later-input')?.focus(); }
 function closeLater() { touch('slide', false); $('later').classList.remove('open'); $('later-btn').focus(); }
@@ -3491,10 +3529,11 @@ $('later-close').onclick = closeLater;
 
 function openChat() {
   setSide('chat'); touch('slide', true); $('chat').classList.add('open');
+  if (chatTab === 'term') setChatTab('chat');
   chatSeenSeq = chatMaxSeq; chatUnread = 0; renderChat();
   $('chat-input')?.focus();
 }
-function closeChat() { touch('slide', false); $('chat').classList.remove('open'); document.querySelector('.orch-btn')?.focus(); }
+function closeChat() { touch('slide', false); $('chat').classList.remove('open'); if (termCtx?.aside === 'chat') stopTerm(); document.querySelector('.orch-btn')?.focus(); }
 // the ORCH button is redrawn with its Todo column, so the click is caught on the document, not bound to one element
 document.addEventListener('click', e => {
   if (!e.target.closest('.orch-btn')) return;
