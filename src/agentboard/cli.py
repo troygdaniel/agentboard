@@ -21,6 +21,7 @@ from . import summary as summarylib
 from . import voice as voicelib
 from . import runs as runslib
 from . import sms as smslib
+from . import texts as textslib
 from .server import serve
 from . import boards as boardlib
 from .store import CHAT_TOPICS, DIR_NAME, BoardError, Store, find_dir, subtask_counts
@@ -77,6 +78,12 @@ SAMPLE_CONFIG = '''\
 # public_url = "https://<your tunnel>/sms"   # exactly the URL set in Twilio: it is part of the signature
 # token_env = "AGENTBOARD_TWILIO_AUTH_TOKEN" # the auth token is read from this environment variable, never from a file here
 # rate_per_hour = 30
+
+# [texts]                     # pull the texts you sent your Twilio number into Todo cards: `agentboard pull-texts` (manual; README "Pull your texts")
+# enabled = true
+# number = "+16475550100"     # the Twilio number you text
+# allowed = ["+14165550123"]  # your own number; texts from any other number are ignored (defaults to [sms] allowed)
+# # the account SID and auth token come from $AGENTBOARD_TWILIO_ACCOUNT_SID and $AGENTBOARD_TWILIO_AUTH_TOKEN, never from this file
 
 # [reports]                   # an HTML report per card in review or done (.agentboard/reports/)
 # keep_hours = 24             # older reports are deleted hourly; the newest per card always stays
@@ -1224,6 +1231,10 @@ def cmd_sms_try(a):
     print(smslib.apply(_store(), " ".join(a.text)))
 
 
+def cmd_pull_texts(a):
+    print(textslib.report(textslib.pull(_store(), dry_run=a.dry_run, since=a.since, split=a.split, limit=a.max)))
+
+
 def _reply_when(r):
     """'replied 2026-11-03 18:23 by Alex, 4 min ago': so an agent can tell a fresh reply from one it already acted on."""
     try:
@@ -1472,6 +1483,13 @@ def main(argv=None):
     sp2 = ssub.add_parser("try", help="run a command text locally (no Twilio, no network): agentboard sms try add: buy milk")
     sp2.add_argument("text", nargs="+")
     sp2.set_defaults(fn=cmd_sms_try)
+
+    sp = sub.add_parser("pull-texts", help="turn the texts you sent your Twilio number into Todo cards (manual; off until [texts] is set up)")
+    sp.add_argument("--dry-run", action="store_true", help="print the cards it would make; write nothing")
+    sp.add_argument("--since", metavar="YYYY-MM-DD", help="look back to this day (a first pull looks back 7 days)")
+    sp.add_argument("--max", type=int, metavar="N", help="make at most N cards (default 20); the rest wait for the next pull")
+    sp.add_argument("--split", action="store_true", help="a text of bullet or numbered lines becomes one card per line")
+    sp.set_defaults(fn=cmd_pull_texts)
 
     sp = sub.add_parser("board", help="named boards: new, add, list, use, rm (registry in ~/.agentboard/boards.toml)")
     bsub = sp.add_subparsers(dest="board_cmd", required=True)

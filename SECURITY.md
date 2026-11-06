@@ -42,6 +42,15 @@ Oct 24, 2026 for v0.3.0 against the code and at runtime; it checks literally rat
    add and move cards and read a one-line status; it cannot delete, run commands or read card text. Commands are applied through the normal store (atomic
    write, `.bak`, hourly snapshots). Turning it on means a public tunnel to your Mac: that switch is yours.
 
+5. **Pull your texts (`agentboard pull-texts`, the Pull texts button).** Reads the texts you sent your Twilio number from Twilio's own message log, only when you run the command
+   or press the button: no listener, no webhook, no tunnel, no polling, no background job. The one outside call is a read-only HTTPS GET to `api.twilio.com` for your account's
+   Messages, with HTTP Basic auth from `AGENTBOARD_TWILIO_ACCOUNT_SID` and `AGENTBOARD_TWILIO_AUTH_TOKEN` (environment only, never written to the board, its state file or a log;
+   an error message never repeats them). Redirects are never followed, and a next-page address outside `/2010-04-01/Accounts/<your SID>/Messages` stops the pull. It will not run if `AGENTBOARD_NO_SMS=1`
+   is set (dry runs and the button included), and otherwise not unless `[texts] enabled = true`, the number, your own number and both variables are set; the button is hidden until it is on.
+   Only a text from your own number counts: any other sender is counted and ignored, its words never read, shown or stored. A text is data: it can only become a Todo card (title and
+   description, marked `source: text`); it never runs a command, claims, deploys, spends or changes a setting, and the page shows card words escaped. It cannot reach `sms serve`'s grammar. Each text makes a card at most once
+   (a cursor file plus the text's id on the card; the store refuses a second card with the same id), a pull makes at most 20 cards, and the cursor file holds only a day and message ids.
+
 Providers run only when a task explicitly lists them (`--ctx`) and a prompt is built (Copy prompt,
 `agentboard prompt`, `agentboard rebuild`). On a work machine, point `http` providers only at local
 services, or don't configure any.
