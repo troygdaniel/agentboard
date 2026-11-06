@@ -4,8 +4,9 @@
 
 ### The ORCH drawer: talk to ORCH from the Todo column (Nov 6)
 - **The Chat button left the header.** An **ORCH** button sits in the Todo column's head (Board, By agent and Load alike); press it and a drawer slides out from the left over Todo. It is the chat, read as a conversation with ORCH: what ORCH said, what you said to ORCH or to everyone, the board's notices. Typing there addresses ORCH; `@AGENT-2 …` still reaches someone else. The unread count rides the button.
-- **Nothing said before is lost**: **Everyone** in the drawer's head shows the whole channel as the old panel did, with the Agents-talk switch, approvals and details where they were.
+- **The drawer's head is the back arrow and ORCH, nothing else.** The whole channel (agents' own lines) and the agents-talk setting stay in the CLI: `agentboard chat tail`, `agentboard chat agents on`. Approvals and details still show on the lines the drawer carries.
 - **ORCH answers you there.** Addressing the board's owner is no longer counted as agent-to-agent talk, so `agentboard chat send "…" --name ORCH --to Troy` posts with the switch off. The ORCH prompt now tells it to keep `agentboard chat inbox --name ORCH --wait 3600` running and what to do with "add a card", "assign", "move to Later", "what is everyone doing" and a message for a busy agent.
+- **An empty board says how to start.** The centre of a board with no cards shows three steps: start Claude, `/rename ORCH`, press **Copy prompt** and paste it there. The ORCH prompt button left the header; Copy prompt is in that third step and in the drawer's head, for re-pasting after a `/clear`.
 - The board, its cards and the Done panel are unchanged.
 
 ### "Needs your input" clears once the agent has your answer (Nov 4)

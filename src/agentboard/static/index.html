@@ -100,7 +100,6 @@
      are tabular, and ORCH / the board switch keep their slot from the first paint instead of appearing later */
   @media (min-width: 901px) { header { flex-wrap: nowrap; } }
   #summary { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 0 1 auto; font-variant-numeric: tabular-nums; }
-  #orch-btn[hidden] { display: inline-flex; visibility: hidden; }
   h1 { font-size: var(--fs-lg); font-weight: 600; letter-spacing: -.015em; display: flex; align-items: center; gap: 9px; flex: 0 0 106px; }
   h1 svg { color: var(--text); }
   .filter { display: none; width: 160px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 5px 10px; min-height: 32px; }
@@ -857,7 +856,6 @@
   #chat .p-head { padding: 14px 18px; gap: 8px; }
   #chat .p-head strong { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; }
   #chat .p-head .av { width: 24px; height: 24px; }
-  #chat .p-head .sw span { white-space: nowrap; }
   .col h2 .orch-btn { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; min-height: 28px; padding: 2px 9px 2px 4px; position: relative;
     border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-sm); font-weight: 500;
     letter-spacing: 0; text-transform: none; cursor: pointer; transition: border-color .12s, background .12s; }
@@ -981,12 +979,19 @@
   .bl-chip button:hover { background: color-mix(in srgb, var(--warn) 18%, transparent); }
   .bl-row input { flex: 1; min-width: 160px; font: inherit; font-size: var(--fs-md); color: var(--text); background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 5px 10px; min-height: 30px; }
   .bl-row input::placeholder { color: var(--muted); }
-  #welcome { display: none; max-width: 520px; margin: 64px auto; color: var(--muted); }
-  #welcome h2 { color: var(--text); font-size: var(--fs-lg); font-weight: 600; margin-bottom: 8px; }
-  #welcome pre {
-    margin-top: 16px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px;
-    background: var(--surface); color: var(--text); font: var(--fs-md)/1.6 ui-monospace, Menlo, monospace; overflow-x: auto;
-  }
+  /* the empty board (Nov 6): the three steps that bring ORCH up, in the centre where the eye lands; the Copy prompt button is in step 3 */
+  #welcome { display: none; max-width: 560px; margin: 64px auto; color: var(--muted); font-size: var(--fs-lg); line-height: 1.5; }
+  #welcome h2 { color: var(--text); font-size: var(--fs-xl); font-weight: 600; margin-bottom: 8px; letter-spacing: -.015em; }
+  #welcome p { margin: 0 0 20px; }
+  #welcome .steps { list-style: none; margin: 0 0 22px; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+  #welcome .steps li { display: flex; align-items: center; gap: 14px; padding: 14px 18px; border: 1px solid var(--line); border-radius: 12px;
+    background: var(--surface); color: var(--text); box-shadow: inset 0 1px 0 var(--card-hi), var(--shadow); }
+  #welcome .steps .n { flex: none; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-size: var(--fs-md); font-weight: 600;
+    background: var(--chip); box-shadow: inset 0 0 0 1px var(--line); font-variant-numeric: tabular-nums; }
+  #welcome .steps li > span:last-child { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+  #welcome code { padding: 2px 8px; border-radius: 6px; background: var(--chip); color: var(--text); font: var(--fs-md)/1.6 ui-monospace, Menlo, monospace; box-shadow: inset 0 0 0 1px var(--line); }
+  #welcome .aside { font-size: var(--fs-md); margin: 0; }
+  body.no-dispatch .orch-copy { display: none; }   /* [ui] dispatch = false: a board that runs no ORCH shows no prompt to copy */
   /* the error strip floats under the header, above every view (Load included), and moves nothing when it appears; × closes it */
   #error { display: none; position: fixed; left: 50%; top: calc(var(--hdr-b, 56px) + 10px); transform: translateX(-50%); z-index: 36; align-items: center; gap: 10px;
     max-width: calc(100vw - 32px); padding: 8px 10px 8px 14px; border-radius: 10px; color: var(--warn); font-size: var(--fs-md);
@@ -1187,7 +1192,6 @@
     <h1><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="1.5" y="2" width="3.5" height="12" rx="1.2" fill="currentColor" opacity=".35"/><rect x="6.25" y="2" width="3.5" height="8" rx="1.2" fill="currentColor"/><rect x="11" y="2" width="3.5" height="5" rx="1.2" fill="currentColor" opacity=".6"/></svg>agentboard</h1>
     <nav class="ab-tabs" aria-label="Pages"><a class="tab on" id="tab-board" href="./" aria-current="page">Board</a><a class="tab" id="tab-agents" href="./agents">By agent</a><a class="tab" id="hud-btn" href="#/hud" role="button" aria-controls="hud">Load</a></nav>
     <button class="btn" id="later-btn" aria-controls="later">Later <span id="later-n"></span></button>
-    <button class="btn" id="orch-btn" hidden title="Copy a prompt that boots a fresh session as ORCH, from the live board">ORCH</button>
     <span class="spacer"></span>
     <select class="btn" id="board-switch" aria-label="Board" hidden></select>
     <!-- the filters left the header (Nov 3); the who chips and the attention counts still filter through these, and the summary shows what is on with a way to clear it -->
@@ -1225,11 +1229,14 @@
   <div id="error" role="alert"><span id="error-text"></span><button type="button" id="error-close" aria-label="Dismiss">×</button></div>
 
   <div id="welcome">
-    <h2>No tasks yet</h2>
-    Agents add their own work. Give them the instructions with
-    <pre>agentboard instructions &gt;&gt; CLAUDE.md</pre>
-    or just look around:
-    <pre>agentboard demo</pre>
+    <h2>Get started</h2>
+    <p>ORCH is the Claude session that runs this board: it adds cards, hands them to agents and answers you in the ORCH drawer.</p>
+    <ol class="steps">
+      <li><span class="n">1</span><span>Open a terminal and start Claude: <code>claude</code></span></li>
+      <li><span class="n">2</span><span>In it, type <code>/rename ORCH</code></span></li>
+      <li><span class="n">3</span><span>Press <button class="btn primary orch-copy" title="Copy a prompt that boots that session as ORCH, from the live board">Copy prompt</button> and paste it there</span></li>
+    </ol>
+    <p class="aside">Just looking around? <code>agentboard demo</code> fills the board with made-up work.</p>
   </div>
 
   <main class="board" id="board" aria-label="Task board"></main>
@@ -1308,8 +1315,7 @@
   <div class="p-head">
     <button class="icon-btn" id="chat-close" aria-label="Slide back to the board"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M10 3L5 8l5 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
     <strong id="chat-title"><span class="av" id="chat-av" aria-hidden="true">O</span>ORCH</strong><span class="spacer"></span>
-    <label class="sw" id="chat-all-sw" title="Everyone: the whole channel, every agent's lines, not only what passes between you and ORCH"><input type="checkbox" id="chat-all" aria-label="Show everyone"><span>Everyone</span></label>
-    <label class="sw" id="chat-sw" title="Agent chat: with this on, agents talk to each other here (learnings, help, heads-ups, handoffs). You approve any action."><input type="checkbox" id="chat-agents" aria-label="Agents talk to each other"><span>Agents talk</span></label>
+    <button class="btn orch-copy" title="Copy a prompt that boots a fresh Claude session as ORCH, from the live board (paste it after /rename ORCH)">Copy prompt</button>
   </div>
   <div class="p-body" id="chat-body"></div>
   <form id="chat-form" class="chat-form">
@@ -1899,7 +1905,6 @@ async function loadChat() {
     const d = await r.json();
     const msgs = d.messages || [];
     const maxSeq = msgs.length ? msgs[msgs.length - 1].seq : 0;
-    setChatSwitch(!!d.agents);
     if (chatFirstLoad) {
       // Establish the baseline on the very first poll after page load, whether or not any
       // messages exist yet — if this were gated on "the first poll that finds a non-empty
@@ -1930,34 +1935,14 @@ async function loadChat() {
 }
 const CHAT_CLAMP_CHARS = 280;   // an "unusually long" message past this stays collapsed until expanded
 const CHAT_DRIP_MS = 700;       // the reveal gap between lines that arrived together
-let chatAgents = false, chatActKey = '', chatSwitchBusy = false;
+let chatActKey = '';
 const chatHold = new Set(), chatDetail = new Set(), chatShown = new Set();   // seqs held back by the drip, with the detail open, already drawn
 // The drawer is a conversation with ORCH (Nov 6): what ORCH said, what you said to ORCH or to everyone, and the board's own
-// notices. "Everyone" widens it to the whole channel. The choice is yours and is kept in this browser.
-let chatAll = false;
-try { chatAll = localStorage.getItem('chatAll') === '1'; } catch (e) { /* storage off: ORCH only */ }
+// notices. The rest of the channel (agents' own lines) stays in the CLI: agentboard chat tail. The agents-talk setting is set
+// there too (agentboard chat agents on); the board only reflects it.
 const isOrch = n => String(n || '').toUpperCase() === 'ORCH';
 function inOrchThread(m) { return isOrch(m.sender) || m.via === 'board' || (m.kind === 'user' && (!m.to || m.to === 'all' || isOrch(m.to))); }
-const chatShows = m => chatAll || inOrchThread(m);
-$('chat-all').checked = chatAll; $('chat-all-sw').classList.toggle('on', chatAll);
-$('chat-all').addEventListener('change', e => {
-  chatAll = e.target.checked; $('chat-all-sw').classList.toggle('on', chatAll);
-  try { localStorage.setItem('chatAll', chatAll ? '1' : '0'); } catch (err) { /* storage off */ }
-  chatSeenSeq = chatMaxSeq; chatUnread = 0; renderChat();
-});
-function setChatSwitch(on) {
-  if (chatSwitchBusy) return;
-  chatAgents = on;
-  const sw = $('chat-sw'), box = $('chat-agents');
-  if (box && box.checked !== on) box.checked = on;
-  if (sw) sw.classList.toggle('on', on);
-}
-$('chat-agents').addEventListener('change', async e => {
-  const on = e.target.checked; chatSwitchBusy = true;
-  try { const r = await api('/api/chat-agents', { on }); chatAgents = !!r.agents; showError(''); toast(chatAgents ? 'Agents talk to each other now; you approve any action they propose' : 'Agent chat off: plain status lines only'); }
-  catch (err) { showError('Could not change agent chat: ' + err.message); e.target.checked = chatAgents; }
-  chatSwitchBusy = false; setChatSwitch(chatAgents); renderChat();
-});
+const chatShows = inOrchThread;
 const TOPIC_WORD = { learn: 'learned', help: 'help', 'heads-up': 'heads-up', handoff: 'handoff' };
 function chatBubble(m) {
   const long = (m.said || m.text).length > CHAT_CLAMP_CHARS, open = chatExpanded.has(m.seq);
@@ -1991,9 +1976,7 @@ function renderChat() {
   const nearBottom = body.scrollTop + body.clientHeight >= body.scrollHeight - 48;
   const shown = chatMsgs.filter(m => !chatHold.has(m.seq) && chatShows(m));
   body.innerHTML = shown.length ? shown.map(chatBubble).join('')
-    : `<div class="empty">${chatAll
-      ? (chatAgents ? 'No messages yet. Agents talk to each other here; you approve anything they propose.' : 'No messages yet. Agents post status here — turn on Agents talk and they can help each other too.')
-      : 'Tell ORCH what you want: add a card, assign one, move one to Later, ask what everyone is doing. It answers here.'}</div>`;
+    : `<div class="empty">ORCH answers here once it is running (Copy prompt, top right, boots one). Tell it what you want: add a card, assign one, move one to Later, ask what everyone is doing.</div>`;
   if (nearBottom) body.scrollTop = body.scrollHeight;
   $('chat-av').style.setProperty('--c', agentColor('ORCH'));
   document.querySelectorAll('.orch-btn').forEach(b => {   // the count rides the ORCH button on every Todo column drawn (Board, By agent, Load)
@@ -3351,7 +3334,7 @@ $('chat-form').addEventListener('submit', async e => {
   const i = $('chat-input'), text = i.value.trim();
   if (!text) return;
   i.value = '';
-  const to = chatAll || text.startsWith('@') ? undefined : 'ORCH';   // the drawer talks to ORCH; "@AGENT-2 …" or Everyone sends as before
+  const to = text.startsWith('@') ? undefined : 'ORCH';   // the drawer talks to ORCH; "@AGENT-2 …" reaches someone else
   try { await api('/api/chat', to ? { text, to } : { text }); showError(''); } catch (err) { showError('Could not send: ' + err.message); }
   loadChat();
 });
@@ -3764,8 +3747,10 @@ CARD_HOMES.forEach(h => h.addEventListener('click', async e => {
 
 
 // --- ORCH: copy a boot prompt for the orchestrator session, built from live board state at click time ---
-$('orch-btn').addEventListener('click', async () => {
-  const b = $('orch-btn');
+// Copy prompt (Nov 6): one handler for every place the button is drawn, step 3 of the empty board and the drawer's head
+document.addEventListener('click', async e => {
+  const b = e.target.closest('.orch-copy');
+  if (!b) return;
   try {
     const r = await fetch('/api/orch-prompt');
     const d = await r.json();
@@ -3773,7 +3758,7 @@ $('orch-btn').addEventListener('click', async () => {
     await navigator.clipboard.writeText(d.prompt);
     b.textContent = 'Copied'; touch.after('copy');
   } catch (err) { b.textContent = 'Failed'; showError('Copy failed: ' + err.message); }
-  setTimeout(() => { b.textContent = 'ORCH'; }, 1800);
+  setTimeout(() => { b.textContent = 'Copy prompt'; }, 1800);
 });
 
 // --- keyboard: Alt+arrows move the focused card ---
@@ -3872,7 +3857,7 @@ fetch('/api/boards').then(r => r.json()).then(d => {   // the board switcher: hi
   sw.hidden = false;
   sw.onchange = () => { location.href = sw.value; };
 }).catch(() => {});
-fetch('/api/config').then(r => r.json()).then(c => { cfg = c; OWNER = c.owner || OWNER; $('orch-btn').hidden = !c.dispatch; raw = ''; detailRaw = ''; load(); }).catch(() => {});
+fetch('/api/config').then(r => r.json()).then(c => { cfg = c; OWNER = c.owner || OWNER; document.body.classList.toggle('no-dispatch', !c.dispatch); raw = ''; detailRaw = ''; load(); }).catch(() => {});
 load(); setInterval(load, 1000);
 if (SOLO) {
   document.body.classList.add('solo');

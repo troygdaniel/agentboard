@@ -39,7 +39,7 @@ class HeaderTests(unittest.TestCase):
         summ = rule("#summary")
         for piece in ("white-space: nowrap;", "overflow: hidden;", "text-overflow: ellipsis;", "min-width: 0;", "font-variant-numeric: tabular-nums;"):
             self.assertIn(piece, summ)
-        self.assertIn("#orch-btn[hidden] { display: inline-flex; visibility: hidden; }", HTML)   # the slot is there from the first paint
+        self.assertNotIn('id="orch-btn"', HTML)   # the ORCH prompt button left the header (Nov 6): it is step 3 of the empty board and in the drawer's head
         self.assertIn("#later-btn { min-width: 104px; font-variant-numeric: tabular-nums; }", HTML)
         self.assertIn("min-width: 6ch;", rule(".rb-sum"))
 

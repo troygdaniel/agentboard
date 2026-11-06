@@ -46,22 +46,24 @@ class DrawerMarkupTests(unittest.TestCase):
         for piece in ("left: 0", "right: auto", "transform: translateX(-100%)", "border-right: 1px solid var(--line)"):
             self.assertIn(piece, css)
 
-    def test_the_head_names_orch_and_offers_everyone(self):
+    def test_the_head_is_the_back_arrow_and_orch_with_no_switches(self):
         aside = re.search(r'<aside id="chat".*?</aside>', HTML, re.S).group(0)
         self.assertIn('aria-label="ORCH"', aside)
         self.assertIn('id="chat-av"', aside)
-        self.assertIn('id="chat-all"', aside)
-        self.assertIn('id="chat-agents"', aside)   # the owner's switch stays where it was
+        self.assertIn('id="chat-close"', aside)
+        self.assertNotIn("<label", aside)   # Everyone and Agents talk left the drawer (Troy, Nov 6): the CLI keeps both
         self.assertIn("Tell ORCH what you want", aside)
+        for gone in ("chat-all", "chat-sw", "chat-agents", "chatAll", "Agents talk"):
+            self.assertNotIn(gone, HTML)
 
     def test_the_thread_is_what_passes_between_the_owner_and_orch(self):
         self.assertIn("function inOrchThread(m) { return isOrch(m.sender) || m.via === 'board' || (m.kind === 'user' && (!m.to || m.to === 'all' || isOrch(m.to))); }", HTML)
-        self.assertIn("const chatShows = m => chatAll || inOrchThread(m);", HTML)
+        self.assertIn("const chatShows = inOrchThread;", HTML)
         self.assertIn("chatMsgs.filter(m => !chatHold.has(m.seq) && chatShows(m))", body("renderChat"))
         self.assertIn("m.seq > chatSeenSeq && chatShows(m)", HTML)   # the count is what the drawer would show
 
-    def test_sending_addresses_orch_unless_everyone_or_an_at_name(self):
-        self.assertIn("const to = chatAll || text.startsWith('@') ? undefined : 'ORCH';", HTML)
+    def test_sending_addresses_orch_unless_an_at_name(self):
+        self.assertIn("const to = text.startsWith('@') ? undefined : 'ORCH';", HTML)
         self.assertIn("api('/api/chat', to ? { text, to } : { text })", HTML)
 
     def test_the_button_is_caught_on_the_document_and_closing_returns_focus_to_it(self):
@@ -69,6 +71,31 @@ class DrawerMarkupTests(unittest.TestCase):
         self.assertIn("document.querySelector('.orch-btn')?.focus()", HTML)
         self.assertIn("!e.target.closest('#chat, .orch-btn, #toast')", HTML)   # a click on the button is not an outside click
         self.assertNotIn("$('chat-btn')", HTML)
+
+
+class GetStartedTests(unittest.TestCase):
+    def test_the_empty_board_shows_three_steps_with_copy_prompt_in_the_third(self):
+        w = re.search(r'<div id="welcome">.*?\n  </div>', HTML, re.S).group(0)
+        self.assertIn("<h2>Get started</h2>", w)
+        steps = re.findall(r"<li>.*?</li>", w, re.S)
+        self.assertEqual(len(steps), 3)
+        self.assertIn("<code>claude</code>", steps[0])
+        self.assertIn("<code>/rename ORCH</code>", steps[1])
+        self.assertIn('class="btn primary orch-copy"', steps[2])
+        self.assertIn("$('welcome').style.display = tasks.length ? 'none' : 'block';", HTML)   # shown only on a board with no cards
+
+    def test_the_drawer_head_has_copy_prompt_and_the_header_does_not(self):
+        aside = re.search(r'<aside id="chat".*?</aside>', HTML, re.S).group(0)
+        self.assertIn('class="btn orch-copy"', aside)
+        header = re.search(r"<header>.*?</header>", HTML, re.S).group(0)
+        self.assertNotIn("orch", header.lower())
+
+    def test_one_copy_handler_serves_every_button_and_respects_the_dispatch_setting(self):
+        self.assertIn("const b = e.target.closest('.orch-copy');", HTML)
+        self.assertEqual(HTML.count("fetch('/api/orch-prompt')"), 1)
+        self.assertIn("b.textContent = 'Copy prompt';", HTML)
+        self.assertIn("document.body.classList.toggle('no-dispatch', !c.dispatch);", HTML)
+        self.assertIn("body.no-dispatch .orch-copy { display: none; }", HTML)
 
 
 class MoveCommandTests(unittest.TestCase):
