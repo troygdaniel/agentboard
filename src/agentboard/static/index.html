@@ -1045,6 +1045,10 @@
   .p-tabs .key { margin-left: auto; align-self: center; font-size: var(--fs-xs); color: var(--muted); white-space: nowrap; }
   .p-tabs .key kbd { font: inherit; padding: 1px 5px; border: 1px solid var(--line); border-radius: 4px; background: var(--chip); }
   #panel.term .p-body { display: flex; flex-direction: column; padding-bottom: 12px; }
+  .p-th { flex: none; margin-top: -4px; }   /* the compact head on Conversation and Terminal: the same lines the side panel had, in the card's panel. flex: none, or the Terminal tab's flex column stretches it and pushes the well down */
+  #panel.term .p-tabs { flex: none; }
+  .p-th .th-name { font-size: var(--fs-xl); line-height: 28px; letter-spacing: -.015em; }
+  .p-th + .p-tabs { margin-top: 12px; }
   #p-term { flex: 1; min-height: 320px; display: flex; flex-direction: column; margin-top: 14px; }
   .term-wrap { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; }
   .term-jump { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); background: var(--surface); box-shadow: var(--shadow-hover); font-size: var(--fs-sm); min-height: 28px; padding: 3px 12px; }
@@ -2209,7 +2213,7 @@ $('thread-close').onclick = closeThread;
 document.addEventListener('click', e => {   // the ways in are redrawn with the board, so the click is caught on the document
   const b = e.target.closest('[data-thread]');
   if (b) { if (b.closest('#panel')) setPanelTab('chat'); else openThread(b.dataset.thread); return; }
-  const o = e.target.closest('#thread [data-open], #p-conv [data-open]');
+  const o = e.target.closest('#thread [data-open], #p-conv [data-open], #p-body .p-th [data-open]');
   if (o) openPanel(o.dataset.open);
 });
 $('thread-form').addEventListener('submit', async e => {
@@ -2638,8 +2642,10 @@ function panelHtml(t) {
     ? `<form class="ed-form" data-ed="title"><input id="ed-field" class="title" value="${esc(panelDraft).replace(/"/g, '&quot;')}" aria-label="Title" maxlength="200" autocomplete="off">${edActs}</form>`
     : `<h2 class="ed" data-ed-open="title" tabindex="0" role="button" title="Click to edit (e)">${esc(t.title)}<span class="pen">edit</span></h2>`;
   const tabs = panelTabsHtml(t);
-  if (tabs && panelTab === 'chat') return `${titleHtml}${who}${tabs}<div id="p-conv">${panelConvHtml(t)}</div>`;
-  if (tabs && panelTab === 'term') return `${titleHtml}${who}${tabs}<div id="p-term"></div>`;
+  // Conversation and Terminal wear the compact head the side panel had (avatar, name, state, the card it is on): the content gets the room
+  const agentHead = tabs ? `<div class="th-head p-th">${threadHeadHtml(t.agent)}</div>` : '';
+  if (tabs && panelTab === 'chat') return `${agentHead}${tabs}<div id="p-conv">${panelConvHtml(t)}</div>`;
+  if (tabs && panelTab === 'term') return `${agentHead}${tabs}<div id="p-term"></div>`;
   if ((t.status === 'done' || rv) && !t.parent_id) {   // finished work, done or up for review, reads top down: result, what changed, the picture, the ticks; everything else under Details
     return `${titleHtml}${who}${tabs}${doneHtml(t, parsed, sawText, kids, head, rv ? btns : '')}
     ${desc}${tl}${details}${prompt}</details>
