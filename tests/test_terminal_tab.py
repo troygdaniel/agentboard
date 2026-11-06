@@ -27,7 +27,8 @@ class TerminalTabTests(unittest.TestCase):
         lt = body("loadTerm", "async function")
         self.assertIn("if (!c || !c.name || !$(c.aside).classList.contains('open') || !$(c.aside).classList.contains('term')) return;", lt)
         self.assertIn("fetch('/api/transcript?agent=' + encodeURIComponent(c.name), { cache: 'no-store' })", lt)
-        self.assertIn("if (text === termRaw || termCtx !== c) return;", lt)   # no redraw when nothing changed, or when the terminal moved on
+        self.assertIn("if (termCtx !== c) return;", lt)   # the terminal moved on: drop the answer
+        self.assertIn("if (text === termRaw && had) return;", lt)   # no redraw when nothing changed
         st = body("setThreadTab")
         self.assertIn("startTerm({ name: threadName, aside: 'thread', body: 'thread-body', foot: 'term-foot' })", st)
         self.assertIn("function stopTerm() { clearInterval(termTimer); termTimer = null;", HTML)

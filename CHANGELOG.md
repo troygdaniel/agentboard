@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### The card panel has tabs: Summary, Conversation, Terminal (Nov 6)
+- **Three tabs under the open card's title**, for a card an agent holds: **Summary** is the card as before; **Conversation** is that agent's thread (your exchange since its current card) with a composer; **Terminal** is its session. One click, or `t` to cycle (on the `?` list). The agent pill still works, as a shortcut to Conversation.
+- **Conversation shows the question the terminal asked last**: Claude Code's own question prompt with its options as chips, or the agent's last line when it ends in a question mark. A chip or a typed line goes to the agent as a board message, read at its next wait; the block says to answer in its window to unblock it this minute.
+- **A dot on Conversation** when the agent wrote to you since you last looked, its card needs your input, or its terminal asked something you have not seen. It clears when you look. No sound, no popup.
+- **Where a card opens**: needs input on Conversation; review or done on Summary; otherwise the tab you used last (remembered in this browser).
+- **Terminal keeps your place**: it follows the newest line until you scroll up, then shows **Jump to latest**; a redraw never moves you, and the minute tick never redraws Conversation or Terminal.
+
 ### ORCH's terminal, and threads that read as the current conversation (Nov 6)
 - **The ORCH drawer has Conversation and Terminal tabs**, the same read-only well the agents' panels have, for ORCH's own session. ORCH's prompt now says `agentboard me --name ORCH` once, so the board knows which session it is.
 - **A thread is what passed between you and that one name**: your lines to it, its lines to you. Its status lines, its mirrored messages to other sessions and lines to everyone stay out; the ORCH drawer reads the same way.

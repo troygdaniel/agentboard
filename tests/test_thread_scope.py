@@ -68,7 +68,7 @@ class OrchTerminalTests(unittest.TestCase):
         self.assertIn("if (termCtx && termCtx.aside !== which) stopTerm();", body("setSide"))
         self.assertIn("if (termCtx?.aside === 'chat') stopTerm();", body("closeChat"))
         self.assertIn("if (chatTab === 'term') setChatTab('chat');", body("openChat"))   # the drawer opens on the conversation
-        self.assertIn("if (text === termRaw || termCtx !== c) return;", body("loadTerm", "async function"))   # a late answer for the other terminal is dropped
+        self.assertIn("if (termCtx !== c) return;", body("loadTerm", "async function"))   # a late answer for the other terminal is dropped
 
     def test_the_orch_prompt_says_to_name_itself_so_its_terminal_shows(self):
         with tempfile.TemporaryDirectory() as d:

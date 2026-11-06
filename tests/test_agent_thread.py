@@ -130,7 +130,7 @@ class PanelMarkupTests(unittest.TestCase):
         self.assertIn('<button class="agent-pill" type="button" data-thread="${esc(t.agent)}"', body("panelHtml"))
         self.assertIn('<button class="nm" type="button" data-thread="${esc(n)}"', HTML)
         self.assertIn("const b = e.target.closest('[data-thread]');", HTML)
-        self.assertIn("if (b) { openThread(b.dataset.thread); return; }", HTML)
+        self.assertIn("if (b) { if (b.closest('#panel')) setPanelTab('chat'); else openThread(b.dataset.thread); return; }", HTML)
         card_fn = body("card")
         self.assertNotIn("data-thread", card_fn)   # the chip on a card keeps its job: the filter
 
@@ -148,7 +148,7 @@ class PanelMarkupTests(unittest.TestCase):
     def test_sending_addresses_the_agent_and_the_thread_redraws_with_chat_and_board(self):
         self.assertIn("const i = $('thread-input'), text = i.value.trim(), to = threadName;", HTML)
         self.assertIn("api('/api/chat', { text, to })", HTML)
-        self.assertIn("renderThread();\n}", body("renderChat"))
+        self.assertIn("renderThread();\n  renderPanelConv(); updatePanelDot();\n}", body("renderChat"))
         self.assertIn("renderThread();   // the head reads the cards", HTML)
 
 

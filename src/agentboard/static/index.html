@@ -1036,6 +1036,24 @@
   .term-line.error { color: #ff6b6b; padding-left: 14px; }
   .term-line .at { color: #4b5f75; margin-right: 8px; }
   .term-empty { color: #7f95ad; padding: 20px 4px; }
+  /* the card panel's tabs (Nov 6): Summary / Conversation / Terminal under the title; the dot on Conversation says there is something new */
+  .p-tabs { display: flex; gap: 22px; margin: 14px 0 0; border-bottom: 1px solid var(--line); font-size: var(--fs-md); }
+  .p-tabs button { background: none; border: 0; padding: 8px 0 10px; margin-bottom: -1px; font: inherit; color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; display: inline-flex; align-items: center; gap: 7px; }
+  .p-tabs button[aria-selected="true"] { color: var(--text); font-weight: 600; border-bottom-color: var(--text); }
+  .p-tabs button:hover { color: var(--text); }
+  .p-tabs .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--err); }
+  .p-tabs .key { margin-left: auto; align-self: center; font-size: var(--fs-xs); color: var(--muted); white-space: nowrap; }
+  .p-tabs .key kbd { font: inherit; padding: 1px 5px; border: 1px solid var(--line); border-radius: 4px; background: var(--chip); }
+  #panel.term .p-body { display: flex; flex-direction: column; padding-bottom: 12px; }
+  #p-term { flex: 1; min-height: 320px; display: flex; flex-direction: column; margin-top: 14px; }
+  .term-wrap { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  .term-jump { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); background: var(--surface); box-shadow: var(--shadow-hover); font-size: var(--fs-sm); min-height: 28px; padding: 3px 12px; }
+  .term-jump[hidden] { display: none; }
+  #p-conv { margin-top: 16px; display: flex; flex-direction: column; gap: 14px; font-size: var(--fs-base); }
+  #p-chat-form[hidden], #p-term-foot[hidden] { display: none; }
+  .th-ask.term { border-color: var(--warn); box-shadow: 0 0 0 3px color-mix(in srgb, var(--warn) 8%, transparent); } .th-ask.term .lab { color: var(--warn); }
+  .th-ask .hint { font-size: var(--fs-xs); color: var(--muted); margin-top: 6px; }
+  .term-line.ask { color: #ffc857; margin: 8px 0; }
   .term-foot { display: flex; align-items: center; gap: 8px; padding: 10px 18px 14px; font-size: var(--fs-xs); color: var(--muted); }
   .term-foot i { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); } .term-foot i.quiet { background: var(--warn); } .term-foot i.off { background: var(--neutral); }
   /* the error strip floats under the header, above every view (Load included), and moves nothing when it appears; × closes it */
@@ -1328,6 +1346,7 @@
     <dt><kbd>↑ ↓ ← →</kbd></dt><dd>Move between cards (on Load: Todo and Doing)</dd>
     <dt><kbd>j</kbd> <kbd>k</kbd></dt><dd>Next / previous card</dd>
     <dt><kbd>Enter</kbd> / <kbd>Space</kbd></dt><dd>Open card</dd>
+    <dt><kbd>t</kbd></dt><dd>Next tab of the open card: Summary, Conversation, Terminal</dd>
     <dt><kbd>e</kbd></dt><dd>Edit the open card's title (<kbd>Enter</kbd> or <kbd>⌘/Ctrl</kbd> + <kbd>Enter</kbd> saves, <kbd>Esc</kbd> cancels)</dd>
     <dt><kbd>⌘/Ctrl</kbd> + <kbd>Enter</kbd></dt><dd>Send the reply you are typing on the open card; <kbd>Enter</kbd> adds the subtask or blocker you typed</dd>
     <dt><kbd>s</kbd></dt><dd>Sound on or off</dd>
@@ -1395,6 +1414,11 @@
     </button>
   </div>
   <div class="p-body" id="p-body"></div>
+  <div class="term-foot" id="p-term-foot" hidden></div>
+  <form id="p-chat-form" class="chat-form" hidden>
+    <input id="p-chat-input" placeholder="Say anything to the agent…" aria-label="Say something to the agent" autocomplete="off">
+    <button class="btn primary">Send</button>
+  </form>
 </aside>
 
 <script>
@@ -2070,6 +2094,7 @@ function renderChat() {
     b.setAttribute('aria-label', chatUnread ? `Talk to ORCH, ${chatUnread} unread` : 'Talk to ORCH');
   });
   renderThread();
+  renderPanelConv(); updatePanelDot();
 }
 
 // --- the agent thread (Nov 6): one conversation with one agent, outside any card ---
@@ -2100,13 +2125,20 @@ let threadTab = 'chat', chatTab = 'chat', termRaw = '', termTimer = null, termCt
 const TERM_POLL_MS = 3000;
 function termLineHtml(e) {
   const at = e.at ? `<span class="at">${esc(e.at.slice(11, 16))}</span>` : '';
-  const mark = e.kind === 'tool' ? '● ' : e.kind === 'user' ? '> ' : e.kind === 'error' ? '✗ ' : '';
+  const mark = e.kind === 'tool' ? '● ' : e.kind === 'user' ? '> ' : e.kind === 'error' ? '✗ ' : e.kind === 'ask' ? '? ' : '';
   return `<div class="term-line ${esc(e.kind)}">${at}${mark}${esc(e.text)}</div>`;
 }
 function termHtml(d) {
-  if (!d || d.missing) return `<div class="term-well"><div class="term-empty">No transcript for ${esc(termCtx?.name || '')} yet${d?.why ? ` (${esc(d.why)})` : ''}. A session registers its transcript when it next claims or starts a card.</div></div>`;
-  return `<div class="term-well">${(d.lines || []).map(termLineHtml).join('') || '<div class="term-empty">Nothing in the transcript yet.</div>'}</div>`;
+  if (!d || d.missing) return `<div class="term-wrap"><div class="term-well"><div class="term-empty">No transcript for ${esc(termCtx?.name || '')} yet${d?.why ? ` (${esc(d.why)})` : ''}. A session registers its transcript when it next claims or starts a card.</div></div></div>`;
+  return `<div class="term-wrap"><div class="term-well">${(d.lines || []).map(termLineHtml).join('') || '<div class="term-empty">Nothing in the transcript yet.</div>'}</div><button type="button" class="btn term-jump" hidden>Jump to latest</button></div>`;
 }
+// the well follows the newest line until you scroll up; then the chip, and your place survives every redraw
+let termRestore = null;
+document.addEventListener('scroll', e => {
+  const w = e.target; if (!(w instanceof Element) || !w.classList.contains('term-well')) return;
+  const j = w.parentElement?.querySelector('.term-jump'); if (j) j.hidden = w.scrollTop + w.clientHeight >= w.scrollHeight - 48;
+}, true);
+document.addEventListener('click', e => { const j = e.target.closest('.term-jump'); if (!j) return; const w = j.parentElement.querySelector('.term-well'); if (w) w.scrollTop = w.scrollHeight; j.hidden = true; });
 function termFoot(d) {
   const f = $(termCtx?.foot || 'term-foot');
   if (!d || d.missing) { f.hidden = true; return; }
@@ -2120,15 +2152,19 @@ async function loadTerm() {
   try {
     const r = await fetch('/api/transcript?agent=' + encodeURIComponent(c.name), { cache: 'no-store' });
     const text = await r.text();
-    if (text === termRaw || termCtx !== c) return;
+    if (termCtx !== c) return;   // the terminal moved on while this answer was in flight
+    const body = $(c.body), had = body.querySelector('.term-well');
+    if (text === termRaw && had) return;   // nothing changed and the well is still drawn
     termRaw = text;
     const d = JSON.parse(text);
-    const body = $(c.body), well = body.querySelector('.term-well');
-    const nearBottom = !well || well.scrollTop + well.clientHeight >= well.scrollHeight - 48;
+    const keep = had ? had.scrollTop : (termRestore?.top || 0);
+    const nearBottom = had ? had.scrollTop + had.clientHeight >= had.scrollHeight - 48 : (termRestore ? termRestore.nearBottom : true);
+    termRestore = null;
     body.innerHTML = termHtml(d);
     termFoot(d);
-    const w = body.querySelector('.term-well');
-    if (w && nearBottom) w.scrollTop = w.scrollHeight;
+    const w = body.querySelector('.term-well'), j = body.querySelector('.term-jump');
+    if (w) { w.scrollTop = nearBottom ? w.scrollHeight : keep; if (j) j.hidden = nearBottom; }
+    if (c.aside === 'panel') noteAsk(d);   // the card panel reads the terminal's last question from the same answer
   } catch (e) { /* the status indicator already reports connectivity */ }
 }
 function stopTerm() { clearInterval(termTimer); termTimer = null; termRaw = ''; if (termCtx) $(termCtx.foot).hidden = true; termCtx = null; }
@@ -2172,8 +2208,8 @@ function closeThread() { touch('slide', false); $('thread').classList.remove('op
 $('thread-close').onclick = closeThread;
 document.addEventListener('click', e => {   // the ways in are redrawn with the board, so the click is caught on the document
   const b = e.target.closest('[data-thread]');
-  if (b) { openThread(b.dataset.thread); return; }
-  const o = e.target.closest('#thread [data-open]');
+  if (b) { if (b.closest('#panel')) setPanelTab('chat'); else openThread(b.dataset.thread); return; }
+  const o = e.target.closest('#thread [data-open], #p-conv [data-open]');
   if (o) openPanel(o.dataset.open);
 });
 $('thread-form').addEventListener('submit', async e => {
@@ -2464,6 +2500,88 @@ function doneHtml(t, parsed, sawText, kids, head, btns) {   // the finished-work
     + `<details class="dfold"><summary>Details<small>${[rest ? 'full note' : '', t.description ? 'description' : '', 'activity', 'prompt'].filter(Boolean).join(' · ')}</small></summary>${rest}`;
 }
 
+// ----- the card panel's tabs (the owner asked, Nov 6): Summary (the card as before), Conversation (its agent's thread, and the question its
+// terminal asked last), Terminal (its agent's session). One click, or t. A card that needs you opens on Conversation; review and
+// done on Summary; otherwise the tab you used last. The dot on Conversation: the agent wrote to you since you last looked, its
+// card asks you something, or its terminal asked something you have not seen.
+const PANEL_TABS = ['summary', 'chat', 'term'];
+let panelTab = 'summary', termAsk = null, askTimer = null, convSeen = {};
+try { convSeen = JSON.parse(localStorage.getItem('convSeen') || '{}') || {}; } catch (e) { convSeen = {}; }
+const panelHasTabs = t => !!(t && t.agent && !t.parent_id);
+function rememberedTab() { try { const v = localStorage.getItem('panelTab'); return PANEL_TABS.includes(v) ? v : 'summary'; } catch (e) { return 'summary'; } }
+function tabFor(t) { return !panelHasTabs(t) ? 'summary' : t.needs_input ? 'chat' : (t.review || t.status === 'done') ? 'summary' : rememberedTab(); }
+function noteAsk(d) {   // the terminal's last question: Claude Code's own question prompt, or the agent's last line when it ends in a question mark
+  const name = lastDetail?.agent; if (!name || !d || d.missing) { termAsk = null; return; }
+  const lines = d.lines || [];
+  let ask = null;
+  for (let i = lines.length - 1; i >= 0; i--) { if (lines[i].kind === 'ask') { ask = lines[i]; break; } }
+  const last = lines[lines.length - 1];
+  if (last && last.kind === 'text' && /\?\s*$/.test(last.text) && (!ask || last.at >= ask.at)) ask = { kind: 'text', text: last.text, at: last.at, options: [] };
+  const next = ask ? { name, text: ask.text, options: ask.options || [], at: ask.at || '' } : null;
+  if (JSON.stringify(next) !== JSON.stringify(termAsk)) { termAsk = next; renderPanelConv(); updatePanelDot(); }
+}
+async function loadAsk() {
+  const name = lastDetail?.agent;
+  if (!openId || !name || !$('panel').classList.contains('open')) return;
+  if (termCtx?.aside === 'panel' && termRaw) { try { noteAsk(JSON.parse(termRaw)); } catch (e) { /* a half answer */ } return; }   // the Terminal tab already has it
+  try { const r = await fetch('/api/transcript?agent=' + encodeURIComponent(name), { cache: 'no-store' }); noteAsk(await r.json()); } catch (e) { /* the status chip reports connectivity */ }
+}
+function seenOf(name) { const v = convSeen[name]; return v && typeof v === 'object' ? v : { seq: 0, ask: '' }; }
+function convDot(t) {
+  if (!panelHasTabs(t)) return false;
+  const seen = seenOf(t.agent);
+  return !!t.needs_input || chatMsgs.some(m => m.seq > seen.seq && sameName(m.sender, t.agent) && toOwner(m)) || !!(termAsk && sameName(termAsk.name, t.agent) && termAsk.at > seen.ask);
+}
+function markConvSeen(t) {
+  if (!panelHasTabs(t)) return;
+  convSeen[t.agent] = { seq: chatMaxSeq, ask: termAsk && sameName(termAsk.name, t.agent) ? termAsk.at : seenOf(t.agent).ask };
+  try { localStorage.setItem('convSeen', JSON.stringify(convSeen)); } catch (e) { /* storage off */ }
+}
+function panelTabsHtml(t) {
+  if (!panelHasTabs(t)) return '';
+  const tab = (id, label, dot) => `<button type="button" role="tab" data-p-tab="${id}" aria-selected="${panelTab === id}">${label}${dot ? '<span class="dot" aria-label="new"></span>' : ''}</button>`;
+  return `<div class="p-tabs" role="tablist" aria-label="Card view">${tab('summary', 'Summary')}${tab('chat', 'Conversation', panelTab !== 'chat' && convDot(t))}${tab('term', 'Terminal')}<span class="key"><kbd>t</kbd> next tab</span></div>`;
+}
+function termAskHtml(name) {
+  if (!termAsk || !sameName(termAsk.name, name)) return '';
+  const chips = termAsk.options.map(o => `<button class="qr-ch opt" type="button" data-say="${esc(o)}" title="Send “${esc(o)}”"><span>${esc(o)}</span></button>`).join('');
+  return `<div class="th-ask term"><div class="lab">Asked in its terminal · ${esc((termAsk.at || '').slice(11, 16))}</div><div class="q">${esc(termAsk.text)}</div>${chips ? `<div class="qr">${chips}</div>` : ''}<div class="hint">Your answer goes to ${esc(name)} as a board message; it reads it at its next wait. To unblock it this minute, answer in its window.</div></div>`;
+}
+function panelConvHtml(t) { return threadBodyHtml(t.agent) + termAskHtml(t.agent); }
+function renderPanelConv() {
+  const box = $('p-conv'); if (!box || !lastDetail || panelTab !== 'chat') return;
+  const body = $('p-body'), nearBottom = body.scrollTop + body.clientHeight >= body.scrollHeight - 48;
+  box.innerHTML = panelConvHtml(lastDetail);
+  if (nearBottom) body.scrollTop = body.scrollHeight;
+}
+function updatePanelDot() {
+  const b = document.querySelector('#p-body [data-p-tab="chat"]'); if (!b || !lastDetail) return;
+  const want = panelTab !== 'chat' && convDot(lastDetail), has = b.querySelector('.dot');
+  if (want && !has) b.insertAdjacentHTML('beforeend', '<span class="dot" aria-label="new"></span>');
+  if (!want && has) has.remove();
+}
+function setPanelTab(tab, remember = true) {
+  if (!PANEL_TABS.includes(tab)) return;
+  panelTab = tab;
+  if (remember) { try { localStorage.setItem('panelTab', tab); } catch (e) { /* storage off */ } }
+  $('panel').classList.toggle('term', tab === 'term');
+  if (tab !== 'term' && termCtx?.aside === 'panel') stopTerm();
+  if (lastDetail) { resetScroll = true; renderPanel(lastDetail); }
+}
+document.addEventListener('click', e => {
+  const b = e.target.closest('#p-body [data-p-tab]'); if (b) { setPanelTab(b.dataset.pTab); return; }
+  const say = e.target.closest('#p-conv [data-say]');
+  if (say && lastDetail?.agent) { say.disabled = true; api('/api/chat', { text: say.dataset.say, to: lastDetail.agent }).then(() => { showError(''); loadChat(); }).catch(err => { showError('Could not send: ' + err.message); say.disabled = false; }); }
+});
+$('p-chat-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const i = $('p-chat-input'), text = i.value.trim(), to = lastDetail?.agent;
+  if (!text || !to) return;
+  i.value = '';
+  try { await api('/api/chat', { text, to }); showError(''); } catch (err) { showError('Could not send: ' + err.message); }
+  loadChat();
+});
+
 function panelHtml(t) {
   const doing = t.status === 'doing', stale = doing && ago(t.updated).min >= STALE_MIN;
   const abandoned = doing && ago(t.updated).min >= (cfg.stale_minutes || DEFAULT_STALE_MIN);
@@ -2519,12 +2637,15 @@ function panelHtml(t) {
   const titleHtml = panelEdit === 'title'
     ? `<form class="ed-form" data-ed="title"><input id="ed-field" class="title" value="${esc(panelDraft).replace(/"/g, '&quot;')}" aria-label="Title" maxlength="200" autocomplete="off">${edActs}</form>`
     : `<h2 class="ed" data-ed-open="title" tabindex="0" role="button" title="Click to edit (e)">${esc(t.title)}<span class="pen">edit</span></h2>`;
+  const tabs = panelTabsHtml(t);
+  if (tabs && panelTab === 'chat') return `${titleHtml}${who}${tabs}<div id="p-conv">${panelConvHtml(t)}</div>`;
+  if (tabs && panelTab === 'term') return `${titleHtml}${who}${tabs}<div id="p-term"></div>`;
   if ((t.status === 'done' || rv) && !t.parent_id) {   // finished work, done or up for review, reads top down: result, what changed, the picture, the ticks; everything else under Details
-    return `${titleHtml}${who}${doneHtml(t, parsed, sawText, kids, head, rv ? btns : '')}
+    return `${titleHtml}${who}${tabs}${doneHtml(t, parsed, sawText, kids, head, rv ? btns : '')}
     ${desc}${tl}${details}${prompt}</details>
     <div class="p-actions">${copy}<button class="btn danger" id="p-del">Delete</button></div>`;
   }
-  return `${titleHtml}${who}${askC}${revC}${prog}${result}
+  return `${titleHtml}${who}${tabs}${askC}${revC}${prog}${result}
     <div class="p-actions">${copy}<button class="btn danger" id="p-del">Delete</button></div>
     ${par}${subsList}${blocked}${tl}${desc}${details}${prompt}`;
 }
@@ -2536,7 +2657,7 @@ async function refreshPanel() {
     if (r.status === 404) { closePanel(true); showError('That task no longer exists.'); return; }
     const text = await r.text();
     const minute = Math.floor(Date.now() / 60000);
-    if (text === detailRaw && minute === panelRefreshTick) return;
+    if (text === detailRaw && (minute === panelRefreshTick || panelTab !== 'summary')) return;
     const ae = document.activeElement, inBody = !!ae?.closest?.('#p-body');
     if (text === detailRaw && (inBody || selectionInside($('p-body')))) return;   // the minute tick waits: a focused control, an armed Delete, a copied label, selected text all stay
     if (text !== detailRaw && inBody && /^(SELECT|INPUT)$/.test(ae.tagName)) return;   // a change waits while a picker or field is in use; the next poll brings it
@@ -2561,8 +2682,17 @@ function renderPanel(t) {
     }
     const keep = resetScroll ? 0 : $('p-body').scrollTop, fid = document.activeElement?.id;
     resetScroll = false;
+    if (!panelHasTabs(t) && panelTab !== 'summary') { panelTab = 'summary'; $('panel').classList.remove('term'); if (termCtx?.aside === 'panel') stopTerm(); }   // a subtask or an unheld card: the plain view
+    const oldWell = $('p-body').querySelector('.term-well');
+    if (oldWell) termRestore = { top: oldWell.scrollTop, nearBottom: oldWell.scrollTop + oldWell.clientHeight >= oldWell.scrollHeight - 48 };   // the redraw keeps your place
     $('p-body').innerHTML = panelHtml(t);
     $('p-body').scrollTop = keep;
+    $('p-chat-form').hidden = panelTab !== 'chat' || !panelHasTabs(t);
+    if (panelTab === 'chat' && panelHasTabs(t)) { $('p-chat-input').placeholder = `Say anything to ${t.agent}…`; $('p-chat-input').setAttribute('aria-label', `Say something to ${t.agent}`); markConvSeen(t); }
+    if (panelTab === 'term' && panelHasTabs(t)) {
+      if (termCtx?.aside === 'panel' && termCtx.name === t.agent) { termRaw = ''; loadTerm(); }   // the body was redrawn under it: draw the well again, in place
+      else startTerm({ name: t.agent, aside: 'panel', body: 'p-term', foot: 'p-term-foot' });
+    } else $('p-term-foot').hidden = true;
     if (fid === 'p-sub-add' || fid === 'p-block-add') $(fid)?.focus({ preventScroll: true });   // the add boxes keep the hand that was on them
     document.querySelectorAll('#p-body .te-text').forEach(el => {   // offer "More" only on entries that are actually cut off
       const btn = el.nextElementSibling;
@@ -2588,7 +2718,12 @@ async function loadPrompt() {
 function openPanel(id, quiet) {
   if (!quiet && (openId !== id || !$('panel').classList.contains('open'))) touch('open', agentOf(id));
   if (!quiet && (openId !== id || !$('panel').classList.contains('open'))) futSound('open');   // From the future's own sound, only while that look and its row are on
-  if (openId !== id) { detailRaw = ''; promptText = ''; promptOpen = false; descOpen = false; actAll = false; replyOpen = false; replyDraft = ''; openEntries = new Set(); resetScroll = true; panelEdit = null; panelDraft = ''; }
+  if (openId !== id) {
+    detailRaw = ''; promptText = ''; promptOpen = false; descOpen = false; actAll = false; replyOpen = false; replyDraft = ''; openEntries = new Set(); resetScroll = true; panelEdit = null; panelDraft = '';
+    termAsk = null; if (termCtx?.aside === 'panel') stopTerm();
+    panelTab = tabFor(byId.get(id)); $('panel').classList.toggle('term', panelTab === 'term');   // where this card opens: its ask, its state, else your last tab
+    clearInterval(askTimer); askTimer = setInterval(loadAsk, 5000); setTimeout(loadAsk, 300);
+  }
   lastFocus = document.activeElement;
   $('later').classList.remove('open'); $('chat').classList.remove('open');   // a card opens alone: the drawers go
   $('thread').classList.remove('open');
@@ -2614,6 +2749,8 @@ function closePanel(skipFocus, quiet) {
   openId = null; detailRaw = ''; panelEdit = null; panelDraft = '';
   history.replaceState(null, '', location.pathname);
   $('panel').classList.remove('open'); document.body.classList.remove('panel-open');
+  $('p-chat-form').hidden = true; $('p-term-foot').hidden = true; clearInterval(askTimer); askTimer = null; termAsk = null;
+  if (termCtx?.aside === 'panel') stopTerm();
   if (!skipFocus) lastFocus?.focus?.();
 }
 $('p-close').onclick = () => closePanel();
@@ -3693,6 +3830,7 @@ document.addEventListener('keydown', e => {
   if ('123'.includes(e.key) && e.key && !SOLO) { e.preventDefault(); goView(+e.key - 1); return; }   // 1 Board, 2 By agent, 3 Load: the same ring, by number; the view you are on stays as it is
   if (e.key === 'm') { toggleMix(); return; }
   if (e.key === 's') { toggleSound(); return; }   // sound on or off, on every view
+  if (e.key === 't' && openId && panelHasTabs(lastDetail)) { e.preventDefault(); setPanelTab(PANEL_TABS[(PANEL_TABS.indexOf(panelTab) + 1) % PANEL_TABS.length]); return; }   // the open card's next tab
   if (e.key === 'c') { copyPromptByKey(); return; }   // any card, on every view
   if (e.key === 'd') { markDoneByKey(); return; }     // the same card as c
   if (e.key === 'u') { undoByKey(); return; }
