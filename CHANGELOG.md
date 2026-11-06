@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### The Terminal tab: the raw session, one click away (Nov 6)
+- **An agent's panel has two tabs**: Conversation (as before) and **Terminal**, the session's transcript drawn in a dark mono well as it scrolls: what you typed, the agent's text, each tool call as one muted line, a tool error in red, with the time of each. It polls the board every 3 s only while the tab is showing, redraws only when something changed, and follows the end unless you scrolled up.
+- **The foot says how fresh it is**: last line n ago (amber when quiet), the file and its size, and that it is read only. A session that has not registered a transcript yet gets a plain line saying so and why.
+- **Read only in this version**: the composer hides on the Terminal tab; nothing goes into the session from here. Typing into it and starting sessions from the board come later.
+
 ### Talk to one agent, outside any card (Nov 6)
 - **A thread per agent.** Press the agent's pill at the top of an open card, or an agent's name at the head of its lane on By agent, and a panel opens on the right with that agent's conversation: what it said on the board, what you said to it, and a composer. The chip on a card keeps its job (the filter).
 - **The head says where it is**: state (working, ask, review, quiet, idle), last update, the card it is on with a link, and whether that card waits on you or is up for review.

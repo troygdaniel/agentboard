@@ -1018,6 +1018,25 @@
   .p-who .agent-pill[data-thread]:hover .name { text-decoration: underline; text-underline-offset: 2px; }
   .col.acol h2 .nm[data-thread] { background: none; border: 0; padding: 0; font: inherit; color: inherit; cursor: pointer; text-align: left; }
   .col.acol h2 .nm[data-thread]:hover { text-decoration: underline; text-underline-offset: 2px; }
+  /* the Terminal tab (Nov 6): the same panel, the raw session read as it scrolls. Read only in this version */
+  #thread .p-head { flex-wrap: wrap; }
+  .th-tabs { display: flex; gap: 18px; width: 100%; margin-top: 8px; font-size: var(--fs-md); }
+  .th-tabs button { background: none; border: 0; padding: 6px 0 8px; font: inherit; color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; }
+  .th-tabs button[aria-selected="true"] { color: var(--text); font-weight: 600; border-bottom-color: var(--text); }
+  .th-tabs button:hover { color: var(--text); }
+  #thread.term #thread-body { padding: 14px 14px 0; }
+  #thread.term #thread-form { display: none; }   /* nothing goes into the session from here yet */
+  .term-well { flex: 1; min-height: 0; border-radius: 12px; background: #0f1722; color: #d6e9ff; font: var(--fs-sm)/1.6 ui-monospace, Menlo, monospace; padding: 14px 16px; overflow-y: auto; overflow-wrap: anywhere; }
+  .term-well::-webkit-scrollbar { width: 6px; } .term-well::-webkit-scrollbar-thumb { background: #1c2a3a; border-radius: 3px; }
+  .term-line { margin: 0 0 2px; white-space: pre-wrap; }
+  .term-line.tool { color: #7f95ad; }
+  .term-line.text { color: #d6e9ff; margin: 8px 0; }
+  .term-line.user { color: #5ee7ff; margin: 8px 0; }
+  .term-line.error { color: #ff6b6b; padding-left: 14px; }
+  .term-line .at { color: #4b5f75; margin-right: 8px; }
+  .term-empty { color: #7f95ad; padding: 20px 4px; }
+  .term-foot { display: flex; align-items: center; gap: 8px; padding: 10px 18px 14px; font-size: var(--fs-xs); color: var(--muted); }
+  .term-foot i { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); } .term-foot i.quiet { background: var(--warn); } .term-foot i.off { background: var(--neutral); }
   /* the error strip floats under the header, above every view (Load included), and moves nothing when it appears; × closes it */
   #error { display: none; position: fixed; left: 50%; top: calc(var(--hdr-b, 56px) + 10px); transform: translateX(-50%); z-index: 36; align-items: center; gap: 10px;
     max-width: calc(100vw - 32px); padding: 8px 10px 8px 14px; border-radius: 10px; color: var(--warn); font-size: var(--fs-md);
@@ -1353,8 +1372,10 @@
 
 <aside id="thread" aria-label="Agent thread">
   <div class="p-head"><div class="th-head" id="thread-head"></div>
-    <button class="icon-btn" id="thread-close" aria-label="Close"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button></div>
+    <button class="icon-btn" id="thread-close" aria-label="Close"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>
+    <div class="th-tabs" role="tablist" aria-label="View"><button type="button" role="tab" id="th-tab-chat" aria-selected="true" data-th-tab="chat">Conversation</button><button type="button" role="tab" id="th-tab-term" aria-selected="false" data-th-tab="term">Terminal</button></div></div>
   <div class="p-body" id="thread-body"></div>
+  <div class="term-foot" id="term-foot" hidden></div>
   <form id="thread-form" class="chat-form">
     <input id="thread-input" placeholder="Say anything to the agent…" aria-label="Say something to the agent" autocomplete="off">
     <button class="btn primary">Send</button>
@@ -2046,23 +2067,71 @@ function threadBodyHtml(name) {
   const empty = !msgs.length && !asks.length ? `<div class="empty">Nothing said yet. What you type here goes to ${esc(name)} as a message outside any card; it reads it at its next wait and answers here.</div>` : '';
   return msgs.join('') + asks.join('') + empty;
 }
+// The Terminal tab (Nov 6): the session's transcript, tailed by the board (/api/transcript) and drawn as it scrolls. Read only.
+let threadTab = 'chat', termRaw = '', termTimer = null;
+const TERM_POLL_MS = 3000;
+function termLineHtml(e) {
+  const at = e.at ? `<span class="at">${esc(e.at.slice(11, 16))}</span>` : '';
+  const mark = e.kind === 'tool' ? '● ' : e.kind === 'user' ? '> ' : e.kind === 'error' ? '✗ ' : '';
+  return `<div class="term-line ${esc(e.kind)}">${at}${mark}${esc(e.text)}</div>`;
+}
+function termHtml(d) {
+  if (!d || d.missing) return `<div class="term-well"><div class="term-empty">No transcript for ${esc(threadName || '')} yet${d?.why ? ` (${esc(d.why)})` : ''}. A session registers its transcript when it next claims or starts a card.</div></div>`;
+  return `<div class="term-well">${(d.lines || []).map(termLineHtml).join('') || '<div class="term-empty">Nothing in the transcript yet.</div>'}</div>`;
+}
+function termFoot(d) {
+  const f = $('term-foot');
+  if (!d || d.missing) { f.hidden = true; return; }
+  const m = d.mtime ? ago(d.mtime) : null, quiet = m && m.min >= STALE_MIN;
+  f.hidden = false;
+  f.innerHTML = `<i class="${quiet ? 'quiet' : ''}" aria-hidden="true"></i>${m ? `last line ${esc(m.text)}` : ''} · ${esc(d.file || '')} · ${Math.round((d.size || 0) / 1024)} KB · read only, the same session as the window on your desk`;
+}
+async function loadTerm() {
+  if (!threadName || threadTab !== 'term' || !$('thread').classList.contains('open')) return;
+  try {
+    const r = await fetch('/api/transcript?agent=' + encodeURIComponent(threadName), { cache: 'no-store' });
+    const text = await r.text();
+    if (text === termRaw) return;
+    termRaw = text;
+    const d = JSON.parse(text);
+    const body = $('thread-body'), well = body.querySelector('.term-well');
+    const nearBottom = !well || well.scrollTop + well.clientHeight >= well.scrollHeight - 48;
+    body.innerHTML = termHtml(d);
+    termFoot(d);
+    const w = body.querySelector('.term-well');
+    if (w && nearBottom) w.scrollTop = w.scrollHeight;
+  } catch (e) { /* the status indicator already reports connectivity */ }
+}
+function setThreadTab(tab) {
+  threadTab = tab === 'term' ? 'term' : 'chat';
+  $('thread').classList.toggle('term', threadTab === 'term');
+  document.querySelectorAll('[data-th-tab]').forEach(b => b.setAttribute('aria-selected', String(b.dataset.thTab === threadTab)));
+  clearInterval(termTimer); termTimer = null; termRaw = '';
+  $('term-foot').hidden = true;
+  if (threadTab === 'term') { $('thread-body').innerHTML = termHtml(null); loadTerm(); termTimer = setInterval(loadTerm, TERM_POLL_MS); }
+  else renderThread();
+}
+document.addEventListener('click', e => { const b = e.target.closest('[data-th-tab]'); if (b) setThreadTab(b.dataset.thTab); });
 function renderThread() {
   if (!threadName || !$('thread').classList.contains('open')) return;
   $('thread-head').innerHTML = threadHeadHtml(threadName);
+  $('thread-input').placeholder = `Say anything to ${threadName}…`;
+  $('thread-input').setAttribute('aria-label', `Say something to ${threadName}`);
+  if (threadTab === 'term') return;   // the terminal redraws on its own poll, never under the conversation's
   const body = $('thread-body');
   const nearBottom = body.scrollTop + body.clientHeight >= body.scrollHeight - 48;
   body.innerHTML = threadBodyHtml(threadName);
   if (nearBottom) body.scrollTop = body.scrollHeight;
-  $('thread-input').placeholder = `Say anything to ${threadName}…`;
-  $('thread-input').setAttribute('aria-label', `Say something to ${threadName}`);
 }
 function openThread(name) {
   if (!name) return;
+  const same = threadName === name && $('thread').classList.contains('open');
   setSide('thread'); touch('slide', true); threadName = name;
-  $('thread').classList.add('open'); renderThread();
+  $('thread').classList.add('open');
+  if (!same) setThreadTab('chat'); else renderThread();   // another agent, or a fresh open: the conversation first
   focusSoon(() => $('thread-input'));
 }
-function closeThread() { touch('slide', false); $('thread').classList.remove('open'); threadName = null; }
+function closeThread() { touch('slide', false); $('thread').classList.remove('open'); threadName = null; clearInterval(termTimer); termTimer = null; }
 $('thread-close').onclick = closeThread;
 document.addEventListener('click', e => {   // the ways in are redrawn with the board, so the click is caught on the document
   const b = e.target.closest('[data-thread]');
