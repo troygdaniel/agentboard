@@ -9,6 +9,8 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 from . import boards, hud
+from . import hooks as hookslib
+from . import transcript as transcriptlib
 from . import reports, runs, summary, voice
 from . import markdown as mdlib
 from . import prompt as promptlib
@@ -248,6 +250,12 @@ def make_handler(default_store, port):
                 after = q.get("after", [None])[0]
                 after = int(after) if after and after.lstrip("-").isdigit() else None
                 self._send(200, {"messages": self.store.chat_list(after=after, limit=200), "agents": self.store.chat_agents()})
+            elif url.path == "/api/transcript":
+                # the session's transcript for one agent, read only, tailed from the file its session registered on claim/start
+                name = (q.get("agent") or [""])[0]
+                out = transcriptlib.read(hookslib.transcript_for(self.store.dir, name)) if name else {"lines": [], "missing": True, "why": "no agent named"}
+                out["agent"] = name
+                self._send(200, out)
             elif url.path == "/api/orch-prompt":
                 text = promptlib.build_orch_prompt(self.store.load(), self.store.dir, port=port)
                 self._send(200, {"prompt": text})
