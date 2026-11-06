@@ -482,6 +482,33 @@ before (a replayed request is ignored), with an hourly cap; the replies travel i
 text and each reply, about a cent each in the US and Canada; check your plan). Nothing is texted to you unprompted: outbound "a card is ready for review" notices are not built.
 Details and what it can and cannot do: [SECURITY.md](SECURITY.md).
 
+## Pull your texts
+
+Text a Twilio number from your phone, then turn the texts into Todo cards **only when you ask**: `agentboard pull-texts`, or the **Pull texts** button in the board's header.
+Twilio already keeps every inbound text (13 months by default), so there is no server, database, tunnel or webhook: one outbound, read-only call to Twilio's Messages API
+when you press the button. Nothing polls and nothing runs by itself; the board never reads a text unless you pull.
+
+    # .agentboard/config.toml
+    [texts]
+    enabled = true
+    number = "+16475550100"          # the Twilio number you text
+    allowed = ["+14165550123"]       # your own number (defaults to [sms] allowed); a text from any other number is counted and ignored
+
+    export AGENTBOARD_TWILIO_ACCOUNT_SID=AC...     # in your shell or launchd plist, never in the board or the repo
+    export AGENTBOARD_TWILIO_AUTH_TOKEN=...
+    agentboard pull-texts --dry-run                # prints the cards it would make; writes nothing
+    agentboard pull-texts                          # makes them, at the top of Todo
+
+- **A text is data, never instructions.** It can only become a card: the first line is the title, the rest is the description, and the card wears a **From a text** chip. A text that says
+  "done everything" or "deploy now" is just a card with that title; it never runs a command, claims, deploys, spends or changes a setting.
+- **Once per text.** The board remembers where the last pull got to (`.agentboard/texts-state.json`: a day and the ids already handled, no secrets) and each card carries its text's id, so
+  a text never becomes a card twice, even if you delete the card or the state file. A first pull looks back 7 days (`--since YYYY-MM-DD` to go further); one pull makes at most 20 cards (`--max N`), the rest wait for the next pull.
+- **`--split`** turns a text of bullet or numbered lines (`- call the lawyer`, `2) buy milk`) into one card per line. It is plain line splitting, off by default, and `--dry-run` shows what it would do. There is no model in the loop: a text is never handed to one.
+- **Off until you set it up, and hard-off on a work machine.** `AGENTBOARD_NO_SMS=1` makes it refuse (dry runs and the button included); the button only appears once `[texts] enabled = true`.
+- **Cost:** the number is about US$1.15 a month and each inbound text about US$0.017 to 0.04 with carrier fees (Twilio's Canada price page; check it, prices change).
+  Reading the log costs nothing. If Twilio's log ever proves too short or too dear, a tiny hosted inbox is the fallback; it needs a public endpoint, which this does not.
+- It sits beside the live webhook above (`agentboard sms serve`), which is automatic and needs a tunnel; pulling is the manual opposite and the two can share the same number list.
+
 ## Prompts and context providers (optional)
 
 Todo cards carry a copyable prompt that makes any agent claim the card and report progress. Prompts are assembled from
@@ -497,6 +524,7 @@ Providers run only when a task lists one with `--ctx` and a prompt is built.
 | `tail [-n LINES] [--interval SECS]` | watch activity live in the terminal — same feed as the HUD, for CLI-only sessions |
 | `run CARD [--name N] [--cwd DIR] [--budget USD] [--max-minutes M] [--detach]`, `runs [--kill CARD]` | run a card with a one-shot `claude -p`; list and stop runs |
 | `sms serve [--port N]`, `sms try TEXT` | the text-message endpoint (opt-in); run a command text locally |
+| `pull-texts [--dry-run] [--since DAY] [--max N] [--split]` | turn the texts you sent your Twilio number into Todo cards (manual; opt-in) |
 | `answer ID [--wait] [--timeout S]` | print the reply you left on a card (agents use it to read your answer) |
 | `reports [--purge] [--hours N]` | list card reports; remove the old ones now |
 | `report [--date YYYY-MM-DD]` | markdown recap of what got done that day, by agent — for a standup or daily log |

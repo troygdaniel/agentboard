@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Pull your texts into cards, only when you ask (Nov 6)
+- **`agentboard pull-texts`, or the new Pull texts button in the header, turns the texts you sent your Twilio number into Todo cards.** Twilio already keeps every inbound text, so it is one read-only call to its Messages API when you press it: no server, no tunnel, no webhook, no polling. `--dry-run` prints the cards without making them; `--since`, `--max` and `--split` (a text of bullet lines becomes one card per line) are optional.
+- **A text is data**: it only becomes a card (first line as the title, the rest as the description) marked **From a text**; it never runs a command, claims, deploys, spends or changes a setting. Only your own number counts; any other sender is counted and ignored.
+- **Once per text**: the board keeps a small cursor (`.agentboard/texts-state.json`) and each card carries its text's id, so a text never becomes a card twice. The account SID and token come from environment variables only. Off until `[texts]` is set up; `AGENTBOARD_NO_SMS=1` refuses it entirely.
+- The live webhook (`agentboard sms serve`) is unchanged. Cards can now carry a `source`; the store refuses a second card with the same source key.
+
 ### The ORCH drawer: talk to ORCH from the Todo column (Nov 6)
 - **The Chat button left the header.** An **ORCH** button sits in the Todo column's head (Board, By agent and Load alike); press it and a drawer slides out from the left over Todo. It is the chat, read as a conversation with ORCH: what ORCH said, what you said to ORCH or to everyone, the board's notices. Typing there addresses ORCH; `@AGENT-2 …` still reaches someone else. The unread count rides the button.
 - **The drawer's head is the back arrow and ORCH, nothing else.** The whole channel (agents' own lines) and the agents-talk setting stay in the CLI: `agentboard chat tail`, `agentboard chat agents on`. Approvals and details still show on the lines the drawer carries.

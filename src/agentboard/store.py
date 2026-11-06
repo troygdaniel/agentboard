@@ -151,11 +151,14 @@ class Store:
         raise BoardError(f"no such task: {task_id}")
 
     def add(self, title, description="", status=None, ctx=None, task_id=None, blocked_by=None,
-            parent_id=None):
-        """Add a task. With parent_id it becomes a subtask: it follows its parent's column and owner (one level only)."""
+            parent_id=None, source=None):
+        """Add a task. With parent_id it becomes a subtask: it follows its parent's column and owner (one level only).
+        `source` says where the card came from ({"kind": "text", "key": ..., "at": ...}); a second card with the same source key is refused,
+        so a pull that runs twice (or twice at once) can never make the same card twice."""
         if status is not None and status not in STATUSES:
             raise BoardError(f"status must be one of {STATUSES}")
         title = _clean_title(title)
+        source = _clean_source(source)
         if not (isinstance(ctx or [], list) and all(isinstance(c, str) for c in ctx or [])):
             raise BoardError("ctx must be a list of strings")
         with self.transaction() as tasks:
@@ -168,6 +171,8 @@ class Store:
             tid = task_id or _unique_id(title, {t["id"] for t in tasks})
             if any(t["id"] == tid for t in tasks):
                 raise BoardError(f"task id already exists: {tid}")
+            if source and source.get("key") and any((t.get("source") or {}).get("key") == source["key"] for t in tasks):
+                raise BoardError(f"already on the board: {source['key']}")
             if blocked_by:
                 missing = [bid for bid in blocked_by if not any(x["id"] == bid for x in tasks)]
                 if missing:
@@ -184,13 +189,15 @@ class Store:
                 "created": _now(),
                 "updated": _now(),
             }
+            if source:
+                task["source"] = source
             if blocked_by:
                 task["blocked_by"] = list(blocked_by)
             if parent:
                 task["parent_id"] = parent["id"]
                 if parent.get("agent") and status == "doing":
                     task["agent"] = parent["agent"]
-            _log(task, f"Added to {status}")
+            _log(task, f"Added to {status}" + (" from a text" if source and source.get("kind") == "text" else ""))
             if parent or status not in ("todo", "backlog"):
                 tasks.append(task)
             else:   # a new idea goes to the top of Todo or Backlog; the column order is the list order, so move/drag keep working
@@ -912,6 +919,22 @@ def _log(t, text, by=None):
         entry["by"] = by
     t.setdefault("log", []).append(entry)
     del t["log"][:-LOG_MAX]
+
+
+def _clean_source(source):
+    """Where a card came from: a small dict of short strings and numbers, or None."""
+    if not source:
+        return None
+    if not isinstance(source, dict):
+        raise BoardError("source must be an object")
+    out = {}
+    for k in ("kind", "key", "sid", "at"):
+        if isinstance(source.get(k), str) and source[k]:
+            out[k] = source[k][:80]
+    for k in ("part", "of"):
+        if isinstance(source.get(k), int) and not isinstance(source[k], bool):
+            out[k] = source[k]
+    return out or None
 
 
 def _clean_title(title):

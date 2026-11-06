@@ -9,7 +9,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 from . import boards, hud
-from . import reports, runs, summary, voice
+from . import reports, runs, summary, texts, voice
 from . import markdown as mdlib
 from . import prompt as promptlib
 from .store import BoardError, Store, subtask_counts, subtask_list
@@ -227,6 +227,7 @@ def make_handler(default_store, port):
                 conf = _config(self.store)
                 colors = conf.get("agent_colors")   # [agent_colors] AGENT-1 = "#2563eb": overrides the palette slot a name gets
                 self._send(200, {"dispatch": bool(conf.get("ui", {}).get("dispatch", True)), "owner": self.store.owner,
+                                  "texts": texts.available(self.store.dir),   # shows the Pull texts button; off until [texts] is switched on
                                   "stale_minutes": hud.stale_minutes(conf),
                                   "agent_colors": {str(k): v for k, v in colors.items() if isinstance(v, str)} if isinstance(colors, dict) else {}})
             elif url.path == "/api/task":
@@ -313,6 +314,10 @@ def make_handler(default_store, port):
                     prev_before = self.store.next_sibling(body["id"])
                     self.store.delete(body["id"])
                     self._send(200, {"ok": True, "prev": prev, "prev_before": prev_before, "prev_kids": prev_kids})
+                elif path == "/api/pull-texts":
+                    # a button the owner pressed: the only way the board ever reads texts, and never by itself
+                    res = texts.pull(self.store)
+                    self._send(200, {"line": texts.summary_line(res), "made": len(res["created"])})
                 elif path == "/api/reply":
                     if not isinstance(body["text"], str):
                         raise BoardError("text must be a string")
