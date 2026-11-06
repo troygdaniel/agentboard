@@ -32,13 +32,20 @@ def read_sessions(board_dir):
         return {}
 
 
-def remember_session(board_dir, name, session_id=None):
-    """Keep this session's name against its id, so the hook can post as it. Silent when there is no id or the dir is missing."""
+def remember_session(board_dir, name, session_id=None, transcript=None):
+    """Keep this session's name against its id, so the hook can post as it, and the path of its transcript (given, or found
+    from the id) so the board can show the session. Silent when there is no id or the dir is missing."""
+    from . import transcript as transcriptlib
     sid = session_id or os.environ.get(SESSION_ENV)
     if not sid or not name or name == owner_name(board_dir):
         return None
     d = read_sessions(board_dir)
-    d[sid] = {"name": name, "at": datetime.now().strftime("%Y-%m-%dT%H:%M:%S")}
+    rec = {"name": name, "at": datetime.now().strftime("%Y-%m-%dT%H:%M:%S")}
+    path = transcriptlib.find_transcript(sid, transcript)
+    old = d.get(sid) if isinstance(d.get(sid), dict) else {}
+    if path or old.get("transcript"):
+        rec["transcript"] = path or old["transcript"]   # a path once found is kept until a better one comes
+    d[sid] = rec
     if len(d) > MAX_SESSIONS:   # oldest out
         for k in sorted(d, key=lambda k: d[k].get("at", ""))[: len(d) - MAX_SESSIONS]:
             d.pop(k, None)
@@ -47,6 +54,13 @@ def remember_session(board_dir, name, session_id=None):
     except OSError:
         return None
     return sid
+
+
+def transcript_for(board_dir, name):
+    """The transcript path of the newest session that gave itself `name` (case does not matter), or None."""
+    recs = [r for r in read_sessions(board_dir).values() if isinstance(r, dict) and str(r.get("name", "")).lower() == str(name or "").lower() and r.get("transcript")]
+    recs.sort(key=lambda r: str(r.get("at", "")))
+    return recs[-1]["transcript"] if recs else None
 
 
 def session_name(board_dir, session_id):

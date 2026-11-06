@@ -724,7 +724,7 @@ def cmd_spawn(a):
 
 
 def cmd_start(a):
-    hookslib.remember_session(_store().dir, _agent_name(a))
+    hookslib.remember_session(_store().dir, _agent_name(a), transcript=a.transcript)
     t, created = _store().start_card(a.title, _agent_name(a), None,   # --color is accepted and ignored
                                      a.description or "", a.id, blocked_by=a.blocked_by, force=a.force,
                                      parent_id=a.parent)
@@ -966,7 +966,7 @@ def cmd_rm(a):
 def cmd_claim(a):
     name = _agent_name(a)
     s = _store()
-    hookslib.remember_session(s.dir, name)
+    hookslib.remember_session(s.dir, name, transcript=a.transcript)
     t = s.claim(a.id, name, force=a.force)   # --color is accepted and ignored
     print(f"claimed {t['id']} as {name}")
     tasks = s.load()
@@ -1385,6 +1385,7 @@ def main(argv=None):
     sp.add_argument("-d", "--description")
     sp.add_argument("--name", help="your session name (or $AGENTBOARD_NAME)")
     sp.add_argument("--color", help="ignored: the board colours an agent by name")
+    sp.add_argument("--transcript", metavar="PATH", help="this session's transcript .jsonl, for the board's Terminal tab (default: found from $CLAUDE_CODE_SESSION_ID, or $AGENTBOARD_TRANSCRIPT)")
     sp.add_argument("--id")
     sp.add_argument("--parent", metavar="ID", help="start it as a subtask of that task (one level deep)")
     sp.add_argument("--blocked-by", action="append", dest="blocked_by", metavar="ID",
@@ -1402,6 +1403,7 @@ def main(argv=None):
     sp.add_argument("id")
     sp.add_argument("--name", help="your session name (or $AGENTBOARD_NAME)")
     sp.add_argument("--color", help="ignored: the board colours an agent by name")
+    sp.add_argument("--transcript", metavar="PATH", help="this session's transcript .jsonl, for the board's Terminal tab (default: found from $CLAUDE_CODE_SESSION_ID, or $AGENTBOARD_TRANSCRIPT)")
     sp.add_argument("--force", action="store_true")
     sp = add("update", cmd_update, "agent: report progress")
     sp.add_argument("id")

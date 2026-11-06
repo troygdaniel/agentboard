@@ -8,6 +8,11 @@
 - **Its open question sits in the thread** with the card's own answer chips and an Open the card button; the answer lands on the card as before.
 - **A message there wakes the agent.** `agentboard answer <id> --wait` now also returns when you send the card's agent a message on the board, prints it (with "message from … on the board" on stderr, and how to answer), and marks it read; a card reply still comes first. Every card prompt and `agentboard instructions` say so, and tell the agent to answer with `chat send … --to <you>`.
 
+### The session's transcript, registered and served read only (Nov 6)
+- **`claim` and `start` record where the session's transcript is**: found from `$CLAUDE_CODE_SESSION_ID` under `~/.claude/projects`, or given with `--transcript <path>` / `$AGENTBOARD_TRANSCRIPT`; kept in `.agentboard/sessions.json` against the session, newest per name.
+- **`/api/transcript?agent=<name>`** tails that file (the last 1.5 MB) and returns the last 300 conversation lines: what the person typed, the agent's text, each tool call as one muted line (`Read src/x.py`, `Bash Run the tests`), a tool error's first line. Thinking, tool output and subagent lines never show. Read only, 127.0.0.1 only, and it fails soft: no file, no registration or a path outside `~/.claude/projects` gives no lines and says why.
+- Groundwork for the Terminal tab; no UI in this change.
+
 ### The ORCH drawer: talk to ORCH from the Todo column (Nov 6)
 - **The Chat button left the header.** An **ORCH** button sits in the Todo column's head (Board, By agent and Load alike); press it and a drawer slides out from the left over Todo. It is the chat, read as a conversation with ORCH: what ORCH said, what you said to ORCH or to everyone, the board's notices. Typing there addresses ORCH; `@AGENT-2 …` still reaches someone else. The unread count rides the button.
 - **The drawer's head is the back arrow and ORCH, nothing else.** The whole channel (agents' own lines) and the agents-talk setting stay in the CLI: `agentboard chat tail`, `agentboard chat agents on`. Approvals and details still show on the lines the drawer carries.
