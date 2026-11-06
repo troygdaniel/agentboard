@@ -2643,15 +2643,17 @@ function panelHtml(t) {
     : `<h2 class="ed" data-ed-open="title" tabindex="0" role="button" title="Click to edit (e)">${esc(t.title)}<span class="pen">edit</span></h2>`;
   const tabs = panelTabsHtml(t);
   // Conversation and Terminal wear the compact head the side panel had (avatar, name, state, the card it is on): the content gets the room
+  // (and Summary too, the owner asked: one head on every tab of a held card; the title form still takes its place while you edit)
   const agentHead = tabs ? `<div class="th-head p-th">${threadHeadHtml(t.agent)}</div>` : '';
+  const headTop = tabs ? (panelEdit === 'title' ? titleHtml : agentHead) : `${titleHtml}${who}`;
   if (tabs && panelTab === 'chat') return `${agentHead}${tabs}<div id="p-conv">${panelConvHtml(t)}</div>`;
   if (tabs && panelTab === 'term') return `${agentHead}${tabs}<div id="p-term"></div>`;
   if ((t.status === 'done' || rv) && !t.parent_id) {   // finished work, done or up for review, reads top down: result, what changed, the picture, the ticks; everything else under Details
-    return `${titleHtml}${who}${tabs}${doneHtml(t, parsed, sawText, kids, head, rv ? btns : '')}
+    return `${headTop}${tabs}${doneHtml(t, parsed, sawText, kids, head, rv ? btns : '')}
     ${desc}${tl}${details}${prompt}</details>
     <div class="p-actions">${copy}<button class="btn danger" id="p-del">Delete</button></div>`;
   }
-  return `${titleHtml}${who}${tabs}${askC}${revC}${prog}${result}
+  return `${headTop}${tabs}${askC}${revC}${prog}${result}
     <div class="p-actions">${copy}<button class="btn danger" id="p-del">Delete</button></div>
     ${par}${subsList}${blocked}${tl}${desc}${details}${prompt}`;
 }
