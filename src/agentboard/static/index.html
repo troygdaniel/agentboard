@@ -537,7 +537,7 @@
       var(--bg);
     background-attachment: fixed; }
   #hud.open { display: block; }
-  body:has(#hud.open) :is(#panel, #later, #chat) { z-index: 32; }   /* Later and Chat are in the header Load keeps on screen: they open over it */
+  body:has(#hud.open) :is(#panel, #later, #chat, #thread) { z-index: 32; }   /* Later and Chat are in the header Load keeps on screen: they open over it */
   .hud {
     /* Nov 3: Load follows the theme like Board and By agent. Its tokens come from the page's (the dark theme maps its status
        colours onto the neons, so dark looks as it did; light gets the board's light set) */
@@ -713,14 +713,14 @@
   body.solo .hud { max-width: none; border: 0; border-radius: 0; }
   /* detail panel */
   .card { cursor: pointer; }
-  #panel, #later, #chat {
+  #panel, #later, #chat, #thread {
     position: fixed; top: 0; right: 0; bottom: 0; width: min(640px, 94vw); z-index: 10;
     background: var(--panel), var(--bg); border-left: 1px solid var(--line); box-shadow: inset 1px 0 0 var(--panel-hi), -12px 0 40px rgba(0,0,0,.12);
     transform: translateX(100%); visibility: hidden;
     transition: transform .2s ease, visibility .2s, background-color .18s ease, border-color .18s ease;
     display: flex; flex-direction: column;
   }
-  #panel.open, #later.open, #chat.open { transform: none; visibility: visible; }
+  #panel.open, #later.open, #chat.open, #thread.open { transform: none; visibility: visible; }
   /* The header never scrolls away: it sits above .p-body (the scroller) in the panel's flex column, so the status
      action in it ("Mark done" etc.) stays reachable however long the review body is. */
   .p-head { display: flex; align-items: center; gap: 10px; padding: 18px 28px; border-bottom: 1px solid var(--line); flex: none; }
@@ -837,7 +837,7 @@
   .chip.by { color: var(--err); }
   .tl .fmt li { position: static; padding: 0; font-size: inherit; } .tl .fmt li::before, .tl .fmt li::after { content: none; }
   .btn.danger:hover { color: var(--warn); border-color: var(--warn); }
-  @media (prefers-reduced-motion: reduce) { #panel, #later, #chat { transition: none; } }
+  @media (prefers-reduced-motion: reduce) { #panel, #later, #chat, #thread { transition: none; } }
   #later {
     width: min(400px, 100vw); left: 0; right: auto;
     border-left: 0; border-right: 1px solid var(--line); box-shadow: 12px 0 40px rgba(0,0,0,.12);
@@ -992,6 +992,30 @@
   #welcome code { padding: 2px 8px; border-radius: 6px; background: var(--chip); color: var(--text); font: var(--fs-md)/1.6 ui-monospace, Menlo, monospace; box-shadow: inset 0 0 0 1px var(--line); }
   #welcome .aside { font-size: var(--fs-md); margin: 0; }
   body.no-dispatch .orch-copy { display: none; }   /* [ui] dispatch = false: a board that runs no ORCH shows no prompt to copy */
+  /* ----- the agent thread (Nov 6): one conversation with one agent, outside any card. Opens on the right, where the card panel
+     opens, from the agent pill at the top of an open card or a lane's name on By agent. A card question shows inline, answered on the card ----- */
+  #thread { width: min(520px, 94vw); }
+  #thread .p-head { padding: 14px 18px; gap: 10px; align-items: flex-start; }
+  .th-head { display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1; }
+  .th-head .av { width: 32px; height: 32px; font-size: var(--fs-md); }
+  .th-lines { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .th-name { font-size: 16px; font-weight: 600; line-height: 22px; }
+  .th-line { font-size: var(--fs-sm); line-height: 16px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .th-line .st { font-weight: 600; } .th-line .st.ask { color: var(--err); } .th-line .st.rev { color: var(--ok); }
+  .th-card { background: none; border: 0; padding: 0; font: inherit; color: var(--info); cursor: pointer; }
+  .th-card:hover { text-decoration: underline; text-underline-offset: 2px; }
+  #thread-body { padding: 16px 20px; display: flex; flex-direction: column; gap: 14px; }
+  #thread-body .cmsg { max-width: 94%; }
+  .th-ask { border: 1px solid var(--err); border-radius: 12px; padding: 12px 14px; background: var(--surface); box-shadow: 0 0 0 3px color-mix(in srgb, var(--err) 8%, transparent); }
+  .th-ask .lab { font-size: var(--fs-xs); font-weight: 600; letter-spacing: var(--tr-tight); text-transform: uppercase; color: var(--err); margin-bottom: 4px; }
+  .th-ask .q { line-height: 1.4; margin-bottom: 8px; }
+  .th-ask .qr { margin-bottom: 8px; }
+  .th-open { font-size: var(--fs-sm); min-height: 28px; padding: 3px 10px; }
+  /* the pill at the top of an open card is the way into its agent's thread; the lane's name on By agent too */
+  .p-who .agent-pill[data-thread] { background: none; border: 0; padding: 0; cursor: pointer; border-radius: 999px; }
+  .p-who .agent-pill[data-thread]:hover .name { text-decoration: underline; text-underline-offset: 2px; }
+  .col.acol h2 .nm[data-thread] { background: none; border: 0; padding: 0; font: inherit; color: inherit; cursor: pointer; text-align: left; }
+  .col.acol h2 .nm[data-thread]:hover { text-decoration: underline; text-underline-offset: 2px; }
   /* the error strip floats under the header, above every view (Load included), and moves nothing when it appears; × closes it */
   #error { display: none; position: fixed; left: 50%; top: calc(var(--hdr-b, 56px) + 10px); transform: translateX(-50%); z-index: 36; align-items: center; gap: 10px;
     max-width: calc(100vw - 32px); padding: 8px 10px 8px 14px; border-radius: 10px; color: var(--warn); font-size: var(--fs-md);
@@ -1324,6 +1348,16 @@
   </form>
 </aside>
 
+<aside id="thread" aria-label="Agent thread">
+  <div class="p-head"><div class="th-head" id="thread-head"></div>
+    <button class="icon-btn" id="thread-close" aria-label="Close"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button></div>
+  <div class="p-body" id="thread-body"></div>
+  <form id="thread-form" class="chat-form">
+    <input id="thread-input" placeholder="Say anything to the agent…" aria-label="Say something to the agent" autocomplete="off">
+    <button class="btn primary">Send</button>
+  </form>
+</aside>
+
 <aside id="panel" aria-label="Task details">
   <div class="p-head">
     <span class="pill" id="p-status"></span>
@@ -1597,7 +1631,7 @@ function byAgentHtml(by, filtered) {
   const agentCol = n => {
     const st = stateFor(n), cards = doingBy.get(n) || [];
     const fresh = lanesKnown && !firstRender && !lanesBefore.has(n);   // Motion: a lane that was not up on the last By agent render slides in (a view switch is not that)
-    return `<section class="col acol${fresh ? ' enter' : ''}" data-status="agent:${esc(n)}" style="--c:${colorFor(n)}"><h2><span class="av" style="--c:${colorFor(n)}" aria-hidden="true">${esc(nodeGlyph(n))}</span><span class="nm" title="${esc(n || 'Unassigned')}">${esc(n || 'Unassigned')}</span><span class="cnt">${cards.length}</span><em class="${st}">${esc(st)}</em></h2>`
+    return `<section class="col acol${fresh ? ' enter' : ''}" data-status="agent:${esc(n)}" style="--c:${colorFor(n)}"><h2><span class="av" style="--c:${colorFor(n)}" aria-hidden="true">${esc(nodeGlyph(n))}</span>${n ? `<button class="nm" type="button" data-thread="${esc(n)}" title="Talk to ${esc(n)}">${esc(n)}</button>` : `<span class="nm" title="Unassigned">Unassigned</span>`}<span class="cnt">${cards.length}</span><em class="${st}">${esc(st)}</em></h2>`
       + `<div class="cards">${cards.map(card).join('')}</div></section>`;
   };
   const n = active.length;
@@ -1891,6 +1925,7 @@ async function load() {
     checkAsks();
     maybeAutoOpen();
     refreshPanel();
+    renderThread();   // the head reads the cards: state, last update, the current card
   } catch (e) { setStatus(false); }
   loadChat();
 }
@@ -1983,7 +2018,63 @@ function renderChat() {
     b.querySelector('.chat-n').textContent = chatUnread ? String(chatUnread) : '';
     b.setAttribute('aria-label', chatUnread ? `Talk to ORCH, ${chatUnread} unread` : 'Talk to ORCH');
   });
+  renderThread();
 }
+
+// --- the agent thread (Nov 6): one conversation with one agent, outside any card ---
+let threadName = null;
+const sameName = (a, b) => String(a || '').toUpperCase() === String(b || '').toUpperCase();
+function inThread(m, name) { return sameName(m.sender, name) || (m.kind === 'user' && sameName(m.to, name)); }
+function threadHeadHtml(name) {
+  const cards = tasks.filter(t => t.status === 'doing' && sameName(t.agent, name) && !isKid(t));
+  const last = cards.map(t => t.updated || '').sort().pop();
+  const st = cards.length ? agentState(cards) : 'idle';
+  const cur = cards.find(t => t.needs_input) || cards.find(t => t.review) || cards[0];
+  const line1 = `${STATE_WORD2[st] || st}${last ? ` · last update ${ago(last).text}` : ''}${cards.length > 1 ? ` · ${cards.length} cards` : ''}`;
+  const line2 = cur ? `on <button class="th-card" type="button" data-open="${esc(cur.id)}">${esc(cur.title)}</button>${cur.needs_input ? ' · <span class="st ask">waiting on you</span>' : cur.review ? ' · <span class="st rev">up for review</span>' : ''}` : 'no card in Doing';
+  return `<span class="av" style="--c:${agentColor(name)}" aria-hidden="true">${esc(nodeGlyph(name))}</span><div class="th-lines"><span class="th-name">${esc(name)}</span><span class="th-line">${line1}</span><span class="th-line">${line2}</span></div>`;
+}
+function threadBodyHtml(name) {
+  const msgs = chatMsgs.filter(m => inThread(m, name)).map(chatBubble);
+  // the agent's open question sits in the thread with the card's own chips: answered on the card, never lost here
+  const asks = tasks.filter(t => t.needs_input && sameName(t.agent, name)).map(t =>
+    `<div class="th-ask"><div class="lab">Needs input · on the card</div><div class="q">${esc(t.question || t.status_text || '')}</div>${quickHtml(t, false)}<button class="btn th-open" type="button" data-open="${esc(t.id)}">Open the card</button></div>`);
+  const empty = !msgs.length && !asks.length ? `<div class="empty">Nothing said yet. What you type here goes to ${esc(name)} as a message outside any card; it reads it at its next wait and answers here.</div>` : '';
+  return msgs.join('') + asks.join('') + empty;
+}
+function renderThread() {
+  if (!threadName || !$('thread').classList.contains('open')) return;
+  $('thread-head').innerHTML = threadHeadHtml(threadName);
+  const body = $('thread-body');
+  const nearBottom = body.scrollTop + body.clientHeight >= body.scrollHeight - 48;
+  body.innerHTML = threadBodyHtml(threadName);
+  if (nearBottom) body.scrollTop = body.scrollHeight;
+  $('thread-input').placeholder = `Say anything to ${threadName}…`;
+  $('thread-input').setAttribute('aria-label', `Say something to ${threadName}`);
+}
+function openThread(name) {
+  if (!name) return;
+  setSide('thread'); touch('slide', true); threadName = name;
+  $('thread').classList.add('open'); renderThread();
+  focusSoon(() => $('thread-input'));
+}
+function closeThread() { touch('slide', false); $('thread').classList.remove('open'); threadName = null; }
+$('thread-close').onclick = closeThread;
+document.addEventListener('click', e => {   // the ways in are redrawn with the board, so the click is caught on the document
+  const b = e.target.closest('[data-thread]');
+  if (b) { openThread(b.dataset.thread); return; }
+  const o = e.target.closest('#thread [data-open]');
+  if (o) openPanel(o.dataset.open);
+});
+$('thread-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const i = $('thread-input'), text = i.value.trim(), to = threadName;
+  if (!text || !to) return;
+  i.value = '';
+  try { await api('/api/chat', { text, to }); showError(''); } catch (err) { showError('Could not send: ' + err.message); }
+  loadChat();
+});
+quickEvents($('thread-body'));
 $('chat-body').addEventListener('click', async e => {
   const card = e.target.closest('[data-chat-card]');
   if (card) { openPanel(card.dataset.chatCard); return; }
@@ -2266,7 +2357,7 @@ function doneHtml(t, parsed, sawText, kids, head, btns) {   // the finished-work
 function panelHtml(t) {
   const doing = t.status === 'doing', stale = doing && ago(t.updated).min >= STALE_MIN;
   const abandoned = doing && ago(t.updated).min >= (cfg.stale_minutes || DEFAULT_STALE_MIN);
-  const who = t.agent ? `<div class="p-who"><span class="agent-pill" style="--c:${colorOf(t)}"><span class="av ${doing && !stale ? 'live' : ''}" aria-hidden="true">${esc(nodeGlyph(t.agent))}</span><span class="name">${esc(t.agent)}</span></span><span class="p-when">${t.status === 'done' ? 'finished' : 'working'} ${ago(t.updated).text}</span></div>` : '';
+  const who = t.agent ? `<div class="p-who"><button class="agent-pill" type="button" data-thread="${esc(t.agent)}" title="Talk to ${esc(t.agent)}" aria-label="Talk to ${esc(t.agent)}" style="--c:${colorOf(t)}"><span class="av ${doing && !stale ? 'live' : ''}" aria-hidden="true">${esc(nodeGlyph(t.agent))}</span><span class="name">${esc(t.agent)}</span></button><span class="p-when">${t.status === 'done' ? 'finished' : 'working'} ${ago(t.updated).text}</span></div>` : '';
   const prog = doing ? `<div class="p-sec"><div class="bar" style="margin:0" role="progressbar" aria-valuenow="${t.progress || 0}" aria-valuemin="0" aria-valuemax="100" aria-label="Progress"><b style="width:${t.progress || 0}%;background:${colorOf(t)}"></b></div><div class="p-pct"><span>${t.review || t.needs_input ? '' : esc(t.status_text || '')}</span><b>${t.progress || 0}%${(kidsMap.get(t.id) || []).length ? '<small> overall</small>' : ''}</b></div>${abandoned ? `<div class="p-pct"><span style="color:var(--err)">⚠ No update for ${ago(t.updated).text.replace(' ago', '')} — possibly abandoned</span></div>` : stale ? `<div class="p-pct"><span style="color:var(--warn)">No update for ${ago(t.updated).text.replace(' ago', '')}</span></div>` : ''}</div>` : '';
   const bodyHtml = t.body_html ? `<div class="rich-body">${t.body_html}</div>` : '';   // server-rendered + sanitized; safe to insert as-is
   const rv = !t.needs_input && t.review && t.status === 'doing';
@@ -2390,6 +2481,7 @@ function openPanel(id, quiet) {
   if (openId !== id) { detailRaw = ''; promptText = ''; promptOpen = false; descOpen = false; actAll = false; replyOpen = false; replyDraft = ''; openEntries = new Set(); resetScroll = true; panelEdit = null; panelDraft = ''; }
   lastFocus = document.activeElement;
   $('later').classList.remove('open'); $('chat').classList.remove('open');   // a card opens alone: the drawers go
+  $('thread').classList.remove('open');
   openId = id;
   history.replaceState(null, '', '#' + encodeURIComponent(id));
   $('panel').classList.add('open'); document.body.classList.add('panel-open');
@@ -2434,6 +2526,7 @@ document.addEventListener('click', e => {
   if (openId && !e.target.closest('#panel, .card, #theme, #add, #toast')) closePanel();
   if ($('later').classList.contains('open') && !e.target.closest('#later, #later-btn, #toast, .card')) { touch('slide', false); $('later').classList.remove('open'); }
   if ($('chat').classList.contains('open') && !e.target.closest('#chat, .orch-btn, #toast')) { touch('slide', false); $('chat').classList.remove('open'); }
+  if ($('thread').classList.contains('open') && !e.target.closest('#thread, [data-thread], #toast, .card')) closeThread();
 });
 $('p-body').addEventListener('toggle', e => {
   if (e.target.id !== 'pd') return;
@@ -3311,6 +3404,7 @@ function setSide(which) {            // one surface at a time
   if (which !== 'later') $('later').classList.remove('open');
   if (which !== 'panel' && openId) closePanel(true, true);   // the surface opening is the sound, not this
   if (which !== 'chat') $('chat').classList.remove('open');
+  if (which !== 'thread') $('thread').classList.remove('open');
 }
 function openLater() { setSide('later'); touch('slide', true); $('later').classList.add('open'); renderLater(tasks.filter(t => t.status === 'backlog' && !isKid(t))); $('later-input')?.focus(); }
 function closeLater() { touch('slide', false); $('later').classList.remove('open'); $('later-btn').focus(); }
@@ -3471,6 +3565,7 @@ document.addEventListener('keydown', e => {
     if (mixIsOpen()) { toggleMix(false); return; }
     if ($('later').classList.contains('open')) { closeLater(); return; }   // the drawers open over Load, so they close first
     if ($('chat').classList.contains('open')) { closeChat(); return; }
+    if ($('thread').classList.contains('open')) { closeThread(); return; }
     if (selected.size) { clearSelection(); return; }   // a selection is the lighter layer: it clears before Load closes
     if (hudIsOpen()) { closeHud(); return; }
     return;

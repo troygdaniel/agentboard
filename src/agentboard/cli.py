@@ -780,7 +780,9 @@ sentence on the card (ask/review/update text) so {owner} answers you there, and 
 on the card. After an `ask` or a `review`, do not sit idle: start `agentboard answer "$ID" --wait --timeout 3600` as a
 background command (in Claude Code, Bash with run_in_background) and end your turn. You are woken when they reply, and
 it prints the reply. It also wakes you when they send the card back, close it ("Done by {owner}: the card is closed"),
-move it or remove it, and says which: a closed card means you are free to go idle or take the next card. A tool that
+move it or remove it, and says which: a closed card means you are free to go idle or take the next card. It also wakes
+you when {owner} sends you a message on the board (your thread, outside any card) and prints it: answer with
+`agentboard chat send "<one line>" --name "<your session name>" --to {owner}`, then wait again. A tool that
 cannot run background commands runs it in the foreground instead.
 
 If you are handed a task id instead, run `agentboard claim <id> --name "<your session name>"`.
@@ -1235,13 +1237,26 @@ def _reply_when(r):
 REMOVED_NOTE = "Removed: the card is no longer on the board, stop work on it and go idle or take the next card."
 
 
+def _message_when(m):
+    """'message from Alex on the board, 4 min ago': a line the owner typed to this agent in its thread, not on a card."""
+    try:
+        mins = max(0, round((datetime.now() - datetime.strptime(m["at"], "%Y-%m-%dT%H:%M:%S")).total_seconds() / 60))
+    except (KeyError, TypeError, ValueError):
+        return f"message from {m.get('sender') or 'the user'} on the board"
+    ago = "just now" if mins < 1 else f"{mins} min ago" if mins < 120 else f"{mins // 60} h ago"
+    return f"message from {m.get('sender') or 'the user'} on the board, {ago}"
+
+
 def cmd_answer(a):
     s = _store()
     deadline = time.time() + a.timeout if a.wait else 0
     seen = False
+    name = None   # the card's agent: a message the owner sends it on the board (its thread) wakes the wait too
     while True:
         try:
             r = s.answer(a.id)
+            if name is None:
+                name = Store.get(s.load(), a.id).get("agent") or ""
         except BoardError:
             if not seen:
                 raise BoardError(f"no such task: {a.id} (it is not on the board: removed, or the id is wrong)") from None
@@ -1252,6 +1267,19 @@ def cmd_answer(a):
         if r:
             print(f"({_reply_when(r)})", file=sys.stderr)   # on stderr, so `$(agentboard answer ...)` still captures only the reply
             print(r["text"])
+            return
+        msgs = s.chat_thread_new(name, after=_cursors(s).get(name)) if name else []
+        if msgs:
+            for m in msgs:
+                print(f"({_message_when(m)})", file=sys.stderr)
+                print(m["text"])
+            cur = _cursors(s)   # read, the same way `chat inbox` records what it printed
+            cur[name] = max(msgs[-1]["seq"], cur.get(name, 0) if isinstance(cur.get(name), int) else 0)
+            try:
+                _cursor_path(s).write_text(json.dumps(cur))
+            except OSError:
+                pass
+            print(f"(not a card reply: answer on the board with `agentboard chat send \"<one line>\" --name {name} --to {s.owner}`, then keep waiting)", file=sys.stderr)
             return
         if not a.wait or time.time() >= deadline:
             sys.exit(f"agentboard: no reply on {a.id} yet" + (f" after {a.timeout:g}s" if a.wait else ""))

@@ -101,6 +101,8 @@ Finish with `review` — the USER signs off and moves the card to done. After `r
 `{ab} answer {task_id} --wait --timeout 3600` as a background command (in Claude Code, Bash with run_in_background)
 and end your turn. You are woken when {owner} replies, sends the card back, closes it ("Done by {owner}"), moves it
 or removes it, and it prints what happened. If it says the card is closed, you are free to go idle or take the next card.
+It also wakes when {owner} sends you a message on the board (your thread, outside any card) and prints it: answer with
+`{ab} chat send "<one line>" --name "<your session name>" --to {owner}`, then start the wait again.
 Run `{ab} done {task_id}` ONLY if the user explicitly tells you to.
 
 If you are blocked on the user mid-task, flag it (and keep going once they answer):
@@ -109,7 +111,9 @@ If you are blocked on the user mid-task, flag it (and keep going once they answe
 
 {Owner} answers on the card, not through anyone else. After you ask, do not sit idle: start
 `{ab} answer {task_id} --wait --timeout 3600` as a background command (in Claude Code, Bash with run_in_background)
-and end your turn. You are woken when {owner} replies, and it prints their reply; then carry on. A tool that cannot
+and end your turn. You are woken when {owner} replies, and it prints their reply; then carry on. It also wakes when
+{owner} sends you a message on the board (your thread, outside any card) and prints it: answer with
+`{ab} chat send "<one line>" --name "<your session name>" --to {owner}`, then wait again. A tool that cannot
 run background commands runs it in the foreground instead. If it times out with no reply, say you are still waiting.
 
 These are not optional.
@@ -154,7 +158,8 @@ When the whole deliverable is ready (this and its sibling subtasks), review the 
 The USER signs off on the parent and moves the card to done. Run `{ab} done` ONLY if the user explicitly tells you to.
 After you review the parent, do not sit idle: start `{ab} answer {parent_id} --wait --timeout 3600` as a background
 command (in Claude Code, Bash with run_in_background) and end your turn. You are woken when {owner} replies, sends the
-card back, closes it ("Done by {owner}"), moves it or removes it, and it prints what happened.
+card back, closes it ("Done by {owner}"), moves it or removes it, and it prints what happened. A message {owner} sends you on
+the board (your thread) wakes it too: answer with `{ab} chat send "<one line>" --name "<your session name>" --to {owner}`.
 
 """
 
@@ -188,7 +193,8 @@ Keep the subtasks honest, updated whenever your estimate changes (it can go down
 Any subtask still open closes with it. The USER signs off and moves the card to done.
 After `review`, do not sit idle: start `{ab} answer {task_id} --wait --timeout 3600` as a background command (in
 Claude Code, Bash with run_in_background) and end your turn. You are woken when {owner} replies, sends the card back,
-closes it ("Done by {owner}"), moves it or removes it, and it prints what happened.
+closes it ("Done by {owner}"), moves it or removes it, and it prints what happened. A message {owner} sends you on the board
+(your thread) wakes it too: answer with `{ab} chat send "<one line>" --name "<your session name>" --to {owner}`.
 Run `{ab} done {task_id}` ONLY if the user explicitly tells you to.
 
 """

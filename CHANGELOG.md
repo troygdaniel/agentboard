@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Talk to one agent, outside any card (Nov 6)
+- **A thread per agent.** Press the agent's pill at the top of an open card, or an agent's name at the head of its lane on By agent, and a panel opens on the right with that agent's conversation: what it said on the board, what you said to it, and a composer. The chip on a card keeps its job (the filter).
+- **The head says where it is**: state (working, ask, review, quiet, idle), last update, the card it is on with a link, and whether that card waits on you or is up for review.
+- **Its open question sits in the thread** with the card's own answer chips and an Open the card button; the answer lands on the card as before.
+- **A message there wakes the agent.** `agentboard answer <id> --wait` now also returns when you send the card's agent a message on the board, prints it (with "message from … on the board" on stderr, and how to answer), and marks it read; a card reply still comes first. Every card prompt and `agentboard instructions` say so, and tell the agent to answer with `chat send … --to <you>`.
+
 ### The ORCH drawer: talk to ORCH from the Todo column (Nov 6)
 - **The Chat button left the header.** An **ORCH** button sits in the Todo column's head (Board, By agent and Load alike); press it and a drawer slides out from the left over Todo. It is the chat, read as a conversation with ORCH: what ORCH said, what you said to ORCH or to everyone, the board's notices. Typing there addresses ORCH; `@AGENT-2 …` still reaches someone else. The unread count rides the button.
 - **The drawer's head is the back arrow and ORCH, nothing else.** The whole channel (agents' own lines) and the agents-talk setting stay in the CLI: `agentboard chat tail`, `agentboard chat agents on`. Approvals and details still show on the lines the drawer carries.

@@ -72,7 +72,7 @@ class SameRowTests(unittest.TestCase):
         self.assertIn("#hud { position: fixed; inset: 0; top: var(--hdr-b, 0px);", self.html)   # the overlay starts under the header
         self.assertIn("document.querySelector('header').getBoundingClientRect().bottom", self.html)
         self.assertIn("body.solo .wrap > :not(header)", self.html)   # the pop-out keeps the header too
-        self.assertIn("body:has(#hud.open) :is(#panel, #later, #chat) { z-index: 32; }", self.html)   # Later and Chat open over Load
+        self.assertIn("body:has(#hud.open) :is(#panel, #later, #chat, #thread) { z-index: 32; }", self.html)   # Later, ORCH and an agent thread open over Load
 
     def test_the_header_tab_lights_the_view_you_are_on(self):
         self.assertIn("const on = hudIsOpen() ? 'hud-btn' : BYAGENT ? 'tab-agents' : 'tab-board';", self.html)

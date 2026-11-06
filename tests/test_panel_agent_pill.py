@@ -9,7 +9,7 @@ PAGE = (Path(cli.__file__).parent / "static" / "index.html").read_text()
 
 class PanelAgentPillTests(unittest.TestCase):
     def test_the_panel_holder_is_a_pill_carrying_the_agent_colour(self):
-        self.assertRegex(PAGE, r'<div class="p-who"><span class="agent-pill" style="--c:\$\{colorOf\(t\)\}"><span class="av ')
+        self.assertRegex(PAGE, r'<div class="p-who"><button class="agent-pill" type="button" data-thread="\$\{esc\(t\.agent\)\}"[^>]*style="--c:\$\{colorOf\(t\)\}"><span class="av ')   # a button since Nov 6: it opens the agent's thread
 
     def test_the_pill_shares_the_board_pills_rules(self):
         # one selector list per rule, so the two pills cannot drift apart

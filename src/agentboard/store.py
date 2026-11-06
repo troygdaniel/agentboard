@@ -857,6 +857,14 @@ class Store:
                and (not m.get("to") or m["to"] == "all" or m["to"] == name or m["to"].lower() == name.lower())))]
         return out[-limit:]
 
+    def chat_thread_new(self, name, after=None):
+        """What the owner said to `name` on the board (the agent's thread) after seq `after`: a message there wakes
+        `answer --wait` the way a reply on the card does. Lines to everyone and plain status lines are not it."""
+        with self._lock():
+            msgs = self._read()["chat"]
+        return [m for m in msgs if m.get("kind") == "user" and (m.get("to") or "").lower() == (name or "").lower()
+                and (after is None or m["seq"] > after)]
+
     def chat_approvals(self, name=None):
         """Every proposed action on the channel (or `name`'s own), newest last, with its status."""
         with self._lock():

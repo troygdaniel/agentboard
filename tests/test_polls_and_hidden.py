@@ -71,7 +71,7 @@ class HiddenInfoTests(unittest.TestCase):
 
     def test_by_agent_shows_doing_cards_with_no_agent(self):
         self.assertIn("if (doingBy.has('')) active.push('');", fn("byAgentHtml"))
-        self.assertIn("${esc(n || 'Unassigned')}</span><span class=\"cnt\">", HTML)
+        self.assertIn("`<span class=\"nm\" title=\"Unassigned\">Unassigned</span>`}<span class=\"cnt\">", HTML)   # no name: a plain label, not a thread button
         self.assertIn("function nodeGlyph(n) { if (!n) return '?';", HTML)
 
 
