@@ -787,7 +787,8 @@ class Store:
                 reply_to = int(reply_to)
             except (TypeError, ValueError):
                 raise BoardError("reply-to must be a message number") from None
-        talk = bool(to or (topic and topic != "status") or detail or files or propose or reply_to)
+        to_owner = bool(to) and to != "all" and to.lower() == (self.owner or "").lower()   # answering the owner is not agent-to-agent talk: ORCH does it in the drawer
+        talk = bool((to and not to_owner) or (topic and topic != "status") or detail or files or propose or reply_to)
         with self._lock():
             data = self._read()
             if talk and kind == "agent" and not data.get("chat_agents"):

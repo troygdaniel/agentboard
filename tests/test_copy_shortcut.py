@@ -19,7 +19,7 @@ class ChatLosesItsKeyTests(unittest.TestCase):
         self.assertNotIn("Chat (c)", HTML)
         self.assertNotIn("$('chat-btn').click()", HTML)   # the old c handler clicked the Chat button
         self.assertNotIn("<dd>Chat</dd>", HTML)
-        self.assertIn('id="chat-btn" aria-controls="chat" aria-label="Chat" title="Chat">', HTML)   # still reachable by its button
+        self.assertIn('class="orch-btn" aria-controls="chat"', HTML)   # still reachable by its button: ORCH on the Todo column (Nov 6)
 
     def test_the_c_key_copies_and_is_in_the_shortcuts_list(self):
         self.assertEqual(HTML.count("e.key === 'c'"), 1)

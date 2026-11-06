@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### The ORCH drawer: talk to ORCH from the Todo column (Nov 6)
+- **The Chat button left the header.** An **ORCH** button sits in the Todo column's head (Board, By agent and Load alike); press it and a drawer slides out from the left over Todo. It is the chat, read as a conversation with ORCH: what ORCH said, what you said to ORCH or to everyone, the board's notices. Typing there addresses ORCH; `@AGENT-2 …` still reaches someone else. The unread count rides the button.
+- **Nothing said before is lost**: **Everyone** in the drawer's head shows the whole channel as the old panel did, with the Agents-talk switch, approvals and details where they were.
+- **ORCH answers you there.** Addressing the board's owner is no longer counted as agent-to-agent talk, so `agentboard chat send "…" --name ORCH --to Troy` posts with the switch off. The ORCH prompt now tells it to keep `agentboard chat inbox --name ORCH --wait 3600` running and what to do with "add a card", "assign", "move to Later", "what is everyone doing" and a message for a busy agent.
+- The board, its cards and the Done panel are unchanged.
+
 ### "Needs your input" clears once the agent has your answer (Nov 4)
 - **The red state ends at the first of two things**: the agent reads your reply (`agentboard answer`), or it next reports on the card, which now includes an update on any of its subtasks. Before, only an update on the card itself cleared it, and an agent's progress arrives as subtask updates, so a question asked on the card stayed red (card, header count, By agent lane, Load, right panel) for as long as the agent kept working, long after it had read "Go ahead".
 - **Until then nothing changes**: your reply alone leaves it red with "You replied Go ahead, AGENT-1 reads it next", and an agent that neither reads nor reports keeps it red. A state note ("Restored by you") never ends a question by being read. A question asked on a subtask clears as before, when that subtask updates, and now also when its answer is read.

@@ -154,6 +154,12 @@ def _subtask_nudge(task_id):
             f'  agentboard add "<step>" --parent {task_id}')
 
 
+def cmd_move(a):
+    """Move a card to a column, as a drag on the board would (a held card tells its agent, as a drag does)."""
+    t = _store().move(a.id, a.status)
+    print(f"{t['id']}: {dict(backlog='Later', todo='Todo', doing='Doing', done='Done').get(t['status'], t['status'])}")
+
+
 def cmd_list(a):
     s = _store()
     threshold = hudlib.stale_minutes(promptlib.load_config(s.dir))
@@ -1290,6 +1296,9 @@ def main(argv=None):
     sp.add_argument("--parent", metavar="ID", help="make this a subtask of that task (one level deep)")
     sp.add_argument("--blocked-by", action="append", dest="blocked_by", metavar="ID",
                      help="task id this depends on; repeat for multiple")
+    sp = add("move", cmd_move, "move a task to a column (ORCH, on the owner's word: 'move … to Later')")
+    sp.add_argument("id")
+    sp.add_argument("status", choices=["backlog", "todo", "doing", "done"], help="the column: backlog is Later")
     sp = add("list", cmd_list, "list tasks")
     sp.add_argument("--status")
     sp.add_argument("--all", action="store_true", help="include archived tasks")

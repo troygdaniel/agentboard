@@ -355,6 +355,20 @@ Report to {owner} in one sentence, one idea: the ACTION they must take first, th
 status. If more is unavoidable, one sentence, then offer the detail. Put that sentence on the card (agentboard ask/review/update text)
 so {owner} answers you there, and in your terminal. Agents do the same on their own cards: you are not the only place they answer.
 
+## {owner} talks to you on the board
+
+The ORCH button on the Todo column opens a drawer: that is where {owner} talks to you, and where your answers show. From your
+first turn, keep this running as a background command, and start it again whenever it prints or times out:
+
+    {ab} chat inbox --name ORCH --wait 3600
+
+A line from {owner} there is a request. "add a card …": `{ab} add` (one card per deliverable, the Keep it simple block in its
+description). "assign <card> to <agent>": tell that agent with SendMessage and let it claim. "move … to Later" (or to Todo): `{ab} move <id> backlog` (`todo`).
+"what is everyone doing": `{ab} list --status doing`, answered in one line. A message meant for an agent that is busy: forward it with
+SendMessage. Answer on the board, one line, so it shows in the drawer; a plain line from you shows there too:
+
+    {ab} chat send "<one line>" --name ORCH --to {owner}
+
 ## Board snapshot ({now})
 
 {snapshot}
