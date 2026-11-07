@@ -19,6 +19,7 @@ from . import lockdown
 from . import plugins
 from . import private
 from . import prompt as promptlib
+from . import redact as redactlib
 from . import reports as reportslib
 from . import summary as summarylib
 from . import voice as voicelib
@@ -93,6 +94,11 @@ SAMPLE_CONFIG = '''\
 
 # [backup]                    # snapshots are always kept in .agentboard/backups (hourly, 48 hours + 30 days); this adds a nightly copy elsewhere
 # sync_dir = "~/Library/Mobile Documents/com~apple~CloudDocs/agentboard-backups"   # an iCloud Drive or Google Drive folder on this Mac
+
+# [redact]                   # secrets are masked on their way into the board (keys, tokens, private keys, Authorization values)
+# enabled = true               # false turns every mask off
+# phones = false               # also mask phone numbers (off: a number on a card is meant to be read)
+# extra = ["ACME-[0-9]{6}"]    # your own patterns; each match becomes [redacted match]
 
 # [prompt]
 # template_file = "prompt.md"  # replaces the built-in template
@@ -1361,6 +1367,29 @@ def cmd_reports(a):
     print("\n".join(rows) if rows else "no reports yet (one is written when a card enters review or done)")
 
 
+def cmd_redact(a):
+    """What the board already holds that looks like a secret (keys, tokens, private keys, Authorization values); --apply masks it,
+    after a labelled snapshot. Text agents write from now on is masked on the way in (redact.py)."""
+    s = _store()
+    if not redactlib.settings(s.dir)["enabled"]:
+        print("redaction is off ([redact] enabled = false in config.toml)")
+        return
+    with s._lock():
+        data = s._read()
+        hits = redactlib.scrub_data(data, s.dir, apply=a.apply, owner=s.owner)
+        if a.apply and hits:
+            s.backups.take("before-redact")
+            s._write(data)
+    for where, kind, head in hits:
+        print(f"{where}: {kind} ({head}...)")
+    if not hits:
+        print("nothing on the board looks like a secret")
+    elif a.apply:
+        print(f"masked {len(hits)} string(s); the snapshot before-redact in .agentboard/backups has the old text, delete it if you want it gone")
+    else:
+        print(f"{len(hits)} string(s) found, nothing changed. `agentboard redact --apply` masks them (a snapshot is taken first).")
+
+
 def cmd_serve(a):
     serve(_store(), a.port, not a.no_open)
 
@@ -1518,6 +1547,8 @@ def main(argv=None):
     sp = add("rebuild", cmd_rebuild, "re-run providers and store prompt(s)")
     sp.add_argument("id", nargs="?")
     sp.add_argument("--all", action="store_true")
+    sp = add("redact", cmd_redact, "show the secret-shaped text already on the board (--apply masks it, after a snapshot)")
+    sp.add_argument("--apply", action="store_true")
     sp = add("serve", cmd_serve, "run the board at http://localhost:8765")
     sp.add_argument("--port", type=int, default=8765)
     sp.add_argument("--no-open", action="store_true")

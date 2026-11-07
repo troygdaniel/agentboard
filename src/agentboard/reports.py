@@ -10,6 +10,7 @@ import subprocess
 from datetime import datetime, timedelta
 from pathlib import Path
 
+from . import redact
 from . import markdown as mdlib
 from . import nav
 from . import prompt as promptlib
@@ -291,6 +292,7 @@ def _file_bars(files):
 
 def build_html(task, board_dir, run=None, git=None, extras="", now=None, base=""):
     e = html.escape
+    task = redact.scrub_task(task, board_dir)   # older cards may hold a secret from before text was masked on the way in (redact.py)
     tid, title = task["id"], task["title"]
     state = "done" if task.get("status") == "done" else "review"
     asking = bool(task.get("needs_input"))

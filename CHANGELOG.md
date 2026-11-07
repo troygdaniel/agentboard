@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Secrets are masked on the way in (Nov 7)
+- A key an agent echoes, a token in a command it ran, a private key in a review body is now stored as `[redacted …]`. Before, it was copied verbatim into `tasks.json`, the `.bak`, every backup, the card's report, the page and the chat. Reports mask older cards again when built.
+- Only unmistakable secrets: prefixed cloud and API keys, tokens, JWTs, private-key blocks, `Authorization:` values, `api_key = "…"`, a long hex string after key/token/secret. A commit hash, an id, a path, code or a phone number is never touched, and what you type yourself is left alone. `[redact]` in `config.toml`: `enabled = false`, `phones = true`, `extra = [...]`.
+- `agentboard redact` lists what the board already holds (where and what kind, never the value); `--apply` masks it after a snapshot.
+
 ### The text features moved out of agentboard (Nov 7)
 - **Pulling your texts into cards (the command, the Pull texts button, the once-a-minute timer) and the inbound-SMS webhook are no longer part of agentboard.** They live in a separate package kept outside this repository, loaded through the plugin hook only on a machine that switches it on. agentboard now contains no Twilio code, no texting code and no timer; `src/agentboard` has a test that fails if that changes, and another that fails if a real-looking phone number or account SID is committed.
 - **Cards made from a text keep their guard**: such a card (its `source` says `text`) still reaches an agent as quoted words, never as instructions, in prompts, `list`, `recall` and `report`.
