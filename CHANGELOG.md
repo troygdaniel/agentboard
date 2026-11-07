@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### The masker knows more shapes (Nov 7)
+- Now also masked: Stripe `sk_live_`/`rk_live_`/`whsec_`, Google `AIza…` (also as `?key=` in a URL), Slack webhook URLs, npm and SendGrid tokens, the password in `scheme://user:password@host` (a documented `user:password@host` placeholder is left), `aws_secret_access_key = …`, a bare `Bearer …`, and `key`, `auth`, `token`, `credentials` assignments or URL parameters whose value looks generated (20+ characters, a letter and a digit, not a lower-case identifier). The Terminal tab masks them too. Short passwords such as `hunter2` are not caught: nothing tells them from ordinary text.
+- The repo guard (`tests/publiccheck.py`) learned the prefix-shaped ones.
+
 ### The masker can no longer freeze the board (Nov 7)
 - One POST of 198 KB of `eyJeyJeyJ…` froze the server for 9.9 s (400 KB took 44 s, 1 MB about four minutes): the token-shaped pattern for a JWT restarted at every `eyJ` inside a long run, and the masker ran on whole bodies before they were cut to their caps. The pattern is now linear, the masker looks at no more than twice a field's cap, and the Terminal tab cuts each line the same way. A real JWT is still found. A regression test times every shape at 1 MB.
 

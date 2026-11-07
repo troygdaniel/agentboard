@@ -21,6 +21,9 @@ UNITS = {
     "eyJ": "eyJ", "eyJ.": "eyJ.", "jwt-ish": "eyJhbGciOiJIUzI1NiJ9.", "AKIA": "AKIA", "AKIA+16": "AKIA" + "0" * 15, "sk-": "sk-", "sk-ant-": "sk-ant-", "sk-+19": "sk-" + "a" * 19,
     "ghp_": "ghp_", "xoxb-": "xoxb-", "AC": "AC", "AC+31": "AC" + "0" * 31, "SK": "SK", "BEGIN": BEGIN, "BEGIN..END": BEGIN + " " + END,
     "auth bearer": "Authorization: Bearer ", "auth": "Authorization:", "password": "password", "password =": "password = ", "key ": "key ", "key=": "key=", "token:": "token: ",
+    "sk_live_": "sk_live_", "AIza": "AIza", "AIza+34": "AIza" + "a" * 34, "hooks": "hooks.slack.com/services/TA/BA/", "npm_": "npm_", "SG.": "SG.", "SG.a.": "SG." + "a" * 20 + ".",
+    "://": "://", "://a:": "://a:", "://a:b": "://a:b", "Bearer+19": "Bearer " + "a" * 19, "key=+19": "key=" + "a" * 19, "whsec_": "whsec_", "credentials=": "credentials=",
+    "aws secret": "aws_secret_access_key  =  ",
     "secret + spaces": "secret   ", "space": " ", "quote": 'password="', "api_key": "api_key ", "Bearer": "Bearer ", "dash": "-", "x-": "x-", "digit": "1", "dots": ".", "newline": "\n",
 }
 
