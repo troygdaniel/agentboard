@@ -315,6 +315,155 @@ class WholeReport(unittest.TestCase):
         self.assertEqual(doctor.exit_code([(doctor.FAIL, "a", "")]), 1)
 
 
+class FilesEdges(unittest.TestCase):
+    """What the files line says for an empty folder, a listable one whose files are private, and a link."""
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.board = Path(self.tmp.name) / ".agentboard"
+        self.board.mkdir()
+
+    def line(self):
+        return doctor.check_files(self.board)[0]
+
+    def test_an_empty_folder_says_nothing_alarming_whatever_its_mode(self):
+        for mode in (0o700, 0o750, 0o755):
+            os.chmod(self.board, mode)
+            level, _name, text = self.line()
+            self.assertEqual(level, doctor.PASS, mode)
+            self.assertIn("empty", text)
+            self.assertNotIn("0 of 0", text)
+            self.assertNotIn("can be read", text)
+
+    def test_a_listable_folder_with_private_files_is_still_a_fail_but_says_what_is_true(self):
+        (self.board / "tasks.json").write_text("{}")
+        os.chmod(self.board / "tasks.json", 0o600)
+        os.chmod(self.board, 0o755)
+        level, _name, text = self.line()
+        self.assertEqual(level, doctor.FAIL)
+        self.assertIn("can be listed by any user", text)
+        self.assertIn("not readable by others", text)
+        self.assertNotIn("0 of 1", text)           # no "0 of N entries can be read": none can
+        self.assertIn("chmod -R go-rwx", text)
+
+    def test_a_group_listable_folder_with_private_files_warns_in_the_same_honest_words(self):
+        (self.board / "tasks.json").write_text("{}")
+        os.chmod(self.board / "tasks.json", 0o600)
+        os.chmod(self.board, 0o750)
+        level, _name, text = self.line()
+        self.assertEqual(level, doctor.WARN)
+        self.assertIn("listed by its group", text)
+
+    def test_a_symlink_does_not_count_as_a_readable_file(self):
+        (self.board / "tasks.json").write_text("{}")
+        os.chmod(self.board / "tasks.json", 0o600)
+        os.symlink(self.board / "tasks.json", self.board / "link.json")      # a link's own mode is 777 or 755 and means nothing
+        os.chmod(self.board, 0o700)
+        self.assertEqual(self.line()[0], doctor.PASS)
+        self.assertIn("1 entries", self.line()[2])
+
+
+class FakeDist:
+    """A stand-in for the install record: what pip leaves in direct_url.json."""
+    def __init__(self, folder=None, raw=None):
+        self.raw = raw if raw is not None else (None if folder is None else '{"url": "file://%s"}' % folder)
+
+    def read_text(self, name):
+        assert name == "direct_url.json"
+        return self.raw
+
+
+class StaleInstall(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name).resolve()
+        self.repo = self.root / "repo"
+        self.source = self.repo / "src" / "agentboard"
+        self.installed = self.root / "site-packages" / "agentboard"
+        for d in (self.source / "static", self.installed / "static"):
+            d.mkdir(parents=True)
+        for base in (self.source, self.installed):
+            for f in ("__init__.py", "cli.py", "store.py", "static/index.html"):
+                (base / f).write_text("x")
+
+    def check(self, dist=None, here=None):
+        return doctor.check_install(here or self.installed, FakeDist(self.repo) if dist is None else dist)[0]
+
+    def test_a_copy_with_no_file_the_source_lacks_passes(self):
+        level, name, text = self.check()
+        self.assertEqual((level, name), (doctor.PASS, "install"))
+        self.assertIn("no file its source", text)
+
+    def test_removed_modules_that_linger_in_the_installed_copy_warn_by_name_with_the_fix(self):
+        for f in ("texts.py", "sms.py"):
+            (self.installed / f).write_text("old code")
+        level, _name, text = self.check()
+        self.assertEqual(level, doctor.WARN)
+        self.assertIn("stale install: sms.py, texts.py are in the installed copy but not in the source", text)
+        self.assertIn(f"fix: pipx uninstall agentboard; pipx install {doctor._short(self.repo)}", text)
+
+    def test_one_file_reads_in_the_singular_and_a_long_list_is_cut(self):
+        (self.installed / "texts.py").write_text("old")
+        self.assertIn("texts.py is in the installed copy", self.check()[2])
+        for i in range(8):
+            (self.installed / f"old{i}.py").write_text("old")
+        text = self.check()[2]
+        self.assertIn("and 4 more", text)
+        self.assertLessEqual(text.count(".py"), doctor.MAX_SHOWN + 1)
+
+    def test_an_old_static_file_counts_too(self):
+        (self.installed / "static" / "gone.js").write_text("old")
+        self.assertIn("static/gone.js", self.check()[2])
+
+    def test_caches_do_not_count(self):
+        (self.installed / "__pycache__").mkdir()
+        (self.installed / "__pycache__" / "cli.cpython-314.pyc").write_bytes(b"\0")
+        (self.installed / "stray.pyc").write_bytes(b"\0")
+        self.assertEqual(self.check()[0], doctor.PASS)
+
+    def test_a_copy_that_is_older_than_the_source_is_not_this_checks_business(self):
+        (self.source / "newmodule.py").write_text("new")      # the source has a file the installed copy does not
+        self.assertEqual(self.check()[0], doctor.PASS)
+
+    def test_running_from_the_source_itself_passes(self):
+        level, _name, text = self.check(here=self.source)
+        self.assertEqual(level, doctor.PASS)
+        self.assertIn("running from the source", text)
+
+    def test_without_an_install_record_it_is_information_not_a_warning(self):
+        for dist in (FakeDist(raw=None), FakeDist(raw=""), FakeDist(raw="not json"), FakeDist(raw='{"url": "https://example.invalid/x.git"}'), None):
+            level, _name, text = doctor.check_install(self.installed, dist)[0]
+            self.assertEqual(level, doctor.INFO, dist)
+            self.assertIn("cannot be compared", text)
+
+    def test_a_source_that_is_gone_is_information(self):
+        level, _name, text = doctor.check_install(self.installed, FakeDist(self.root / "moved"))[0]
+        self.assertEqual(level, doctor.INFO)
+        self.assertIn("nothing to compare with", text)
+
+    def test_the_new_warning_does_not_change_the_exit_rules(self):
+        (self.installed / "texts.py").write_text("old")
+        results = doctor.check_install(self.installed, FakeDist(self.repo))
+        self.assertEqual(doctor.exit_code(results), 0)
+        self.assertEqual(doctor.exit_code(results, strict=True), 1)
+
+    def test_it_reads_two_folders_and_changes_nothing(self):
+        (self.installed / "texts.py").write_text("old")
+        before = sorted((str(p), p.stat().st_mtime_ns) for p in self.root.rglob("*"))
+        self.check()
+        self.assertEqual(sorted((str(p), p.stat().st_mtime_ns) for p in self.root.rglob("*")), before)
+
+    def test_the_whole_report_includes_the_line(self):
+        board = self.root / "proj" / ".agentboard"
+        Store(board).add("A card", status="todo")
+        with mock.patch.object(doctor, "_installed_record", return_value=FakeDist(self.repo)), mock.patch.object(doctor, "_HERE", self.installed), \
+                mock.patch.object(Path, "home", return_value=self.root / "home"):
+            (self.installed / "sms.py").write_text("old")
+            results = doctor.run(board, env={}, runner=FakeRunner())
+        self.assertEqual(level_of(results, "install"), [doctor.WARN])
+
+
 class Cli(unittest.TestCase):
     def test_the_command_prints_the_report_and_exits_1_on_a_fail(self):
         with tempfile.TemporaryDirectory() as d:
