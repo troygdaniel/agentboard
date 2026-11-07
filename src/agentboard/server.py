@@ -9,7 +9,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-from . import boards, hud
+from . import boards, hud, private
 from . import hooks as hookslib
 from . import transcript as transcriptlib
 from . import plugins, reports, runs, summary, texts, voice
@@ -425,6 +425,7 @@ def make_handler(default_store, port):
 
 
 def serve(store, port=8765, open_browser=True):
+    private.tighten_dir(store.dir)   # whatever an earlier version left readable by others (private.py)
     try:
         srv = ThreadingHTTPServer(("127.0.0.1", port), make_handler(store, port))
     except OSError as e:

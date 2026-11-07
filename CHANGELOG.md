@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Board files are private (Nov 7)
+- Only `tasks.json`, its `.bak` and the snapshots were mode 0600; reports (every review body), `config.toml` (phone numbers), `sessions.json`, the chat files, run logs and the folders were readable by any other account, and a Mac home folder is not private. Now the command line and `serve` run with umask 077, `serve` tightens what is already there, and the daily `sync_dir` copy is private too.
+- Programs the board starts for you (`claude -p` runs, provider commands) and files meant for others (the project's `.gitignore`, `.claude/settings.json`, `summary --html`) keep your umask. `AGENTBOARD_UMASK=022` turns it off for a shared folder.
+
 ### A plugin hook (Nov 7)
 - **One generic extension point.** A separate package can add CLI commands, API routes under its own `/api/x/<name>/`, a state block on the board's poll, a background thread, and a page script (its style rides in it: the page's Content-Security-Policy allows no stylesheet files). It loads only when this machine says `AGENTBOARD_PLUGINS=1`; `AGENTBOARD_NO_PLUGINS=1` and `AGENTBOARD_LOCKDOWN=1` both stop it, even after the board started. With none allowed nothing is looked up, imported or shown, and the board is the board it was. `agentboard plugins` says which.
 - **The page's side is one small object, `window.AB`:** a header slot, a Settings slot, a card-chip hook, the poll's plugin state, and `api`/`toast`/`esc`/`ago`. A plugin that throws is caught there and cannot break the page.

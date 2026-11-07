@@ -138,8 +138,10 @@ def install(project_dir):
     if installed(project_dir):
         return p, False
     post.append(hook_entry())
-    p.parent.mkdir(parents=True, exist_ok=True)
-    p.write_text(json.dumps(data, indent=2) + "\n")
+    from . import private
+    with private.as_user():   # the project's .claude/settings.json is shared with Claude Code and your team, not board data
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(json.dumps(data, indent=2) + "\n")
     return p, True
 
 

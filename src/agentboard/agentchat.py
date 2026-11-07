@@ -13,6 +13,7 @@ import subprocess
 import tempfile
 from datetime import datetime, timedelta
 
+from . import private
 from . import lockdown, untrusted
 from .store import CHAT_TOPICS, BoardError
 
@@ -292,7 +293,7 @@ def _claude_argv(claude, model, budget):
 def _run_claude(argv, prompt):
     """Run it from a fresh empty folder, never from where the board server happens to have been started (a repo's CLAUDE.md, files)."""
     with tempfile.TemporaryDirectory(prefix="agentboard-round-") as cwd:
-        return subprocess.run(argv, input=prompt, capture_output=True, text=True, timeout=IDLE_TIMEOUT_S, cwd=cwd)
+        return subprocess.run(argv, input=prompt, capture_output=True, text=True, timeout=IDLE_TIMEOUT_S, cwd=cwd, **private.child())
 
 VOICE = """\
 How to write: like two colleagues at a desk, not a report. Short sentences. Contractions. Say the other person's name. No lists,

@@ -11,6 +11,8 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
+from . import private
+
 from . import lockdown
 
 TIMEOUT = 5
@@ -132,7 +134,7 @@ def command(arg, conf, task, base_dir):
     cmd = conf["run"].replace("{arg}", shlex.quote(arg)).replace("{title}", shlex.quote(task["title"]))
     try:
         r = subprocess.run(cmd, shell=True, capture_output=True, text=True,
-                           timeout=conf.get("timeout", TIMEOUT), cwd=Path(base_dir).parent)
+                           timeout=conf.get("timeout", TIMEOUT), cwd=Path(base_dir).parent, **private.child())
     except subprocess.TimeoutExpired:
         raise ProviderError("command timed out")
     if r.returncode != 0:
