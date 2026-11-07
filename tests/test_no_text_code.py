@@ -71,7 +71,7 @@ class NoRealNumbers(unittest.TestCase):
     def test_every_phone_shaped_string_is_fictional(self):
         bad = []
         for f in tracked():
-            if f.name == THIS:
+            if f.name in (THIS, "test_public_repo_clean.py"):   # that file's own fixtures are secret- and number-shaped on purpose
                 continue
             text = read(f)
             if text is None:
