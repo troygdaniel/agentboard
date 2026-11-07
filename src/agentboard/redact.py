@@ -59,6 +59,33 @@ def _has_letter_and_digit(v):
     return any(c.isdigit() for c in v) and any(c.isalpha() for c in v)
 
 
+def _secret_like(v):
+    """A value that looks generated: a letter and a digit together, or base64 padding. Plain words never do."""
+    return _has_letter_and_digit(v) or v.endswith("=")
+
+
+_UUID = re.compile(r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")
+_WORDY = re.compile(r"[a-z0-9]+(?:[_.-][a-z0-9]+)+")    # snake_case and kebab-case names: identifiers, not keys
+
+
+def _random_like(v):
+    """For a generic name (key, auth, token): long, a letter and a digit, and not a lower-case identifier like user_profile_cache_v2_final."""
+    if _UUID.fullmatch(v):
+        return True
+    return len(v) >= 20 and _has_letter_and_digit(v) and not _WORDY.fullmatch(v)
+
+
+_PASSWORD_WORDS = {"password", "pass", "passwd", "pwd", "secret", "user", "username", "token", "changeme", "yourpassword", "your-password", "mypassword"}
+
+
+def _url_password(m):
+    """scheme://user:PASSWORD@host: the password goes, the rest stays; a documented placeholder (user:password@host) is left."""
+    value = m.group(2)
+    if value.lower() in _PASSWORD_WORDS or PLACEHOLDER.search(value) or re.fullmatch(r"[*xX\u2022.\-]+", value):
+        return m.group(0)
+    return m.group(1) + _mask("password") + m.group(3)
+
+
 # (kind, pattern, replacement function). Order matters: a private-key block first, then headers, then the rest.
 SHAPES = [
     ("private-key", re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----.*?(?:-----END [A-Z ]*PRIVATE KEY-----|\Z)", re.S), lambda m: _mask("private-key")),
@@ -69,9 +96,19 @@ SHAPES = [
     ("github-token", re.compile(r"(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{20,}"), _whole("github-token")),
     ("slack-token", re.compile(r"xox[abprs]-[A-Za-z0-9-]{10,}"), _whole("slack-token")),
     ("account-sid", re.compile(r"(?<![A-Za-z0-9])(?:AC|SK)[0-9a-f]{32}(?![A-Za-z0-9])"), _whole("account-sid")),
+    ("stripe-key", re.compile(r"(?<![A-Za-z0-9])(?:sk|rk)_(?:live|test)_[A-Za-z0-9]{20,}"), _whole("stripe-key")),
+    ("webhook-secret", re.compile(r"(?<![A-Za-z0-9])whsec_[A-Za-z0-9+/=]{20,}"), _whole("webhook-secret")),
+    ("google-key", re.compile(r"(?<![A-Za-z0-9_-])AIza[0-9A-Za-z_-]{35}(?![0-9A-Za-z_-])"), _whole("google-key")),
+    ("slack-webhook", re.compile(r"(?:https?://)?hooks\.slack\.com/services/T[A-Z0-9]+/B[A-Z0-9]+/[A-Za-z0-9]+"), _whole("slack-webhook")),
+    ("npm-token", re.compile(r"(?<![A-Za-z0-9_])npm_[A-Za-z0-9]{36}(?![A-Za-z0-9])"), _whole("npm-token")),
+    ("sendgrid-key", re.compile(r"(?<![A-Za-z0-9_-])SG\.[A-Za-z0-9_-]{16,}+\.[A-Za-z0-9_-]{16,}+"), _whole("sendgrid-key")),
+    ("url-password", re.compile(r"(://[^\s:/@]++:)([^\s@/]++)(@)"), _url_password),
+    ("bearer", re.compile(r"(?<![A-Za-z])(Bearer\s++)([A-Za-z0-9._~+/=-]{20,}+)"), _keep_prefix("secret", _secret_like)),
     ("key-hex", re.compile(r"((?:api[_-]?key|key|token|secret|passwd|password)\W{1,4})([0-9a-fA-F]{32,64})(?![0-9a-fA-F])", re.I), _keep_prefix("hex")),
-    ("assigned-secret", re.compile(r"((?:api[_-]?key|secret|passwd|password|auth[_-]?token|access[_-]?token|client[_-]?secret)[\"']?\s*[:=]\s*[\"']?)([A-Za-z0-9/+_=.~-]{16,})", re.I),
+    ("assigned-secret", re.compile(r"((?:aws[_-]?secret[_-]?access[_-]?key|secret[_-]?access[_-]?key|api[_-]?key|apikey|secret[_-]?key|secret|passwd|password|pwd|auth[_-]?token|access[_-]?token|refresh[_-]?token|client[_-]?secret|app[_-]?secret|private[_-]?token|signing[_-]?(?:key|secret))[\"']?\s*+[:=]\s*+[\"']?)([A-Za-z0-9/+_=.~-]{16,}+)", re.I),
      _keep_prefix("secret", _has_letter_and_digit)),
+    ("generic-secret", re.compile(r"((?<![A-Za-z0-9])(?:key|auth|token|credentials?|access[_-]?key)[\"']?\s*+[:=]\s*+[\"']?)([A-Za-z0-9/+_=.~-]{20,}+)", re.I),
+     _keep_prefix("secret", _random_like)),
 ]
 
 PHONE = re.compile(r"(?<![\d.])(?:\(?[2-9]\d{2}\)?[ .-]\d{3}[ .-]\d{4}|\+1[ ]?\d{10})(?!\d)")
