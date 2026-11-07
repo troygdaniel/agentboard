@@ -20,6 +20,9 @@ DIR_NAME = ".agentboard"
 # agent chat: what a message may be about, and how long its one line and its detail may be
 CHAT_TOPICS = ("status", "learn", "help", "heads-up", "handoff")
 CHAT_LINE_MAX, CHAT_DETAIL_MAX, CHAT_FILES_MAX = 300, 4000, 20
+# Caps on a card's free text. Every card is re-served on the page's 1 Hz poll, so one huge field would slow every client; a title is refused
+# past TITLE_MAX (it is a line, not a document), the prose fields are cut.
+TITLE_MAX, DESCRIPTION_MAX, STATUS_MAX, BODY_MAX = 200, 20_000, 1000, 60_000
 CHAT_DECISIONS = ("approved", "declined")
 DEFAULT_OWNER = "you"   # what the board calls the human until [board] owner in config.toml says otherwise
 
@@ -158,6 +161,7 @@ class Store:
         if status is not None and status not in STATUSES:
             raise BoardError(f"status must be one of {STATUSES}")
         title = _clean_title(title)
+        description = _cap(description, DESCRIPTION_MAX)
         source = _clean_source(source)
         if not (isinstance(ctx or [], list) and all(isinstance(c, str) for c in ctx or [])):
             raise BoardError("ctx must be a list of strings")
@@ -322,6 +326,7 @@ class Store:
             title = _clean_title(title)
         if description is not None and not isinstance(description, str):
             raise BoardError("description must be text")
+        description = _cap(description, DESCRIPTION_MAX)
         if blocked_by is not None and not (isinstance(blocked_by, list) and all(isinstance(b, str) for b in blocked_by)):
             raise BoardError("blocked_by must be a list of task ids")
         with self.transaction() as tasks:
@@ -363,6 +368,7 @@ class Store:
         in the detail panel alongside the one-line question; it is untrusted agent
         text, rendered safely by the server (see markdown.to_html) rather than here.
         """
+        question, body_md = _cap(question, STATUS_MAX), _cap(body_md, BODY_MAX)
         question, body_md = split_report(question, body_md)
         with self.transaction() as tasks:
             t = self.get(tasks, task_id)
@@ -393,6 +399,7 @@ class Store:
         body_md is an optional richer markdown body (a recap, a diff, a report); see
         ask() for how it's handled.
         """
+        summary, body_md = _cap(summary, STATUS_MAX), _cap(body_md, BODY_MAX)
         summary, body_md = split_report(summary, body_md)
         with self.transaction() as tasks:
             t = self.get(tasks, task_id)
@@ -453,7 +460,7 @@ class Store:
     def send_back(self, task_id, text):
         """The owner sends a reviewed card back with a note: the review flag clears, the card stays in Doing with its agent, and the note is the reply
         the agent reads with `agentboard answer`."""
-        text = (text or "").strip()
+        text = _cap((text or "").strip(), 2000)
         if not text:
             raise BoardError("say what to change")
         if len(text) > 2000:
@@ -545,6 +552,7 @@ class Store:
             return self._update(tasks, self.get(tasks, task_id), progress, text, status, body_md)
 
     def _update(self, tasks, t, progress, text, status, body_md=None):
+        text, body_md = _cap(text, STATUS_MAX), _cap(body_md, BODY_MAX)
         _parent_must_be_doing(_parent_of(tasks, t), t, "update")
         kids = _kids(tasks, t["id"])
         open_kids = [k for k in kids if k["status"] != "done"]
@@ -957,7 +965,14 @@ def _clean_source(source):
 def _clean_title(title):
     if not isinstance(title, str) or not title.strip():
         raise BoardError("a task needs a title")
+    if len(title.strip()) > TITLE_MAX:
+        raise BoardError(f"the title is too long ({len(title.strip())} characters; {TITLE_MAX} max): put the rest in the description")
     return title.strip()
+
+
+def _cap(text, n):
+    """Cut a prose field at n characters; anything that is not text is left for the caller's own check."""
+    return text[:n] if isinstance(text, str) and len(text) > n else text
 
 
 def _parent_must_be_doing(parent, t, verb):
