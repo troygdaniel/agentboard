@@ -50,6 +50,32 @@ class ResolvedPathTests(unittest.TestCase):
             self.assertIsNone(transcript.resolved(bad), bad)
             self.assertEqual(transcript.read(bad)["why"], "outside ~/.claude/projects", bad)
 
+    def test_a_nul_byte_in_a_registered_path_is_refused_not_an_exception(self):
+        bad = "~/.claude/projects/p/abc.jsonl\x00.txt"
+        self.assertIsNone(transcript.resolved(bad))
+        self.assertEqual(transcript.read(bad)["why"], "outside ~/.claude/projects")
+
+    def test_a_fifo_or_a_directory_named_jsonl_is_refused_without_blocking(self):
+        import threading
+        import time
+        root = Path(self.home.name) / ".claude" / "projects" / "p"
+        os.mkfifo(root / "pipe.jsonl")
+        (root / "dir.jsonl").mkdir()
+        out = {}
+
+        def go():
+            out["fifo"] = transcript.read("~/.claude/projects/p/pipe.jsonl")
+
+        t0 = time.time()
+        th = threading.Thread(target=go, daemon=True)
+        th.start()
+        th.join(3)
+        self.assertFalse(th.is_alive(), "read() blocked on the FIFO")
+        self.assertLess(time.time() - t0, 3)
+        self.assertEqual(out["fifo"]["why"], "not a regular file")
+        self.assertEqual(transcript.read("~/.claude/projects/p/dir.jsonl")["why"], "not a regular file")
+        self.assertEqual(transcript.read("~/.claude/projects/p/nope.jsonl")["why"], "no such file")   # a missing file still says so
+
     def test_a_symlink_that_leaves_the_folder_is_refused_and_one_inside_is_read(self):
         root = Path(self.home.name) / ".claude" / "projects" / "p"
         outside = Path(self.home.name) / "outside.jsonl"
