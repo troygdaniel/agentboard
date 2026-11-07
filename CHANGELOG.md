@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### POST guards: exact JSON type, Sec-Fetch-Site (Nov 7)
+- A POST's media type must be exactly `application/json` (parameters allowed); a CORS-simple type that merely contains the words (`text/plain;charset=application/json`) gets 415, so a cross-site POST now needs a preflight the server never answers. A browser's `Sec-Fetch-Site` other than `same-origin`/`none` gets 403. curl, the CLI and the tests send neither header and are unchanged.
+
 ### The card panel has tabs: Summary, Conversation, Terminal (Nov 6)
 - **Every tab of a held card wears the compact head** the side panel had (avatar, agent name, its state and last update, the card it is on), not the card's title block, so the content gets the room. The title form still takes its place while you edit the title (`e`); a subtask or an unheld card keeps the title block.
 - **Three tabs under the open card's title**, for a card an agent holds: **Summary** is the card as before; **Conversation** is that agent's thread (your exchange since its current card) with a composer; **Terminal** is its session. One click, or `t` to cycle (on the `?` list). The agent pill still works, as a shortcut to Conversation.
