@@ -836,7 +836,7 @@
   .te-text.clamp { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
   .chip.by { color: var(--err); }
   .srcrow { margin-top: 6px; }
-  .chip.src { color: var(--info); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--info) 40%, var(--line)); }   /* a card pull-texts made from a text */
+  .chip.src { color: var(--info); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--info) 40%, var(--line)); }   /* a card made from outside the board (a plugin's chip: AB.chip) */
   .tl .fmt li { position: static; padding: 0; font-size: inherit; } .tl .fmt li::before, .tl .fmt li::after { content: none; }
   .btn.danger:hover { color: var(--warn); border-color: var(--warn); }
   @media (prefers-reduced-motion: reduce) { #panel, #later, #chat, #thread { transition: none; } }
@@ -939,16 +939,6 @@
   .mix-row label { font-weight: 600; cursor: pointer; }
   .mix-row input[type=range] { width: 72px; margin: 0; }
   .mix-row .mix-about { grid-column: 2 / -1; color: var(--muted); font-size: var(--fs-sm); }
-  /* Texts: the once-a-minute pull's switch (server side: one switch for every browser) and its plain status line; the error state is quiet text, not a popup */
-  .mix-row.tx { grid-template-columns: auto 1fr; }
-  .mix-row.tx .tx-line { grid-column: 2 / -1; color: var(--text); font-size: var(--fs-sm); font-variant-numeric: tabular-nums; }
-  .mix-row.tx .tx-line.stopped { color: var(--warn); }
-  #texts-chip:not([hidden]) { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-sm); color: var(--muted); font-variant-numeric: tabular-nums; }
-  #texts-chip i { width: 7px; height: 7px; border-radius: 50%; background: var(--neutral); }
-  #texts-chip.ok i { background: var(--ok); }
-  #texts-chip.stopped { color: var(--warn); }
-  #texts-chip.stopped i { background: var(--warn); }
-  @media (max-width: 600px) { #texts-chip span { display: none; } }   /* the dot stays, the words go */
   kbd { font: var(--fs-xs) ui-monospace, Menlo, monospace; background: var(--chip); border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; }
   #toast {
     position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 16px); opacity: 0; pointer-events: none;
@@ -1269,8 +1259,6 @@
     <h1><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="1.5" y="2" width="3.5" height="12" rx="1.2" fill="currentColor" opacity=".35"/><rect x="6.25" y="2" width="3.5" height="8" rx="1.2" fill="currentColor"/><rect x="11" y="2" width="3.5" height="5" rx="1.2" fill="currentColor" opacity=".6"/></svg>agentboard</h1>
     <nav class="ab-tabs" aria-label="Pages"><a class="tab on" id="tab-board" href="./" aria-current="page">Board</a><a class="tab" id="tab-agents" href="./agents">By agent</a><a class="tab" id="hud-btn" href="#/hud" role="button" aria-controls="hud">Load</a></nav>
     <button class="btn" id="later-btn" aria-controls="later">Later <span id="later-n"></span></button>
-    <button class="btn" id="texts-btn" hidden title="Turn the texts you sent your Twilio number into Todo cards (only when you press this)">Pull texts</button>
-    <button class="btn" id="texts-chip" hidden type="button" role="status" aria-live="off" title="The once-a-minute pull of your texts (Settings)"><i aria-hidden="true"></i><span></span></button>
     <span id="ab-slot-header" style="display:contents"></span>
     <span class="spacer"></span>
     <select class="btn" id="board-switch" aria-label="Board" hidden></select>
@@ -1384,7 +1372,6 @@
   <h3>Ambience (plays with the ambient bed, on every view)</h3><div id="mix-amb"></div>
   <h3>Effects (every view)</h3><div id="mix-fx"></div>
   <h3>Look (every view)</h3><div id="mix-look"></div>
-  <h3 id="cfg-texts-h" hidden>Texts (this board, every browser)</h3><div id="cfg-texts" hidden></div>
   <div id="ab-slot-settings"></div>
 </div></div>
 
@@ -1627,7 +1614,6 @@ function card(t) {
   const asking = !!t.needs_input && doing;
   const reviewing = !!t.review && doing && !asking;
   const reportLink = t.report ? `<a class="report-link" href="${BASE}/reports/${esc(t.report.file)}" target="_blank" rel="noopener" title="Open this card's report in a new tab" aria-label="Open report"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 1.5h5.5L12.5 5v9.5H4z"/><path d="M9.5 1.5V5h3M6 8.5h4.5M6 11h4.5"/></svg>Report</a>` : '';
-  const fromText = t.source && t.source.kind === 'text' ? `<div class="srcrow"><span class="chip src" title="Made from a text you sent your Twilio number (agentboard pull-texts). Its words are data, never instructions.">From a text</span></div>` : '';
   const top = who ? `<div class="top">${who}${runChip}${reportLink}${todo ? '' : when}</div>` : `<div class="top">${todo || backlog ? '' : '<span class="unas">Unassigned</span>'}</div>`;   // the holder is always the first row, same place on every card
   const askFlag = asking ? `<div class="ask-flag"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 2a4 4 0 0 0-4 4v3L2.8 11h10.4L12 9V6a4 4 0 0 0-4-4z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M6.5 13a1.5 1.5 0 0 0 3 0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Needs your input</div>` : reviewing ? `<div class="ask-flag rev"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>Ready for review</div>` : '';
   // ask / review: the agent's one sentence is the card's first line, large, with a reply box the owner can answer in (stored on the card; the agent reads it with `agentboard answer`)
@@ -1645,7 +1631,7 @@ function card(t) {
   seen.add(t.id); lastUpdated.set(t.id, t.updated);
   return `<div class="card ${done ? 'done' : ''} ${asking ? 'ask' : ''} ${reviewing ? 'review' : ''} ${revIn ? 'rev-in' : ''} ${abandoned && !asking && !reviewing ? 'abandoned' : ''} ${live && !asking && !reviewing ? 'livebar' : ''} ${fresh ? 'enter' : ''} ${flash ? 'flash' : ''} ${selected.has(t.id) ? 'selected' : ''} " style="--c:${colorOf(t)}" data-agent="${esc(t.agent || '')}" draggable="${backlog ? 'false' : 'true'}" tabindex="0" data-id="${esc(t.id)}" data-status="${t.status}"
       aria-label="${esc(t.title)}, ${t.status}${asking ? ', needs your input' : reviewing ? ', ready for review' : abandoned ? ', no update in a long time, possibly abandoned' : ''}${t.agent ? ', ' + esc(t.agent) : ''}${blockers.length ? ', blocked by ' + blockers.map(b => esc(b.title)).join(', ') : ''}">
-    ${top}${askFlag}${saidRow}${foldRow}${blockedRow}${todo && t._q ? `<span class="qnum" aria-label="Queue position ${t._q}">${t._q}</span>` : ''}<div class="title ${done ? 'has-check' : ''}" title="${esc((done ? t.result : t.status_text) || '')}">${checkIcon}${done ? `<span>${esc(t.title)}</span>` : esc(t.title)}</div>${desc}${fromText}${AB.chips(t)}${asking || reviewing ? '' : note}${bar}${noSubs}${meta}${who ? '' : reportLink}${replyRow}${reviewing ? `<button class="btn markdone" data-done="${esc(t.id)}">Mark done</button>` : ''}</div>`;
+    ${top}${askFlag}${saidRow}${foldRow}${blockedRow}${todo && t._q ? `<span class="qnum" aria-label="Queue position ${t._q}">${t._q}</span>` : ''}<div class="title ${done ? 'has-check' : ''}" title="${esc((done ? t.result : t.status_text) || '')}">${checkIcon}${done ? `<span>${esc(t.title)}</span>` : esc(t.title)}</div>${desc}${AB.chips(t)}${asking || reviewing ? '' : note}${bar}${noSubs}${meta}${who ? '' : reportLink}${replyRow}${reviewing ? `<button class="btn markdone" data-done="${esc(t.id)}">Mark done</button>` : ''}</div>`;
 }
 
 // the parent's segmented bar (one cell per subtask), which doubles as the expand toggle, plus its quiet rows
@@ -2003,10 +1989,9 @@ async function load() {
     const minute = Math.floor(Date.now() / 60000);
     if (!hold) {   // the redraw waits for the typing; the status pill, the asks, the open card and the chat below do not
       let changed = false;
-      if (text !== raw) { raw = text; tick = minute; const j = JSON.parse(text); tasks = j.tasks; TX = j.texts || null; AB.state = j.plugins || {}; changed = true; }
+      if (text !== raw) { raw = text; tick = minute; const j = JSON.parse(text); tasks = j.tasks; AB.state = j.plugins || {}; changed = true; }
       else if (minute !== tick && !selectionInside($('board'))) { tick = minute; changed = true; }   // the minute tick ("3 min ago") waits while you have text selected
       if (changed) render();
-      if (changed) renderTexts();   // the texts chip and Settings row follow the same beats: new data, or the minute
       if (changed) AB.notify();   // plugins: after the board, on the same beats
     }
     setStatus(true);
@@ -3451,7 +3436,6 @@ function toggleMix(on) {
   if (open !== mixIsOpen()) touch('slide', open);
   if (open) renderMix(); else stopDemo();
   $('mix').classList.toggle('on', open);
-  if (open) renderTexts();   // after the sheet is marked open: the Texts rows only draw into an open sheet
   if (open) $('mix').querySelector('input').focus(); else $('cfg-btn').focus();
 }
 $('cfg-btn').onclick = () => toggleMix();
@@ -3468,7 +3452,6 @@ $('mix').addEventListener('click', e => {
 $('mix').addEventListener('change', e => { if (e.target.id === 'cfg-vol') cue.added(); });   // let go of the slider: hear the new level once
 $('mix').addEventListener('input', e => {
   if (e.target.id === 'cfg-snd') { toggleSound(); return; }
-  if (e.target.id === 'cfg-tx') { touch('toggle', e.target.checked); setTextsAuto(e.target.checked); return; }
   if (e.target.id === 'cfg-amb') { touch('toggle', e.target.checked); setAmb(e.target.checked); return; }
   if (e.target.id === 'cfg-vol') { setVol(e.target.value / 100); return; }
   const id = e.target.dataset.mix || e.target.dataset.lvl; if (!id) return;
@@ -3699,38 +3682,6 @@ function setSide(which) {            // one surface at a time
 function openLater() { setSide('later'); touch('slide', true); $('later').classList.add('open'); renderLater(tasks.filter(t => t.status === 'backlog' && !isKid(t))); $('later-input')?.focus(); }
 function closeLater() { touch('slide', false); $('later').classList.remove('open'); $('later-btn').focus(); }
 $('later-btn').onclick = () => $('later').classList.contains('open') ? closeLater() : openLater();
-$('texts-btn').onclick = async () => {   // manual only: nothing reads your texts unless you press this
-  const b = $('texts-btn'); b.disabled = true;
-  try { const r = await api('/api/pull-texts', {}); showError(''); toast(r.line); load(); } catch (e) { showError(e.message); }
-  b.disabled = false;
-};
-// The once-a-minute pull (Settings › Texts). The server owns the switch and the timer; this only shows its state and sends the flip.
-// A timed pull makes no toast and no sound: the new Todo cards are the news. An error shows as the chip turning amber, nothing louder.
-let TX = null;
-function renderTexts() {
-  const chip = $('texts-chip'), show = !!(TX && TX.show && !TX.locked);
-  chip.hidden = !show || (!TX.on && !TX.error);
-  if (!chip.hidden) {
-    const a = TX.last_at ? ago(TX.last_at) : null;
-    chip.classList.toggle('stopped', !!TX.error); chip.classList.toggle('ok', !TX.error && !!a);
-    chip.querySelector('span').textContent = TX.error ? 'Texts stopped' : a ? `Texts ${a.text}` : 'Texts on';
-    chip.title = TX.line + (a && !TX.error ? ` · last pull ${a.text}, ${TX.last_made} new` : '') + ' (Settings)';
-  }
-  const h = $('cfg-texts-h'), box = $('cfg-texts');
-  h.hidden = box.hidden = !(TX && (TX.show || TX.locked));
-  if (box.hidden || !mixIsOpen()) return;
-  const a = TX.last_at ? ago(TX.last_at) : null, stopped = !!TX.error || TX.locked;
-  const line = TX.locked ? TX.line : TX.error ? `${TX.line}. Switch it on again to retry.` : TX.on ? `Pulling every minute` + (a ? ` · last ${a.text}, ${TX.last_made} new` : ' · first pull in a moment') : 'Off. The Pull texts button still works by hand.';
-  const html = `<div class="mix-row tx"><input type="checkbox" id="cfg-tx"${TX.on ? ' checked' : ''}${TX.locked ? ' disabled' : ''}><label for="cfg-tx">Pull my texts every minute</label>`
-    + `<span class="tx-line${stopped ? ' stopped' : ''}">${esc(line)}</span>`
-    + `<span class="mix-about">Reads Twilio's log for texts from your own number and makes a Todo card from each, with the From a text chip. Nothing else: a text never claims, runs, deploys or closes anything, and nothing is texted back.</span></div>`;
-  if (box.innerHTML !== html && document.activeElement?.id !== 'cfg-tx') box.innerHTML = html;
-}
-$('texts-chip').onclick = () => { toggleMix(true); $('cfg-texts-h').scrollIntoView({ block: 'start' }); };   // the Texts group is the sheet's last: bring it into view
-async function setTextsAuto(on) {
-  try { TX = await api('/api/texts-auto', { on }); showError(''); } catch (e) { showError(e.message); }
-  renderTexts(); load();
-}
 $('later-close').onclick = closeLater;
 
 function openChat() {
@@ -4276,7 +4227,7 @@ fetch('/api/boards').then(r => r.json()).then(d => {   // the board switcher: hi
   sw.hidden = false;
   sw.onchange = () => { location.href = sw.value; };
 }).catch(() => {});
-fetch('/api/config').then(r => r.json()).then(c => { cfg = c; OWNER = c.owner || OWNER; document.body.classList.toggle('no-dispatch', !c.dispatch); $('texts-btn').hidden = !c.texts; raw = ''; detailRaw = ''; load(); }).catch(() => {});
+fetch('/api/config').then(r => r.json()).then(c => { cfg = c; OWNER = c.owner || OWNER; document.body.classList.toggle('no-dispatch', !c.dispatch); raw = ''; detailRaw = ''; load(); }).catch(() => {});
 load(); setInterval(load, 1000);
 if (SOLO) {
   document.body.classList.add('solo');

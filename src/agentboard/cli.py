@@ -23,8 +23,6 @@ from . import reports as reportslib
 from . import summary as summarylib
 from . import voice as voicelib
 from . import runs as runslib
-from . import sms as smslib
-from . import texts as textslib
 from . import untrusted
 from .server import serve
 from . import boards as boardlib
@@ -75,19 +73,6 @@ SAMPLE_CONFIG = '''\
 # claude = "claude"           # the claude binary (default: the one on PATH)
 # budget_usd = 5              # hard spend cap per run, passed to claude as --max-budget-usd
 # max_minutes = 45            # hard wall-clock limit per run
-
-# [sms]                       # text the board (docs: README "Text the board"); off until enabled
-# enabled = true
-# allowed = ["+14165550123"]  # only these numbers are heard; everyone else is ignored silently
-# public_url = "https://<your tunnel>/sms"   # exactly the URL set in Twilio: it is part of the signature
-# token_env = "AGENTBOARD_TWILIO_AUTH_TOKEN" # the auth token is read from this environment variable, never from a file here
-# rate_per_hour = 30
-
-# [texts]                     # pull the texts you sent your Twilio number into Todo cards: `agentboard pull-texts` (manual; README "Pull your texts")
-# enabled = true
-# number = "+16475550100"     # the Twilio number you text
-# allowed = ["+14165550123"]  # your own number; texts from any other number are ignored (defaults to [sms] allowed)
-# # the account SID and auth token come from $AGENTBOARD_TWILIO_ACCOUNT_SID and $AGENTBOARD_TWILIO_AUTH_TOKEN, never from this file
 
 # [reports]                   # an HTML report per card in review or done (.agentboard/reports/)
 # keep_hours = 24             # older reports are deleted hourly; the newest per card always stays
@@ -1271,14 +1256,6 @@ def cmd_runs(a):
     print("\n".join(rows) if rows else "no runs yet")
 
 
-def cmd_sms_serve(a):
-    smslib.serve(_store(), a.port)
-
-
-def cmd_sms_try(a):
-    print(smslib.apply(_store(), " ".join(a.text)))
-
-
 def cmd_plugins(a):
     print("\n".join(plugins.status_lines()))
 
@@ -1303,10 +1280,6 @@ def add_plugin_commands(sub):
             print(f"agentboard: plugin {pname}: {cname}: {e.__class__.__name__}", file=sys.stderr)
             continue
         sp.set_defaults(fn=lambda a, run=run: run(a, _store()))
-
-
-def cmd_pull_texts(a):
-    print(textslib.report(textslib.pull(_store(), dry_run=a.dry_run, since=a.since, split=a.split, limit=a.max)))
 
 
 def _reply_when(r):
@@ -1563,22 +1536,6 @@ def main(argv=None):
     sp.add_argument("--interval", type=float, default=2.0)
     sp = add("runs", cmd_runs, "list one-shot runs (live and finished); --kill CARD stops one")
     sp.add_argument("--kill", metavar="CARD", help="stop the live run on this card")
-
-    sp = sub.add_parser("sms", help="text the board from your phone (Twilio webhook; off until you switch it on in config.toml)")
-    ssub = sp.add_subparsers(dest="sms_cmd", required=True)
-    sp2 = ssub.add_parser("serve", help="run the inbound-SMS endpoint on its own port (point the tunnel at it)")
-    sp2.add_argument("--port", type=int, default=8766)
-    sp2.set_defaults(fn=cmd_sms_serve)
-    sp2 = ssub.add_parser("try", help="run a command text locally (no Twilio, no network): agentboard sms try add: buy milk")
-    sp2.add_argument("text", nargs="+")
-    sp2.set_defaults(fn=cmd_sms_try)
-
-    sp = sub.add_parser("pull-texts", help="turn the texts you sent your Twilio number into Todo cards (manual; off until [texts] is set up)")
-    sp.add_argument("--dry-run", action="store_true", help="print the cards it would make; write nothing")
-    sp.add_argument("--since", metavar="YYYY-MM-DD", help="look back to this day (a first pull looks back 7 days)")
-    sp.add_argument("--max", type=int, metavar="N", help="make at most N cards (default 20); the rest wait for the next pull")
-    sp.add_argument("--split", action="store_true", help="a text of bullet or numbered lines becomes one card per line")
-    sp.set_defaults(fn=cmd_pull_texts)
 
     sp = sub.add_parser("board", help="named boards: new, add, list, use, rm (registry in ~/.agentboard/boards.toml)")
     bsub = sp.add_subparsers(dest="board_cmd", required=True)

@@ -6,7 +6,7 @@ Oct 24, 2026 for v0.3.0 against the code and at runtime; it checks literally rat
 ## Verdict
 
 **Local-only.** With its default configuration, agentboard makes no network connections beyond
-`127.0.0.1`. Five opt-in exceptions exist, all off by default (the `http` and `command` providers, one-shot runs, the text-message endpoint, and pulling your texts, by hand or on its once-a-minute timer). Another happens only at install time.
+`127.0.0.1`. Opt-in exceptions exist, all off by default: the `http` and `command` providers, one-shot runs and the chat drafter, and plugins (code you installed and switched on with `AGENTBOARD_PLUGINS=1`; agentboard ships with none). Another happens only at install time.
 
 ## What was checked, and how
 
@@ -35,31 +35,19 @@ Oct 24, 2026 for v0.3.0 against the code and at runtime; it checks literally rat
 3. **One-shot agents (`agentboard run`) and the chat drafter (`agentboard chat idle`).** Both start the `claude` binary you already have, which talks to Anthropic the way it always does. The drafter runs it once per `chat idle` call, with `-p`, a model and a budget cap, the prompt on stdin; with `[chat] autopilot = true` (off by default) `agentboard serve` runs the same drafter on a timer for idle agents with unread chat, at most `autopilot_per_hour` times an hour; with `[chat] casual = true` it also runs it once per agent chat line to produce the spoken version, at most `casual_per_hour` times an hour.
    agentboard adds no connection of its own, never passes a flag that widens the run's permissions (no `--dangerously-skip-permissions`,
    `--permission-mode` or `--allowedTools`), and enforces a wall-clock limit and a spend cap. Only runs when you start one.
-4. **Text the board (`agentboard sms serve`).** An inbound Twilio webhook on its **own** listener, `127.0.0.1:8766`, separate from the board
-   server (so a tunnel pointed at it exposes `/sms` and `/health` and nothing else). It will not start if `AGENTBOARD_NO_SMS=1` is set (a hard lock for work machines), and otherwise not unless `[sms] enabled = true`, an allowlist,
-   an `https` `public_url` and the Twilio auth token (read from an environment variable, never from a file in the board) are all set. Each request
-   needs a valid `X-Twilio-Signature` (HMAC-SHA1 over the URL and the form, constant-time compare), a sender on the allowlist, and a `MessageSid`
-   not seen in the last 7 days (replay protection, kept in `.agentboard/sms-state.json`); there is also an hourly cap. Anything refused gets a bare
-   403 and no text back. It never calls the Twilio API: replies travel in the HTTP response, so the only cost is the texts themselves. The grammar can
-   add and move cards and read a one-line status; it cannot delete, run commands or read card text. Commands are applied through the normal store (atomic
-   write, `.bak`, hourly snapshots). Turning it on means a public tunnel to your Mac: that switch is yours.
+4. **Plugins (`AGENTBOARD_PLUGINS=1`).** A plugin is a separate package, installed next to agentboard and switched on by the machine; agentboard ships with none and
+   names none. Nothing is looked up, imported or shown unless `AGENTBOARD_PLUGINS` is exactly `1`; `AGENTBOARD_NO_PLUGINS=1` and `AGENTBOARD_LOCKDOWN=1` both stop it, are read on every
+   call (a lock set after the board started closes every plugin route at once), and win over the key. A plugin can add a command, routes under its own `/api/x/<name>/` (same Host, Origin and
+   JSON checks as the core routes), a block of state on the poll, a thread and a page script (served same-origin, covered by the page's `script-src 'self'`); it cannot register outside
+   its namespace or shadow a core command, one plugin failing costs only itself, and an error reaches the client as its class name. **A plugin is trusted like any package you install: it
+   can do whatever its code does, including network calls.** On a work machine, install none and do not set `AGENTBOARD_PLUGINS`. To check a machine, run `agentboard plugins`: with the
+   key unset it prints `plugins: off: $AGENTBOARD_PLUGINS is not 1 (nothing is looked up, loaded or imported)` and makes no network call.
 
-5. **Pull your texts (`agentboard pull-texts`, the Pull texts button).** Reads the texts you sent your Twilio number from Twilio's own message log, only when you run the command
-   or press the button: no listener, no webhook, no tunnel, no polling, no background job. The one outside call is a read-only HTTPS GET to `api.twilio.com` for your account's
-   Messages, with HTTP Basic auth from `AGENTBOARD_TWILIO_ACCOUNT_SID` and `AGENTBOARD_TWILIO_AUTH_TOKEN` (environment only, never written to the board, its state file or a log;
-   an error message never repeats them). Redirects are never followed, and a next-page address outside `/2010-04-01/Accounts/<your SID>/Messages` stops the pull. It will not run if `AGENTBOARD_NO_SMS=1`
-   is set (dry runs and the button included), and otherwise not unless **two keys** turn: the machine's, `AGENTBOARD_TEXTS=1` in the shell that runs agentboard (unset = no command,
-   button, switch, chip, timer thread or call: a work laptop that never exports it cannot be switched on from the board), and the board's, `[texts] enabled = true` with the number,
-   your own number and both Twilio variables set. Every texts path checks one function, `texts.allowed()`, so the gate can be tightened in one place; the button is hidden until it is on.
-   Only a text from your own number counts: any other sender is counted and ignored, its words never read, shown or stored. A text is data: it can only become a Todo card (title and
-   description, marked `source: text`); it never runs a command, claims, deploys, spends or changes a setting, and the page shows card words escaped. It cannot reach `sms serve`'s grammar. Each text makes a card at most once
-   (a cursor file plus the text's id on the card; the store refuses a second card with the same id), a pull makes at most 20 cards, and the cursor file holds only a day and message ids.
-   **The timer (Settings › Texts, "Pull my texts every minute").** With it on, `agentboard serve` runs that same pull by itself about once a minute: the one outside request the board
-   server ever makes on its own, the same read-only GET to `api.twilio.com`, with the same SID and token from the shell that started the server. It is OFF on every fresh install
-   and stays wherever you left it across restarts (the switch is `auto` in `.agentboard/texts-state.json`, server side; no secret joins it). Both keys and `AGENTBOARD_NO_SMS` are
-   checked on every beat and on the switch itself, so a lock set, or a key taken away, after the server started still stops it; without `AGENTBOARD_TEXTS=1` the thread is never started. Any error (sign-in refused, network, any 4xx/5xx, a variable gone) turns the switch off,
-   keeps a one-line reason (variable names, never values) for Settings and a small header chip, and nothing retries until you switch it on again. One timed pull runs at a time,
-   and a timed pull shares the once-per-text memory with the button. It still only makes Todo cards from your own number; nothing is texted back and no other Twilio call is added.
+   **The text-message features are not in this tree.** Pulling texts into cards (including its once-a-minute timer) and the inbound-SMS webhook were removed from agentboard on Nov 7, 2026 and now
+   live in a separate home-only package that is kept outside this repository. A test (`tests/test_no_text_code.py`) fails if `src/agentboard` ever contains "twilio", "sms" or "pull-texts", and
+   another fails if any tracked file holds a phone-number-shaped string (other than a fictional 555-01xx one) or an account SID. **History:** the earlier commits on GitHub still contain that
+   code (history was not rewritten), so a reviewer can read it there; the shipped tree (the tip of `main`, what a new install gets) does not, and cards made from texts keep their guard: their
+   words reach an agent as quoted data, never as instructions.
 
 Providers run only when a task explicitly lists them (`--ctx`) and a prompt is built (Copy prompt,
 `agentboard prompt`, `agentboard rebuild`). Building one over HTTP (`GET /api/prompt`, `/api/orch-prompt`) is refused with 403 when the browser's
