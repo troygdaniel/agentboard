@@ -98,6 +98,7 @@ def mirror_send_message(store, payload):
     if not store.chat_agents():
         return None
     sender = resolve_sender(store.dir, payload)
+    text = store._scrub(text, 4300)   # masked BEFORE the first line is cut to 300: a key must not be cut in half and left behind
     first, _, rest = text.partition("\n")
     return store.chat_send(sender, first.strip()[:300], to=to, detail=rest.strip() or None, via="mirror")
 
