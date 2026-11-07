@@ -40,14 +40,21 @@ def find_transcript(session_id=None, explicit=None):
     return None
 
 
-def allowed(path):
-    """Only a file under ~/.claude/projects is served: the path comes from a file on disk, not from the request, but the rule holds anyway."""
+def resolved(path):
+    """The one real file a registered path points at, as an absolute resolved Path, or None unless it is a .jsonl under ~/.claude/projects
+    (symlinks followed first, so a link that leaves the folder is refused). The path comes from a file on disk, not from the request, but
+    the rule holds anyway. read() opens exactly this Path: the check and the open see the same file."""
     try:
         p = Path(path).expanduser().resolve()
         root = projects_dir().resolve()
     except (OSError, RuntimeError):
-        return False
-    return p.suffix == ".jsonl" and root in p.parents
+        return None
+    return p if p.suffix == ".jsonl" and root in p.parents else None
+
+
+def allowed(path):
+    """Only a file under ~/.claude/projects is served."""
+    return resolved(path) is not None
 
 
 def tool_line(name, inp):
@@ -130,14 +137,15 @@ def read(path, max_lines=MAX_LINES):
     is missing, unreadable or outside ~/.claude/projects gives no lines and says why, never an error."""
     if not path:
         return {"lines": [], "missing": True, "why": "no transcript registered"}
-    if not allowed(path):
+    real = resolved(path)   # checked and opened as one and the same Path: a "~" or a relative piece can never make open() look elsewhere
+    if real is None:
         return {"lines": [], "missing": True, "why": "outside ~/.claude/projects"}
     try:
-        text, size = tail_text(path)
-        mtime = datetime.fromtimestamp(os.path.getmtime(path)).strftime("%Y-%m-%dT%H:%M:%S")
+        text, size = tail_text(real)
+        mtime = datetime.fromtimestamp(os.path.getmtime(real)).strftime("%Y-%m-%dT%H:%M:%S")
     except OSError:
         return {"lines": [], "missing": True, "why": "no such file"}
     lines = []
     for raw in text.splitlines():
         lines.extend(parse_line(raw))
-    return {"lines": lines[-max_lines:], "size": size, "mtime": mtime, "file": Path(path).name}
+    return {"lines": lines[-max_lines:], "size": size, "mtime": mtime, "file": real.name}

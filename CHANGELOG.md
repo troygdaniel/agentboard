@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### The transcript route opens the path it checked (Nov 7)
+- `transcript.read()` resolves a registered path once (`~` expanded, symlinks followed) and opens that same Path; before, the check used the resolved path and `open()` the raw string, so a `~` path looked for a literal `~` folder under the working directory. Harmless then, closed now, with tests for `~`, relative, outside and symlinked paths.
+
 ### The card panel has tabs: Summary, Conversation, Terminal (Nov 6)
 - **Every tab of a held card wears the compact head** the side panel had (avatar, agent name, its state and last update, the card it is on), not the card's title block, so the content gets the room. The title form still takes its place while you edit the title (`e`); a subtask or an unheld card keeps the title block.
 - **Three tabs under the open card's title**, for a card an agent holds: **Summary** is the card as before; **Conversation** is that agent's thread (your exchange since its current card) with a composer; **Terminal** is its session. One click, or `t` to cycle (on the `?` list). The agent pill still works, as a shortcut to Conversation.
