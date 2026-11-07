@@ -17,9 +17,18 @@ token or secret. A commit hash, a card id, a path or a sentence is never touched
 
 What you type yourself (a reply, a send-back note, a chat line from the owner) is left as written: you chose to say it.
 `agentboard redact` shows what is already stored; `agentboard redact --apply` masks it (after a snapshot)."""
+import bisect
 import re
 import tomllib
 from pathlib import Path
+
+# Control (but not tab, newline, carriage return), format (zero-width, bidi, soft hyphen, tag), private-use and surrogate code points: invisible, or
+# able to split a key so that a pattern no longer sees it ("sk-" + zero-width space + key): the set untrusted.text_lines drops, plus the invisible
+# fillers, joiners and variation selectors. Only the COPY used for matching loses them: the text you store keeps every one it had.
+_INVISIBLE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f\xad\u034f\u0600-\u0605\u061c\u06dd\u070f\u08e2\u115f\u1160\u17b4\u17b5\u180b-\u180e\u200b-\u200f\u202a-\u202e\u2060-\u2064"
+                        r"\u2066-\u206f\u2800\u3164\ufe00-\ufe0f\ufeff\uffa0\ufff9-\ufffb\ue000-\uf8ff\ud800-\udfff\U000110bd\U000110cd\U00013430-\U0001343f\U0001bca0-\U0001bca3"
+                        r"\U0001d173-\U0001d17a\U000e0001\U000e0020-\U000e007f\U000e0100-\U000e01ef\U000f0000-\U000ffffd\U00100000-\U0010fffd]")
+MAX_HIDDEN = 5000    # a text with more invisible characters than this is not prose: they are dropped instead of being mapped around
 
 PLACEHOLDER = re.compile(r"^[xX*._\-]+$|EXAMPLE|\$\{?\w|<[^>]*>|\{\w+\}|changeme|placeholder|dummy|redacted|^your[-_]", re.I)
 _CACHE = {}
@@ -155,6 +164,30 @@ def _extras(conf):
     return rxs
 
 
+def _sub_visible(rx, repl, text):
+    """rx.sub(repl, text), but matching on a copy without the invisible characters and replacing in the original by the matched span:
+    a key that carries a zero-width space is masked whole, and everything else (a ZWJ in an emoji, a ZWNJ in Persian) stays as written."""
+    hidden = [m.start() for m in _INVISIBLE.finditer(text)]
+    if not hidden:
+        return rx.sub(repl, text)
+    clean = _INVISIBLE.sub("", text)
+    q = [p - j for j, p in enumerate(hidden)]     # q[j]: the clean index where the j-th hidden character was taken out
+
+    def orig(c):
+        return c + bisect.bisect_right(q, c)       # clean index to original index: add the hidden characters before it
+    out, last = [], 0
+    for m in rx.finditer(clean):
+        r = repl(m)
+        if r == m.group(0):                        # left as it is: the original, invisible characters and all, stays
+            continue
+        a, b = orig(m.start()), orig(m.end() - 1) + 1
+        out.append(text[last:a])
+        out.append(r)
+        last = b
+    out.append(text[last:])
+    return "".join(out)
+
+
 def head(text, limit):
     """The text cut to `limit` characters at a word boundary (a token cut in half is never left to look like half a key)."""
     if not isinstance(text, str) or len(text) <= limit:
@@ -187,12 +220,14 @@ def scrub(text, board_dir=None, conf=None, found=None, bound=None):
                 found.append((kind, m.group(0)[:4]))
             return r
         return wrapped
+    if sum(1 for _ in _INVISIBLE.finditer(text)) > MAX_HIDDEN:
+        text = _INVISIBLE.sub("", text)
     for kind, rx, fn in SHAPES:
-        text = rx.sub(note(kind, fn), text)
+        text = _sub_visible(rx, note(kind, fn), text)
     if conf["phones"]:
-        text = PHONE.sub(note("phone", lambda m: m.group(0) if _fictional(m.group(0)) else _mask("phone")), text)
+        text = _sub_visible(PHONE, note("phone", lambda m: m.group(0) if _fictional(m.group(0)) else _mask("phone")), text)
     for rx in _extras(conf):
-        text = rx.sub(note("extra", lambda m: _mask("match")), text)
+        text = _sub_visible(rx, note("extra", lambda m: _mask("match")), text)
     return text
 
 
