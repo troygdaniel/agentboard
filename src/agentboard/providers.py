@@ -11,11 +11,19 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
+from . import lockdown
+
 TIMEOUT = 5
 
 
 class ProviderError(Exception):
     pass
+
+
+def _not_locked():
+    """AGENTBOARD_LOCKDOWN: the providers that reach out (a URL) or start a program (a shell command) do not run on this machine."""
+    if lockdown.locked("providers"):
+        raise ProviderError("this provider type is locked off on this machine (AGENTBOARD_LOCKDOWN is set)")
 
 
 def split_spec(spec):
@@ -90,6 +98,7 @@ def file_tail(arg, conf, task, base_dir):
 def http(arg, conf, task, base_dir):
     """GET a URL with {query} filled from arg (or the task title). json_path
     walks into the response; fields picks keys to show for each item."""
+    _not_locked()
     query = arg or task["title"]
     url = conf["url"].replace("{query}", urllib.parse.quote(query))
     try:
@@ -119,6 +128,7 @@ def command(arg, conf, task, base_dir):
     """Run a shell command (cwd = project root). {arg} and {title} are
     substituted shell-quoted."""
     import shlex
+    _not_locked()
     cmd = conf["run"].replace("{arg}", shlex.quote(arg)).replace("{title}", shlex.quote(task["title"]))
     try:
         r = subprocess.run(cmd, shell=True, capture_output=True, text=True,

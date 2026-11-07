@@ -15,6 +15,7 @@ from . import agentchat
 from . import hooks as hookslib
 from . import backup as backuplib
 from . import hud as hudlib
+from . import lockdown
 from . import prompt as promptlib
 from . import reports as reportslib
 from . import summary as summarylib
@@ -724,6 +725,7 @@ def _hex_rgb(color):
 
 
 def cmd_spawn(a):
+    lockdown.refuse("spawn")   # AGENTBOARD_LOCKDOWN: no Terminal windows or commands started from the board on this machine
     if sys.platform != "darwin":
         raise BoardError("spawn only supports macOS Terminal.app right now")
     names = [n.strip() for n in a.names.split(",") if n.strip()]

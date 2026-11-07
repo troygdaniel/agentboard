@@ -17,6 +17,8 @@ import tempfile
 from datetime import datetime, timedelta
 from pathlib import Path
 
+from . import lockdown
+
 HOURLY_KEEP_H, DAILY_KEEP_D, SYNC_KEEP_D = 48, 30, 30
 EVERY_MIN = 60
 SYNC_AFTER_HOUR = 2   # the nightly copy happens after 02:00 local time
@@ -205,6 +207,8 @@ class Backups:
 
     # nightly copy
     def sync_dir(self) -> Path | None:
+        if lockdown.locked("backup-sync"):   # AGENTBOARD_LOCKDOWN: nothing is copied out of the board folder
+            return None
         v = self.conf.get("sync_dir")
         return Path(v).expanduser() if isinstance(v, str) and v.strip() else None
 

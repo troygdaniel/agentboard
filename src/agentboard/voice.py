@@ -15,6 +15,7 @@ import sys
 import tempfile
 from pathlib import Path
 
+from . import lockdown
 from . import prompt as promptlib
 from .store import DEFAULT_OWNER, BoardError, owner_name
 
@@ -54,6 +55,7 @@ def find_model(board_dir=None):
 
 def tools():
     """(whisper-cli, ffmpeg) paths, or a BoardError saying what to install."""
+    lockdown.refuse("voice")   # AGENTBOARD_LOCKDOWN: no microphone, ffmpeg or whisper from the board on this machine
     w, f = shutil.which("whisper-cli"), shutil.which("ffmpeg")
     if not w:
         raise BoardError("whisper-cli is not installed (brew install whisper-cpp)")
@@ -158,5 +160,6 @@ def to_clipboard(text):
 
 def paste_into_front_window():
     """⌘V in whatever window has focus (needs Accessibility permission for the terminal; a refusal is reported, not hidden)."""
+    lockdown.refuse("voice")
     r = subprocess.run(["osascript", "-e", 'tell application "System Events" to keystroke "v" using command down'], capture_output=True, text=True)
     return r.returncode == 0, r.stderr.strip()
