@@ -30,6 +30,15 @@ _INVISIBLE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f\xad\u034f\u0600-\
                         r"\U0001d173-\U0001d17a\U000e0001\U000e0020-\U000e007f\U000e0100-\U000e01ef\U000f0000-\U000ffffd\U00100000-\U0010fffd]")
 MAX_HIDDEN = 5000    # a text with more invisible characters than this is not prose: they are dropped instead of being mapped around
 
+# Dashes and minus signs that look like a hyphen: every Unicode "Pd" (dash punctuation) character, plus the minus signs and the hyphen bullet.
+# "sk" + U+2010 + key is a key to the eye and to whatever normalises it later, but not to a pattern that wants "-". Only the COPY used for
+# matching folds them to "-", one for one (so every position stays the same); the text you store keeps the dash it had ("pages 3-5" is not a key).
+_DASH_RANGES = ((0x058A, 0x058A), (0x05BE, 0x05BE), (0x1400, 0x1400), (0x1806, 0x1806), (0x2010, 0x2015), (0x2E17, 0x2E17), (0x2E1A, 0x2E1A),
+                (0x2E3A, 0x2E3B), (0x2E40, 0x2E40), (0x2E5D, 0x2E5D), (0x301C, 0x301C), (0x3030, 0x3030), (0x30A0, 0x30A0), (0xFE31, 0xFE32),
+                (0xFE58, 0xFE58), (0xFE63, 0xFE63), (0xFF0D, 0xFF0D), (0x10D6E, 0x10D6E), (0x10EAD, 0x10EAD),          # category Pd
+                (0x02D7, 0x02D7), (0x2043, 0x2043), (0x207B, 0x207B), (0x208B, 0x208B), (0x2212, 0x2212), (0x2796, 0x2796))   # minus signs, hyphen bullet
+_DASHES = {c: "-" for lo, hi in _DASH_RANGES for c in range(lo, hi + 1)}
+
 PLACEHOLDER = re.compile(r"^[xX*._\-]+$|EXAMPLE|\$\{?\w|<[^>]*>|\{\w+\}|changeme|placeholder|dummy|redacted|^your[-_]", re.I)
 _CACHE = {}
 
@@ -177,12 +186,14 @@ def _extras(conf):
 
 
 def _sub_visible(rx, repl, text):
-    """rx.sub(repl, text), but matching on a copy without the invisible characters and replacing in the original by the matched span:
-    a key that carries a zero-width space is masked whole, and everything else (a ZWJ in an emoji, a ZWNJ in Persian) stays as written."""
-    hidden = [m.start() for m in _INVISIBLE.finditer(text)]
-    if not hidden:
+    """rx.sub(repl, text), but matching on a copy without the invisible characters and with every Unicode dash folded to "-", and replacing
+    in the original by the matched span: a key that carries a zero-width space or an en dash is masked whole, and everything else (a ZWJ in
+    an emoji, a ZWNJ in Persian, the dash in "pages 3-5") stays as written."""
+    view = text if text.isascii() else text.translate(_DASHES)       # one for one: every index is the same in both
+    hidden = [m.start() for m in _INVISIBLE.finditer(view)]
+    if not hidden and view == text:
         return rx.sub(repl, text)
-    clean = _INVISIBLE.sub("", text)
+    clean = _INVISIBLE.sub("", view) if hidden else view
     q = [p - j for j, p in enumerate(hidden)]     # q[j]: the clean index where the j-th hidden character was taken out
 
     def orig(c):
@@ -190,7 +201,7 @@ def _sub_visible(rx, repl, text):
     out, last = [], 0
     for m in rx.finditer(clean):
         r = repl(m)
-        if r == m.group(0):                        # left as it is: the original, invisible characters and all, stays
+        if r == m.group(0):                        # left as it is: the original, invisible characters and dashes and all, stays
             continue
         a, b = orig(m.start()), orig(m.end() - 1) + 1
         out.append(text[last:a])
