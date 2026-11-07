@@ -10,6 +10,7 @@ exception SECURITY.md lists for one-shot runs). Chat never changes a card, spend
 import json
 import re
 import subprocess
+import tempfile
 from datetime import datetime, timedelta
 
 from . import lockdown, untrusted
@@ -220,9 +221,9 @@ def casual_line(claude, model, budget, m):
     lockdown.refuse("claude")   # AGENTBOARD_LOCKDOWN: no claude -p from the board on this machine
     to = f" to {m['to']}" if m.get("to") else ""
     text = m["text"] + ((" " + m["detail"].splitlines()[0]) if m.get("detail") and len(m["text"]) < 60 else "")
-    argv = [claude, "-p", "--output-format", "json", "--model", str(model), "--max-budget-usd", f"{budget:g}"]
+    argv = _claude_argv(claude, model, budget)
     try:
-        p = subprocess.run(argv, input=CASUAL_PROMPT.format(sender=m["sender"], to=to, text=text), capture_output=True, text=True, timeout=IDLE_TIMEOUT_S)
+        p = _run_claude(argv, CASUAL_PROMPT.format(sender=m["sender"], to=to, text=text))
     except (OSError, subprocess.TimeoutExpired) as e:
         raise BoardError(f"could not run claude: {e}") from e
     if p.returncode != 0:
@@ -277,6 +278,21 @@ def casual_once(store, claude, model=None, budget=None, per_hour=None, now=None,
 DEFAULT_IDLE_MODEL = "haiku"       # the claude CLI's alias for its cheapest tier; [chat] idle_model in config.toml overrides it
 DEFAULT_IDLE_BUDGET = 0.05         # dollars per draft, passed as --max-budget-usd
 IDLE_TIMEOUT_S = 120
+
+
+def _claude_argv(claude, model, budget):
+    """The command for the board's own cheap rounds (casual, autopilot, idle drafts): one message in, one short reply out, so no tools at
+    all, no MCP servers, no slash commands or skills, and no session file saved under ~/.claude/projects (chat text would sit there).
+    The text it reads is other agents' chat lines and card words: data, so it must have nothing to act with. (agentboard run is
+    different on purpose: it works in a repo, with the permissions an interactive agent there would have.)"""
+    return [claude, "-p", "--output-format", "json", "--model", str(model), "--max-budget-usd", f"{budget:g}",
+            "--tools", "", "--strict-mcp-config", "--disable-slash-commands", "--no-session-persistence"]
+
+
+def _run_claude(argv, prompt):
+    """Run it from a fresh empty folder, never from where the board server happens to have been started (a repo's CLAUDE.md, files)."""
+    with tempfile.TemporaryDirectory(prefix="agentboard-round-") as cwd:
+        return subprocess.run(argv, input=prompt, capture_output=True, text=True, timeout=IDLE_TIMEOUT_S, cwd=cwd)
 
 VOICE = """\
 How to write: like two colleagues at a desk, not a report. Short sentences. Contractions. Say the other person's name. No lists,
@@ -554,9 +570,9 @@ def draft_share(store, name, claude, model=None, budget=None, recent_chat=12, mi
 
 def _ask_model(claude, model, budget, prompt):
     lockdown.refuse("claude")   # AGENTBOARD_LOCKDOWN: no claude -p from the board on this machine
-    argv = [claude, "-p", "--output-format", "json", "--model", str(model), "--max-budget-usd", f"{budget:g}"]
+    argv = _claude_argv(claude, model, budget)
     try:
-        p = subprocess.run(argv, input=prompt, capture_output=True, text=True, timeout=IDLE_TIMEOUT_S)
+        p = _run_claude(argv, prompt)
     except OSError as e:
         raise BoardError(f"could not run claude: {e}") from e
     except subprocess.TimeoutExpired:
