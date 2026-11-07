@@ -19,6 +19,7 @@ A plugin is an entry point in the group "agentboard.plugins" whose value is a fu
         api.add_state(fn)                                         # fn(store) -> dict | None, sent with every /api/tasks poll (page: AB.state.mything)
         api.add_thread(fn)                                        # fn(store) runs once in a daemon thread under `agentboard serve`
         api.set_page(script=js_text, style=css_text)              # one script, /api/x/mything/page.js, loaded by the page; the style rides in it
+        api.add_source("things", "what it holds", search)           # agentboard lookup "q" --in things; search(store, words, limit) -> [{where, date, title, snippet, score}]
 
 A plugin is code you installed and switched on; it is trusted like any package. What this module guarantees is smaller: nothing loads
 unless the machine says so, a plugin can only add routes under its own /api/x/<name>/ and commands that do not shadow a core one, one
@@ -63,7 +64,7 @@ def enabled():
 # -- registration ---------------------------------------------------------------------------------------------------------------
 class Plugin:
     def __init__(self, name):
-        self.name, self.commands, self.routes, self.states, self.threads = name, [], {}, [], []
+        self.name, self.commands, self.routes, self.states, self.threads, self.sources = name, [], {}, [], [], []
         self.script = self.style = None
 
 
@@ -96,6 +97,13 @@ class Api:
         if not callable(fn):
             raise ValueError("bad thread")
         self._p.threads.append(fn)
+
+    def add_source(self, name, help, search):
+        """A place `agentboard lookup` can search. search(store, words, limit) returns hits as dicts (where, date, title, snippet, score);
+        the board cleans and cuts every field before printing. It should only read, and never write what it found anywhere."""
+        if not (isinstance(name, str) and NAME_RE.fullmatch(name)) or not callable(search) or any(s[0] == name for s in self._p.sources):
+            raise ValueError("bad source")
+        self._p.sources.append((name, str(help or "")[:120], search))
 
     def set_page(self, script=None, style=None):
         if not all(x is None or isinstance(x, str) for x in (script, style)):
@@ -146,6 +154,11 @@ def failed():
 # -- what the server, the CLI and the page use ----------------------------------------------------------------------------------
 def commands():
     return [(p.name, *c) for p in active() for c in p.commands]
+
+
+def sources():
+    """[(plugin name, source name, help, search function)] for `agentboard lookup`; empty while plugins are off."""
+    return [(p.name, *s) for p in active() for s in p.sources]
 
 
 def route(method, name, path):

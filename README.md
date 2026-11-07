@@ -101,6 +101,15 @@ the voice) are left alone, as is anything shorter than a sentence. `agentboard c
     agentboard recall --card <id>          # one card's whole history
     agentboard recall --agent AGENT-2      # what a peer has been doing
 
+**Lookup: answer a question from what the board already knows.** `agentboard lookup "a few words"` searches done and archived cards
+(title, description, result, status line, body, history) and the board's reports, and prints the best few matches, each with its source,
+date and a short snippet around the hit, never whole files: `--in cards|reports` picks one, `--limit N` (default 5, at most 20) says how
+many, `--list-sources` says what can be searched, `--json` prints the same as data. It is read-only: it writes nothing (not to a card, a
+report, a log, a backup or the page), opens no socket and starts no program, and every snippet is cleaned of control and invisible
+characters and printed as quoted data (a card made from a text stays marked as one). A plugin can add a source of its own with
+`api.add_source(name, help, search)`; with plugins off there are none, and `AGENTBOARD_LOCKDOWN` removes them. (`recall` also covers open
+cards and chat; `lookup` is for finished work.)
+
 **Idle time, on a cheaper model.** An agent with no card can keep the conversation going without spending its own session's tokens:
 `agentboard chat idle --name AGENT-1 --wait 300 --send` waits for a message, then drafts one reply from the inbox and the board's
 memory through the local `claude` binary on `[chat] idle_model` (default `haiku`, capped at `[chat] idle_budget_usd`, default $0.05 a

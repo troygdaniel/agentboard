@@ -11,6 +11,7 @@ the installed package, so it stays right when a feature moves out into a plugin.
 import importlib.metadata
 import os
 import re
+import stat
 import subprocess
 from pathlib import Path
 
@@ -306,7 +307,7 @@ def check_config(board_dir):
     run = conf.get("run") if isinstance(conf.get("run"), dict) else {}
     if run.get("claude"):
         switches.append("run.claude (a different claude program)")
-    known = {"chat", "providers", "backup", "run", "notify", "voice", "agent_colors", "owner", "reports", "hud", "prompt", "board"}
+    known = {"chat", "providers", "backup", "run", "notify", "voice", "agent_colors", "owner", "reports", "hud", "prompt", "board", "knowledge"}
     other = sorted(k for k in conf if k not in known)
     out = []
     if not switches:
@@ -318,6 +319,39 @@ def check_config(board_dir):
     if other:
         out.append(_res(INFO, "config", "other sections, not checked here: " + ", ".join(other)))
     return out
+
+
+def check_knowledge(board_dir):
+    """The notes files a board lists in [knowledge] files = [...] (read only by a plugin's lookup source; empty by default). Only the file
+    names are shown, never the folder: it can hold an account name, and this output gets pasted into reviews."""
+    try:
+        conf = promptlib.load_config(board_dir)
+    except BoardError:
+        return []
+    k = conf.get("knowledge") if isinstance(conf.get("knowledge"), dict) else {}
+    files = k.get("files") if isinstance(k.get("files"), list) else []
+    if not files:
+        return [_res(INFO, "knowledge", "no notes files are listed in config.toml [knowledge] (the default): lookup searches cards and reports only")]
+    names, problems = [], []
+    for f in files:
+        p = Path(f) if isinstance(f, str) and f.strip() else None
+        name = (p.name if p else "?")[:60]
+        names.append(name)
+        if p is None or not p.is_absolute():
+            problems.append(f"{name}: not an absolute path")
+            continue
+        try:
+            st = os.lstat(p)
+        except OSError:
+            problems.append(f"{name}: not found")
+            continue
+        if stat.S_ISLNK(st.st_mode):
+            problems.append(f"{name}: is a symlink (it will be refused)")
+        elif not stat.S_ISREG(st.st_mode):
+            problems.append(f"{name}: not a regular file")
+    note = f" (ignored: {lockdown.ENV} is on)" if lockdown.locked() else ""
+    text = f"{len(files)} notes file(s) listed in [knowledge]{note}: " + ", ".join(names)
+    return [_res(WARN if problems else INFO, "knowledge", text + ("; " + "; ".join(problems) if problems else ""))]
 
 
 def check_code():
@@ -348,6 +382,7 @@ def run(board_dir, project=None, env=None, runner=subprocess.run):
     results += check_locks(env)
     results += check_listeners(runner)
     results += check_config(board_dir)
+    results += check_knowledge(board_dir)
     results += check_files(board_dir)
     results += check_git(project, board_dir, runner)
     results += check_hooks(project)

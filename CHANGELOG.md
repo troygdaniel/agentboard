@@ -8,6 +8,11 @@
 - **The Terminal tab and `/api/transcript` mask them too**: a command shown without a description, a URL with a key, a line you typed, the assistant's text, an error line and a question's option chips. Ordinary lines read exactly as before; the session's own `.jsonl` is never rewritten. Same `[redact]` setting.
 - `agentboard redact` lists what the board already holds (where and what kind, never the value); `--apply` masks it after a snapshot.
 
+### Lookup (Nov 7)
+- **`agentboard lookup "words"`**: a read-only search of done and archived cards and the board's reports; the best few matches with source, date and a short snippet (`--in`, `--limit`, `--list-sources`, `--json`). Writes nothing, opens no socket, starts no program; snippets are cleaned and printed as quoted data.
+- **`api.add_source(name, help, search)`** in the plugin hook: a plugin can add a source to `lookup`. With plugins off, or under `AGENTBOARD_LOCKDOWN`, there are none. Core code never opens a file named in `config.toml`.
+- `agentboard doctor` shows how many notes files a board lists under `[knowledge] files` (file names only, never the folder).
+
 ### The text features moved out of agentboard (Nov 7)
 - **Pulling your texts into cards (the command, the Pull texts button, the once-a-minute timer) and the inbound-SMS webhook are no longer part of agentboard.** They live in a separate package kept outside this repository, loaded through the plugin hook only on a machine that switches it on. agentboard now contains no Twilio code, no texting code and no timer; `src/agentboard` has a test that fails if that changes, and another that fails if a real-looking phone number or account SID is committed.
 - **Cards made from a text keep their guard**: such a card (its `source` says `text`) still reaches an agent as quoted words, never as instructions, in prompts, `list`, `recall` and `report`.

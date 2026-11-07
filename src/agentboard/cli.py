@@ -598,6 +598,21 @@ def cmd_casual(a):
             return
 
 
+def cmd_lookup(a):
+    """A read-only search of done and archived cards, reports and any source a plugin added; prints the best few matches and writes nothing."""
+    from . import lookup
+    if a.list_sources:
+        print("\n".join(lookup.source_lines()))
+        return
+    if not a.query:
+        raise BoardError("say what to look for: agentboard lookup \"a few words\" (or --list-sources)")
+    hits, notes = lookup.lookup(_store(), a.query, only=a.source, limit=a.limit)
+    if a.json:
+        print(json.dumps({"hits": hits, "notes": notes}, indent=2))
+        return
+    print("\n".join(lookup.lines(hits, notes, a.query)))
+
+
 def cmd_recall(a):
     """What the board remembers: cards, updates and history matching a few words (every agent's, archived too), and chat."""
     s = _store()
@@ -1474,6 +1489,12 @@ def main(argv=None):
     sp = add("hooks", cmd_hooks, "install or uninstall the SendMessage mirror hook in this project's .claude/settings.json (full path), or show its status")
     sp.add_argument("what", nargs="?", choices=["install", "uninstall", "status"], default="status")
     sp.add_argument("--project", help="the project folder (default: the one holding .agentboard)")
+    sp = add("lookup", cmd_lookup, "read-only search of done and archived cards, reports and any source a plugin adds: the best few matches with date and a short snippet")
+    sp.add_argument("query", nargs="?", help="a few words")
+    sp.add_argument("--in", dest="source", metavar="SOURCE", help="search one source (see --list-sources)")
+    sp.add_argument("--limit", type=int, default=5, help="how many matches (default 5, at most 20)")
+    sp.add_argument("--list-sources", action="store_true", help="what can be searched here")
+    sp.add_argument("--json", action="store_true")
     sp = add("recall", cmd_recall, "what the board remembers: cards, updates and history matching a few words (every agent's), and chat")
     sp.add_argument("query", nargs="?", help="a few words")
     sp.add_argument("--card", metavar="ID", help="one card's whole history")
