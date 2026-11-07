@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### The Nov 7 security audit: verdict, work-laptop checklist, SECURITY.md (Nov 7)
+- **`docs/security-audit-2026-11-07.md`** is the one-page verdict of the five overnight audits (network, install, the page and API, data and secrets, a red-team re-check): safe to run on a managed work laptop with `AGENTBOARD_LOCKDOWN=1` set, what is still open (the board has no login; the key-cookie lock is held for the owner's decision), what was re-checked by hand and what was not, and a checklist of what to install, set, check and not enable.
+- **`SECURITY.md`** now says what the master lock refuses, how to check a machine (`agentboard doctor` and the one-line commands), the known gaps, and what changed since Oct 24; the README's "On a work laptop" section matches.
+
 ### Doctor: calmer about an empty folder, and it spots a stale install (Nov 7)
 - **An empty board folder** no longer prints "0 of 0 entries … can be read by any user" as a FAIL: it says the folder is empty. A folder others can list but whose files are private now says exactly that (still a FAIL, as before) instead of counting zero readable entries; a symlink's own mode is ignored.
 - **New line `install`** (a WARN, so the exit status rules are unchanged): a file the installed copy carries but the source it was installed from no longer has (texts.py and sms.py once lingered in site-packages from a stale build folder) is named, with the fix `pipx uninstall agentboard; pipx install <repo>`. It reads two folders, runs nothing, and says INFO when it cannot tell where the copy came from.

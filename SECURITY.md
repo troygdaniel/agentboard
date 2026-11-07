@@ -1,19 +1,29 @@
 # Security and network behaviour
 
 agentboard runs entirely on your machine. This audit (Oct 20, 2026, v0.2.0) was re-checked on
-Oct 24, 2026 for v0.3.0 against the code and at runtime; it checks literally rather than by assumption.
+Oct 24, 2026 for v0.3.0 and again on Nov 7, 2026 against `main` at 0d92375 (v0.3.1), by five separate
+read-only audits (network, install, the page and API, data and secrets, and a red-team re-check of the fixes); it checks literally
+rather than by assumption. The plain-language verdict, what is still open and a work-laptop checklist are in
+[`docs/security-audit-2026-11-07.md`](docs/security-audit-2026-11-07.md); `agentboard doctor` repeats the machine checks.
 
 ## Verdict
 
-**Local-only.** With its default configuration, agentboard makes no network connections beyond
-`127.0.0.1`. Opt-in exceptions exist, all off by default: the `http` and `command` providers, one-shot runs and the chat drafter, and plugins (code you installed and switched on with `AGENTBOARD_PLUGINS=1`; agentboard ships with none). Another happens only at install time.
+**Local-only, safe to run on a managed work machine with the settings below.** With its default configuration, agentboard makes no
+network connections beyond `127.0.0.1`, has no dependencies, runs nothing at install and has no telemetry. Everything that could reach
+outside is **opt-in and off by default**: the `http` and `command` providers, one-shot runs (`agentboard run`) and the chat rounds (both
+start the `claude` program), the `[backup] sync_dir` copy, voice, and plugins (code you installed and switched on; agentboard ships
+with none). **`AGENTBOARD_LOCKDOWN=1` refuses all of them at once** (see "The master lock"). Another network moment happens only at
+install time.
+
+**Not covered:** the board has no login. Any program running as the same user, or a browser extension, can reach the local port;
+websites cannot. A fix exists and is held for the owner's decision (see "Known gaps"). Texting features are not in this tree at all.
 
 ## What was checked, and how
 
 | Area | Finding | How verified |
 |---|---|---|
 | Python dependencies | **None.** `dependencies = []`; stdlib only | `pyproject.toml` |
-| Outbound calls in Python | Only in the opt-in `http` and `command` context providers (below) | Every `import` in `src/` listed and reviewed |
+| Outbound calls in Python | Only `providers.py` opens a socket of its own (the opt-in `http` provider). Programs the board starts (`claude`, `git`, `ffmpeg`/`whisper`, `osascript`) may reach out themselves; all of those are opt-in or run by you, and the master lock refuses the ones the board would start | Every `import` in `src/` listed and reviewed; `agentboard doctor` lists the modules that can connect or listen; the network audit ran the whole test suite (854 tests then) under a socket guard: 0 non-loopback attempts |
 | Server binding | `127.0.0.1` only, hard-coded; there is no option to bind other interfaces. Default port 8765 (`--port` to change). Each request handler has a 15 s socket timeout and a 1 MB body cap; card fields have their own caps (title 200, description 20,000, body 60,000), so a local process cannot pin threads with half-sent bodies or bloat every client's poll with one card | `server.py`; at runtime, `lsof` showed one socket, `TCP 127.0.0.1:<port> (LISTEN)`, and no outbound connections |
 | Browser-side requests | Only same-origin `/api/...` calls to the local server | Every `fetch` / `api()` call reviewed; at runtime, headless Chrome recorded every request while loading the board, a card's detail panel (with prompt preview) and the HUD: **0 non-local requests** |
 | CDNs, web fonts, external scripts or images | **None.** System fonts; icons are inline SVG; favicon is a `data:` URI; sounds are synthesized with Web Audio (no audio files) | Scan of `index.html` for absolute URLs, `<script src>`, `<link href>`, `@import`, `url(` |
@@ -57,10 +67,60 @@ Providers run only when a task explicitly lists them (`--ctx`) and a prompt is b
 are shell-quoted, and the README says not to wrap them in quotes of your own. On a work machine, point `http` providers only at local
 services, or don't configure any.
 
+## The master lock: `AGENTBOARD_LOCKDOWN`
+
+Set `AGENTBOARD_LOCKDOWN=1` in the shell profile of a work machine (`src/agentboard/lockdown.py`). It fails closed (locked unless the variable is
+unset or one of `""`, `0`, `false`, `no`), is read on every call and never cached, and refuses **before any process starts or any socket opens**:
+the board's own `claude -p` rounds (chat casual, autopilot, idle drafts), `agentboard run` (and `run --detach`), the `command` and `http` context
+providers (the prompt still builds and says why the provider was skipped), the `[backup] sync_dir` copy (local snapshots stay), voice, dictate and
+paste, `spawn`, and every plugin (`plugins.py` checks it first, so no entry point is looked up or imported). The tests make `subprocess` and `urllib` fail
+if a locked path reaches them. `AGENTBOARD_NO_PLUGINS=1` is the narrow lock for plugins alone. A copied `config.toml` or `tasks.json` therefore cannot
+switch any of these on while the lock is set.
+
+The board's own `claude -p` rounds (when you allow them) run with `--tools "" --strict-mcp-config --disable-slash-commands --no-session-persistence`
+from an empty temporary folder: one message in, one short reply out, nothing to act with. `agentboard run` is the exception on purpose: it works in
+a repo with the permissions an interactive agent there has, and never passes a flag that widens them.
+
+`agentboard lookup "words"` is read-only: it searches done and archived cards and reports in the board's own folder, writes nothing (not to a card, report,
+log, backup or the page), opens no socket, starts no program, and prints each snippet cleaned of control characters, secret-masked and quoted as data. A plugin may
+add a source; with plugins off or locked there are none. Core code never opens a file named in `config.toml`.
+
+## Checking a machine
+
+`agentboard doctor` is read-only and prints PASS / WARN / FAIL lines you can paste into a review: whether `AGENTBOARD_LOCKDOWN` is set (WARN if not) and which
+`config.toml` switches it would stop, the ports the board listens on (loopback only?), any open connection to another machine, whether the board folder is private
+(mode 700/600), the tracked files of the project (secrets, numbers, home paths), the Claude hooks installed, and which modules can connect or listen. By hand:
+
+    agentboard plugins                                              # plugins: locked / off, and what is loaded; no network call
+    lsof -nP -a -p $(pgrep -f "agentboard serve" | head -1) -i     # one line: 127.0.0.1:8765 (LISTEN), nothing else
+    ls -ld .agentboard; ls -l .agentboard                           # drwx------ and -rw-------
+    grep -rniE "twilio|sms" src/agentboard                          # no output (from a checkout)
+    python3 tests/publiccheck.py                                    # 0 finding(s); run before any push
+
+## Known gaps
+
+- **No login on the local port.** Any program running as the same user, or a browser extension, can read and change every card through `127.0.0.1:8765`;
+  websites cannot (Host, Origin, `Sec-Fetch-Site` and content-type checks, and a Content-Security-Policy). A key-cookie lock exists (`sec-local-token`, branch
+  `sec-web`) and is held for the owner's decision because it changes how the board is opened (`agentboard open` once per browser; `serve --no-token` turns it off).
+  Until it is merged, treat the board as readable by everything that runs as you.
+- **A plugin is trusted code.** It can do whatever its code does. Install none on a work machine; the master lock refuses them.
+- **Text you do not control becomes card text** when an agent copies web or email content into the board. It is escaped in the page, masked for secrets and framed as
+  quoted data in prompts, but it is untrusted: do not point agents that read email or web pages at a board on a work machine.
+- **Not audited:** the `claude` program's own traffic, other apps and browsers, Linux and Windows, and running the voice tools (`whisper`, `ffmpeg`).
+
 ## Install-time network (not runtime)
 
 Installing fetches files once: from GitHub if you install with `pipx install git+https://...`, and
 setuptools from PyPI (the build backend) when building from source. After install, nothing is fetched again.
+
+## What changed since the Oct 24 re-check (Nov 7, 2026)
+
+Fixed and merged after the five audits: card text could break out of an HTML attribute and run script in the board page (HIGH; escaping fixed); the page now carries a
+Content-Security-Policy and cannot be framed; POSTs need exactly `application/json` and a same-site origin; a stalled client is dropped after 15 s and fields have size
+caps; building a prompt over GET no longer runs a provider for a cross-site request; the transcript route opens the path it checked and refuses NULs and pipes; secrets are
+masked where text enters the board and in the Terminal tab; board files are mode 0600/0700; `reports.git_info` validates run records from `tasks.json` (a base such as `--output=path`
+once made `git` write a file); `hooks install` writes agentboard's full path (and `hooks uninstall` exists); `claude -p` rounds run with no tools; and the master lock above.
+The text-message features left the repository. One finding is open by design: the no-login item under "Known gaps".
 
 ## What changed in v0.3.0 (re-check, Oct 24, 2026)
 
@@ -79,10 +139,12 @@ setuptools from PyPI (the build backend) when building from source. After instal
 
 ## Public repository
 
-The public GitHub repo contains the code, README, CHANGELOG, SECURITY.md, the license and a few
-screenshots under `docs/` taken from demo / throwaway boards. Task data (`.agentboard/`) is
-git-ignored and has never been committed; no personal data appears anywhere in the commit history.
-Commit metadata does show the author's name and email.
+The public GitHub repo contains the code, README, CHANGELOG, SECURITY.md, the license and a few screenshots under `docs/` taken from demo / throwaway boards.
+Task data (`.agentboard/`) is git-ignored and has never been committed. The Nov 7 data audit searched every commit on every branch (272 commits, 60 branches at the
+time) for key and token shapes, assigned secrets and phone numbers (none; every number in the repo is a fictional 555 one) and read every screenshot with
+on-device OCR (synthetic demo cards only). A few project names from the author's other work appear in old commits of docs mockups and tests. The earlier text-message
+code (removed on Nov 7, see above) is still in old commits because history was not rewritten. Commit metadata shows the author's name and email.
+`tests/publiccheck.py` guards what is committed from now on.
 
 ## Backups
 

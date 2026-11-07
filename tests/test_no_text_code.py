@@ -23,7 +23,10 @@ ALLOWED = {}
 
 
 def tracked():
-    out = subprocess.run(["git", "ls-files"], cwd=ROOT, capture_output=True, text=True, check=True).stdout.split("\n")
+    got = subprocess.run(["git", "ls-files"], cwd=ROOT, capture_output=True, text=True)
+    if got.returncode != 0:   # an exported copy with no .git: there is no list of tracked files to scan
+        raise unittest.SkipTest("not a git checkout")
+    out = got.stdout.split("\n")
     return [ROOT / f for f in out if f and (ROOT / f).suffix.lower() not in BINARY and (ROOT / f).is_file()]
 
 

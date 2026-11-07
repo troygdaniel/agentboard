@@ -514,19 +514,22 @@ Copy prompt button, the CLI and `agentboard prompt` are unaffected.
 
 ## On a work laptop
 
-What to expect when you clone this onto a managed machine:
+What to expect when you clone this onto a managed machine (the full audit and checklist: [`docs/security-audit-2026-11-07.md`](docs/security-audit-2026-11-07.md)):
 
-1. **Needs:** `git`, Python 3.11+ (`python3 --version`), and `pipx` (or a venv, see [Install](#install)). Nothing else.
-2. **Get it:** `git clone https://github.com/troygdaniel/agentboard && cd agentboard && pipx install .`
-   (or `pipx install git+https://github.com/troygdaniel/agentboard`). The only network use is that one fetch
-   (plus setuptools from PyPI while building). Pin a release: `git checkout v0.3.0`.
-3. **Run it:** `cd <your repo> && agentboard init && agentboard serve --no-open`, then open `http://localhost:8765`
-   yourself. The server listens on `127.0.0.1` only; no auth, so it is for one person per machine.
-4. **Nothing leaves the machine:** no dependencies, no telemetry, no CDN. `SECURITY.md` has the checks and
-   the commands to repeat them. Leave the `http` / `command` providers unconfigured.
-5. **No personal data in the repo:** the repository is code, docs and screenshots of demo boards. Your task data lives in
-   `<your repo>/.agentboard/`, which `init` git-ignores. If your repo is shared, keep it that way.
-6. **Updating:** `git pull && pipx install . --force`, then restart `agentboard serve`.
+1. **Needs:** `git`, Python 3.11+ (`python3 --version`), and `pipx` (or a venv, see [Install](#install)). Nothing else; there are no dependencies.
+2. **Get it from a copy you reviewed and pin the commit:** `git clone https://github.com/troygdaniel/agentboard && cd agentboard && git checkout <reviewed commit> && pipx install .`
+   The only network use is that one fetch (plus `setuptools>=68` from PyPI while building). Nothing runs at install: no setup script, no `.pth`, no lock file.
+3. **Set the master lock in the shell profile that starts the board:** `export AGENTBOARD_LOCKDOWN=1`. It refuses everything that would start a program or send
+   data out (the `claude` rounds and `agentboard run`, the `command` and `http` providers, the `[backup] sync_dir` copy, voice, spawn and every plugin), even if a
+   copied `config.toml` says otherwise. Add `export AGENTBOARD_NO_PLUGINS=1` as a second lock for plugins. Do not set `AGENTBOARD_PLUGINS`.
+4. **Check it:** `agentboard doctor` prints PASS / WARN / FAIL lines you can paste into a review (want 0 FAIL, 0 WARN with the lock set). `agentboard plugins` says
+   plugins are locked; `lsof -nP -a -p $(pgrep -f "agentboard serve" | head -1) -i` shows one line, `127.0.0.1:8765 (LISTEN)`.
+5. **Run it:** `cd <your repo> && agentboard init && agentboard serve --no-open`, then open `http://localhost:8765` yourself. The server listens on `127.0.0.1` only.
+   **There is no login:** any program running as the same user can reach the port (websites cannot). It is for one person per machine; a key-cookie lock is available
+   for the owner to switch on (see `SECURITY.md`, "Known gaps").
+6. **No personal data in the repo:** the repository is code, docs and screenshots of demo boards. Your task data lives in `<your repo>/.agentboard/` (mode 700, files 600),
+   which `init` git-ignores. If your repo is shared, keep it that way, and run `python3 tests/publiccheck.py` before any push.
+7. **Updating:** `git pull`, review, `pipx install . --force`, then restart `agentboard serve`.
 
 ## Troubleshooting
 
