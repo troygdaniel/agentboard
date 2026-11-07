@@ -27,6 +27,15 @@ session a one-line question (e.g. via SendMessage) and wait for its answer first
 the whole board and can often answer without bothering the user; it escalates to them if it can't. This
 is a one-time check before you start, not an ongoing back-and-forth once work is underway.
 
+## This repo is public: before you commit or push
+
+- Run `python3 tests/publiccheck.py` (it also runs in the test suite). It fails on secret-shaped strings, phone numbers that are not
+  fictional (area code 555, or 555-01xx), emails outside a small allow-list, a real account's `/Users/<name>/` path, and your own
+  private words. It never prints what it found, only where. Put your private words (family, employer, other projects), one per line, in
+  `~/.config/agentboard/private-words.txt` (outside this repo, never committed); without that file that one check is skipped.
+- Screenshots and mockups in `docs/` come from a **throwaway board** (`AGENTBOARD_DIR` elsewhere, made-up cards), never the live one.
+- Never `git add -f .agentboard`, and never paste a real number, key or address into a test, a doc or a card description that gets committed.
+
 ## Subtasks
 
 Every card gets subtasks, always (one level deep). As soon as you start or claim a card, read the work and

@@ -8,7 +8,7 @@ switch that defaults to the current look. The ranked list that drove the night i
 
 Run the review on the card when you are up (this session could not reach your board):
 
-    AGENTBOARD_DIR=/Users/troydaniel/dev/agentboard/.agentboard /Users/troydaniel/.local/pipx/venvs/agentboard/bin/agentboard review agentboard-ux-review-overhaul "Overnight: projects gone, shortcuts on every view, nothing hides under Load or moves on a poll; 7 commits on claude/dreamy-allen-3s1xpf, main untouched" --body-file docs/ux-overnight-2026-11-04.md
+    AGENTBOARD_DIR=<board dir> agentboard review agentboard-ux-review-overhaul "Overnight: projects gone, shortcuts on every view, nothing hides under Load or moves on a poll; 7 commits on claude/dreamy-allen-3s1xpf, main untouched" --body-file docs/ux-overnight-2026-11-04.md
 
 Then try the branch for a day before merging: `git checkout claude/dreamy-allen-3s1xpf && pipx install . --force` and restart `agentboard serve`.
 
