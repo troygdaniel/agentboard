@@ -291,7 +291,7 @@ def make_handler(default_store, port):
             elif url.path == "/api/transcript":
                 # the session's transcript for one agent, read only, tailed from the file its session registered on claim/start
                 name = (q.get("agent") or [""])[0]
-                out = transcriptlib.read(hookslib.transcript_for(self.store.dir, name)) if name else {"lines": [], "missing": True, "why": "no agent named"}
+                out = transcriptlib.read(hookslib.transcript_for(self.store.dir, name), board_dir=self.store.dir) if name else {"lines": [], "missing": True, "why": "no agent named"}
                 out["agent"] = name
                 self._send(200, out)
             elif url.path in ("/api/orch-prompt", "/api/prompt") and not self._same_site():

@@ -9,6 +9,8 @@ import re
 from datetime import datetime
 from pathlib import Path
 
+from . import redact
+
 ENV = "AGENTBOARD_TRANSCRIPT"
 TAIL_BYTES = 1536 * 1024    # the end of the file is what the tab shows; a long session's start is not read (tool output lines are big: 256 KB held nine turns)
 MAX_LINES = 300
@@ -57,7 +59,7 @@ def allowed(path):
     return resolved(path) is not None
 
 
-def tool_line(name, inp):
+def tool_line(name, inp, board_dir=None):
     """'Read src/agentboard/cli.py', 'Bash Run the tests': the tool and the one argument that says what it was about."""
     inp = inp if isinstance(inp, dict) else {}
     key = TOOL_ARG.get(name)
@@ -66,7 +68,7 @@ def tool_line(name, inp):
         arg = inp.get("command")
     if name == "SendMessage" and not arg:
         arg = f"to {inp.get('to', '')}".strip()
-    arg = " ".join(str(arg or "").split())
+    arg = redact.scrub(" ".join(str(arg or "").split()), board_dir)   # a key in a command or a URL is masked before the line is cut to length
     line = f"{name} {arg}".strip()
     return line if len(line) <= LINE_MAX else line[: LINE_MAX - 1] + "…"
 
@@ -75,7 +77,7 @@ def _at(obj):
     return str(obj.get("timestamp") or "")[:19].replace("T", " ")
 
 
-def parse_line(line):
+def parse_line(line, board_dir=None):
     """One transcript line to the entries the tab shows: [] for the lines that are not part of the conversation."""
     try:
         obj = json.loads(line)
@@ -93,27 +95,27 @@ def parse_line(line):
             if not isinstance(b, dict):
                 continue
             if b.get("type") == "text" and str(b.get("text") or "").strip():
-                out.append({"kind": "text", "text": str(b["text"]).strip()[:TEXT_MAX], "at": at})
+                out.append({"kind": "text", "text": redact.scrub(str(b["text"]).strip(), board_dir)[:TEXT_MAX], "at": at})
             elif b.get("type") == "tool_use":
                 name = str(b.get("name") or "tool")
                 if name == "AskUserQuestion" and isinstance(b.get("input"), dict):   # a question put to the person in the terminal: the panel shows it
                     for q in b["input"].get("questions") or []:
                         if isinstance(q, dict) and str(q.get("question") or "").strip():
-                            opts = [str(o.get("label") if isinstance(o, dict) else o)[:LINE_MAX] for o in (q.get("options") or []) if o][:6]
-                            out.append({"kind": "ask", "text": str(q["question"]).strip()[:TEXT_MAX], "options": opts, "at": at})
+                            opts = [redact.scrub(str(o.get("label") if isinstance(o, dict) else o), board_dir)[:LINE_MAX] for o in (q.get("options") or []) if o][:6]
+                            out.append({"kind": "ask", "text": redact.scrub(str(q["question"]).strip(), board_dir)[:TEXT_MAX], "options": opts, "at": at})
                     continue
-                out.append({"kind": "tool", "text": tool_line(name, b.get("input")), "at": at})
+                out.append({"kind": "tool", "text": tool_line(name, b.get("input"), board_dir), "at": at})
     elif kind == "user":
         if isinstance(content, str):
             text = content.strip()
             if text and not text.startswith("<"):   # a line the person typed; the harness's own notes start with a tag
-                out.append({"kind": "user", "text": text[:TEXT_MAX], "at": at})
+                out.append({"kind": "user", "text": redact.scrub(text, board_dir)[:TEXT_MAX], "at": at})
         elif isinstance(content, list):
             for b in content:
                 if isinstance(b, dict) and b.get("type") == "tool_result" and b.get("is_error"):
                     c = b.get("content")
                     text = c if isinstance(c, str) else " ".join(str(x.get("text", "")) for x in c if isinstance(x, dict)) if isinstance(c, list) else ""
-                    first = " ".join(text.strip().splitlines()[:1]).strip()
+                    first = redact.scrub(" ".join(text.strip().splitlines()[:1]).strip(), board_dir)
                     out.append({"kind": "error", "text": first[:LINE_MAX] or "error", "at": at})
     return out
 
@@ -132,7 +134,7 @@ def tail_text(path, max_bytes=TAIL_BYTES):
     return text, size
 
 
-def read(path, max_lines=MAX_LINES):
+def read(path, max_lines=MAX_LINES, board_dir=None):
     """What the tab shows for one transcript: the last entries, newest last, with the file's size and last change. A path that
     is missing, unreadable or outside ~/.claude/projects gives no lines and says why, never an error."""
     if not path:
@@ -149,5 +151,5 @@ def read(path, max_lines=MAX_LINES):
         return {"lines": [], "missing": True, "why": "no such file"}
     lines = []
     for raw in text.splitlines():
-        lines.extend(parse_line(raw))
+        lines.extend(parse_line(raw, board_dir))
     return {"lines": lines[-max_lines:], "size": size, "mtime": mtime, "file": real.name}

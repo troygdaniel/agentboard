@@ -5,6 +5,7 @@
 ### Secrets are masked on the way in (Nov 7)
 - A key an agent echoes, a token in a command it ran, a private key in a review body is now stored as `[redacted …]`. Before, it was copied verbatim into `tasks.json`, the `.bak`, every backup, the card's report, the page and the chat. Reports mask older cards again when built.
 - Only unmistakable secrets: prefixed cloud and API keys, tokens, JWTs, private-key blocks, `Authorization:` values, `api_key = "…"`, a long hex string after key/token/secret. A commit hash, an id, a path, code or a phone number is never touched, and what you type yourself is left alone. `[redact]` in `config.toml`: `enabled = false`, `phones = true`, `extra = [...]`.
+- **The Terminal tab and `/api/transcript` mask them too**: a command shown without a description, a URL with a key, a line you typed, the assistant's text, an error line and a question's option chips. Ordinary lines read exactly as before; the session's own `.jsonl` is never rewritten. Same `[redact]` setting.
 - `agentboard redact` lists what the board already holds (where and what kind, never the value); `--apply` masks it after a snapshot.
 
 ### The text features moved out of agentboard (Nov 7)
