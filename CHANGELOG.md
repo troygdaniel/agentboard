@@ -5,6 +5,11 @@
 ### The masker can no longer freeze the board (Nov 7)
 - One POST of 198 KB of `eyJeyJeyJ…` froze the server for 9.9 s (400 KB took 44 s, 1 MB about four minutes): the token-shaped pattern for a JWT restarted at every `eyJ` inside a long run, and the masker ran on whole bodies before they were cut to their caps. The pattern is now linear, the masker looks at no more than twice a field's cap, and the Terminal tab cuts each line the same way. A real JWT is still found. A regression test times every shape at 1 MB.
 
+### Round-2 fixes: file reads under the lock, doctor checks the running server and the plugins (Nov 7)
+- **A copied `config.toml` can no longer pull files from outside the project into card prompts when `AGENTBOARD_LOCKDOWN` is set**: the `markdown` and `file-tail` providers and `[prompt] template_file` refuse a path that resolves (symlinks followed) outside the project folder; inside it they work as before. `agentboard doctor` lists the files config reads (names only) and warns about any outside the project.
+- **`agentboard doctor` checks the lock against the running server**, not only its own shell: `agentboard serve` writes `server-<pid>.json` (0600) in the board folder when it starts (lock on or off, plugin gate, port, plugin names; no environment value) and removes it on a normal exit. A server started without the lock now shows a WARN even when the shell running doctor has it.
+- **`agentboard doctor` has a plugins line**: PASS when no plugin can load (and which are installed), WARN naming the code that runs when `AGENTBOARD_PLUGINS=1`. Nothing is loaded to find out.
+
 ### The Nov 7 security audit: verdict, work-laptop checklist, SECURITY.md (Nov 7)
 - **`docs/security-audit-2026-11-07.md`** is the one-page verdict of the five overnight audits (network, install, the page and API, data and secrets, a red-team re-check): safe to run on a managed work laptop with `AGENTBOARD_LOCKDOWN=1` set, what is still open (the board has no login; the key-cookie lock is held for the owner's decision), what was re-checked by hand and what was not, and a checklist of what to install, set, check and not enable.
 - **`SECURITY.md`** now says what the master lock refuses, how to check a machine (`agentboard doctor` and the one-line commands), the known gaps, and what changed since Oct 24; the README's "On a work laptop" section matches.
