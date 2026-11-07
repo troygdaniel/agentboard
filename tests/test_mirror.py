@@ -3,6 +3,7 @@ import contextlib
 import io
 import json
 import os
+import shlex
 import tempfile
 import unittest
 from pathlib import Path
@@ -124,7 +125,10 @@ class InstallTests(Base):
         self.assertIn("installed:", out)
         p = self.proj / ".claude" / "settings.json"
         d = json.loads(p.read_text())
-        self.assertEqual(d["hooks"]["PostToolUse"], [{"matcher": "SendMessage", "hooks": [{"type": "command", "command": "agentboard hook send-message"}]}])
+        cmd = d["hooks"]["PostToolUse"][0]["hooks"][0]["command"]   # the full path of this agentboard now, not a bare name found through PATH
+        self.assertEqual(d["hooks"]["PostToolUse"], [{"matcher": "SendMessage", "hooks": [{"type": "command", "command": cmd}]}])
+        self.assertTrue(os.path.isabs(shlex.split(cmd)[0]), cmd)
+        self.assertTrue(cmd.endswith("hook send-message"), cmd)
         code, out = self.run_cli("hooks", "install")
         self.assertIn("already installed", out)
         self.assertEqual(len(json.loads(p.read_text())["hooks"]["PostToolUse"]), 1)

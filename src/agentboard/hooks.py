@@ -9,6 +9,8 @@ same id. A hook must never get in an agent's way, so every path here swallows it
 import json
 import os
 import re
+import shlex
+import shutil
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -115,13 +117,20 @@ def settings_path(project_dir):
     return Path(project_dir) / ".claude" / "settings.json"
 
 
-def hook_entry():
-    return {"matcher": "SendMessage", "hooks": [{"type": "command", "command": HOOK_COMMAND}]}
+def hook_command():
+    """What the hook runs, with this agentboard's full path (found now). A bare name would be looked up on PATH every time a session
+    sends a message, from a settings file that is usually committed with the project: whichever agentboard came first would run."""
+    exe = shutil.which("agentboard")
+    if exe:
+        return f"{shlex.quote(os.path.abspath(exe))} hook send-message"
+    return f"{shlex.quote(sys.executable)} -m agentboard hook send-message"   # run as a module: still a full path
 
 
-def install(project_dir):
-    """Add the SendMessage hook to the project's settings (creating the file), keeping everything else. Idempotent.
-    Returns (path, changed)."""
+def hook_entry(command=None):
+    return {"matcher": "SendMessage", "hooks": [{"type": "command", "command": command or hook_command()}]}
+
+
+def _load(project_dir):
     p = settings_path(project_dir)
     try:
         data = json.loads(p.read_text()) if p.exists() else {}
@@ -129,6 +138,27 @@ def install(project_dir):
         raise BoardError(f"{p} is not valid JSON ({e}); fix it first") from e
     if not isinstance(data, dict):
         raise BoardError(f"{p} is not a JSON object")
+    return p, data
+
+
+def _ours(h):
+    """Is this hook entry the one this module writes: <agentboard> hook send-message, bare, with a full path (quoted or not), or
+    <python> -m agentboard hook send-message. Read as a shell would, so a path with a space still matches."""
+    if not isinstance(h, dict):
+        return False
+    try:
+        argv = shlex.split(str(h.get("command", "")))
+    except ValueError:
+        return False
+    if argv[-2:] != ["hook", "send-message"] or len(argv) < 3:
+        return False
+    return os.path.basename(argv[0]) == "agentboard" or argv[-3] == "agentboard"
+
+
+def install(project_dir):
+    """Add the SendMessage hook to the project's settings (creating the file), keeping everything else. Idempotent. An older entry that
+    names agentboard without a path is rewritten with the full path. Returns (path, changed)."""
+    p, data = _load(project_dir)
     hooks = data.setdefault("hooks", {})
     if not isinstance(hooks, dict):
         raise BoardError(f"{p}: 'hooks' is not an object")
@@ -136,21 +166,63 @@ def install(project_dir):
     if not isinstance(post, list):
         raise BoardError(f"{p}: hooks.PostToolUse is not a list")
     if installed(project_dir):
-        return p, False
+        changed = False
+        for entry in post:
+            for h in (entry.get("hooks") or []) if isinstance(entry, dict) and entry.get("matcher") == "SendMessage" else []:
+                if _ours(h) and str(h.get("command", "")).strip() == HOOK_COMMAND:   # the old bare form
+                    h["command"] = hook_command()
+                    changed = True
+        if changed:
+            p.write_text(json.dumps(data, indent=2) + "\n")
+        return p, changed
     post.append(hook_entry())
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(json.dumps(data, indent=2) + "\n")
     return p, True
 
 
-def installed(project_dir):
+def uninstall(project_dir):
+    """Remove only the hook this module installed (and what it emptied); every other setting and hook stays. Returns (path, changed)."""
+    p, data = _load(project_dir)
+    hooks = data.get("hooks")
+    post = hooks.get("PostToolUse") if isinstance(hooks, dict) else None
+    if not isinstance(post, list):
+        return p, False
+    changed = False
+    for entry in list(post):
+        if isinstance(entry, dict) and entry.get("matcher") == "SendMessage" and isinstance(entry.get("hooks"), list):
+            kept = [h for h in entry["hooks"] if not _ours(h)]
+            if len(kept) != len(entry["hooks"]):
+                changed = True
+                entry["hooks"] = kept
+                if not kept:
+                    post.remove(entry)
+    if not changed:
+        return p, False
+    if not post:
+        del hooks["PostToolUse"]
+    if not hooks:
+        del data["hooks"]
+    if data:
+        p.write_text(json.dumps(data, indent=2) + "\n")
+    else:
+        p.unlink()   # the file held nothing but our hook: leave no empty settings.json behind
+    return p, True
+
+
+def installed_command(project_dir):
+    """The command the installed hook runs, or None."""
     try:
         data = json.loads(settings_path(project_dir).read_text())
     except (OSError, ValueError):
-        return False
+        return None
     for entry in (data.get("hooks") or {}).get("PostToolUse") or []:
         if isinstance(entry, dict) and entry.get("matcher") == "SendMessage":
             for h in entry.get("hooks") or []:
-                if isinstance(h, dict) and HOOK_COMMAND in str(h.get("command", "")):
-                    return True
-    return False
+                if _ours(h):
+                    return str(h.get("command"))
+    return None
+
+
+def installed(project_dir):
+    return installed_command(project_dir) is not None

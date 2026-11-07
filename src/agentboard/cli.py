@@ -400,12 +400,17 @@ def cmd_hook(a):
 
 
 def cmd_hooks(a):
-    """hooks install: the SendMessage hook into this project's .claude/settings.json; hooks status: is it there."""
+    """hooks install: the SendMessage hook into this project's .claude/settings.json; hooks uninstall: take it out again; hooks status."""
     s = _store()
     project = Path(a.project).expanduser() if a.project else s.dir.parent
     if a.what == "install":
         p, changed = hookslib.install(project)
-        print(f"{'installed' if changed else 'already installed'}: {p}\nEvery session in this project now mirrors its SendMessage calls to the chat (restart running sessions once).")
+        print(f"{'installed' if changed else 'already installed'}: {p}\ncommand: {hookslib.installed_command(project)}\n"
+              "It copies the text of every SendMessage call in this project's sessions into the board's chat files (.agentboard): "
+              "do not send secrets in SendMessage. Restart running sessions once.")
+    elif a.what == "uninstall":
+        p, changed = hookslib.uninstall(project)
+        print(f"{'removed from' if changed else 'not installed in'}: {p}" + ("\nRestart running sessions once." if changed else ""))
     else:
         print(f"{'installed' if hookslib.installed(project) else 'not installed'}: {hookslib.settings_path(project)}")
 
@@ -1414,8 +1419,8 @@ def main(argv=None):
     sp.add_argument("--session", help="register this name for another session id (ORCH, when an agent reports its id)")
     sp = add("hook", cmd_hook, "for Claude Code hooks: mirror a SendMessage call (payload on stdin) to the chat")
     sp.add_argument("event", choices=["send-message"])
-    sp = add("hooks", cmd_hooks, "install the SendMessage mirror hook into this project's .claude/settings.json, or show its status")
-    sp.add_argument("what", nargs="?", choices=["install", "status"], default="status")
+    sp = add("hooks", cmd_hooks, "install or uninstall the SendMessage mirror hook in this project's .claude/settings.json (full path), or show its status")
+    sp.add_argument("what", nargs="?", choices=["install", "uninstall", "status"], default="status")
     sp.add_argument("--project", help="the project folder (default: the one holding .agentboard)")
     sp = add("recall", cmd_recall, "what the board remembers: cards, updates and history matching a few words (every agent's), and chat")
     sp.add_argument("query", nargs="?", help="a few words")
