@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### The text features moved out of agentboard (Nov 7)
+- **Pulling your texts into cards (the command, the Pull texts button, the once-a-minute timer) and the inbound-SMS webhook are no longer part of agentboard.** They live in a separate package kept outside this repository, loaded through the plugin hook only on a machine that switches it on. agentboard now contains no Twilio code, no texting code and no timer; `src/agentboard` has a test that fails if that changes, and another that fails if a real-looking phone number or account SID is committed.
+- **Cards made from a text keep their guard**: such a card (its `source` says `text`) still reaches an agent as quoted words, never as instructions, in prompts, `list`, `recall` and `report`.
+- Earlier commits on GitHub still contain the removed code; history was not rewritten.
+
 ### Board files are private (Nov 7)
 - Only `tasks.json`, its `.bak` and the snapshots were mode 0600; reports (every review body), `config.toml` (phone numbers), `sessions.json`, the chat files, run logs and the folders were readable by any other account, and a Mac home folder is not private. Now the command line and `serve` run with umask 077, `serve` tightens what is already there, and the daily `sync_dir` copy is private too.
 - Programs the board starts for you (`claude -p` runs, provider commands) and files meant for others (the project's `.gitignore`, `.claude/settings.json`, `summary --html`) keep your umask. `AGENTBOARD_UMASK=022` turns it off for a shared folder.
@@ -9,13 +14,6 @@
 ### A plugin hook (Nov 7)
 - **One generic extension point.** A separate package can add CLI commands, API routes under its own `/api/x/<name>/`, a state block on the board's poll, a background thread, and a page script (its style rides in it: the page's Content-Security-Policy allows no stylesheet files). It loads only when this machine says `AGENTBOARD_PLUGINS=1`; `AGENTBOARD_NO_PLUGINS=1` and `AGENTBOARD_LOCKDOWN=1` both stop it, even after the board started. With none allowed nothing is looked up, imported or shown, and the board is the board it was. `agentboard plugins` says which.
 - **The page's side is one small object, `window.AB`:** a header slot, a Settings slot, a card-chip hook, the poll's plugin state, and `api`/`toast`/`esc`/`ago`. A plugin that throws is caught there and cannot break the page.
-
-### The board can pull your texts once a minute (Nov 7)
-- **Settings › Texts › Pull my texts every minute**: while on, `agentboard serve` runs `pull-texts` by itself about every 60 seconds, so a text from your phone is a Todo card (From a text chip) within a minute. OFF until you switch it on; one switch for every browser, kept server side in `texts-state.json`, so it holds across restarts and with the tab closed. The Pull texts button still works by hand.
-- **A header chip** ("Texts 2m ago", a green dot) while it runs; press it to open Settings. Under 600px only the dot shows.
-- **Any error stops it**: a refused sign-in, no network, a 4xx/5xx, a variable gone from the server's shell. The switch goes off, Settings says why in one line (variable names, never values), the chip turns amber. No retry loop, no popup, no sound; switch it on again to retry.
-- **Same rules as a hand pull**: your own number only, one card per text ever (a restart, a flip or the button never makes a twin), at most 20 cards a pull, no other Twilio call, nothing texted back. A timed pull makes no toast: the new cards are the news.
-- **Two keys for anything texts.** New: the machine must say `AGENTBOARD_TEXTS=1` (in the shell that runs agentboard) as well as the board's `[texts] enabled = true`. Without it there is no `pull-texts`, no button, no switch, no chip, no timer thread and no call: a work laptop that never exports it cannot be switched on from the board. `AGENTBOARD_NO_SMS=1` still beats both, and all of it is checked on every beat through one function (`texts.allowed`). **If you already pull texts, add `export AGENTBOARD_TEXTS=1` next to your Twilio variables.**
 
 ### POST guards: exact JSON type, Sec-Fetch-Site (Nov 7)
 - A POST's media type must be exactly `application/json` (parameters allowed); a CORS-simple type that merely contains the words (`text/plain;charset=application/json`) gets 415, so a cross-site POST now needs a preflight the server never answers. A browser's `Sec-Fetch-Site` other than `same-origin`/`none` gets 403. curl, the CLI and the tests send neither header and are unchanged.
@@ -59,12 +57,6 @@
 - **`claim` and `start` record where the session's transcript is**: found from `$CLAUDE_CODE_SESSION_ID` under `~/.claude/projects`, or given with `--transcript <path>` / `$AGENTBOARD_TRANSCRIPT`; kept in `.agentboard/sessions.json` against the session, newest per name.
 - **`/api/transcript?agent=<name>`** tails that file (the last 1.5 MB) and returns the last 300 conversation lines: what the person typed, the agent's text, each tool call as one muted line (`Read src/x.py`, `Bash Run the tests`), a tool error's first line. Thinking, tool output and subagent lines never show. Read only, 127.0.0.1 only, and it fails soft: no file, no registration or a path outside `~/.claude/projects` gives no lines and says why.
 - Groundwork for the Terminal tab; no UI in this change.
-
-### Pull your texts into cards, only when you ask (Nov 6)
-- **`agentboard pull-texts`, or the new Pull texts button in the header, turns the texts you sent your Twilio number into Todo cards.** Twilio already keeps every inbound text, so it is one read-only call to its Messages API when you press it: no server, no tunnel, no webhook, no polling. `--dry-run` prints the cards without making them; `--since`, `--max` and `--split` (a text of bullet lines becomes one card per line) are optional.
-- **A text is data**: it only becomes a card (first line as the title, the rest as the description) marked **From a text**; it never runs a command, claims, deploys, spends or changes a setting. Only your own number counts; any other sender is counted and ignored.
-- **Once per text**: the board keeps a small cursor (`.agentboard/texts-state.json`) and each card carries its text's id, so a text never becomes a card twice. The account SID and token come from environment variables only. Off until `[texts]` is set up; `AGENTBOARD_NO_SMS=1` refuses it entirely.
-- The live webhook (`agentboard sms serve`) is unchanged. Cards can now carry a `source`; the store refuses a second card with the same source key.
 
 ### The ORCH drawer: talk to ORCH from the Todo column (Nov 6)
 - **The Chat button left the header.** An **ORCH** button sits in the Todo column's head (Board, By agent and Load alike); press it and a drawer slides out from the left over Todo. It is the chat, read as a conversation with ORCH: what ORCH said, what you said to ORCH or to everyone, the board's notices. Typing there addresses ORCH; `@AGENT-2 …` still reaches someone else. The unread count rides the button.
@@ -235,7 +227,7 @@ Every pick here is a setting that defaults to the current look, and every new so
 - **By agent's header button is Later, like the Board's**: the Todo drawer is gone (Todo is a column now), so the header is the same in both views and By agent gets the Park an idea box.
 
 ### The owner's name is a setting, not the code
-- **`[board] owner` in config.toml** names the human on this board; it is **"you"** until you set it. The board, the HUD, report pages, the SMS reply marker, the summary page, the dictation hints and every prompt (card, subtask, parent, run, instructions, ORCH, agent chat) read it, so nothing in the app names a particular person. Prompts say "the user" until it is set, and "they" for the pronoun. `/api/config` and `/api/hud` carry it to the page.
+- **`[board] owner` in config.toml** names the human on this board; it is **"you"** until you set it. The board, the HUD, report pages, the summary page, the dictation hints and every prompt (card, subtask, parent, run, instructions, ORCH, agent chat) read it, so nothing in the app names a particular person. Prompts say "the user" until it is set, and "they" for the pronoun. `/api/config` and `/api/hud` carry it to the page.
 - **`[voice] words`** adds names to the dictation hints (the old built-in list of one person's project names is gone).
 - A card that says "ACTION you: ..." or "ACTION <your name>: ..." lands in the owner's row on Load either way.
 
@@ -306,11 +298,6 @@ Every pick here is a setting that defaults to the current look, and every new so
 ### One sentence to the owner
 - Every prompt (Copy prompt, run prompt, instructions snippet, ORCH prompt) ends with the reporting rule: one sentence, the ACTION first then one fact; no action needed = one line of status; more = one sentence then offer the detail. The ORCH prompt now says agents report to the owner directly, when ORCH may speak to them, daytime vs sleep assigning, and what is never done without their own words.
 - Ask and review cards show that sentence as the first line, large, with a reply box on the card. The reply is stored on the card and read with `agentboard answer <id> [--wait]`; it clears when the agent moves on.
-
-### Text the board
-- `agentboard sms serve`: an opt-in Twilio inbound-SMS webhook on its own port (`127.0.0.1:8766`) that adds and moves cards and replies with one line. Needs `[sms] enabled`, an allowlist, an https `public_url` and the auth token in the environment. Signature check, sender allowlist, MessageSid replay protection and an hourly cap; refused requests get nothing back. `agentboard sms try TEXT` runs a command locally. SECURITY.md updated.
-- Texting is two-way: plain words become a Todo card; questions (status of a card or agent, what is ready, blocked, today, asks) get one short sentence; `reply <text>` or a bare yes/no answers an ask card. Every reply is one sentence, 160 characters at most.
-- `AGENTBOARD_NO_SMS=1` locks texting off on a machine: `agentboard sms serve` refuses to start whatever the config says.
 
 ### One-shot agents
 - `agentboard run <card>` runs a card with a non-interactive `claude -p` in its own git worktree, under a hard time limit and a spend cap, with a per-run log in `.agentboard/runs/`. On exit the card moves to review (or ask, with the tail of the output), records cost and duration, and the worktree is removed if clean. `agentboard runs` lists runs, `runs --kill CARD` and the card's Stop run button stop one, `--detach` returns at once. Permission settings are never widened. A `▶ run` badge shows on the card.

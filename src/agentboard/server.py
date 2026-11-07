@@ -12,7 +12,7 @@ from urllib.parse import parse_qs, urlparse
 from . import boards, hud, private
 from . import hooks as hookslib
 from . import transcript as transcriptlib
-from . import plugins, reports, runs, summary, texts, voice
+from . import plugins, reports, runs, summary, voice
 from . import markdown as mdlib
 from . import prompt as promptlib
 from .store import BoardError, Store, subtask_counts, subtask_list
@@ -251,9 +251,6 @@ def make_handler(default_store, port):
                         d["subs"] = lists[t["id"]]
                     slim.append(d)
                 out = {"tasks": slim}
-                tx = texts.status(self.store.dir)   # the timer's switch and last pull, for Settings and the header chip (rides this poll; no secrets)
-                if tx["show"]:   # nothing at all unless this machine opted in (AGENTBOARD_TEXTS=1) and the board has [texts] on
-                    out["texts"] = tx
                 ps = plugins.state(self.store)   # what each allowed plugin reports for the page; no "plugins" key at all with none
                 if ps:
                     out["plugins"] = ps
@@ -267,7 +264,6 @@ def make_handler(default_store, port):
                 conf = _config(self.store)
                 colors = conf.get("agent_colors")   # [agent_colors] AGENT-1 = "#2563eb": overrides the palette slot a name gets
                 self._send(200, {"dispatch": bool(conf.get("ui", {}).get("dispatch", True)), "owner": self.store.owner,
-                                  "texts": texts.available(self.store.dir),   # shows the Pull texts button; off until [texts] is switched on
                                   "stale_minutes": hud.stale_minutes(conf),
                                   "agent_colors": {str(k): v for k, v in colors.items() if isinstance(v, str)} if isinstance(colors, dict) else {}})
             elif url.path == "/api/task":
@@ -387,13 +383,6 @@ def make_handler(default_store, port):
                     prev_before = self.store.next_sibling(body["id"])
                     self.store.delete(body["id"])
                     self._send(200, {"ok": True, "prev": prev, "prev_before": prev_before, "prev_kids": prev_kids})
-                elif path == "/api/pull-texts":
-                    # a button the owner pressed: the only way the board ever reads texts, and never by itself
-                    res = texts.pull(self.store)
-                    self._send(200, {"line": texts.summary_line(res), "made": len(res["created"])})
-                elif path == "/api/texts-auto":
-                    # the Settings switch for the once-a-minute pull; refused when locked or not set up, so the timer never starts blind
-                    self._send(200, texts.set_auto(self.store.dir, body.get("on") is True))   # only a JSON true turns it on; "false", 1 or "yes" do not
                 elif path == "/api/reply":
                     if not isinstance(body["text"], str):
                         raise BoardError("text must be a string")
@@ -487,24 +476,6 @@ def serve(store, port=8765, open_browser=True):
 
     threading.Thread(target=_autopilot, daemon=True).start()
 
-    def _texts_timer():   # the once-a-minute pull of your texts, only while its switch in Settings is on (texts.tick checks the switch and the lock every beat)
-        last = 0.0
-        while True:
-            time.sleep(5)   # a short beat so a fresh switch-on pulls within seconds; the pull itself runs at most once per EVERY_S
-            if time.time() - last < texts.EVERY_S:
-                continue
-            try:
-                res = texts.tick(store)
-            except Exception as e:   # noqa: BLE001  (a timer problem never stops a board; tick has halted itself, so this is a log line, not a retry)
-                print(f"agentboard: texts timer: {e.__class__.__name__}")
-                res, last = None, time.time()
-            if res is not None:
-                last = time.time()
-                if isinstance(res, BoardError):
-                    print(f"agentboard: texts timer stopped: {res}".split("\n")[0])
-
-    if texts.timer_wanted(store.dir):   # the thread does not even exist unless both keys turn and the machine is not locked (and tick re-checks every beat)
-        threading.Thread(target=_texts_timer, daemon=True, name="texts-timer").start()
     loaded = plugins.load()   # [] unless this machine allows plugins (AGENTBOARD_PLUGINS=1, no lock)
     if loaded:
         print("  plugins: " + ", ".join(loaded))

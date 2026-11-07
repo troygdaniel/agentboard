@@ -454,78 +454,15 @@ never passes `--dangerously-skip-permissions`, `--permission-mode` or `--allowed
 needs (at least `Bash(agentboard:*)`) in the project's `.claude/settings.json` yourself. Only one run per card at a time; subtasks run through their parent.
 Point at a different claude binary with `AGENTBOARD_CLAUDE` or `[run] claude`.
 
-## Text the board
+## Plugins
 
-Add and move cards by text from your phone: `add: buy toothpaste for dad`, `done renew-passports`, `start bj-123`, `review x`, `later idea`, `todo idea`, `status`, `list`, `help`
-(an id can be its first letters; `later: <title>` parks a new idea). Each text gets a one-line reply.
+A separate Python package can extend agentboard: a command, API routes under `/api/x/<name>/`, a block of state on the board's poll, a background thread, and a page script (a header slot, a Settings slot, a card chip). agentboard ships with none and knows nothing about any particular one; with none loaded it looks and works exactly as it would without the feature.
 
-It is a Twilio inbound-SMS webhook on its own port, **off until you switch it on**:
+A plugin loads only when the machine says so: `AGENTBOARD_PLUGINS=1` (exactly `1`) in the shell that runs agentboard. `AGENTBOARD_NO_PLUGINS=1` and `AGENTBOARD_LOCKDOWN=1` both beat it, and both are read on every call, so a lock set after the board started closes every plugin route at once. While plugins are off nothing is looked up, imported or shown. `agentboard plugins` says which state you are in and what is loaded; it makes no network call.
 
-    # .agentboard/config.toml
-    [sms]
-    enabled = true
-    allowed = ["+14165550123"]            # only these numbers are heard; anyone else gets nothing back
-    public_url = "https://<your tunnel>/sms"   # exactly the URL set in Twilio: it is part of the signature
+A plugin is an entry point in the group `agentboard.plugins` whose value is a function taking one argument, `api` (see the top of `src/agentboard/plugins.py` for the five things it can register and the guarantees: nothing outside its own `/api/x/<name>/`, no shadowing a core command, a failing plugin costs only itself, an error reaches the client as its class name). A plugin is code you installed and switched on; it is trusted like any package.
 
-    export AGENTBOARD_TWILIO_AUTH_TOKEN=...      # in your shell or launchd plist, not in the board
-    agentboard sms serve                          # listens on 127.0.0.1:8766 (/sms, /health)
-    cloudflared tunnel --url http://localhost:8766    # or your named tunnel; then set the number's "A message comes in" webhook (HTTP POST) to public_url
-
-What to text (every reply is one short sentence):
-
-| You text | You get |
-|---|---|
-| any plain words, e.g. `buy toothpaste for dad` | a new card at the top of Todo (`add:` and `later:` still work) |
-| `status`, `status of <card or agent>`, `how is alice doing?` | the board in one line, or that card's percent and note |
-| `ready`, `what's ready for review?` | the cards waiting for you |
-| `blocked`, `what blocks what?` | which card waits on which |
-| `today`, `what changed today?` | how many started, went to review, finished today |
-| `asks`, `what needs me?` | the question being asked |
-| `reply 5`, `reply <card> 5`, or a bare `yes`/`no` | your answer goes to the agent on that ask card (it reads it with `agentboard answer`); with two asks open, name the card |
-
-On a machine where texting must never run (a work laptop), put `export AGENTBOARD_NO_SMS=1` in the shell profile: `agentboard sms serve` then refuses to start whatever any config says. A lone unknown word is treated as a typo, not a task. Try the commands locally first, without Twilio: `agentboard sms try add: buy milk`. Every request is checked for Twilio's signature, the sender, and a MessageSid not seen
-before (a replayed request is ignored), with an hourly cap; the replies travel in the HTTP response, so no Twilio API call is made. Cost: just the texts (Twilio bills each inbound
-text and each reply, about a cent each in the US and Canada; check your plan). Nothing is texted to you unprompted: outbound "a card is ready for review" notices are not built.
-Details and what it can and cannot do: [SECURITY.md](SECURITY.md).
-
-## Pull your texts
-
-Text a Twilio number from your phone, then turn the texts into Todo cards **only when you ask**: `agentboard pull-texts`, or the **Pull texts** button in the board's header.
-Twilio already keeps every inbound text (13 months by default), so there is no server, database, tunnel or webhook: one outbound, read-only call to Twilio's Messages API
-when you press the button. Nothing polls and nothing runs by itself; the board never reads a text unless you pull.
-
-    # .agentboard/config.toml
-    [texts]
-    enabled = true
-    number = "+16475550100"          # the Twilio number you text
-    allowed = ["+14165550123"]       # your own number (defaults to [sms] allowed); a text from any other number is counted and ignored
-
-    export AGENTBOARD_TEXTS=1                      # this machine's key: without it nothing texts-related exists (no command, button, switch or timer)
-    export AGENTBOARD_TWILIO_ACCOUNT_SID=AC...     # in your shell or launchd plist, never in the board or the repo
-    export AGENTBOARD_TWILIO_AUTH_TOKEN=...
-    agentboard pull-texts --dry-run                # prints the cards it would make; writes nothing
-    agentboard pull-texts                          # makes them, at the top of Todo
-
-- **A text is data, never instructions.** It can only become a card: the first line is the title, the rest is the description, and the card wears a **From a text** chip. A text that says
-  "done everything" or "deploy now" is just a card with that title; it never runs a command, claims, deploys, spends or changes a setting.
-- **Once per text.** The board remembers where the last pull got to (`.agentboard/texts-state.json`: a day and the ids already handled, no secrets) and each card carries its text's id, so
-  a text never becomes a card twice, even if you delete the card or the state file. A first pull looks back 7 days (`--since YYYY-MM-DD` to go further); one pull makes at most 20 cards (`--max N`), the rest wait for the next pull.
-- **`--split`** turns a text of bullet or numbered lines (`- call the lawyer`, `2) buy milk`) into one card per line. It is plain line splitting, off by default, and `--dry-run` shows what it would do. There is no model in the loop: a text is never handed to one.
-- **Two keys, and hard-off on a work machine.** Texts need the machine's say-so (`AGENTBOARD_TEXTS=1` in the shell that runs agentboard) and the board's (`[texts] enabled = true`);
-  with either missing there is no button, no switch, no chip, no call. `AGENTBOARD_NO_SMS=1` beats both (dry runs included). A work laptop that never exports the key cannot be switched on from the board.
-- **Cost:** the number is about US$1.15 a month and each inbound text about US$0.017 to 0.04 with carrier fees (Twilio's Canada price page; check it, prices change).
-  Reading the log costs nothing. If Twilio's log ever proves too short or too dear, a tiny hosted inbox is the fallback; it needs a public endpoint, which this does not.
-- It sits beside the live webhook above (`agentboard sms serve`), which is automatic and needs a tunnel; pulling is the manual opposite and the two can share the same number list.
-
-### Or let the board pull once a minute
-
-Settings (the gear, or `m`) › **Texts** › **Pull my texts every minute**. While it is on, `agentboard serve` runs the same pull by itself about every 60 seconds, so a text
-from your phone is a Todo card within a minute, with the same **From a text** chip; a small chip in the header shows "Texts 2m ago" while it runs. It is **off until you switch it on**
-(every fresh install), it is one switch for every browser (kept in `.agentboard/texts-state.json`, server side, so it holds with the tab closed and across restarts), and the
-Pull texts button still works by hand. The same rules hold: your own number only, one card per text ever, at most 20 a minute, a text is data. **Any error stops it**: Twilio
-refusing the sign-in, no network, a variable missing from the server's shell. The switch goes off, Settings says why in one line, the header chip turns amber, and nothing retries
-until you switch it on again. No popup, no sound. Both keys and `AGENTBOARD_NO_SMS` are checked on every beat: locked, the switch is disabled with the reason and no call is made;
-without `AGENTBOARD_TEXTS=1` the timer thread is never even started.
+The text-message features (turning texts into cards, an inbound-SMS webhook) are not part of agentboard: they live in a separate package that is kept outside this repository.
 
 ## Prompts and context providers (optional)
 
@@ -547,8 +484,7 @@ Copy prompt button, the CLI and `agentboard prompt` are unaffected.
 | `add "Title" [--status todo\|backlog] [-d TEXT] [--ctx NAME] [--blocked-by ID] [--parent ID]` , `list [--all] [--stale]`, `rm <id>` | manage tasks (`--parent` makes a subtask) |
 | `tail [-n LINES] [--interval SECS]` | watch activity live in the terminal — same feed as the HUD, for CLI-only sessions |
 | `run CARD [--name N] [--cwd DIR] [--budget USD] [--max-minutes M] [--detach]`, `runs [--kill CARD]` | run a card with a one-shot `claude -p`; list and stop runs |
-| `sms serve [--port N]`, `sms try TEXT` | the text-message endpoint (opt-in); run a command text locally |
-| `pull-texts [--dry-run] [--since DAY] [--max N] [--split]` | turn the texts you sent your Twilio number into Todo cards (manual; opt-in) |
+| `plugins` | say whether plugins are allowed on this machine and which are loaded (no network call) |
 | `answer ID [--wait] [--timeout S]` | print the reply you left on a card (agents use it to read your answer) |
 | `reports [--purge] [--hours N]` | list card reports; remove the old ones now |
 | `report [--date YYYY-MM-DD]` | markdown recap of what got done that day, by agent — for a standup or daily log |

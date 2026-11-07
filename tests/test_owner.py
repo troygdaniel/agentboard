@@ -8,7 +8,7 @@ import urllib.request
 from http.server import ThreadingHTTPServer
 from pathlib import Path
 
-from agentboard import agentchat, cli, hooks, prompt, runs, sms, summary, voice
+from agentboard import agentchat, cli, hooks, prompt, runs, summary, voice
 from agentboard.server import make_handler
 from agentboard.store import DEFAULT_OWNER, Store, owner_name
 
@@ -65,19 +65,6 @@ class StoreUsesItTests(OwnerTestCase):
 
 
 class ElsewhereTests(OwnerTestCase):
-    def test_a_text_reply_is_marked_with_the_owner(self):
-        self.conf('[board]\nowner = "Alex"\n')
-        self.s.start("Pick limit", "atlas")
-        self.s.ask("pick-limit", "How many?")
-        sms.answer_ask(self.s, "", "five")
-        self.assertEqual(self.s.answer("pick-limit")["by"], "Alex (text)")
-
-    def test_the_texting_name_defaults_to_the_owner(self):
-        self.conf('[board]\nowner = "Alex"\n[sms]\nenabled = true\nname = "Sam"\n')
-        self.assertEqual(sms.settings(self.s.dir)[0]["name"], "Sam")
-        self.conf('[board]\nowner = "Alex"\n[sms]\nenabled = true\n')
-        self.assertEqual(sms.settings(self.s.dir)[0]["name"], "Alex")
-
     def test_the_hook_never_files_the_owner_as_an_agent_session(self):
         self.conf('[board]\nowner = "Alex"\n')
         self.assertIsNone(hooks.remember_session(self.s.dir, "Alex", session_id="s1"))
