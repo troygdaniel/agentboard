@@ -1148,6 +1148,20 @@ def cmd_restore(a):
     print(f"restored. The board as it was is saved as {saved.name}" if saved else "restored.")
 
 
+def cmd_doctor(a):
+    """Read-only PASS/FAIL lines about this machine (listeners, locks, file modes, git, hooks), short enough to paste into a review."""
+    from . import doctor
+    try:
+        board = _store().dir
+    except BoardError:
+        board = Path.cwd() / DIR_NAME   # no board here: the report says so and still checks the rest
+    results = doctor.run(board, project=Path(a.project).expanduser() if a.project else None)
+    print(doctor.render(results, board))
+    code = doctor.exit_code(results, strict=a.strict)
+    if code:
+        raise SystemExit(code)
+
+
 def cmd_verify(a):
     s = _store()
     b = s.backups
@@ -1420,6 +1434,9 @@ def main(argv=None):
     sp = add("restore", cmd_restore, "put a snapshot back as the board: a file, a name in .agentboard/backups, `latest`, or `previous` (the version before the last save)")
     sp.add_argument("which")
     sp.add_argument("--yes", action="store_true", help="do not ask (the board as it is now is kept first as a before-restore snapshot)")
+    sp = add("doctor", cmd_doctor, "read-only check of this machine: listeners, locks, file modes, git, hooks (PASS/FAIL lines to paste into a review; exit 1 on a FAIL)")
+    sp.add_argument("--project", help="the project folder to scan for secrets and hooks (default: the one holding .agentboard)")
+    sp.add_argument("--strict", action="store_true", help="exit 1 on a WARN as well")
     sp = add("verify", cmd_verify, "check the board file, its .bak and the newest snapshot (exit 1 if any is bad or the newest is over 2 hours old)")
     sp.add_argument("--all", action="store_true", help="check every snapshot")
     sp = add("dedupe", cmd_dedupe, "find accidental twin cards (`<id>-2` made by a second `start`) and, with --apply, merge them into the original")

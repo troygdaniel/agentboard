@@ -369,6 +369,8 @@ Fires via `osascript` — the same no-new-dependency mechanism `agentboard spawn
 
 ## Local-only and safety
 
+`agentboard doctor` checks this machine and prints short PASS / WARN / FAIL lines you can paste into a security review: the ports the board listens on (loopback only?), any connection to another machine, whether `AGENTBOARD_LOCKDOWN` (the master lock) and the narrow locks are set, which `config.toml` switches would start a program or send data out, whether the board folder can be read by other users, whether the board is ignored by git and no key or phone number is in the tracked files, the Claude Code hooks installed, and the version and commit. It is read-only: it changes nothing and opens no socket (it asks `ps`, `lsof` and `git`), and it never prints a secret, only the kind, file and line. Exit code 1 on any FAIL (`--strict`: on any WARN too); `--project DIR` picks the folder to scan.
+
 Findings below come from the audit in `SECURITY.md` in the repository root (v0.2.0, re-checked for v0.3.0 on 2026-10-24). Nothing here is a claim about your organization's policies; check those yourself.
 
 **How it runs**
