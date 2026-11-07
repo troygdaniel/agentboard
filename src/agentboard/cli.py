@@ -17,6 +17,7 @@ from . import backup as backuplib
 from . import hud as hudlib
 from . import lockdown
 from . import plugins
+from . import private
 from . import prompt as promptlib
 from . import reports as reportslib
 from . import summary as summarylib
@@ -126,7 +127,9 @@ def cmd_init(a):
     (d / "tasks.json").touch()
     if not (d / "tasks.json").read_text().strip():
         (d / "tasks.json").write_text('{"tasks": []}')
-    ignored = _gitignore_board(Path.cwd())
+    private.tighten_dir(d)
+    with private.as_user():   # the project's own .gitignore is not board data
+        ignored = _gitignore_board(Path.cwd())
     print(f"initialized {d}" + (f"\nadded {DIR_NAME}/ to .gitignore (task data can hold private context)" if ignored else "")
           + "\nnext: agentboard add \"My first task\" --status todo && agentboard serve")
 
@@ -328,7 +331,8 @@ def cmd_summary(a):
     data = summarylib.build(_store(), a.since, a.agent)
     if a.html:
         path = Path(a.html).expanduser()
-        path.write_text(summarylib.build_html(data))
+        with private.as_user():   # a page you asked for, to open or share
+            path.write_text(summarylib.build_html(data))
         print(f"wrote {path}")
     elif a.mermaid:
         print(summarylib.to_mermaid(data), end="")
@@ -1384,6 +1388,8 @@ def cmd_serve(a):
 
 
 def main(argv=None):
+    if argv is None:   # the real command line, not a test calling main([...]): private files from here on (private.py)
+        private.tighten_process()
     p = argparse.ArgumentParser(prog="agentboard", description="Kanban board for parallel CLI agents")
     p.add_argument("--version", action="version", version=__version__)
     p.add_argument("--board", metavar="NAME", help="use this registered board from any folder (or $AGENTBOARD_BOARD); see `agentboard board list`")

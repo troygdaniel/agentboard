@@ -19,6 +19,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 
+from . import private
 from . import lockdown
 from . import prompt as promptlib
 from .store import BoardError
@@ -270,7 +271,7 @@ def run_card(store, card_id, *, name=None, color=None, cwd=None, budget=None, mi
         argv =[claude, "-p", "--output-format", "json", "--max-budget-usd", f"{budget:g}", "--name", name]
         out_f, err_f = open(rdir / "stdout.json", "wb"), open(rdir / "stderr.log", "wb")
         t0 = time.time()
-        proc = subprocess.Popen(argv, cwd=workdir, env=env, stdin=subprocess.PIPE, stdout=out_f, stderr=err_f, start_new_session=True)
+        proc = subprocess.Popen(argv, cwd=workdir, env=env, stdin=subprocess.PIPE, stdout=out_f, stderr=err_f, start_new_session=True, **private.child())   # claude writes your project with your umask
         out_f.close()
         err_f.close()
         proc.stdin.write(prompt.encode())
@@ -392,7 +393,7 @@ def detach(argv_tail, board_dir, card_id):
     env = {**os.environ, "AGENTBOARD_DIR": str(board_dir)}
     env.pop("AGENTBOARD_BOARD", None)
     p = subprocess.Popen([sys.executable, "-m", "agentboard", "run", card_id, *argv_tail], stdout=out, stderr=out,
-                         stdin=subprocess.DEVNULL, start_new_session=True, env=env, cwd=os.getcwd())
+                         stdin=subprocess.DEVNULL, start_new_session=True, env=env, cwd=os.getcwd(), **private.child())
     out.close()
     return p.pid, base / "supervisor.log"
 

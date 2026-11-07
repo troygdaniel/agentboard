@@ -305,6 +305,8 @@ in its own `config.toml`; nightly copies are named after the board's folder, so 
 
 ## Your data and backups
 
+**Private by default.** The command line and `serve` run with umask 077, so everything the board writes (cards, chat, reports, run logs, config, session ids, snapshots, the `sync_dir` copy) is mode 0600 in folders 0700, and `serve` tightens what an older version left readable. A Mac home folder is not private (other accounts can read into it), so this matters even on one machine. Programs the board starts for you (`claude -p` runs, provider commands) and files meant for others (the project's `.gitignore`, `.claude/settings.json`, a `summary --html` page) keep your own umask. `AGENTBOARD_UMASK=022` turns it off for a folder you share on purpose.
+
 Everything is one file, `.agentboard/tasks.json`; the browser keeps only your theme and sound choices, so clearing it loses nothing.
 Every save is atomic and keeps the previous version as `tasks.json.bak`. Snapshots land in `.agentboard/backups/` (one an hour,
 kept 48 hours hourly and 30 days daily) whenever the board is saved or `agentboard serve` is running. Set `[backup] sync_dir` in
