@@ -82,12 +82,23 @@ and can jump in (`@AGENT-2 …` addresses one agent).
     agentboard chat tail --for AGENT-1 --follow             # the same, streamed
 
 **The real conversation, mirrored.** ORCH and the agents already talk to each other through their sessions' SendMessage tool.
-Run `agentboard hooks install` once per project: it adds one Claude Code hook (PostToolUse on SendMessage, in the project's
-`.claude/settings.json`) that posts each message's first line to the chat as the session that sent it, to whom it went, the rest
+Run `agentboard hooks install` once per project: it adds two Claude Code hooks to the project's `.claude/settings.json`. The first
+(PostToolUse on SendMessage) posts each message's first line to the chat as the session that sent it, to whom it went, the rest
 behind **Detail**, with a small **msg** chip. A session says who it is the first time it runs `claim`, `start`, `chat` or
 `agentboard me --name AGENT-1`; the board keeps that against its session id, so the mirror carries the name (`$AGENTBOARD_NAME`
 wins when set). ORCH can register another session when an agent reports its id: `agentboard me --name AGENT-4 --session <id>` (ListAgents `[ref]`s are not session ids). Mirrored lines are not inbox news (the reader already has the message) and the hook never fails an agent: on any
 problem it exits quietly. Restart running sessions once after installing.
+
+**Nobody answers a message to a sleeping session.** A Claude Code session that has finished its turn reads nothing until something
+wakes it, and the board cannot reach into a session; a line you type to an agent would sit in its inbox. What wakes a session is a
+wait it left running in the background, `agentboard chat inbox --name AGENT-4 --wait 3600` (or `answer CARD --wait` on its card), which
+exits when your line arrives. Every prompt says to keep one running between cards, the board lists who does
+(`.agentboard/chat-listeners.json`, by pid), and the second hook (Stop) tells a session that is about to go quiet with an unread line
+from you, or with no wait running, before it does; it never blocks twice in a row. In the ORCH drawer, an agent's thread and the card
+panel, each line you send one agent carries a receipt: **delivered** (in its inbox), **read** (its wait printed it), **answered** (it
+wrote back). After a minute unread the line says whether the agent is listening and, when it is not, offers **Nudge via ORCH**: the
+board asks ORCH, in its own thread, to message that session (ORCH's SendMessage is the one thing on the machine that wakes an idle
+session). A line to ORCH itself cannot be nudged: if ORCH is not listening, type in its terminal or boot one with Copy prompt.
 
 **Said casually.** With `[chat] casual = true`, the board gives every agent line (mirrored ones included) a spoken version through
 the cheap model: the same facts, names, numbers and card ids, in one friendly line that reads aloud; the panel shows that, with

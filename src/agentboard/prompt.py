@@ -117,6 +117,11 @@ and end your turn. You are woken when {owner} replies, and it prints their reply
 `{ab} chat send "<one line>" --name "<your session name>" --to {owner}`, then wait again. A tool that cannot
 run background commands runs it in the foreground instead. If it times out with no reply, say you are still waiting.
 
+Between cards, and any other time you would go quiet with nothing running, keep yourself reachable the same way:
+`{ab} chat inbox --name "<your session name>" --wait 3600` as a background command. It prints the next line {owner}
+sends you and exits, and that wakes you; nothing else does. The board shows who is listening, and a Stop hook reminds
+a session that is about to go quiet without one.
+
 These are not optional.
 {context}
 ## Task details
@@ -161,6 +166,7 @@ After you review the parent, do not sit idle: start `{ab} answer {parent_id} --w
 command (in Claude Code, Bash with run_in_background) and end your turn. You are woken when {owner} replies, sends the
 card back, closes it ("Done by {owner}"), moves it or removes it, and it prints what happened. A message {owner} sends you on
 the board (your thread) wakes it too: answer with `{ab} chat send "<one line>" --name "<your session name>" --to {owner}`.
+Between cards, stay reachable with `{ab} chat inbox --name "<your session name>" --wait 3600` in the background the same way.
 
 """
 
@@ -196,6 +202,7 @@ After `review`, do not sit idle: start `{ab} answer {task_id} --wait --timeout 3
 Claude Code, Bash with run_in_background) and end your turn. You are woken when {owner} replies, sends the card back,
 closes it ("Done by {owner}"), moves it or removes it, and it prints what happened. A message {owner} sends you on the board
 (your thread) wakes it too: answer with `{ab} chat send "<one line>" --name "<your session name>" --to {owner}`.
+Between cards, stay reachable with `{ab} chat inbox --name "<your session name>" --wait 3600` in the background the same way.
 Run `{ab} done {task_id}` ONLY if the user explicitly tells you to.
 
 """
@@ -415,12 +422,21 @@ background command, starting it again whenever it prints or times out:
     {ab} me --name ORCH
     {ab} chat inbox --name ORCH --wait 3600
 
+That wait is the only thing that makes you reachable: a session that has finished its turn reads nothing until something wakes it,
+and the board cannot reach into a session. Keep it running whenever you are idle, and expect the same of every agent (their prompts
+say `{ab} chat inbox --name <agent> --wait 3600` between cards). The board shows who is listening.
+
 A line from {owner} there is a request. "add a card …": `{ab} add` (one card per deliverable, the Keep it simple block in its
 description). "assign <card> to <agent>": tell that agent with SendMessage and let it claim. "move … to Later" (or to Todo): `{ab} move <id> backlog` (`todo`).
 "what is everyone doing": `{ab} list --status doing`, answered in one line. A message meant for an agent that is busy: forward it with
 SendMessage. Answer on the board, one line, so it shows in the drawer; a plain line from you shows there too:
 
     {ab} chat send "<one line>" --name ORCH --to {owner}
+
+A line from the board itself, "<agent> has not read my line #N …", is {owner}'s nudge: that agent's session is not listening and
+nothing on the board wakes it, but your SendMessage does. Send it one line, "{owner} wrote to you on the board: run agentboard chat
+inbox --name <agent>, answer with chat send --to {owner}, then keep chat inbox --wait running", and tell {owner} in one line that you
+did. Never answer in the agent's place.
 
 A question, not a task ("when did we …", "what did … find", "where is …"): look it up before you answer, never from memory.
 `lookup` is read-only and searches what the board already knows (done and archived cards, reports; on the home Mac a plugin adds

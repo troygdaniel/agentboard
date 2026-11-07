@@ -878,6 +878,31 @@ class Store:
             self._write(data)
             return m
 
+    def chat_nudge(self, seq, now=None):
+        """The owner's one click when a line to an agent has gone unread: the board asks ORCH, in ORCH's own thread, to message that
+        agent's session (ORCH's SendMessage is the only thing on the machine that wakes an idle session). Recorded on the line as
+        `nudged`, once a minute at most. A line to ORCH itself cannot be nudged this way: nothing on the board reaches an ORCH that
+        is not listening. Returns the ORCH line."""
+        with self._lock():
+            data = self._read()
+            m = next((m for m in data["chat"] if m["seq"] == int(seq)), None)
+            if not m:
+                raise BoardError(f"no chat message #{seq}")
+            to = m.get("to") or ""
+            if m.get("kind") != "user" or not to or to == "all" or _to_owner(to, self.owner):
+                raise BoardError("only a line you sent to one agent can be nudged")
+            if to.upper() == "ORCH":
+                raise BoardError("ORCH is not listening, and nothing on the board wakes it: type in its terminal, or boot one with Copy prompt")
+            stamp = now or _now()
+            last = m.get("nudged")
+            if last and _seconds_between(last, stamp) < NUDGE_GAP_S:
+                raise BoardError(f"already nudged at {str(last)[11:16]}; give ORCH a minute")
+            m["nudged"] = stamp
+            self._write(data)
+        text = " ".join(str(m.get("text") or "").split())[:120]   # the owner's own words
+        return self.chat_send(self.owner, f"{to} has not read my line #{seq} “{text}”: message its session so it reads the board and answers me",
+                              "user", to="ORCH", via="board")
+
     def chat_inbox(self, name, after=None, limit=50):
         """What `name` has not read yet: messages after seq `after` from someone else, addressed to them, to all, or to no one
         in particular (a plain status line). The agent remembers the last seq it saw."""
@@ -915,6 +940,18 @@ class Store:
 
 LOG_MAX = 200
 CHAT_MAX = 500
+NUDGE_GAP_S = 60   # one nudge a minute per line
+
+
+def _seconds_between(earlier, later):
+    """Seconds from one board stamp (YYYY-MM-DDTHH:MM:SS) to another; a stamp that does not parse counts as long ago."""
+    from datetime import datetime
+    try:
+        a = datetime.strptime(str(earlier)[:19], "%Y-%m-%dT%H:%M:%S")
+        b = datetime.strptime(str(later)[:19], "%Y-%m-%dT%H:%M:%S")
+    except ValueError:
+        return float("inf")
+    return (b - a).total_seconds()
 
 
 OWNER_WORDS = ("you", "the user", "user", "owner")   # how a prompt names an unnamed owner: --to "the user" still reaches them

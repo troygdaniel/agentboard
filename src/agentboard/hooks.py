@@ -1,10 +1,18 @@
-"""Mirror the real conversation. ORCH and the agents already talk to each other through their sessions' SendMessage tool; none
-of that reaches the board. A Claude Code hook (PostToolUse on SendMessage) runs `agentboard hook send-message` with the tool
-call on stdin, and this module posts its first line to the shared chat as the session that sent it, to whom it went, the rest
-behind the detail, marked as mirrored. `agentboard hooks install` writes that one hook into the project's .claude/settings.json.
+"""Two Claude Code hooks, installed together by `agentboard hooks install` into the project's .claude/settings.json.
+
+Mirror the real conversation. ORCH and the agents already talk to each other through their sessions' SendMessage tool; none
+of that reaches the board. A PostToolUse hook on SendMessage runs `agentboard hook send-message` with the tool call on stdin,
+and this module posts its first line to the shared chat as the session that sent it, to whom it went, the rest behind the
+detail, marked as mirrored.
+
+Do not go quiet on an unread line. A session that has finished its turn reads nothing until something wakes it; a line the owner
+typed on the board would sit in its inbox. A Stop hook runs `agentboard hook stop` as the session is about to go quiet: with an
+unread line from the owner for this session it answers "block" with the line as the reason, so the session answers first; with
+nothing unread but no wait running (listeners.py) it answers "block" once with the command that keeps the session reachable.
+It never blocks twice in a row (stop_hook_active), so a session that ignores it still stops.
 
 The sender is resolved from the session: a session says who it is the first time it runs claim, start, chat or me with
---name, and that name is kept against its CLAUDE_CODE_SESSION_ID in .agentboard/sessions.json; the hook payload carries the
+--name, and that name is kept against its CLAUDE_CODE_SESSION_ID in .agentboard/sessions.json; the hook payloads carry the
 same id. A hook must never get in an agent's way, so every path here swallows its errors and exits 0."""
 import json
 import os
@@ -15,11 +23,14 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
+from . import listeners, untrusted
 from .store import BoardError, owner_name
 
 HOOK_COMMAND = "agentboard hook send-message"
+EVENTS = {"send-message": ("PostToolUse", "SendMessage"), "stop": ("Stop", None)}   # hook event -> (settings list, matcher)
 SESSION_ENV = "CLAUDE_CODE_SESSION_ID"
 MAX_SESSIONS = 200
+REASON_MAX = 400
 
 
 def sessions_path(board_dir):
@@ -113,22 +124,73 @@ def run_hook(store, stdin=None):
     return 0
 
 
-# ---- installing the hook into a project's .claude/settings.json ------------------------------------------------------------
+# ---- the Stop hook: an unread line from the owner, or no wait running, is said before the session goes quiet -----------------
+def known_name(board_dir, payload):
+    """The board name of the session the payload came from, or None when it never said (a session that is not an agent here)."""
+    name = os.environ.get("AGENTBOARD_NAME") or session_name(board_dir, payload.get("session_id"))
+    return name if name and name != owner_name(board_dir) else None
+
+
+def stop_decision(store, payload):
+    """What `agentboard hook stop` answers Claude Code: {'decision': 'block', 'reason': …} to keep the session going, or None to let
+    it stop. Block for an unread line the owner wrote to this session on the board (its words, quoted as data), else once for a
+    session with no wait running; never when this stop already follows a block."""
+    if not isinstance(payload, dict) or payload.get("stop_hook_active"):
+        return None
+    name = known_name(store.dir, payload)
+    if not name:
+        return None
+    owner = store.owner
+    unread = store.chat_thread_new(name, after=listeners.read_cursors(store.dir).get(name))
+    if unread:
+        last = unread[-1]
+        said = untrusted.one_line(last.get("text"), 160)
+        more = f" and {len(unread) - 1} more" if len(unread) > 1 else ""
+        reason = (f"{owner} wrote to you on the board{more}, unread: “{said}”. Read it with `agentboard chat inbox --name {name}`, answer with "
+                  f"`agentboard chat send \"<one line>\" --name {name} --to {owner}`, then start `agentboard chat inbox --name {name} --wait 3600` "
+                  "as a background command so the next line wakes you.")
+        return {"decision": "block", "reason": reason[:REASON_MAX + 200]}
+    if not listeners.is_listening(store.dir, name):
+        return {"decision": "block", "reason": (f"Nothing is listening for you on the board: a line {owner} types there would wait until you happen to look. "
+                                                f"Start `agentboard chat inbox --name {name} --wait 3600` as a background command (Bash with run_in_background) "
+                                                "and end your turn; it prints the line and exits when one arrives, and that wakes you.")}
+    return None
+
+
+def run_stop_hook(store, stdin=None, stdout=None):
+    """`agentboard hook stop`: print the decision as JSON (nothing when the session may stop), exit 0 whatever happens."""
+    try:
+        payload = json.loads((stdin or sys.stdin).read() or "{}")
+        out = stop_decision(store, payload)
+    except (ValueError, BoardError, OSError, AttributeError, TypeError):
+        out = None
+    if out:
+        print(json.dumps(out), file=stdout or sys.stdout)
+    return 0
+
+
+# ---- installing the hooks into a project's .claude/settings.json -----------------------------------------------------------
 def settings_path(project_dir):
     return Path(project_dir) / ".claude" / "settings.json"
 
 
-def hook_command():
-    """What the hook runs, with this agentboard's full path (found now). A bare name would be looked up on PATH every time a session
-    sends a message, from a settings file that is usually committed with the project: whichever agentboard came first would run."""
+def _exe():
+    """This agentboard's full path (found now). A bare name would be looked up on PATH every time a session sends a message, from a
+    settings file that is usually committed with the project: whichever agentboard came first would run."""
     exe = shutil.which("agentboard")
     if exe:
-        return f"{shlex.quote(os.path.abspath(exe))} hook send-message"
-    return f"{shlex.quote(sys.executable)} -m agentboard hook send-message"   # run as a module: still a full path
+        return shlex.quote(os.path.abspath(exe))
+    return f"{shlex.quote(sys.executable)} -m agentboard"   # run as a module: still a full path
 
 
-def hook_entry(command=None):
-    return {"matcher": "SendMessage", "hooks": [{"type": "command", "command": command or hook_command()}]}
+def hook_command(event="send-message"):
+    return f"{_exe()} hook {event}"
+
+
+def hook_entry(command=None, event="send-message"):
+    _list, matcher = EVENTS[event]
+    entry = {"hooks": [{"type": "command", "command": command or hook_command(event)}]}
+    return {"matcher": matcher, **entry} if matcher else entry
 
 
 def _load(project_dir):
@@ -142,41 +204,53 @@ def _load(project_dir):
     return p, data
 
 
-def _ours(h):
-    """Is this hook entry the one this module writes: <agentboard> hook send-message, bare, with a full path (quoted or not), or
-    <python> -m agentboard hook send-message. Read as a shell would, so a path with a space still matches."""
+def _ours(h, event=None):
+    """Is this hook entry one this module writes: <agentboard> hook <event>, bare, with a full path (quoted or not), or
+    <python> -m agentboard hook <event>. Read as a shell would, so a path with a space still matches."""
     if not isinstance(h, dict):
         return False
     try:
         argv = shlex.split(str(h.get("command", "")))
     except ValueError:
         return False
-    if argv[-2:] != ["hook", "send-message"] or len(argv) < 3:
+    if len(argv) < 3 or argv[-2] != "hook" or argv[-1] not in EVENTS or (event and argv[-1] != event):
         return False
     return os.path.basename(argv[0]) == "agentboard" or argv[-3] == "agentboard"
 
 
+def _entries(hooks, event):
+    """The entries of the settings list an event's hook lives in that are for it (by matcher), as (list, entry) pairs."""
+    name, matcher = EVENTS[event]
+    lst = hooks.get(name) if isinstance(hooks, dict) else None
+    if not isinstance(lst, list):
+        return None, []
+    return lst, [e for e in lst if isinstance(e, dict) and (e.get("matcher") == matcher if matcher else not e.get("matcher"))]
+
+
 def install(project_dir):
-    """Add the SendMessage hook to the project's settings (creating the file), keeping everything else. Idempotent. An older entry that
-    names agentboard without a path is rewritten with the full path. Returns (path, changed)."""
+    """Add both hooks to the project's settings (creating the file), keeping everything else. Idempotent: a hook already there is
+    left alone, one that is missing is added (an older install had only the mirror). An old bare entry is rewritten with the full
+    path. Returns (path, changed)."""
     p, data = _load(project_dir)
     hooks = data.setdefault("hooks", {})
     if not isinstance(hooks, dict):
         raise BoardError(f"{p}: 'hooks' is not an object")
-    post = hooks.setdefault("PostToolUse", [])
-    if not isinstance(post, list):
-        raise BoardError(f"{p}: hooks.PostToolUse is not a list")
-    if installed(project_dir):
-        changed = False
-        for entry in post:
-            for h in (entry.get("hooks") or []) if isinstance(entry, dict) and entry.get("matcher") == "SendMessage" else []:
-                if _ours(h) and str(h.get("command", "")).strip() == HOOK_COMMAND:   # the old bare form
-                    h["command"] = hook_command()
+    changed = False
+    for event, (name, _matcher) in EVENTS.items():
+        lst = hooks.setdefault(name, [])
+        if not isinstance(lst, list):
+            raise BoardError(f"{p}: hooks.{name} is not a list")
+        if installed_command(project_dir, event, data) is None:
+            lst.append(hook_entry(event=event))
+            changed = True
+            continue
+        for e in _entries(hooks, event)[1]:
+            for h in e.get("hooks") or []:
+                if _ours(h, event) and str(h.get("command", "")).strip() == HOOK_COMMAND:   # the old bare form
+                    h["command"] = hook_command(event)
                     changed = True
-        if changed:
-            p.write_text(json.dumps(data, indent=2) + "\n")
-        return p, changed
-    post.append(hook_entry())
+    if not changed:
+        return p, False
     from . import private
     with private.as_user():   # the project's .claude/settings.json is shared with Claude Code and your team, not board data
         p.parent.mkdir(parents=True, exist_ok=True)
@@ -185,47 +259,59 @@ def install(project_dir):
 
 
 def uninstall(project_dir):
-    """Remove only the hook this module installed (and what it emptied); every other setting and hook stays. Returns (path, changed)."""
+    """Remove only the hooks this module installed (and what they emptied); every other setting and hook stays. Returns (path, changed)."""
     p, data = _load(project_dir)
     hooks = data.get("hooks")
-    post = hooks.get("PostToolUse") if isinstance(hooks, dict) else None
-    if not isinstance(post, list):
+    if not isinstance(hooks, dict):
         return p, False
     changed = False
-    for entry in list(post):
-        if isinstance(entry, dict) and entry.get("matcher") == "SendMessage" and isinstance(entry.get("hooks"), list):
+    for event, (name, _matcher) in EVENTS.items():
+        lst, mine = _entries(hooks, event)
+        for entry in mine:
+            if not isinstance(entry.get("hooks"), list):
+                continue
             kept = [h for h in entry["hooks"] if not _ours(h)]
             if len(kept) != len(entry["hooks"]):
                 changed = True
                 entry["hooks"] = kept
                 if not kept:
-                    post.remove(entry)
+                    lst.remove(entry)
+        if lst is not None and not lst and changed:
+            del hooks[name]
     if not changed:
         return p, False
-    if not post:
-        del hooks["PostToolUse"]
     if not hooks:
         del data["hooks"]
     if data:
         p.write_text(json.dumps(data, indent=2) + "\n")
     else:
-        p.unlink()   # the file held nothing but our hook: leave no empty settings.json behind
+        p.unlink()   # the file held nothing but our hooks: leave no empty settings.json behind
     return p, True
 
 
-def installed_command(project_dir):
-    """The command the installed hook runs, or None."""
-    try:
-        data = json.loads(settings_path(project_dir).read_text())
-    except (OSError, ValueError):
-        return None
-    for entry in (data.get("hooks") or {}).get("PostToolUse") or []:
-        if isinstance(entry, dict) and entry.get("matcher") == "SendMessage":
-            for h in entry.get("hooks") or []:
-                if _ours(h):
-                    return str(h.get("command"))
+def installed_command(project_dir, event="send-message", data=None):
+    """The command the installed hook for `event` runs, or None."""
+    if data is None:
+        try:
+            data = json.loads(settings_path(project_dir).read_text())
+        except (OSError, ValueError):
+            return None
+    for entry in _entries(data.get("hooks") or {}, event)[1]:
+        for h in entry.get("hooks") or []:
+            if _ours(h, event):
+                return str(h.get("command"))
     return None
 
 
-def installed(project_dir):
-    return installed_command(project_dir) is not None
+def installed(project_dir, event="send-message"):
+    return installed_command(project_dir, event) is not None
+
+
+def status(project_dir):
+    """Which of the two hooks the project has: 'installed', 'not installed', or 'partly installed (missing: stop)'."""
+    missing = [e for e in EVENTS if not installed(project_dir, e)]
+    if not missing:
+        return "installed"
+    if len(missing) == len(EVENTS):
+        return "not installed"
+    return f"partly installed (missing: {', '.join(missing)}; run hooks install)"

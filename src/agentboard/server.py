@@ -12,6 +12,7 @@ from urllib.parse import parse_qs, urlparse
 
 from . import boards, hud, private
 from . import hooks as hookslib
+from . import listeners
 from . import transcript as transcriptlib
 from . import plugins, reports, runs, serverstate, summary, voice
 from . import markdown as mdlib
@@ -290,7 +291,8 @@ def make_handler(default_store, port):
             elif url.path == "/api/chat":
                 after = q.get("after", [None])[0]
                 after = int(after) if after and after.lstrip("-").isdigit() else None
-                self._send(200, {"messages": self.store.chat_list(after=after, limit=200), "agents": self.store.chat_agents()})
+                self._send(200, {"messages": self.store.chat_list(after=after, limit=200), "agents": self.store.chat_agents(),
+                                 "receipts": listeners.receipts(self.store.dir)})   # who read what, who is listening: the panel's delivered / read / answered
             elif url.path == "/api/transcript":
                 # the session's transcript for one agent, read only, tailed from the file its session registered on claim/start
                 name = (q.get("agent") or [""])[0]
@@ -413,6 +415,10 @@ def make_handler(default_store, port):
                     self._send(200, {"agents": self.store.set_chat_agents(bool(body.get("on")))})
                 elif path == "/api/chat-decide":
                     self._send(200, self.store.chat_decide(body["seq"], body["decision"]))
+                elif path == "/api/chat-nudge":
+                    # the owner's one click on an unread line: the board asks ORCH to message that agent's session
+                    m = self.store.chat_nudge(body["seq"])
+                    self._send(200, {"message": m, "orch_listening": listeners.is_listening(self.store.dir, "ORCH")})
                 elif path.startswith("/api/x/"):
                     self._plugin("POST", path, body)   # a plugin's own route; 404 unless plugins are allowed
                 else:

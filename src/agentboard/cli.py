@@ -1,5 +1,6 @@
 """agentboard command line."""
 import argparse
+import contextlib
 import json
 import os
 import re
@@ -13,6 +14,7 @@ from pathlib import Path
 from . import __version__
 from . import agentchat
 from . import hooks as hookslib
+from . import listeners
 from . import backup as backuplib
 from . import hud as hudlib
 from . import lockdown
@@ -387,28 +389,35 @@ def cmd_me(a):
 
 
 def cmd_hook(a):
-    """Called by Claude Code after a SendMessage: the payload is on stdin. Always exits 0 and prints nothing."""
+    """Called by Claude Code: after a SendMessage (send-message) or as the session is about to go quiet (stop); the payload is on
+    stdin. Always exits 0; send-message prints nothing, stop prints a decision only when the session should not stop yet."""
     try:
         s = _store()
     except BoardError:
         return
-    hookslib.run_hook(s)
+    if a.event == "stop":
+        hookslib.run_stop_hook(s)
+    else:
+        hookslib.run_hook(s)
 
 
 def cmd_hooks(a):
-    """hooks install: the SendMessage hook into this project's .claude/settings.json; hooks uninstall: take it out again; hooks status."""
+    """hooks install: the SendMessage mirror and the Stop check into this project's .claude/settings.json; hooks uninstall: take them
+    out again; hooks status."""
     s = _store()
     project = Path(a.project).expanduser() if a.project else s.dir.parent
     if a.what == "install":
         p, changed = hookslib.install(project)
         print(f"{'installed' if changed else 'already installed'}: {p}\ncommand: {hookslib.installed_command(project)}\n"
-              "It copies the text of every SendMessage call in this project's sessions into the board's chat files (.agentboard): "
-              "do not send secrets in SendMessage. Restart running sessions once.")
+              f"and: {hookslib.installed_command(project, 'stop')}\n"
+              "The first copies the text of every SendMessage call in this project's sessions into the board's chat files (.agentboard): "
+              "do not send secrets in SendMessage. The second stops a session going quiet on an unread board line, or with no wait running. "
+              "Restart running sessions once.")
     elif a.what == "uninstall":
         p, changed = hookslib.uninstall(project)
         print(f"{'removed from' if changed else 'not installed in'}: {p}" + ("\nRestart running sessions once." if changed else ""))
     else:
-        print(f"{'installed' if hookslib.installed(project) else 'not installed'}: {hookslib.settings_path(project)}")
+        print(f"{hookslib.status(project)}: {hookslib.settings_path(project)}")
 
 
 def cmd_chat_send(a):
@@ -467,11 +476,12 @@ def cmd_chat_inbox(a):
     s = _store()
     after = None if a.all else (a.after if a.after is not None else _cursors(s).get(name))
     deadline = time.time() + (a.wait or 0)
-    while True:
-        msgs = s.chat_inbox(name, after=after, limit=a.limit)
-        if msgs or not a.wait or time.time() >= deadline:
-            break
-        time.sleep(a.interval)
+    with (listeners.listening_as(s.dir, name, "inbox") if a.wait else contextlib.nullcontext()):   # the board sees who will wake
+        while True:
+            msgs = s.chat_inbox(name, after=after, limit=a.limit)
+            if msgs or not a.wait or time.time() >= deadline:
+                break
+            time.sleep(a.interval)
     for m in msgs:
         print(_chat_line(m))
     if msgs and not a.keep:
@@ -835,7 +845,9 @@ it prints the reply. It also wakes you when they send the card back, close it ("
 move it or remove it, and says which: a closed card means you are free to go idle or take the next card. It also wakes
 you when {owner} sends you a message on the board (your thread, outside any card) and prints it: answer with
 `agentboard chat send "<one line>" --name "<your session name>" --to {owner}`, then wait again. A tool that
-cannot run background commands runs it in the foreground instead.
+cannot run background commands runs it in the foreground instead. Between cards, and any other time you would go quiet
+with nothing running, stay reachable the same way: `agentboard chat inbox --name "<your session name>" --wait 3600` in
+the background; it prints the next line {owner} sends you and exits, which wakes you. Nothing else does.
 
 If you are handed a task id instead, run `agentboard claim <id> --name "<your session name>"`.
 Use your own session name so people can tell agents apart; the board gives each name its own colour.
@@ -1346,38 +1358,45 @@ def cmd_answer(a):
     deadline = time.time() + a.timeout if a.wait else 0
     seen = False
     name = None   # the card's agent: a message the owner sends it on the board (its thread) wakes the wait too
-    while True:
-        try:
-            r = s.answer(a.id)
-            if name is None:
-                name = Store.get(s.load(), a.id).get("agent") or ""
-        except BoardError:
-            if not seen:
-                raise BoardError(f"no such task: {a.id} (it is not on the board: removed, or the id is wrong)") from None
-            print(f"(card {a.id} is gone)", file=sys.stderr)   # it was there when the wait began: the owner removed it, and that is the wake-up
-            print(REMOVED_NOTE)
-            return
-        seen = True
-        if r:
-            print(f"({_reply_when(r)})", file=sys.stderr)   # on stderr, so `$(agentboard answer ...)` still captures only the reply
-            print(r["text"])
-            return
-        msgs = s.chat_thread_new(name, after=_cursors(s).get(name)) if name else []
-        if msgs:
-            for m in msgs:
-                print(f"({_message_when(m)})", file=sys.stderr)
-                print(m["text"])
-            cur = _cursors(s)   # read, the same way `chat inbox` records what it printed
-            cur[name] = max(msgs[-1]["seq"], cur.get(name, 0) if isinstance(cur.get(name), int) else 0)
+    listener = None   # (name, pid) while this wait is on the board's listener list: the panel says who will wake
+    try:
+        while True:
             try:
-                _cursor_path(s).write_text(json.dumps(cur))
-            except OSError:
-                pass
-            print(f"(not a card reply: answer on the board with `agentboard chat send \"<one line>\" --name {name} --to {s.owner}`, then keep waiting)", file=sys.stderr)
-            return
-        if not a.wait or time.time() >= deadline:
-            sys.exit(f"agentboard: no reply on {a.id} yet" + (f" after {a.timeout:g}s" if a.wait else ""))
-        time.sleep(a.interval)
+                r = s.answer(a.id)
+                if name is None:
+                    name = Store.get(s.load(), a.id).get("agent") or ""
+                    if a.wait and name:
+                        listener = (name, listeners.register(s.dir, name, f"answer {a.id}"))
+            except BoardError:
+                if not seen:
+                    raise BoardError(f"no such task: {a.id} (it is not on the board: removed, or the id is wrong)") from None
+                print(f"(card {a.id} is gone)", file=sys.stderr)   # it was there when the wait began: the owner removed it, and that is the wake-up
+                print(REMOVED_NOTE)
+                return
+            seen = True
+            if r:
+                print(f"({_reply_when(r)})", file=sys.stderr)   # on stderr, so `$(agentboard answer ...)` still captures only the reply
+                print(r["text"])
+                return
+            msgs = s.chat_thread_new(name, after=_cursors(s).get(name)) if name else []
+            if msgs:
+                for m in msgs:
+                    print(f"({_message_when(m)})", file=sys.stderr)
+                    print(m["text"])
+                cur = _cursors(s)   # read, the same way `chat inbox` records what it printed
+                cur[name] = max(msgs[-1]["seq"], cur.get(name, 0) if isinstance(cur.get(name), int) else 0)
+                try:
+                    _cursor_path(s).write_text(json.dumps(cur))
+                except OSError:
+                    pass
+                print(f"(not a card reply: answer on the board with `agentboard chat send \"<one line>\" --name {name} --to {s.owner}`, then keep waiting)", file=sys.stderr)
+                return
+            if not a.wait or time.time() >= deadline:
+                sys.exit(f"agentboard: no reply on {a.id} yet" + (f" after {a.timeout:g}s" if a.wait else ""))
+            time.sleep(a.interval)
+    finally:
+        if listener:
+            listeners.unregister(s.dir, *listener)
 
 
 def cmd_reports(a):
@@ -1494,9 +1513,9 @@ def main(argv=None):
     sp = add("me", cmd_me, "tell the board this session's name, so mirrored messages carry it")
     sp.add_argument("--name", required=True)
     sp.add_argument("--session", help="register this name for another session id (ORCH, when an agent reports its id)")
-    sp = add("hook", cmd_hook, "for Claude Code hooks: mirror a SendMessage call (payload on stdin) to the chat")
-    sp.add_argument("event", choices=["send-message"])
-    sp = add("hooks", cmd_hooks, "install or uninstall the SendMessage mirror hook in this project's .claude/settings.json (full path), or show its status")
+    sp = add("hook", cmd_hook, "for Claude Code hooks: send-message mirrors a SendMessage call to the chat; stop keeps a session from going quiet on an unread board line (payload on stdin)")
+    sp.add_argument("event", choices=["send-message", "stop"])
+    sp = add("hooks", cmd_hooks, "install or uninstall the SendMessage mirror and Stop hooks in this project's .claude/settings.json (full path), or show their status")
     sp.add_argument("what", nargs="?", choices=["install", "uninstall", "status"], default="status")
     sp.add_argument("--project", help="the project folder (default: the one holding .agentboard)")
     sp = add("lookup", cmd_lookup, "read-only search of done and archived cards, reports and any source a plugin adds: the best few matches with date and a short snippet")
