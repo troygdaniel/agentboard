@@ -196,6 +196,8 @@ def check_files(board_dir):
                 mode = os.lstat(os.path.join(root, name)).st_mode
             except OSError:
                 continue
+            if stat.S_ISLNK(mode):
+                continue   # a link's own mode means nothing: what matters is what it points at, and that is not ours to read
             total += 1
             if mode & 0o004:
                 other.append(name)
@@ -205,11 +207,66 @@ def check_files(board_dir):
         top = board_dir.stat().st_mode & 0o777
     except OSError:
         top = 0
-    if other or top & 0o004:
-        return [_res(FAIL, "files", f"{len(other)} of {total} entries in the board folder (mode {top:03o}) can be read by any user on this machine; fix: chmod -R go-rwx {_short(board_dir)}")]
-    if group or top & 0o040:
-        return [_res(WARN, "files", f"{len(group)} of {total} entries in the board folder (mode {top:03o}) are readable by the group; fix: chmod -R go-rwx {_short(board_dir)}")]
+    fix = f"fix: chmod -R go-rwx {_short(board_dir)}"
+    if total == 0:
+        return [_res(PASS, "files", f"the board folder is empty (mode {top:03o}): nothing in it to read")]
+    if other:
+        return [_res(FAIL, "files", f"{len(other)} of {total} entries in the board folder (mode {top:03o}) can be read by any user on this machine; {fix}")]
+    if top & 0o004:
+        return [_res(FAIL, "files", f"the board folder (mode {top:03o}) can be listed by any user on this machine, so the names inside it show (report files carry card titles); the {total} entries are not readable by others; {fix}")]
+    if group:
+        return [_res(WARN, "files", f"{len(group)} of {total} entries in the board folder (mode {top:03o}) are readable by the group; {fix}")]
+    if top & 0o040:
+        return [_res(WARN, "files", f"the board folder (mode {top:03o}) can be listed by its group, so the names inside it show; the {total} entries are not readable by it; {fix}")]
     return [_res(PASS, "files", f"{total} entries in the board folder (mode {top:03o}) are private to you")]
+
+
+def _installed_record():
+    """The install record of the running copy, or None."""
+    try:
+        return importlib.metadata.distribution("agentboard")
+    except importlib.metadata.PackageNotFoundError:
+        return None
+
+
+def _package_files(folder):
+    """The package's files as relative paths, without caches."""
+    return {p.relative_to(folder).as_posix() for p in folder.rglob("*")
+            if p.is_file() and "__pycache__" not in p.parts and p.suffix != ".pyc"}
+
+
+def check_install(here=None, dist="unset"):
+    """Is the installed copy made of the same files as the source it was installed from? A file the source no longer has but the installed
+    copy still carries (two removed modules once lingered in site-packages from a stale build/ folder) is code that still runs after
+    it was removed from the repo. Reads two folders; runs nothing."""
+    here = Path(here) if here else _HERE
+    dist = _installed_record() if dist == "unset" else dist
+    raw = None
+    try:
+        raw = dist.read_text("direct_url.json") if dist else None
+    except Exception:   # noqa: BLE001  (an odd record is just "unknown")
+        pass
+    folder = ""
+    if raw:
+        try:
+            import json
+            url = str(json.loads(raw).get("url", ""))
+            folder = url[len("file://"):] if url.startswith("file://") else ""
+        except ValueError:
+            folder = ""
+    if not folder:
+        return [_res(INFO, "install", "no record of which folder this copy was installed from, so it cannot be compared with a source")]
+    source = Path(folder) / "src" / "agentboard"
+    if not source.is_dir():
+        return [_res(INFO, "install", f"installed from {_short(folder)}, which has no src/agentboard any more: nothing to compare with")]
+    if source.resolve() == here.resolve():
+        return [_res(PASS, "install", f"running from the source itself ({_short(folder)})")]
+    stale = sorted(_package_files(here) - _package_files(source))
+    if stale:
+        shown = ", ".join(stale[:MAX_SHOWN]) + (f" and {len(stale) - MAX_SHOWN} more" if len(stale) > MAX_SHOWN else "")
+        return [_res(WARN, "install", f"stale install: {shown} {'is' if len(stale) == 1 else 'are'} in the installed copy but not in the source ({_short(folder)}); "
+                                      f"fix: pipx uninstall agentboard; pipx install {_short(folder)}")]
+    return [_res(PASS, "install", f"the installed copy has no file its source ({_short(folder)}) lacks")]
 
 
 def check_git(project, board_dir, runner):
@@ -379,6 +436,7 @@ def run(board_dir, project=None, env=None, runner=subprocess.run):
     env = os.environ if env is None else env
     results = []
     results += check_version(runner)
+    results += check_install()
     results += check_locks(env)
     results += check_listeners(runner)
     results += check_config(board_dir)

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Doctor: calmer about an empty folder, and it spots a stale install (Nov 7)
+- **An empty board folder** no longer prints "0 of 0 entries … can be read by any user" as a FAIL: it says the folder is empty. A folder others can list but whose files are private now says exactly that (still a FAIL, as before) instead of counting zero readable entries; a symlink's own mode is ignored.
+- **New line `install`** (a WARN, so the exit status rules are unchanged): a file the installed copy carries but the source it was installed from no longer has (texts.py and sms.py once lingered in site-packages from a stale build folder) is named, with the fix `pipx uninstall agentboard; pipx install <repo>`. It reads two folders, runs nothing, and says INFO when it cannot tell where the copy came from.
+
 ### Secrets are masked on the way in (Nov 7)
 - A key an agent echoes, a token in a command it ran, a private key in a review body is now stored as `[redacted …]`. Before, it was copied verbatim into `tasks.json`, the `.bak`, every backup, the card's report, the page and the chat. Reports mask older cards again when built.
 - Only unmistakable secrets: prefixed cloud and API keys, tokens, JWTs, private-key blocks, `Authorization:` values, `api_key = "…"`, a long hex string after key/token/secret. A commit hash, an id, a path, code or a phone number is never touched, and what you type yourself is left alone. `[redact]` in `config.toml`: `enabled = false`, `phones = true`, `extra = [...]`.
