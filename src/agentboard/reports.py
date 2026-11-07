@@ -145,24 +145,46 @@ def _remote_base(repo):
     return f"https://{m.group(1)}/{m.group(2)}" if m and "github" in m.group(1) else ""
 
 
+_SHA = re.compile(r"[0-9a-f]{40}(?:[0-9a-f]{24})?")                # a full object name (sha-1 or sha-256), nothing else
+_REF = re.compile(r"[A-Za-z0-9_][A-Za-z0-9._/+@-]{0,199}")        # a branch name that cannot start with a dash
+_STAMP = re.compile(r"[0-9][0-9T:.+\- Z]{9,39}")                  # an ISO time like 2026-11-06T22:30:00 for --since
+
+
+def _ref_ok(name):
+    return bool(_REF.fullmatch(name)) and ".." not in name and "//" not in name and not name.endswith(("/", ".", ".lock"))
+
+
 def git_info(board_dir, task, run):
     """{'repo', 'commits': [(sha, subject)], 'files': [...], 'base': remote web url or ''} for what this card changed, or {} without a repo.
-    A one-shot run knows its exact branch; otherwise it is the commits made in the project's repo while the card was open."""
+    A one-shot run knows its exact branch; otherwise it is the commits made in the project's repo while the card was open.
+    The run record comes from tasks.json, which may have been copied or edited by hand, so its repo, base and branch are checked
+    before git sees them (a base like --output=/path would make git log write a file): anything odd gives {}."""
     c = conf(board_dir)
     wt = (run or {}).get("worktree") or {}
-    repo = Path(wt["repo"]) if wt.get("repo") else Path(c["repo"]).expanduser() if c.get("repo") else Path(board_dir).resolve().parent
+    if wt.get("repo"):
+        repo = Path(str(wt["repo"]))
+        if not repo.is_absolute() or not repo.is_dir():
+            return {}
+    else:
+        repo = Path(c["repo"]).expanduser() if c.get("repo") else Path(board_dir).resolve().parent
     if _git(["rev-parse", "--git-dir"], repo) is None:
         return {}
+    log_opts = ["--no-merges", f"--max-count={MAX_COMMITS}", "--pretty=format:%H%x09%s"]
     if wt.get("base") and wt.get("branch"):
-        rng = [f"{wt['base']}..{wt['branch']}"]
+        base, branch = str(wt["base"]), str(wt["branch"])
+        if not _SHA.fullmatch(base) or not _ref_ok(branch):
+            return {}
+        log_args = ["log", *log_opts, "--end-of-options", f"{base}..{branch}"]
     else:
-        claimed = next((e["at"] for e in task.get("log", []) if str(e.get("text", "")).startswith("Claimed by")), task.get("created", ""))
-        rng = ["--all", f"--since={claimed}"]
-    out = _git(["log", *rng, "--no-merges", f"--max-count={MAX_COMMITS}", "--pretty=format:%H%x09%s"], repo) or ""
-    commits = [tuple(l.split("\t", 1)) for l in out.splitlines() if "\t" in l]
+        claimed = str(next((e["at"] for e in task.get("log", []) if str(e.get("text", "")).startswith("Claimed by")), task.get("created", "")))
+        if not _STAMP.fullmatch(claimed):
+            return {}
+        log_args = ["log", "--all", f"--since={claimed}", *log_opts]
+    out = _git(log_args, repo) or ""
+    commits = [tuple(l.split("\t", 1)) for l in out.splitlines() if "\t" in l and _SHA.fullmatch(l.split("\t", 1)[0])]
     files, seen = [], set()
     for sha, _s in commits:
-        for f in (_git(["show", "--name-only", "--pretty=format:", sha], repo) or "").splitlines():
+        for f in (_git(["show", "--name-only", "--pretty=format:", "--end-of-options", sha], repo) or "").splitlines():
             if f.strip() and f not in seen:
                 seen.add(f)
                 files.append(f)
