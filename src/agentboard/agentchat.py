@@ -12,6 +12,7 @@ import re
 import subprocess
 from datetime import datetime, timedelta
 
+from . import untrusted
 from .store import CHAT_TOPICS, BoardError
 
 PROTOCOL = """\
@@ -117,8 +118,10 @@ def recall(tasks, chat, query="", agent=None, card=None, limit=10, log_lines=6):
                 continue
             if not words and not agent:
                 continue
-        rows.append({"kind": "card", "id": t["id"], "title": t["title"], "status": t["status"], "agent": t.get("agent") or "",
+        text_born = untrusted.is_text_card(t)
+        rows.append({"kind": "card", "id": t["id"], "title": untrusted.one_line(t["title"], 200) if text_born else t["title"], "status": t["status"], "agent": t.get("agent") or "",
                      "updated": t.get("updated") or "", "archived": bool(t.get("archived")), "score": score,
+                     **({"from_text": True} if text_born else {}),
                      "line": str(t.get("result") or t.get("status_text") or "")[:200],
                      "log": [{"at": e.get("at", ""), "status": e.get("status", ""), "progress": e.get("progress"), "text": str(e.get("text") or "")[:200], "by": e.get("by")}
                              for e in (log if (card or (agent and not words)) else hits)[-(log_lines if not card else 200):]]})   # one card, or one agent's cards: the history itself
@@ -149,7 +152,7 @@ def recall_lines(rows, now=None):
     for r in rows:
         if r["kind"] == "card":
             flag = " (archived)" if r["archived"] else ""
-            out.append(f"card  {r['id']}  [{r['status']}]  {r['agent'] or 'unassigned'}  {r['updated'][:16]} ({_age(r['updated'], now)})  {r['title']}{flag}")
+            out.append(f"card  {r['id']}  [{r['status']}]  {r['agent'] or 'unassigned'}  {r['updated'][:16]} ({_age(r['updated'], now)})  {untrusted.marked(r['title']) if r.get('from_text') else r['title']}{flag}")
             if r["line"]:
                 out.append(f"      {r['line']}")
             for e in r["log"]:
@@ -514,7 +517,7 @@ def doing_now(tasks, chat, name=None):
         if t.get("status") != "doing" or t.get("parent_id") or not t.get("agent") or t["agent"] == name:
             continue
         fs = sorted(files.get(t["id"], set()) | files.get(t["agent"], set()))
-        out.append(f"{t['agent']}: {t['title']} ({t.get('progress', 0)}%, {t.get('status_text') or 'no status yet'})" + (f"  files: {', '.join(fs)}" if fs else ""))
+        out.append(f"{t['agent']}: {untrusted.shown_title(t)} ({t.get('progress', 0)}%, {t.get('status_text') or 'no status yet'})" + (f"  files: {', '.join(fs)}" if fs else ""))
     return out
 
 

@@ -22,6 +22,7 @@ from . import voice as voicelib
 from . import runs as runslib
 from . import sms as smslib
 from . import texts as textslib
+from . import untrusted
 from .server import serve
 from . import boards as boardlib
 from .store import CHAT_TOPICS, DIR_NAME, BoardError, Store, find_dir, subtask_counts
@@ -213,7 +214,7 @@ def cmd_list(a):
         n, d = counts.get(t["id"], (0, 0))
         kids = f"  [{d}/{n} subtasks]" if n else ""
         name = f"  ↳ {t['id']}" if sub else t["id"]   # subtasks hang under their parent
-        print(f"{name:30} {t['status']:8} {'Σ' if n else ' '}{t.get('progress', 0):3}%{who}{kids}{flag}  {t['title']}")
+        print(f"{name:30} {t['status']:8} {'Σ' if n else ' '}{t.get('progress', 0):3}%{who}{kids}{flag}  {untrusted.shown_title(t)}")
 
 
 def _tree_order(tasks):
@@ -288,6 +289,7 @@ def cmd_report(a):
     else:
         day = date.today()
     tasks = _store().load()
+    by_id = {t["id"]: t for t in tasks}
     done = hudlib.done_on(tasks, day)
     events = hudlib.events_on(tasks, day)
     finished = [d for d in done if not d["partial"]]
@@ -307,7 +309,7 @@ def cmd_report(a):
         for agent in sorted(by_agent):
             print(f"## {agent}")
             for d in by_agent[agent]:
-                line = f"- **{d['title']}**"
+                line = f"- **{untrusted.shown_title(by_id.get(d['id'], d))}**"
                 if d["partial"]:
                     line += f" _(in progress, {d['n_done']}/{d['n']} subtasks done)_"
                 elif d["result"]:
