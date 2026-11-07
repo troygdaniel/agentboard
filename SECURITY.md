@@ -14,7 +14,7 @@ Oct 24, 2026 for v0.3.0 against the code and at runtime; it checks literally rat
 |---|---|---|
 | Python dependencies | **None.** `dependencies = []`; stdlib only | `pyproject.toml` |
 | Outbound calls in Python | Only in the opt-in `http` and `command` context providers (below) | Every `import` in `src/` listed and reviewed |
-| Server binding | `127.0.0.1` only, hard-coded; there is no option to bind other interfaces. Default port 8765 (`--port` to change) | `server.py`; at runtime, `lsof` showed one socket, `TCP 127.0.0.1:<port> (LISTEN)`, and no outbound connections |
+| Server binding | `127.0.0.1` only, hard-coded; there is no option to bind other interfaces. Default port 8765 (`--port` to change). Each request handler has a 15 s socket timeout and a 1 MB body cap; card fields have their own caps (title 200, description 20,000, body 60,000), so a local process cannot pin threads with half-sent bodies or bloat every client's poll with one card | `server.py`; at runtime, `lsof` showed one socket, `TCP 127.0.0.1:<port> (LISTEN)`, and no outbound connections |
 | Browser-side requests | Only same-origin `/api/...` calls to the local server | Every `fetch` / `api()` call reviewed; at runtime, headless Chrome recorded every request while loading the board, a card's detail panel (with prompt preview) and the HUD: **0 non-local requests** |
 | CDNs, web fonts, external scripts or images | **None.** System fonts; icons are inline SVG; favicon is a `data:` URI; sounds are synthesized with Web Audio (no audio files) | Scan of `index.html` for absolute URLs, `<script src>`, `<link href>`, `@import`, `url(` |
 | Telemetry, analytics, update checks, crash reporting | **None** | No such code or dependency exists |

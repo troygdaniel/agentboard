@@ -92,6 +92,7 @@ def make_handler(default_store, port):
 
     class Handler(BaseHTTPRequestHandler):
         server_version = "agentboard"
+        timeout = 15   # a client that declares a body and never sends it, or stalls mid-request, is dropped: it cannot pin a thread for good
 
         def log_message(self, *args):
             pass
