@@ -15,7 +15,7 @@ A reply is the board's **first send**. Every reply is one billed outbound text, 
 | 1 | Every new text gets a short ack with the card title it made | One reply per text, sent after its card exists. Texts that make no card (empty) get none |
 | 2 | A question gets an answer from `lookup` over **cards and reports only** | Two explicit calls, `only="cards"` and `only="reports"`. Never `only=None`: that searches every source a plugin added, notes included. Notes are off (see Open point 2). No model is involved: the answer is a keyword search, not generated text |
 | 3 | Plain data, runs nothing, 320 characters at most, only to the allowed number | The reply is a string and nothing reads it back. The recipient is the sender of that text, checked against `allowed` again at send time, never a number found in a text |
-| 4 | Daily cap, default 20 | A counter in the reply ledger, checked and written **before** each send. No record, no send |
+| 4 | Daily cap, default 20; at the cap replies **pause** and resume the next day by themselves | A counter in the reply ledger, checked and written **before** each send. No record, no send. The cap is not an error: the control stays on Send, a text that arrives while paused gets its card and `skipped: limit` in the ledger (never a reply, not even tomorrow), and the count starts over with the Mac's calendar day. Only a failed send or a tripped loop guard **stops** (Troy's call, 2026-11-07; the design doc's open point 1) |
 | 5 | A reply never triggers another reply | Five layers, below |
 
 ## How one pull replies
@@ -100,7 +100,8 @@ The state the page gets: `{show, available, on, line, sent_today, cap, error}`. 
 | Not available | `Needs AGENTBOARD_TEXTS_REPLY=1 and [texts] reply = true` (or `Locked off (...)`) |
 | Off (the default, and after every restart) | `Off` |
 | On | `Replying to new texts · 3 of 20 sent today` |
-| Stopped | `Stopped: daily limit reached` / `Stopped: Twilio refused a reply (HTTP 400, code 21610)` / `Stopped: could not record replies` |
+| Paused (the daily cap) | `Paused: 20 of 20 sent today. Replies resume tomorrow; texts that arrive meanwhile get none.` (amber; the control stays on Send) |
+| Stopped | `Stopped: Twilio refused a reply (HTTP 400, code 21610)` / `Stopped: could not record replies` |
 
 Wording to settle in the design card: the switch label, the cost hint ("sends texts, costs a little"), and whether the header chip shows the day's count.
 
