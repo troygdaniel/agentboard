@@ -16,6 +16,8 @@ A plugin is an entry point in the group "agentboard.plugins" whose value is a fu
     def register(api):
         api.add_command("do-thing", "what it does", setup, run)   # agentboard do-thing; setup(parser) adds arguments, run(args, store)
         api.add_route("POST", "do", fn)                           # POST /api/x/mything/do; fn(store, body) -> dict (GET: body = the query)
+                                                                  # a GET route must be READ-ONLY: anything that writes, runs or sends goes on a POST.
+                                                                  # (the server also refuses a GET a browser marks cross-site, but that is a net, not the rule)
         api.add_state(fn)                                         # fn(store) -> dict | None, sent with every /api/tasks poll (page: AB.state.mything)
         api.add_thread(fn)                                        # fn(store) runs once in a daemon thread under `agentboard serve`
         api.set_page(script=js_text, style=css_text)              # one script, /api/x/mything/page.js, loaded by the page; the style rides in it

@@ -322,6 +322,10 @@ def make_handler(default_store, port):
                 self._send(404, {"error": "not found"})
             elif hit[0] == "asset":
                 self._send(200, hit[1][1].encode(), hit[1][0], {"X-Content-Type-Options": "nosniff"})
+            elif method == "GET" and not self._same_site():
+                # a GET route is reachable blind from another site (an <img>, a no-cors fetch): the Host is the real one and a simple GET
+                # carries no Origin. A browser that says cross-site or same-site is refused before the plugin runs; curl and the CLI send nothing
+                self._send(403, {"error": "bad origin"})
             else:
                 try:
                     out = hit[1](self.store, data)
