@@ -1459,7 +1459,8 @@ let hoverAgent = null;   // the pill under the pointer: re-applied after a redra
                          // first render: a page opened at #/hud or at a card's hash renders at once, and reading this below the script's end threw
 
 const $ = id => document.getElementById(id);
-const esc = s => { const d = document.createElement('div'); d.textContent = s ?? ''; return d.innerHTML; };
+const esc = s => { const d = document.createElement('div'); d.textContent = s ?? ''; return d.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;'); };   // & < > and both quotes: safe in a text node AND inside a quoted attribute (the quotes were the hole: a title with a quote broke out of title="...")
+const unesc = s => String(s).replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&');   // esc() undone; & last so &amp;lt; stays &lt;
 // One colour per agent NAME, never per card (2026-11-01): AGENT-1 to AGENT-5 were all "green" because each card carried its own,
 // and a card's own colour is now neither stored nor read. [agent_colors] in config.toml overrides a name; otherwise a palette slot
 // (--a1..--a6, clear of the status hues). The slots are mirrored in agent_slot() in cli.py, which colours `agentboard spawn` terminals.
@@ -2385,10 +2386,10 @@ const stamp = iso => iso ? new Date(iso).toLocaleString([], { month: 'short', da
 
 
 // --- readable text: light markdown, ACTION/STATUS/WHY, copy buttons ---
-const attr = s => esc(s).replace(/"/g, '&quot;');
+const attr = esc;   // esc() already escapes quotes; the name stays for the sites that mean an attribute value
 const CMD = /^(scripts\/|agentboard\s|make\s|cd\s|git\s|curl\s|\.\/|bash\s|python3?\s|npm\s|pipx\s|brew\s)/;
-const codeHtml = c => `<code>${c}</code>` + (CMD.test(c.replace(/&amp;/g, '&')) || c.length > 24 ? `<button class="cp" data-copy="${attr(c.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>'))}" aria-label="Copy">copy</button>` : '');
-const urlHtml = u => { const raw = u.replace(/&amp;/g, '&'); return `<a href="${attr(raw)}" target="_blank" rel="noopener noreferrer">${u}</a><button class="cp" data-copy="${attr(raw)}" aria-label="Copy link">copy</button>`; };
+const codeHtml = c => `<code>${c}</code>` + (CMD.test(unesc(c)) || c.length > 24 ? `<button class="cp" data-copy="${attr(unesc(c))}" aria-label="Copy">copy</button>` : '');
+const urlHtml = u => { const raw = unesc(u); return `<a href="${attr(raw)}" target="_blank" rel="noopener noreferrer">${u}</a><button class="cp" data-copy="${attr(raw)}" aria-label="Copy link">copy</button>`; };
 function inlineFmt(src) {
   const keep = [], stash = x => '\u0000' + (keep.push(x) - 1) + '\u0000';
   let h = esc(src);
@@ -2638,7 +2639,7 @@ function panelHtml(t) {
     <input id="p-block-add" list="p-block-list" placeholder="${blockers.length ? 'Add another card…' : 'Type a card title to add one'}" aria-label="Blocked by" autocomplete="off"><datalist id="p-block-list">${candidates.map(x => `<option value="${esc(x.title)}"></option>`).join('')}</datalist></div></div>`;
   // actions and activity sit near the top; the long description comes after, collapsed
   const titleHtml = panelEdit === 'title'
-    ? `<form class="ed-form" data-ed="title"><input id="ed-field" class="title" value="${esc(panelDraft).replace(/"/g, '&quot;')}" aria-label="Title" maxlength="200" autocomplete="off">${edActs}</form>`
+    ? `<form class="ed-form" data-ed="title"><input id="ed-field" class="title" value="${esc(panelDraft)}" aria-label="Title" maxlength="200" autocomplete="off">${edActs}</form>`
     : `<h2 class="ed" data-ed-open="title" tabindex="0" role="button" title="Click to edit (e)">${esc(t.title)}<span class="pen">edit</span></h2>`;
   const tabs = panelTabsHtml(t);
   // Conversation and Terminal wear the compact head the side panel had (avatar, name, state, the card it is on): the content gets the room
