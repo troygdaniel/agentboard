@@ -12,7 +12,8 @@ from agentboard import cli, doctor, lockdown
 from agentboard.store import Store
 
 AWS = "AKIA" + "ABCDEFGHIJKLMNOP"      # built in pieces so this file is not itself a hit
-PHONE = "(416) 867-" + "5309"
+PHONE = "(416) 867-" + "5309"          # a real-looking number built in pieces, so this file holds no phone number for the scan to find
+PHONE2 = "416-867-" + "5310"
 
 
 class FakeRunner:
@@ -170,7 +171,7 @@ class Git(unittest.TestCase):
         self.repo({"docs.md": fiction})
         line = next(x for x in doctor.check_git(self.proj, self.board, subprocess.run) if x[1] == "tracked files")
         self.assertEqual(line[0], doctor.PASS, line)
-        self.repo({"real.md": f"call {PHONE} or 416-867-5310 (a real-looking exchange)\n"})
+        self.repo({"real.md": f"call {PHONE} or {PHONE2} (a real-looking exchange)\n"})
         line = next(x for x in doctor.check_git(self.proj, self.board, subprocess.run) if x[1] == "tracked files")
         self.assertEqual(line[0], doctor.WARN)
         self.assertIn("real.md:1", line[2])
