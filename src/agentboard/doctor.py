@@ -17,7 +17,7 @@ from pathlib import Path
 
 from . import __version__, lockdown
 from . import prompt as promptlib
-from . import providers
+from . import plugins, providers
 from .store import BoardError
 
 PASS, WARN, FAIL, INFO = "PASS", "WARN", "FAIL", "INFO"
@@ -132,6 +132,26 @@ def check_locks(env):
     if others:
         out.append(_res(INFO, "lock", "narrow locks: " + ", ".join(others)))
     return out
+
+
+def check_plugins():
+    """Is any plugin code allowed to run here, and which packages could run? Reads the gate (plugins.disabled_reason) and the entry-point
+    NAMES from package metadata: nothing is imported, loaded or run, so this is safe to run on a locked machine."""
+    from importlib.metadata import entry_points
+    try:
+        eps = sorted({(ep.name, str(ep.value).split(":")[0]) for ep in entry_points(group=plugins.GROUP)})
+    except Exception:   # noqa: BLE001  (odd package metadata is "could not list", never a crash)
+        eps = None
+    named = ", ".join(f"{n} ({m})" for n, m in eps) if eps else ""
+    why = plugins.disabled_reason()
+    if why is None:
+        if eps is None:
+            return [_res(WARN, "plugins", "plugins are ON (the key is set, no lock) but the installed ones could not be listed")]
+        if not eps:
+            return [_res(INFO, "plugins", f"plugins are allowed (${plugins.ENV}=1, no lock) but none are installed")]
+        return [_res(WARN, "plugins", f"plugins are ON (${plugins.ENV}=1, no lock): code from {named} runs inside agentboard, with the same access as the board")]
+    tail = f"; installed but not loaded: {named}" if eps else ("; none are installed" if eps == [] else "")
+    return [_res(PASS, "plugins", f"plugins are {why}: nothing is looked up, imported or run{tail}")]
 
 
 def _board_pids(runner):
@@ -468,6 +488,7 @@ def run(board_dir, project=None, env=None, runner=subprocess.run):
     results += check_version(runner)
     results += check_install()
     results += check_locks(env)
+    results += check_plugins()
     results += check_listeners(runner)
     results += check_config(board_dir)
     results += check_knowledge(board_dir)

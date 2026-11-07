@@ -273,7 +273,8 @@ class WholeReport(unittest.TestCase):
             os.chmod(p, 0o700 if p.is_dir() else 0o600)
 
     def run_doctor(self, **kw):
-        return doctor.run(self.board, env=kw.pop("env", {}), runner=kw.pop("runner", FakeRunner()), **kw)
+        with mock.patch("importlib.metadata.entry_points", return_value=[]):   # what is installed on this machine must not change the report
+            return doctor.run(self.board, env=kw.pop("env", {}), runner=kw.pop("runner", FakeRunner()), **kw)
 
     def snapshot(self):
         return sorted((str(p.relative_to(self.root)), p.stat().st_mtime_ns, p.stat().st_size) for p in self.root.rglob("*"))
