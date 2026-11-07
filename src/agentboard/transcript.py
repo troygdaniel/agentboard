@@ -47,7 +47,7 @@ def resolved(path):
     try:
         p = Path(path).expanduser().resolve()
         root = projects_dir().resolve()
-    except (OSError, RuntimeError):
+    except (OSError, RuntimeError, ValueError):   # ValueError: a NUL byte in a path from a hand-edited sessions.json
         return None
     return p if p.suffix == ".jsonl" and root in p.parents else None
 
@@ -140,6 +140,8 @@ def read(path, max_lines=MAX_LINES):
     real = resolved(path)   # checked and opened as one and the same Path: a "~" or a relative piece can never make open() look elsewhere
     if real is None:
         return {"lines": [], "missing": True, "why": "outside ~/.claude/projects"}
+    if real.exists() and not real.is_file():   # a FIFO (open() would block the handler thread for good), a directory, a device: not a transcript
+        return {"lines": [], "missing": True, "why": "not a regular file"}
     try:
         text, size = tail_text(real)
         mtime = datetime.fromtimestamp(os.path.getmtime(real)).strftime("%Y-%m-%dT%H:%M:%S")
