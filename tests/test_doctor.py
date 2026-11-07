@@ -401,7 +401,7 @@ class StaleInstall(unittest.TestCase):
         level, _name, text = self.check()
         self.assertEqual(level, doctor.WARN)
         self.assertIn("stale install: sms.py, texts.py are in the installed copy but not in the source", text)
-        self.assertIn(f"fix: pipx uninstall agentboard; pipx install {doctor._short(self.repo)}", text)
+        self.assertIn(f"fix: pipx uninstall agentboard; rm -rf {doctor._short(self.repo)}/build; pipx install {doctor._short(self.repo)}", text)   # build/ is where the stale files come from
 
     def test_one_file_reads_in_the_singular_and_a_long_list_is_cut(self):
         (self.installed / "texts.py").write_text("old")

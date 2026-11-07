@@ -265,7 +265,7 @@ def check_install(here=None, dist="unset"):
     if stale:
         shown = ", ".join(stale[:MAX_SHOWN]) + (f" and {len(stale) - MAX_SHOWN} more" if len(stale) > MAX_SHOWN else "")
         return [_res(WARN, "install", f"stale install: {shown} {'is' if len(stale) == 1 else 'are'} in the installed copy but not in the source ({_short(folder)}); "
-                                      f"fix: pipx uninstall agentboard; pipx install {_short(folder)}")]
+                                      f"fix: pipx uninstall agentboard; rm -rf {_short(folder)}/build; pipx install {_short(folder)}")]   # build/ first: it is where the stale files come from
     return [_res(PASS, "install", f"the installed copy has no file its source ({_short(folder)}) lacks")]
 
 

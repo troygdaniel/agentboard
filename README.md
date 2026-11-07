@@ -31,10 +31,14 @@ Requirements: **Python 3.11 or newer**, and [pipx](https://pipx.pypa.io) (`brew 
 
 No pipx? From inside a checkout, with `python3` being 3.11+ (`python3 --version`):
 
-    python3 -m venv ~/.agentboard-venv && ~/.agentboard-venv/bin/pip install .
+    rm -rf build && python3 -m venv ~/.agentboard-venv && ~/.agentboard-venv/bin/pip install .
     export PATH="$HOME/.agentboard-venv/bin:$PATH"     # so the bare `agentboard` commands below work (add to your shell profile)
 
-To upgrade a checkout: `git pull && pipx install . --force` (then restart `agentboard serve`). Releases are tagged (`v0.3.0`); see `CHANGELOG.md`.
+To upgrade a checkout: `git pull && rm -rf build && pipx install . --force` (then restart `agentboard serve`). Releases are tagged (`v0.3.0`); see `CHANGELOG.md`.
+
+**Always remove `build/` before installing from a checkout you have used before.** pip builds inside the checkout, and setuptools copies into `build/` without removing
+files that no longer exist in `src/`, so a module deleted from the source can come back into the installed copy (the removed text features did exactly that once). A first install
+from a fresh clone has no `build/` and needs nothing. `agentboard doctor` warns ("stale install") when the installed copy holds a file its source no longer has, and tells you the fix.
 
 ## Quick start
 
@@ -529,7 +533,7 @@ What to expect when you clone this onto a managed machine (the full audit and ch
    for the owner to switch on (see `SECURITY.md`, "Known gaps").
 6. **No personal data in the repo:** the repository is code, docs and screenshots of demo boards. Your task data lives in `<your repo>/.agentboard/` (mode 700, files 600),
    which `init` git-ignores. If your repo is shared, keep it that way, and run `python3 tests/publiccheck.py` before any push.
-7. **Updating:** `git pull`, review, `pipx install . --force`, then restart `agentboard serve`.
+7. **Updating:** `git pull`, review, `rm -rf build && pipx install . --force`, then restart `agentboard serve`. (Remove `build/` first: otherwise a module deleted from the source can come back into the installed copy; `agentboard doctor` warns if it did.)
 
 ## Troubleshooting
 

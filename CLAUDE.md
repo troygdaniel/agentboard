@@ -99,7 +99,7 @@ for, since both mean progress is stalled on a human, not on more waiting.
 
 ## Verifying UI changes to src/agentboard/static/index.html
 
-After editing the static file: `cd ~/dev/agentboard && pipx install . --force`, then kill and
+After editing the static file: `cd ~/dev/agentboard && rm -rf build && pipx install . --force` (remove `build/` first: setuptools keeps files deleted from `src/` there and would reinstall them), then kill and
 restart `agentboard serve` (the pipx venv's copy is what actually serves `localhost:8765` — editing
 `src/` alone does nothing live). Confirm with
 `md5 <pipx venv static/index.html> <src static/index.html>` — they must match.

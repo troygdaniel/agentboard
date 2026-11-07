@@ -113,6 +113,10 @@ add a source; with plugins off or locked there are none. Core code never opens a
 Installing fetches files once: from GitHub if you install with `pipx install git+https://...`, and
 setuptools from PyPI (the build backend) when building from source. After install, nothing is fetched again.
 
+**Upgrading a checkout: remove `build/` first** (`git pull && rm -rf build && pipx install . --force`). pip builds inside the checkout and setuptools keeps in `build/` any file that was
+deleted from `src/`, so the installed copy can carry code that was removed from the repository (reproduced: a wheel built after two modules were deleted still contained both). `agentboard doctor` compares the
+installed copy with the folder it was installed from and warns ("stale install", naming the files and the fix); a fresh clone has no `build/` and needs nothing.
+
 ## What changed since the Oct 24 re-check (Nov 7, 2026)
 
 Fixed and merged after the five audits: card text could break out of an HTML attribute and run script in the board page (HIGH; escaping fixed); the page now carries a
