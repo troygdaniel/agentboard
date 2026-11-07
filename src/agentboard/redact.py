@@ -63,7 +63,7 @@ def _has_letter_and_digit(v):
 SHAPES = [
     ("private-key", re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----.*?(?:-----END [A-Z ]*PRIVATE KEY-----|\Z)", re.S), lambda m: _mask("private-key")),
     ("auth-header", re.compile(r"(Authorization:\s*(?:Token|Bearer|Basic)\s+)([A-Za-z0-9._=+/~-]{10,})", re.I), _keep_prefix("secret")),
-    ("jwt", re.compile(r"eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}"), _whole("jwt")),
+    ("jwt", re.compile(r"(?<![A-Za-z0-9_-])eyJ[A-Za-z0-9_-]{10,}+\.[A-Za-z0-9_-]{10,}+\.[A-Za-z0-9_-]{10,}+"), _whole("jwt")),   # lookbehind + possessive: the text eyJeyJeyJ... was quadratic (44 s for 400 KB)
     ("aws-key", re.compile(r"AKIA[0-9A-Z]{16}"), _whole("aws-key")),
     ("api-key", re.compile(r"sk-(?:ant-|proj-)?[A-Za-z0-9_-]{20,}"), _whole("api-key")),
     ("github-token", re.compile(r"(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{20,}"), _whole("github-token")),
@@ -118,11 +118,27 @@ def _extras(conf):
     return rxs
 
 
-def scrub(text, board_dir=None, conf=None, found=None):
+def head(text, limit):
+    """The text cut to `limit` characters at a word boundary (a token cut in half is never left to look like half a key)."""
+    if not isinstance(text, str) or len(text) <= limit:
+        return text
+    cut = text[:limit]
+    if not text[limit].isspace():
+        tail = cut[-256:]
+        i = max(tail.rfind(" "), tail.rfind("\n"), tail.rfind("\t"))
+        if i >= 0:
+            cut = cut[:len(cut) - len(tail) + i]
+    return cut
+
+
+def scrub(text, board_dir=None, conf=None, found=None, bound=None):
     """The text with secret-shaped strings masked. Anything that is not a string comes back as it was. `found`, when given a list,
-    gets (kind, first four characters) for each thing masked."""
+    gets (kind, first four characters) for each thing masked. `bound`: look at no more than this many characters (the rest is
+    dropped), so the work stays small however large the text; callers pass twice the cap they are about to apply."""
     if not isinstance(text, str) or not text:
         return text
+    if bound:
+        text = head(text, bound)
     conf = conf or settings(board_dir)
     if not conf["enabled"]:
         return text

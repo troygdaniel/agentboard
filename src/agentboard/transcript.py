@@ -68,7 +68,7 @@ def tool_line(name, inp, board_dir=None):
         arg = inp.get("command")
     if name == "SendMessage" and not arg:
         arg = f"to {inp.get('to', '')}".strip()
-    arg = redact.scrub(" ".join(str(arg or "").split()), board_dir)   # a key in a command or a URL is masked before the line is cut to length
+    arg = redact.scrub(" ".join(str(arg or "")[:4 * LINE_MAX].split()), board_dir, bound=2 * LINE_MAX)   # a key in a command or a URL is masked before the line is cut to length
     line = f"{name} {arg}".strip()
     return line if len(line) <= LINE_MAX else line[: LINE_MAX - 1] + "…"
 
@@ -95,27 +95,27 @@ def parse_line(line, board_dir=None):
             if not isinstance(b, dict):
                 continue
             if b.get("type") == "text" and str(b.get("text") or "").strip():
-                out.append({"kind": "text", "text": redact.scrub(str(b["text"]).strip(), board_dir)[:TEXT_MAX], "at": at})
+                out.append({"kind": "text", "text": redact.scrub(str(b["text"]).strip(), board_dir, bound=2 * TEXT_MAX)[:TEXT_MAX], "at": at})
             elif b.get("type") == "tool_use":
                 name = str(b.get("name") or "tool")
                 if name == "AskUserQuestion" and isinstance(b.get("input"), dict):   # a question put to the person in the terminal: the panel shows it
                     for q in b["input"].get("questions") or []:
                         if isinstance(q, dict) and str(q.get("question") or "").strip():
-                            opts = [redact.scrub(str(o.get("label") if isinstance(o, dict) else o), board_dir)[:LINE_MAX] for o in (q.get("options") or []) if o][:6]
-                            out.append({"kind": "ask", "text": redact.scrub(str(q["question"]).strip(), board_dir)[:TEXT_MAX], "options": opts, "at": at})
+                            opts = [redact.scrub(str(o.get("label") if isinstance(o, dict) else o), board_dir, bound=2 * LINE_MAX)[:LINE_MAX] for o in (q.get("options") or []) if o][:6]
+                            out.append({"kind": "ask", "text": redact.scrub(str(q["question"]).strip(), board_dir, bound=2 * TEXT_MAX)[:TEXT_MAX], "options": opts, "at": at})
                     continue
                 out.append({"kind": "tool", "text": tool_line(name, b.get("input"), board_dir), "at": at})
     elif kind == "user":
         if isinstance(content, str):
             text = content.strip()
             if text and not text.startswith("<"):   # a line the person typed; the harness's own notes start with a tag
-                out.append({"kind": "user", "text": redact.scrub(text, board_dir)[:TEXT_MAX], "at": at})
+                out.append({"kind": "user", "text": redact.scrub(text, board_dir, bound=2 * TEXT_MAX)[:TEXT_MAX], "at": at})
         elif isinstance(content, list):
             for b in content:
                 if isinstance(b, dict) and b.get("type") == "tool_result" and b.get("is_error"):
                     c = b.get("content")
                     text = c if isinstance(c, str) else " ".join(str(x.get("text", "")) for x in c if isinstance(x, dict)) if isinstance(c, list) else ""
-                    first = redact.scrub(" ".join(text.strip().splitlines()[:1]).strip(), board_dir)
+                    first = redact.scrub(" ".join(text.strip().splitlines()[:1]).strip(), board_dir, bound=2 * LINE_MAX)
                     out.append({"kind": "error", "text": first[:LINE_MAX] or "error", "at": at})
     return out
 

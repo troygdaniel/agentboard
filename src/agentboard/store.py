@@ -129,9 +129,10 @@ class Store:
         backup.write_atomic(self.path, json.dumps(data, indent=2))
         backup.Backups(self.dir).tick()
 
-    def _scrub(self, text):
-        """Secret-shaped strings masked (redact.py); anything that is not a string comes back as it was."""
-        return redact.scrub(text, self.dir)
+    def _scrub(self, text, cap=None):
+        """Secret-shaped strings masked (redact.py); anything that is not a string comes back as it was. With a cap the masker looks
+        at no more than twice that (the caller cuts to the cap afterwards), so a huge text cannot keep the server busy."""
+        return redact.scrub(text, self.dir, bound=2 * cap if cap else None)
 
     @property
     def backups(self):
@@ -166,7 +167,7 @@ class Store:
         if status is not None and status not in STATUSES:
             raise BoardError(f"status must be one of {STATUSES}")
         title = _clean_title(self._scrub(title))
-        description = _cap(self._scrub(description), DESCRIPTION_MAX)
+        description = _cap(self._scrub(description, DESCRIPTION_MAX), DESCRIPTION_MAX)
         source = _clean_source(source)
         if not (isinstance(ctx or [], list) and all(isinstance(c, str) for c in ctx or [])):
             raise BoardError("ctx must be a list of strings")
@@ -331,7 +332,7 @@ class Store:
             title = _clean_title(self._scrub(title))
         if description is not None and not isinstance(description, str):
             raise BoardError("description must be text")
-        description = _cap(self._scrub(description), DESCRIPTION_MAX)
+        description = _cap(self._scrub(description, DESCRIPTION_MAX), DESCRIPTION_MAX)
         if blocked_by is not None and not (isinstance(blocked_by, list) and all(isinstance(b, str) for b in blocked_by)):
             raise BoardError("blocked_by must be a list of task ids")
         with self.transaction() as tasks:
@@ -373,7 +374,7 @@ class Store:
         in the detail panel alongside the one-line question; it is untrusted agent
         text, rendered safely by the server (see markdown.to_html) rather than here.
         """
-        question, body_md = _cap(self._scrub(question), STATUS_MAX), _cap(self._scrub(body_md), BODY_MAX)
+        question, body_md = _cap(self._scrub(question, STATUS_MAX), STATUS_MAX), _cap(self._scrub(body_md, BODY_MAX), BODY_MAX)
         question, body_md = split_report(question, body_md)
         with self.transaction() as tasks:
             t = self.get(tasks, task_id)
@@ -404,7 +405,7 @@ class Store:
         body_md is an optional richer markdown body (a recap, a diff, a report); see
         ask() for how it's handled.
         """
-        summary, body_md = _cap(self._scrub(summary), STATUS_MAX), _cap(self._scrub(body_md), BODY_MAX)
+        summary, body_md = _cap(self._scrub(summary, STATUS_MAX), STATUS_MAX), _cap(self._scrub(body_md, BODY_MAX), BODY_MAX)
         summary, body_md = split_report(summary, body_md)
         with self.transaction() as tasks:
             t = self.get(tasks, task_id)
@@ -557,7 +558,7 @@ class Store:
             return self._update(tasks, self.get(tasks, task_id), progress, text, status, body_md)
 
     def _update(self, tasks, t, progress, text, status, body_md=None):
-        text, body_md = _cap(self._scrub(text), STATUS_MAX), _cap(self._scrub(body_md), BODY_MAX)
+        text, body_md = _cap(self._scrub(text, STATUS_MAX), STATUS_MAX), _cap(self._scrub(body_md, BODY_MAX), BODY_MAX)
         _parent_must_be_doing(_parent_of(tasks, t), t, "update")
         kids = _kids(tasks, t["id"])
         open_kids = [k for k in kids if k["status"] != "done"]
@@ -777,8 +778,8 @@ class Store:
         if kind not in ("agent", "user"):
             raise BoardError("kind must be 'agent' or 'user'")
         if kind == "agent":   # what the owner types is left as written (redact.py)
-            text = self._scrub(text)
-            detail = self._scrub(detail)
+            text = self._scrub(text, CHAT_LINE_MAX + CHAT_DETAIL_MAX)
+            detail = self._scrub(detail, CHAT_DETAIL_MAX)
         text = (text or "").strip()
         if not text:
             raise BoardError("empty chat message")
