@@ -1,6 +1,7 @@
 """Local HTTP server: serves the board UI and a small JSON API. Localhost only."""
 import json
 import re
+import secrets
 import threading
 import time
 import webbrowser
@@ -60,9 +61,20 @@ def _ids(body):
     return ids
 
 
+# Every HTML page forbids being framed (clickjacking: the Host check lets a page frame localhost itself), is never sniffed into another
+# type, and sends no Referer.
+FRAME_HEADERS = {"X-Frame-Options": "DENY", "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer"}
+
 # report pages carry their own inline script and style, talk only to this server, and load nothing else
-REPORT_HEADERS = {"Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; base-uri 'none'; form-action 'none'",
-                  "X-Content-Type-Options": "nosniff"}
+REPORT_HEADERS = {"Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+                  **FRAME_HEADERS}
+
+# The board page: its one inline script runs only with this response's nonce, so a stray attribute or tag injected into the page cannot run
+# script (it has no inline event handlers), and nothing the page runs can reach another host (connect-src 'self'). It loads no images
+# except its own data: icon, no frames, no workers; its styles are inline.
+PAGE_CSP = ("default-src 'none'; script-src 'nonce-{nonce}' 'self'; style-src 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; "
+            "media-src 'self' blob:; font-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'")
+_INLINE_SCRIPT = re.compile(r"<script>")
 
 
 def board_list(store, base=""):
@@ -185,9 +197,11 @@ def make_handler(default_store, port):
             if url.path in ("/", "/index.html", "/hud", "/agents"):
                 html = (STATIC / "index.html").read_text()
                 inject = f"<script>window.AB_BASE = {json.dumps(self.base)};</script><script src=\"{self.base}/voice.js\" defer></script>"   # the page prefixes its /api calls with this
-                self._send(200, html.replace("</head>", inject + "</head>", 1).encode(), "text/html; charset=utf-8")
+                nonce = secrets.token_urlsafe(18)   # new for every response; only the page's own inline scripts get it
+                page = _INLINE_SCRIPT.sub(f'<script nonce="{nonce}">', html.replace("</head>", inject + "</head>", 1))
+                self._send(200, page.encode(), "text/html; charset=utf-8", {**FRAME_HEADERS, "Content-Security-Policy": PAGE_CSP.format(nonce=nonce)})
             elif url.path == "/voice.js":
-                self._send(200, (STATIC / "voice.js").read_bytes(), "text/javascript; charset=utf-8")
+                self._send(200, (STATIC / "voice.js").read_bytes(), "text/javascript; charset=utf-8", {"X-Content-Type-Options": "nosniff"})
             elif url.path == "/api/voice":
                 self._send(200, voice.status(self.store.dir))
             elif url.path in ("/summary", "/summary/"):
