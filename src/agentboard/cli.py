@@ -167,6 +167,31 @@ def cmd_move(a):
     print(f"{t['id']}: {dict(backlog='Later', todo='Todo', doing='Doing', done='Done').get(t['status'], t['status'])}")
 
 
+def _read_text_file(path, flag):
+    try:
+        return Path(path).expanduser().read_text()
+    except OSError as e:
+        raise BoardError(f"could not read {flag}: {e}") from e
+
+
+def cmd_edit(a):
+    """Change a card's title or description from the CLI: replace the description, or append to it (acceptance lines, a note).
+    Logged under the caller's name; never touches the card's holder or column (claim/move do those)."""
+    replace = a.description if a.description is not None else (
+        _read_text_file(a.description_file, "--description-file") if a.description_file else None)
+    extra = a.append if a.append is not None else (_read_text_file(a.append_file, "--append-file") if a.append_file else None)
+    if replace is None and extra is None and a.title is None:
+        raise BoardError("nothing to change: give --title, --description, --description-file, --append or --append-file")
+    by = _agent_name(a)
+    s = _store()
+    desc = replace
+    if extra is not None and extra.strip():
+        base = replace if replace is not None else (Store.get(s.load(), a.id).get("description") or "")
+        desc = (base.rstrip() + "\n\n" + extra.strip()).strip()
+    t = s.edit(a.id, title=a.title, description=desc, by=by)
+    print(f"{t['id']}: edited")
+
+
 def cmd_list(a):
     s = _store()
     threshold = hudlib.stale_minutes(promptlib.load_config(s.dir))
@@ -1338,6 +1363,16 @@ def main(argv=None):
     sp = add("move", cmd_move, "move a task to a column (ORCH, on the owner's word: 'move … to Later')")
     sp.add_argument("id")
     sp.add_argument("status", choices=["backlog", "todo", "doing", "done"], help="the column: backlog is Later")
+    sp = add("edit", cmd_edit, "change a card's title or description (replace, or --append a note); logged under your name")
+    sp.add_argument("id")
+    sp.add_argument("--name", help="your session name (or $AGENTBOARD_NAME)")
+    sp.add_argument("--title")
+    g = sp.add_mutually_exclusive_group()
+    g.add_argument("--description", help="replace the description")
+    g.add_argument("--description-file", help="replace the description with a file's text")
+    g = sp.add_mutually_exclusive_group()
+    g.add_argument("--append", help="add this text under the existing description (the old text is kept)")
+    g.add_argument("--append-file", help="add a file's text under the existing description")
     sp = add("list", cmd_list, "list tasks")
     sp.add_argument("--status")
     sp.add_argument("--all", action="store_true", help="include archived tasks")

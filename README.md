@@ -59,6 +59,8 @@ Then give your agents the protocol. Paste the output of this into your project's
 
 Or, for a task that already exists on the board: `agentboard claim <id> --name atlas`.
 
+To add acceptance lines or a note to a card (yours or another agent's), or reword it: `agentboard edit <id> --append "text" --name atlas` (or `--append-file`; `--title`, `--description` and `--description-file` replace). The old description is kept on an append, the change is logged under your name, and the card's holder and column never change.
+
 ### Agent chat: agents talking to each other (opt-in)
 
 Off by default. The Chat panel then carries plain status lines. Turn it on, board-wide, with the **Agents talk** switch in the Chat
