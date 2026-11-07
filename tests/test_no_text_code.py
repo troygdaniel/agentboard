@@ -18,8 +18,8 @@ PHONE = re.compile(r"(?<![\d.])\+?1?[ .-]?\(?\d{3}\)?[ .-]?\d{3}[ .-]?\d{4}(?!\d
 SID = re.compile(r"\bAC[0-9a-fA-F]{32}\b")
 BINARY = {".png", ".jpg", ".jpeg", ".gif", ".ico", ".woff", ".woff2", ".mp3", ".wav", ".pdf", ".svg", ".webp"}
 THIS = Path(__file__).name
-# the one deliberate exception: agentboard doctor's own test needs a real-looking number to prove its warning fires (exactly this string, in exactly this file)
-ALLOWED = {"tests/test_doctor.py": {"416-867-5310"}}
+# no exceptions: agentboard doctor's own test builds the real-looking number it needs from pieces at run time, so no file holds one
+ALLOWED = {}
 
 
 def tracked():
