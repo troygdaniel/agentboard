@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### `agentboard start` masks secrets too (Nov 7)
+- `start`, the way every agent begins a card, skipped the masker: a key in its title or description was stored whole, and because a card id is a slug of the title the lower-cased key also landed in the id, in report file names and in lookups. The title, description (now capped like `add`) and agent name are masked before the id is made.
+- Found by the same sweep: a chat message's `propose` text, its `files` and its sender, the SendMessage mirror (which cut the first line to 300 characters before masking and could leave half a key), and the history lines that quote an older card's title ("Title changed from …", "Blocked by …").
+- A test runs every write path (add, subtask, start, claim, edit, update, ask, review, chat, the mirror, the CLI) with key-shaped values and looks at every byte the board keeps: `tasks.json`, the `.bak`, the snapshots and the reports.
+
 ### The masker knows more shapes (Nov 7)
 - Now also masked: Stripe `sk_live_`/`rk_live_`/`whsec_`, Google `AIza…` (also as `?key=` in a URL), Slack webhook URLs, npm and SendGrid tokens, the password in `scheme://user:password@host` (a documented `user:password@host` placeholder is left), `aws_secret_access_key = …`, a bare `Bearer …`, and `key`, `auth`, `token`, `credentials` assignments or URL parameters whose value looks generated (20+ characters, a letter and a digit, not a lower-case identifier). The Terminal tab masks them too. Short passwords such as `hunter2` are not caught: nothing tells them from ordinary text.
 - The repo guard (`tests/publiccheck.py`) learned the prefix-shaped ones.

@@ -229,7 +229,9 @@ class Store:
     def start_card(self, title, name, color=None, description="", task_id=None,
                    blocked_by=None, force=False, parent_id=None):
         """Like start, but returns (task, created): created is False when the agent already held a card for this work and it was reused."""
-        title = _clean_title(title)
+        title = _clean_title(self._scrub(title))   # before the id is made from it: the card id, report names and lookups never carry a key
+        description = _cap(self._scrub(description, DESCRIPTION_MAX), DESCRIPTION_MAX)
+        name = self._scrub(name)
         with self.transaction() as tasks:
             if not task_id:
                 held = _held_card(tasks, name, title, parent_id)
@@ -286,6 +288,7 @@ class Store:
         return plan
 
     def claim(self, task_id, name, color=None, force=False):
+        name = self._scrub(name)
         with self.transaction() as tasks:
             t = self.get(tasks, task_id)
             if not force and t.get("agent") == name and t["status"] == "doing":
@@ -340,7 +343,7 @@ class Store:
             t = self.get(tasks, task_id)
             changed = []
             if title is not None and title != t["title"]:
-                _log(t, f"Title changed from “{t['title']}”", by=by)
+                _log(t, f"Title changed from “{self._scrub(t['title'])}”", by=by)
                 t["title"] = title
                 changed.append("title")
             if description is not None and description.strip() != (t.get("description") or "").strip():
@@ -359,7 +362,7 @@ class Store:
                 if ids != list(t.get("blocked_by") or []):
                     if ids:
                         t["blocked_by"] = ids
-                        _log(t, "Blocked by " + ", ".join(by_id[b]["title"] for b in ids), by=by)
+                        _log(t, "Blocked by " + ", ".join(self._scrub(by_id[b]["title"]) for b in ids), by=by)
                     else:
                         t.pop("blocked_by", None)
                         _log(t, "No longer blocked", by=by)
@@ -608,7 +611,7 @@ class Store:
         if parent:
             _touch_parent(tasks, parent, text)
             if settled:   # the card's history closes the question's run, as a card's own update does
-                _log(parent, f"{t['title']}: {text}" if text else "Resumed")
+                _log(parent, f"{self._scrub(t['title'])}: {text}" if text else "Resumed")
         return t
 
     @_reports_after()
@@ -779,8 +782,13 @@ class Store:
         if kind not in ("agent", "user"):
             raise BoardError("kind must be 'agent' or 'user'")
         if kind == "agent":   # what the owner types is left as written (redact.py)
+            sender = self._scrub(sender)
             text = self._scrub(text, CHAT_LINE_MAX + CHAT_DETAIL_MAX)
             detail = self._scrub(detail, CHAT_DETAIL_MAX)
+            if isinstance(files, list):
+                files = [self._scrub(f, 600) if isinstance(f, str) else f for f in files]
+            if propose is not None:
+                propose = self._scrub(str(propose), 2 * CHAT_LINE_MAX)
         text = (text or "").strip()
         if not text:
             raise BoardError("empty chat message")
