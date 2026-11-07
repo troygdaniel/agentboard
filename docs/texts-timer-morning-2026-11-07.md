@@ -25,7 +25,7 @@ Branch `texts-timer` off `main` (ac9c585), worktree `~/dev/agentboard-texts-time
 
 ## Checked
 
-- 871 tests pass (25 new in `tests/test_texts_timer.py`: off by default, restart keeps the switch, lock on the tick and the switch, once per text across restart/flip/button, stranger ignored and never stored, 401 stops with no retry, network error stops, vanished token stops and names the variable only, no two pulls at once, state file has no secrets, the endpoint on/off/locked/no-key, the page's switch and chip, SECURITY.md updated).
+- 899 tests pass (26 new in `tests/test_texts_timer.py`: off by default, restart keeps the switch, lock on the tick and the switch, once per text across restart/flip/button, stranger ignored and never stored, 401 stops with no retry, network error stops, an unexpected error (not a BoardError) stops too, vanished token stops and names the variable only, no two pulls at once, state file has no secrets, the endpoint on/off/locked/no-key, the page's switch and chip, SECURITY.md updated).
 - Render-checked on a throwaway board with a fake Twilio (no network): Settings row Off, On (with last pull), Stopped (amber line), header chip in all three, light and dark. **Narrow (479px) was not captured**: the Chrome window would not shrink below its minimum in this session; the only narrow rule is one line of CSS (the chip keeps its dot and drops its words under 600px) and the sheet already fits narrow widths.
 - The live board at :8765 was not touched; your `.agentboard/config.toml` is unchanged.
 

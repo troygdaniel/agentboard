@@ -403,7 +403,9 @@ def tick(store, http=None, now=None):
     try:
         try:
             res = pull(store, http=http, now=now)
-        except BoardError as e:
+        except Exception as e:   # noqa: BLE001  (any error stops the timer, the unexpected kind included: never a silent retry loop)
+            if not isinstance(e, BoardError):
+                e = BoardError(f"unexpected error ({e.__class__.__name__})")   # the class name only: never a message that could carry a header or a body
             with _LOCK:   # stop: the switch goes off and the reason is kept for the chip; nothing retries by itself
                 st = _read_state(store.dir)
                 st["auto"], st["error"] = False, re.sub(r"\s*\n\s*-?\s*", "; ", str(e)).strip("; ")[:300]

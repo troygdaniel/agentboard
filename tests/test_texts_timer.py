@@ -121,6 +121,20 @@ class TheTimer(Base):
         self.assertFalse(texts.status(self.s.dir)["on"])
         self.assertIsNone(texts.tick(self.s, http=offline, now=NOW))
 
+    def test_an_unexpected_error_stops_it_too_and_names_only_its_class(self):
+        texts.set_auto(self.s.dir, True)
+
+        def broken(path, sid, token):
+            raise ConnectionResetError(f"peer closed while reading {token}")   # not a BoardError, and a message that must never be shown
+
+        res = texts.tick(self.s, http=broken, now=NOW)
+        self.assertIsInstance(res, BoardError)
+        st = texts.status(self.s.dir)
+        self.assertFalse(st["on"])
+        self.assertEqual(st["line"], "Stopped: unexpected error (ConnectionResetError)")
+        self.assertNotIn(TOKEN, self.state_text())
+        self.assertIsNone(texts.tick(self.s, http=broken, now=NOW))   # no retry loop
+
     def test_a_token_that_vanishes_after_start_stops_it_without_naming_it(self):
         texts.set_auto(self.s.dir, True)
         with mock.patch.dict(os.environ, {}, clear=False):
