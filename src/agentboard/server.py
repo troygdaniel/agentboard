@@ -12,13 +12,14 @@ from urllib.parse import parse_qs, urlparse
 from . import boards, hud
 from . import hooks as hookslib
 from . import transcript as transcriptlib
-from . import reports, runs, summary, texts, voice
+from . import plugins, reports, runs, summary, texts, voice
 from . import markdown as mdlib
 from . import prompt as promptlib
 from .store import BoardError, Store, subtask_counts, subtask_list
 
 STATIC = Path(__file__).parent / "static"
 BOARD_PATH = re.compile(r"^/b/([a-z0-9][a-z0-9_-]{0,39})(/.*)?$")
+PLUGIN_PATH = re.compile(r"^/api/x/([a-z][a-z0-9_-]{0,30})/([a-z0-9][a-z0-9_/.-]{0,63})$")   # page.js / page.css have a dot; plugins.route matches the exact registered path
 MAX_BODY = 1_000_000
 
 
@@ -197,10 +198,12 @@ def make_handler(default_store, port):
         def _route_get(self, url, q):
             if url.path in ("/", "/index.html", "/hud", "/agents"):
                 html = (STATIC / "index.html").read_text()
-                inject = f"<script>window.AB_BASE = {json.dumps(self.base)};</script><script src=\"{self.base}/voice.js\" defer></script>"   # the page prefixes its /api calls with this
+                inject = f"<script>window.AB_BASE = {json.dumps(self.base)};</script><script src=\"{self.base}/voice.js\" defer></script>" + plugins.page_tags(self.base)   # the page prefixes its /api calls with this; plugin tags only while plugins are allowed
                 nonce = secrets.token_urlsafe(18)   # new for every response; only the page's own inline scripts get it
                 page = _INLINE_SCRIPT.sub(f'<script nonce="{nonce}">', html.replace("</head>", inject + "</head>", 1))
                 self._send(200, page.encode(), "text/html; charset=utf-8", {**FRAME_HEADERS, "Content-Security-Policy": PAGE_CSP.format(nonce=nonce)})
+            elif url.path.startswith("/api/x/"):
+                self._plugin("GET", url.path, {k: v[0] for k, v in q.items()})   # a plugin's own routes and page files; 404 unless plugins are allowed
             elif url.path == "/voice.js":
                 self._send(200, (STATIC / "voice.js").read_bytes(), "text/javascript; charset=utf-8", {"X-Content-Type-Options": "nosniff"})
             elif url.path == "/api/voice":
@@ -245,6 +248,9 @@ def make_handler(default_store, port):
                 tx = texts.status(self.store.dir)   # the timer's switch and last pull, for Settings and the header chip (rides this poll; no secrets)
                 if tx["show"]:   # nothing at all unless this machine opted in (AGENTBOARD_TEXTS=1) and the board has [texts] on
                     out["texts"] = tx
+                ps = plugins.state(self.store)   # what each allowed plugin reports for the page; no "plugins" key at all with none
+                if ps:
+                    out["plugins"] = ps
                 self._send(200, out)
             elif url.path == "/api/hud":
                 conf = _config(self.store)
@@ -295,6 +301,29 @@ def make_handler(default_store, port):
                     self._send(404, {"error": str(e)})
             else:
                 self._send(404, {"error": "not found"})
+
+        def _plugin(self, method, path, data):
+            """/api/x/<plugin>/<route>: only while plugins are allowed, only what that plugin registered. A plugin's BoardError message is
+            shown (it is the plugin's own words for the owner); any other error reaches the client as its class name, never its message."""
+            m = PLUGIN_PATH.match(path)
+            hit = plugins.route(method, m.group(1), m.group(2)) if m else None
+            if hit is None:
+                self._send(404, {"error": "not found"})
+            elif hit[0] == "asset":
+                self._send(200, hit[1][1].encode(), hit[1][0], {"X-Content-Type-Options": "nosniff"})
+            else:
+                try:
+                    out = hit[1](self.store, data)
+                except BoardError as e:
+                    self._send(400, {"error": str(e)})
+                    return
+                except Exception as e:   # noqa: BLE001
+                    self._send(500, {"error": e.__class__.__name__})
+                    return
+                if isinstance(out, dict):
+                    self._send(200, out)
+                else:
+                    self._send(500, {"error": "bad reply"})   # a plugin route answers with a dict
 
         def do_POST(self):
             if not self._guard(post=True):
@@ -375,6 +404,8 @@ def make_handler(default_store, port):
                     self._send(200, {"agents": self.store.set_chat_agents(bool(body.get("on")))})
                 elif path == "/api/chat-decide":
                     self._send(200, self.store.chat_decide(body["seq"], body["decision"]))
+                elif path.startswith("/api/x/"):
+                    self._plugin("POST", path, body)   # a plugin's own route; 404 unless plugins are allowed
                 else:
                     self._send(404, {"error": "not found"})
             except (BoardError, KeyError, ValueError, TypeError, AttributeError) as e:   # bad shapes are the client's mistake: 400, never a dropped connection
@@ -463,6 +494,10 @@ def serve(store, port=8765, open_browser=True):
 
     if texts.timer_wanted(store.dir):   # the thread does not even exist unless both keys turn and the machine is not locked (and tick re-checks every beat)
         threading.Thread(target=_texts_timer, daemon=True, name="texts-timer").start()
+    loaded = plugins.load()   # [] unless this machine allows plugins (AGENTBOARD_PLUGINS=1, no lock)
+    if loaded:
+        print("  plugins: " + ", ".join(loaded))
+        plugins.start_threads(store)
     try:
         srv.serve_forever()
     except KeyboardInterrupt:

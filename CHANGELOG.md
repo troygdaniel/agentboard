@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### A plugin hook (Nov 7)
+- **One generic extension point.** A separate package can add CLI commands, API routes under its own `/api/x/<name>/`, a state block on the board's poll, a background thread, and a page script (its style rides in it: the page's Content-Security-Policy allows no stylesheet files). It loads only when this machine says `AGENTBOARD_PLUGINS=1`; `AGENTBOARD_NO_PLUGINS=1` and `AGENTBOARD_LOCKDOWN=1` both stop it, even after the board started. With none allowed nothing is looked up, imported or shown, and the board is the board it was. `agentboard plugins` says which.
+- **The page's side is one small object, `window.AB`:** a header slot, a Settings slot, a card-chip hook, the poll's plugin state, and `api`/`toast`/`esc`/`ago`. A plugin that throws is caught there and cannot break the page.
+
 ### The board can pull your texts once a minute (Nov 7)
 - **Settings › Texts › Pull my texts every minute**: while on, `agentboard serve` runs `pull-texts` by itself about every 60 seconds, so a text from your phone is a Todo card (From a text chip) within a minute. OFF until you switch it on; one switch for every browser, kept server side in `texts-state.json`, so it holds across restarts and with the tab closed. The Pull texts button still works by hand.
 - **A header chip** ("Texts 2m ago", a green dot) while it runs; press it to open Settings. Under 600px only the dot shows.

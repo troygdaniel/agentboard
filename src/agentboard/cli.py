@@ -16,6 +16,7 @@ from . import hooks as hookslib
 from . import backup as backuplib
 from . import hud as hudlib
 from . import lockdown
+from . import plugins
 from . import prompt as promptlib
 from . import reports as reportslib
 from . import summary as summarylib
@@ -1260,6 +1261,32 @@ def cmd_sms_try(a):
     print(smslib.apply(_store(), " ".join(a.text)))
 
 
+def cmd_plugins(a):
+    print("\n".join(plugins.status_lines()))
+
+
+def _plugin_command_failed(a):
+    raise BoardError("this plugin command could not be set up")
+
+
+def add_plugin_commands(sub):
+    """The commands the allowed plugins registered: none unless AGENTBOARD_PLUGINS=1 and no lock. A plugin cannot shadow a core command, and a
+    plugin whose setup fails only loses that command."""
+    plugins.load()
+    for pname, cname, chelp, setup, run in plugins.commands():
+        if cname in sub.choices:
+            continue
+        sp = sub.add_parser(cname, help=chelp)
+        sp.set_defaults(fn=_plugin_command_failed)
+        try:
+            if setup:
+                setup(sp)
+        except Exception as e:   # noqa: BLE001
+            print(f"agentboard: plugin {pname}: {cname}: {e.__class__.__name__}", file=sys.stderr)
+            continue
+        sp.set_defaults(fn=lambda a, run=run: run(a, _store()))
+
+
 def cmd_pull_texts(a):
     print(textslib.report(textslib.pull(_store(), dry_run=a.dry_run, since=a.since, split=a.split, limit=a.max)))
 
@@ -1611,6 +1638,10 @@ def main(argv=None):
     csp.add_argument("--every", type=float, metavar="SECONDS", help=f"seconds between rounds (default: [chat] autopilot_every, else {agentchat.DEFAULT_AUTOPILOT_EVERY})")
     csp.add_argument("--once", action="store_true", help="one round, then exit")
     csp.add_argument("--model", help="claude model for the drafts (default: [chat] idle_model)")
+
+    sp = sub.add_parser("plugins", help="say whether plugins are allowed on this machine and which are loaded (no network call; imports nothing while off)")
+    sp.set_defaults(fn=cmd_plugins)
+    add_plugin_commands(sub)
 
     a = p.parse_args(argv)
     if a.board:
