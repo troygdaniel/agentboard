@@ -1271,6 +1271,7 @@
     <button class="btn" id="later-btn" aria-controls="later">Later <span id="later-n"></span></button>
     <button class="btn" id="texts-btn" hidden title="Turn the texts you sent your Twilio number into Todo cards (only when you press this)">Pull texts</button>
     <button class="btn" id="texts-chip" hidden type="button" role="status" aria-live="off" title="The once-a-minute pull of your texts (Settings)"><i aria-hidden="true"></i><span></span></button>
+    <span id="ab-slot-header" style="display:contents"></span>
     <span class="spacer"></span>
     <select class="btn" id="board-switch" aria-label="Board" hidden></select>
     <!-- the filters left the header (Nov 3); the who chips and the attention counts still filter through these, and the summary shows what is on with a way to clear it -->
@@ -1384,6 +1385,7 @@
   <h3>Effects (every view)</h3><div id="mix-fx"></div>
   <h3>Look (every view)</h3><div id="mix-look"></div>
   <h3 id="cfg-texts-h" hidden>Texts (this board, every browser)</h3><div id="cfg-texts" hidden></div>
+  <div id="ab-slot-settings"></div>
 </div></div>
 
 <aside id="later" aria-label="Later">
@@ -1473,6 +1475,22 @@ let hoverAgent = null;   // the pill under the pointer: re-applied after a redra
 const $ = id => document.getElementById(id);
 const esc = s => { const d = document.createElement('div'); d.textContent = s ?? ''; return d.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;'); };   // & < > and both quotes: safe in a text node AND inside a quoted attribute (the quotes were the hole: a title with a quote broke out of title="...")
 const unesc = s => String(s).replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&');   // esc() undone; & last so &amp;lt; stays &lt;
+// Plugins (src/agentboard/plugins.py): a plugin's page script, loaded only while the machine allows plugins, uses this and nothing else. With none
+// loaded every slot stays empty and none of these callbacks ever runs.
+const AB = window.AB = (() => {
+  const watchers = [], chipFns = [];
+  const safe = fn => { try { return fn(); } catch (e) { console.error('plugin', e); } };
+  return {
+    api, toast, esc, ago, refresh: () => load(),
+    state: {},                                                // what each plugin's state function returned on the last poll: AB.state.<name>
+    onState: fn => { watchers.push(fn); safe(() => fn(AB.state)); },   // fn(AB.state) after every poll that changed the board or ticked a minute
+    notify: () => watchers.forEach(fn => safe(() => fn(AB.state))),
+    chip: fn => chipFns.push(fn),                             // fn(task) -> an html string (escape what you put in it) for the card's source row
+    chips: t => { const h = chipFns.map(fn => safe(() => fn(t)) || '').join(''); return h ? `<div class="srcrow">${h}</div>` : ''; },
+    header: $('ab-slot-header'), settings: $('ab-slot-settings'),
+    openSettings: el => { toggleMix(true); if (el) el.scrollIntoView({ block: 'start' }); },
+  };
+})();
 // One colour per agent NAME, never per card (2026-11-01): AGENT-1 to AGENT-5 were all "green" because each card carried its own,
 // and a card's own colour is now neither stored nor read. [agent_colors] in config.toml overrides a name; otherwise a palette slot
 // (--a1..--a6, clear of the status hues). The slots are mirrored in agent_slot() in cli.py, which colours `agentboard spawn` terminals.
@@ -1627,7 +1645,7 @@ function card(t) {
   seen.add(t.id); lastUpdated.set(t.id, t.updated);
   return `<div class="card ${done ? 'done' : ''} ${asking ? 'ask' : ''} ${reviewing ? 'review' : ''} ${revIn ? 'rev-in' : ''} ${abandoned && !asking && !reviewing ? 'abandoned' : ''} ${live && !asking && !reviewing ? 'livebar' : ''} ${fresh ? 'enter' : ''} ${flash ? 'flash' : ''} ${selected.has(t.id) ? 'selected' : ''} " style="--c:${colorOf(t)}" data-agent="${esc(t.agent || '')}" draggable="${backlog ? 'false' : 'true'}" tabindex="0" data-id="${esc(t.id)}" data-status="${t.status}"
       aria-label="${esc(t.title)}, ${t.status}${asking ? ', needs your input' : reviewing ? ', ready for review' : abandoned ? ', no update in a long time, possibly abandoned' : ''}${t.agent ? ', ' + esc(t.agent) : ''}${blockers.length ? ', blocked by ' + blockers.map(b => esc(b.title)).join(', ') : ''}">
-    ${top}${askFlag}${saidRow}${foldRow}${blockedRow}${todo && t._q ? `<span class="qnum" aria-label="Queue position ${t._q}">${t._q}</span>` : ''}<div class="title ${done ? 'has-check' : ''}" title="${esc((done ? t.result : t.status_text) || '')}">${checkIcon}${done ? `<span>${esc(t.title)}</span>` : esc(t.title)}</div>${desc}${fromText}${asking || reviewing ? '' : note}${bar}${noSubs}${meta}${who ? '' : reportLink}${replyRow}${reviewing ? `<button class="btn markdone" data-done="${esc(t.id)}">Mark done</button>` : ''}</div>`;
+    ${top}${askFlag}${saidRow}${foldRow}${blockedRow}${todo && t._q ? `<span class="qnum" aria-label="Queue position ${t._q}">${t._q}</span>` : ''}<div class="title ${done ? 'has-check' : ''}" title="${esc((done ? t.result : t.status_text) || '')}">${checkIcon}${done ? `<span>${esc(t.title)}</span>` : esc(t.title)}</div>${desc}${fromText}${AB.chips(t)}${asking || reviewing ? '' : note}${bar}${noSubs}${meta}${who ? '' : reportLink}${replyRow}${reviewing ? `<button class="btn markdone" data-done="${esc(t.id)}">Mark done</button>` : ''}</div>`;
 }
 
 // the parent's segmented bar (one cell per subtask), which doubles as the expand toggle, plus its quiet rows
@@ -1985,10 +2003,11 @@ async function load() {
     const minute = Math.floor(Date.now() / 60000);
     if (!hold) {   // the redraw waits for the typing; the status pill, the asks, the open card and the chat below do not
       let changed = false;
-      if (text !== raw) { raw = text; tick = minute; const j = JSON.parse(text); tasks = j.tasks; TX = j.texts || null; changed = true; }
+      if (text !== raw) { raw = text; tick = minute; const j = JSON.parse(text); tasks = j.tasks; TX = j.texts || null; AB.state = j.plugins || {}; changed = true; }
       else if (minute !== tick && !selectionInside($('board'))) { tick = minute; changed = true; }   // the minute tick ("3 min ago") waits while you have text selected
       if (changed) render();
       if (changed) renderTexts();   // the texts chip and Settings row follow the same beats: new data, or the minute
+      if (changed) AB.notify();   // plugins: after the board, on the same beats
     }
     setStatus(true);
     checkAsks();
