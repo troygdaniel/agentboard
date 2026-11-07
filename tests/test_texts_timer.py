@@ -13,7 +13,7 @@ from unittest import mock
 from agentboard import texts
 from agentboard.store import BoardError, Store
 
-from test_pull_texts import HTML, NOW, SID, STRANGER, TOKEN, TROY, Base, ThePullButton, at
+from test_pull_texts import CONFIG, HTML, NOW, SID, STRANGER, TOKEN, TROY, Base, ThePullButton, at
 
 
 class Fresh(Base):
@@ -332,11 +332,25 @@ class TheSecondKey(Fresh):
                 serverlib.serve(self.s, port=port, open_browser=False)
             return names
 
-        self.assertIn("texts-timer", threads_started({}))                               # both keys, no lock
+        self.assertIn("texts-timer", threads_started({}))                               # the machine key, no lock
         self.assertNotIn("texts-timer", threads_started({texts.OPTIN_ENV: ""}))        # no machine key
         self.assertNotIn("texts-timer", threads_started({"AGENTBOARD_NO_SMS": "1"}))   # locked
         (self.s.dir / "config.toml").write_text("")
-        self.assertNotIn("texts-timer", threads_started({}))                            # no board key
+        self.assertIn("texts-timer", threads_started({}))                               # [texts] not yet on: the thread still exists, idle, so switching it on later needs no restart
+
+    def test_switching_texts_on_in_config_while_the_board_runs_needs_no_restart(self):
+        (self.s.dir / "config.toml").write_text("")
+        self.assertTrue(texts.timer_wanted(self.s.dir))   # the thread is up…
+        self.assertIsNone(texts.tick(self.s, http=self.tw, now=NOW))   # …and idle: no [texts], no call
+        (self.s.dir / "config.toml").write_text(CONFIG)   # Troy edits config.toml with the board running
+        texts.set_auto(self.s.dir, True)
+        self.tw.text("buy milk", at(6))
+        self.assertEqual(len(texts.tick(self.s, http=self.tw, now=NOW)["created"]), 1)
+
+    def test_a_halt_that_lives_only_in_memory_still_shows_as_an_error(self):
+        texts._HALT["why"] = "unexpected error (OSError)"
+        st = texts.status(self.s.dir)
+        self.assertEqual((st["on"], st["error"], st["line"]), (False, "unexpected error (OSError)", "Stopped: unexpected error (OSError)"))
 
     def test_the_lock_still_wins_over_both_keys(self):
         with mock.patch.dict(os.environ, {"AGENTBOARD_NO_SMS": "1", texts.OPTIN_ENV: "1"}):

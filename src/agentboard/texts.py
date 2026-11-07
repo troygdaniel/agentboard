@@ -353,8 +353,10 @@ _HALT = {"why": ""}        # set in memory the moment a tick fails, before the s
 
 
 def timer_wanted(board_dir):
-    """Whether `agentboard serve` starts the timer thread at all: both keys turned and the machine not locked (tick re-checks every beat)."""
-    return allowed(board_dir)[0]
+    """Whether `agentboard serve` starts the timer thread at all: the machine's key, and no lock. The board's key ([texts] enabled) is
+    read by tick on every beat instead, so switching it on in config.toml while the board runs needs no restart; a machine without
+    AGENTBOARD_TEXTS=1 still never has the thread."""
+    return _opted_in() and not _locked()
 
 
 def status(board_dir):
@@ -375,7 +377,7 @@ def status(board_dir):
     else:
         line = "Off"
     return {"show": show, "locked": locked, "on": on, "line": line,
-            "last_at": st["last"].get("at", ""), "last_made": st["last"].get("made", 0), "error": st["error"]}
+            "last_at": st["last"].get("at", ""), "last_made": st["last"].get("made", 0), "error": st["error"] or _HALT["why"]}
 
 
 def set_auto(board_dir, on):
