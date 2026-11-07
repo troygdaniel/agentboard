@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Texts toggle mockup</title>
+<style>
+  :root { --bg: #fafaf9; --surface: #ffffff; --line: #e7e5e4; --text: #1c1917; --muted: #6b6560; --chip: #f1efed; --blue: #2563eb; --ok: #15803d;
+          --fs-xs: 11px; --fs-sm: 12.5px; --fs-base: 13.5px; --fs-lg: 17px; color-scheme: light dark; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg: #070b12; --surface: #0f1722; --line: #1c2a3a; --text: #d6e9ff; --muted: #7f95ad; --chip: #16233a; --blue: #60a5fa; --ok: #4ade80; } }
+  :root[data-theme="dark"] { --bg: #070b12; --surface: #0f1722; --line: #1c2a3a; --text: #d6e9ff; --muted: #7f95ad; --chip: #16233a; --blue: #60a5fa; --ok: #4ade80; }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 16px; background: var(--bg); color: var(--text);
+         font: var(--fs-base)/1.4 -apple-system, "SF Pro Text", Inter, system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+  .sheet { position: relative; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 22px 26px; width: min(480px, calc(100vw - 32px)); box-shadow: 0 20px 60px rgba(0,0,0,.3); }
+  h2 { font-size: var(--fs-lg); margin: 0 0 4px; font-weight: 600; }
+  .note { color: var(--muted); font-size: var(--fs-sm); margin: 0 0 10px; }
+  h3 { font-size: var(--fs-xs); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin: 14px 0 4px; font-weight: 600; }
+  .row { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 2px 10px; padding: 7px 0; border-top: 1px solid var(--line); }
+  .row label { font-weight: 600; cursor: pointer; }
+  .row small { grid-column: 2 / -1; color: var(--muted); font-size: var(--fs-sm); }
+  .row.off small { grid-column: 2 / -1; }
+  .seg { display: inline-flex; gap: 2px; padding: 2px; border: 1px solid var(--line); border-radius: 8px; }
+  .seg button { min-height: 26px; padding: 2px 10px; border: 0; background: transparent; border-radius: 6px; font-size: var(--fs-sm); color: var(--muted); font: inherit; cursor: pointer; }
+  .seg button[aria-pressed="true"] { background: var(--chip); color: var(--text); box-shadow: inset 0 0 0 1px var(--line); }
+  input[type=checkbox] { width: 15px; height: 15px; margin: 0; accent-color: var(--blue); }
+  .state { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-sm); color: var(--muted); font-variant-numeric: tabular-nums; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); }
+  .lock { grid-column: 1 / -1; display: flex; gap: 8px; align-items: baseline; padding: 8px 10px; border-radius: 8px; background: var(--chip); color: var(--muted); font-size: var(--fs-sm); }
+  .x { position: absolute; top: 14px; right: 14px; width: 28px; height: 28px; border: 0; background: transparent; color: var(--muted); font-size: 18px; cursor: pointer; }
+  .dim { opacity: .55; }
+  .legend { margin-top: 18px; color: var(--muted); font-size: var(--fs-xs); text-align: center; max-width: 480px; }
+</style>
+</head>
+<body>
+<div>
+<div class="sheet" role="dialog" aria-label="Settings">
+  <button class="x" aria-label="Close">×</button>
+  <h2>Settings</h2>
+  <p class="note">Sound and look, for every view…</p>
+
+  <h3>Sound</h3>
+  <div class="row dim"><input type="checkbox" checked><label>Sound</label><span class="state">Volume 70%</span></div>
+
+  <h3>Texts (this board, every browser)</h3>
+  <div class="row">
+    <input type="checkbox" id="tx" checked><label for="tx">Pull my texts every minute</label>
+    <span class="state">Off until you switch it on</span>
+    <small>Reads Twilio's log for texts from your own number (your own number) and makes a Todo card from each, with the <b>From a text</b> chip. Nothing else: a text never claims, runs, deploys or closes anything, and nothing is texted back.</small>
+  </div>
+  <div class="row">
+    <span class="state"><span class="dot"></span>Last pull 40 s ago · 0 new</span>
+    <span></span>
+    <button class="seg" style="padding:2px 10px;font:inherit;font-size:var(--fs-sm);color:var(--text);cursor:pointer">Pull now</button>
+  </div>
+  <div class="row off">
+    <span class="lock">⏸ <span><b>Timer stopped:</b> Twilio said 401 at 02:14. Fix the SID or token in the shell that runs the board, then switch it on again. (Also a small chip in the header.)</span></span>
+  </div>
+  <div class="row off">
+    <span class="lock">🔒 <span>Locked off on this machine: <b>AGENTBOARD_NO_SMS=1</b>. The toggle, the button and the timer all refuse until that is unset.</span></span>
+  </div>
+
+  <h3>Look (every view)</h3>
+  <div class="row dim"><input type="checkbox"><label>Calm</label><span class="state">Off</span></div>
+</div>
+<p class="legend">Mockup. The two grey blocks are error states (a Twilio error stops the timer; the work-laptop lock); on your Mac in normal use only the first two rows appear. The timer lives in the board server (not this browser), so it keeps pulling with the tab closed.</p>
+</div>
+<script>
+  const t = new URLSearchParams(location.search).get('theme'); if (t) document.documentElement.dataset.theme = t;
+</script>
+</body>
+</html>

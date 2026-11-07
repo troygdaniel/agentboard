@@ -939,6 +939,16 @@
   .mix-row label { font-weight: 600; cursor: pointer; }
   .mix-row input[type=range] { width: 72px; margin: 0; }
   .mix-row .mix-about { grid-column: 2 / -1; color: var(--muted); font-size: var(--fs-sm); }
+  /* Texts: the once-a-minute pull's switch (server side: one switch for every browser) and its plain status line; the error state is quiet text, not a popup */
+  .mix-row.tx { grid-template-columns: auto 1fr; }
+  .mix-row.tx .tx-line { grid-column: 2 / -1; color: var(--text); font-size: var(--fs-sm); font-variant-numeric: tabular-nums; }
+  .mix-row.tx .tx-line.stopped { color: var(--warn); }
+  #texts-chip:not([hidden]) { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-sm); color: var(--muted); font-variant-numeric: tabular-nums; }
+  #texts-chip i { width: 7px; height: 7px; border-radius: 50%; background: var(--neutral); }
+  #texts-chip.ok i { background: var(--ok); }
+  #texts-chip.stopped { color: var(--warn); }
+  #texts-chip.stopped i { background: var(--warn); }
+  @media (max-width: 600px) { #texts-chip span { display: none; } }   /* the dot stays, the words go */
   kbd { font: var(--fs-xs) ui-monospace, Menlo, monospace; background: var(--chip); border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; }
   #toast {
     position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 16px); opacity: 0; pointer-events: none;
@@ -1260,6 +1270,7 @@
     <nav class="ab-tabs" aria-label="Pages"><a class="tab on" id="tab-board" href="./" aria-current="page">Board</a><a class="tab" id="tab-agents" href="./agents">By agent</a><a class="tab" id="hud-btn" href="#/hud" role="button" aria-controls="hud">Load</a></nav>
     <button class="btn" id="later-btn" aria-controls="later">Later <span id="later-n"></span></button>
     <button class="btn" id="texts-btn" hidden title="Turn the texts you sent your Twilio number into Todo cards (only when you press this)">Pull texts</button>
+    <button class="btn" id="texts-chip" hidden type="button" role="status" aria-live="off" title="The once-a-minute pull of your texts (Settings)"><i aria-hidden="true"></i><span></span></button>
     <span class="spacer"></span>
     <select class="btn" id="board-switch" aria-label="Board" hidden></select>
     <!-- the filters left the header (Nov 3); the who chips and the attention counts still filter through these, and the summary shows what is on with a way to clear it -->
@@ -1372,6 +1383,7 @@
   <h3>Ambience (plays with the ambient bed, on every view)</h3><div id="mix-amb"></div>
   <h3>Effects (every view)</h3><div id="mix-fx"></div>
   <h3>Look (every view)</h3><div id="mix-look"></div>
+  <h3 id="cfg-texts-h" hidden>Texts (this board, every browser)</h3><div id="cfg-texts" hidden></div>
 </div></div>
 
 <aside id="later" aria-label="Later">
@@ -1973,9 +1985,10 @@ async function load() {
     const minute = Math.floor(Date.now() / 60000);
     if (!hold) {   // the redraw waits for the typing; the status pill, the asks, the open card and the chat below do not
       let changed = false;
-      if (text !== raw) { raw = text; tick = minute; tasks = JSON.parse(text).tasks; changed = true; }
+      if (text !== raw) { raw = text; tick = minute; const j = JSON.parse(text); tasks = j.tasks; TX = j.texts || null; changed = true; }
       else if (minute !== tick && !selectionInside($('board'))) { tick = minute; changed = true; }   // the minute tick ("3 min ago") waits while you have text selected
       if (changed) render();
+      if (changed) renderTexts();   // the texts chip and Settings row follow the same beats: new data, or the minute
     }
     setStatus(true);
     checkAsks();
@@ -3419,6 +3432,7 @@ function toggleMix(on) {
   if (open !== mixIsOpen()) touch('slide', open);
   if (open) renderMix(); else stopDemo();
   $('mix').classList.toggle('on', open);
+  if (open) renderTexts();   // after the sheet is marked open: the Texts rows only draw into an open sheet
   if (open) $('mix').querySelector('input').focus(); else $('cfg-btn').focus();
 }
 $('cfg-btn').onclick = () => toggleMix();
@@ -3435,6 +3449,7 @@ $('mix').addEventListener('click', e => {
 $('mix').addEventListener('change', e => { if (e.target.id === 'cfg-vol') cue.added(); });   // let go of the slider: hear the new level once
 $('mix').addEventListener('input', e => {
   if (e.target.id === 'cfg-snd') { toggleSound(); return; }
+  if (e.target.id === 'cfg-tx') { touch('toggle', e.target.checked); setTextsAuto(e.target.checked); return; }
   if (e.target.id === 'cfg-amb') { touch('toggle', e.target.checked); setAmb(e.target.checked); return; }
   if (e.target.id === 'cfg-vol') { setVol(e.target.value / 100); return; }
   const id = e.target.dataset.mix || e.target.dataset.lvl; if (!id) return;
@@ -3670,6 +3685,33 @@ $('texts-btn').onclick = async () => {   // manual only: nothing reads your text
   try { const r = await api('/api/pull-texts', {}); showError(''); toast(r.line); load(); } catch (e) { showError(e.message); }
   b.disabled = false;
 };
+// The once-a-minute pull (Settings › Texts). The server owns the switch and the timer; this only shows its state and sends the flip.
+// A timed pull makes no toast and no sound: the new Todo cards are the news. An error shows as the chip turning amber, nothing louder.
+let TX = null;
+function renderTexts() {
+  const chip = $('texts-chip'), show = !!(TX && TX.show && !TX.locked);
+  chip.hidden = !show || (!TX.on && !TX.error);
+  if (!chip.hidden) {
+    const a = TX.last_at ? ago(TX.last_at) : null;
+    chip.classList.toggle('stopped', !!TX.error); chip.classList.toggle('ok', !TX.error && !!a);
+    chip.querySelector('span').textContent = TX.error ? 'Texts stopped' : a ? `Texts ${a.text}` : 'Texts on';
+    chip.title = TX.line + (a && !TX.error ? ` · last pull ${a.text}, ${TX.last_made} new` : '') + ' (Settings)';
+  }
+  const h = $('cfg-texts-h'), box = $('cfg-texts');
+  h.hidden = box.hidden = !(TX && (TX.show || TX.locked));
+  if (box.hidden || !mixIsOpen()) return;
+  const a = TX.last_at ? ago(TX.last_at) : null, stopped = !!TX.error || TX.locked;
+  const line = TX.locked ? TX.line : TX.error ? `${TX.line}. Switch it on again to retry.` : TX.on ? `Pulling every minute` + (a ? ` · last ${a.text}, ${TX.last_made} new` : ' · first pull in a moment') : 'Off. The Pull texts button still works by hand.';
+  const html = `<div class="mix-row tx"><input type="checkbox" id="cfg-tx"${TX.on ? ' checked' : ''}${TX.locked ? ' disabled' : ''}><label for="cfg-tx">Pull my texts every minute</label>`
+    + `<span class="tx-line${stopped ? ' stopped' : ''}">${esc(line)}</span>`
+    + `<span class="mix-about">Reads Twilio's log for texts from your own number and makes a Todo card from each, with the From a text chip. Nothing else: a text never claims, runs, deploys or closes anything, and nothing is texted back.</span></div>`;
+  if (box.innerHTML !== html && document.activeElement?.id !== 'cfg-tx') box.innerHTML = html;
+}
+$('texts-chip').onclick = () => { toggleMix(true); $('cfg-texts-h').scrollIntoView({ block: 'start' }); };   // the Texts group is the sheet's last: bring it into view
+async function setTextsAuto(on) {
+  try { TX = await api('/api/texts-auto', { on }); showError(''); } catch (e) { showError(e.message); }
+  renderTexts(); load();
+}
 $('later-close').onclick = closeLater;
 
 function openChat() {

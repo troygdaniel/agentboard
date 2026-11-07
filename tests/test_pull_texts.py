@@ -76,7 +76,7 @@ class Base(unittest.TestCase):
         self.s.dir.mkdir(parents=True, exist_ok=True)
         (self.s.dir / "config.toml").write_text(CONFIG)
         env = {k: v for k, v in os.environ.items() if not k.startswith("AGENTBOARD_")}
-        env.update({"AGENTBOARD_DIR": str(self.s.dir), texts.SID_ENV: SID, "AGENTBOARD_TWILIO_AUTH_TOKEN": TOKEN})
+        env.update({"AGENTBOARD_DIR": str(self.s.dir), texts.SID_ENV: SID, "AGENTBOARD_TWILIO_AUTH_TOKEN": TOKEN, texts.OPTIN_ENV: "1"})
         p = mock.patch.dict(os.environ, env, clear=True)
         p.start()
         self.addCleanup(p.stop)
@@ -518,7 +518,7 @@ class ThePullButton(unittest.TestCase):
         self.s.dir.mkdir(parents=True, exist_ok=True)
         (self.s.dir / "config.toml").write_text(CONFIG)
         env = {k: v for k, v in os.environ.items() if not k.startswith("AGENTBOARD_")}
-        env.update({texts.SID_ENV: SID, "AGENTBOARD_TWILIO_AUTH_TOKEN": TOKEN})
+        env.update({texts.SID_ENV: SID, "AGENTBOARD_TWILIO_AUTH_TOKEN": TOKEN, texts.OPTIN_ENV: "1"})
         p = mock.patch.dict(os.environ, env, clear=True)
         p.start()
         self.addCleanup(p.stop)

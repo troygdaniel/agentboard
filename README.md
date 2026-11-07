@@ -496,6 +496,7 @@ when you press the button. Nothing polls and nothing runs by itself; the board n
     number = "+16475550100"          # the Twilio number you text
     allowed = ["+14165550123"]       # your own number (defaults to [sms] allowed); a text from any other number is counted and ignored
 
+    export AGENTBOARD_TEXTS=1                      # this machine's key: without it nothing texts-related exists (no command, button, switch or timer)
     export AGENTBOARD_TWILIO_ACCOUNT_SID=AC...     # in your shell or launchd plist, never in the board or the repo
     export AGENTBOARD_TWILIO_AUTH_TOKEN=...
     agentboard pull-texts --dry-run                # prints the cards it would make; writes nothing
@@ -506,10 +507,21 @@ when you press the button. Nothing polls and nothing runs by itself; the board n
 - **Once per text.** The board remembers where the last pull got to (`.agentboard/texts-state.json`: a day and the ids already handled, no secrets) and each card carries its text's id, so
   a text never becomes a card twice, even if you delete the card or the state file. A first pull looks back 7 days (`--since YYYY-MM-DD` to go further); one pull makes at most 20 cards (`--max N`), the rest wait for the next pull.
 - **`--split`** turns a text of bullet or numbered lines (`- call the lawyer`, `2) buy milk`) into one card per line. It is plain line splitting, off by default, and `--dry-run` shows what it would do. There is no model in the loop: a text is never handed to one.
-- **Off until you set it up, and hard-off on a work machine.** `AGENTBOARD_NO_SMS=1` makes it refuse (dry runs and the button included); the button only appears once `[texts] enabled = true`.
+- **Two keys, and hard-off on a work machine.** Texts need the machine's say-so (`AGENTBOARD_TEXTS=1` in the shell that runs agentboard) and the board's (`[texts] enabled = true`);
+  with either missing there is no button, no switch, no chip, no call. `AGENTBOARD_NO_SMS=1` beats both (dry runs included). A work laptop that never exports the key cannot be switched on from the board.
 - **Cost:** the number is about US$1.15 a month and each inbound text about US$0.017 to 0.04 with carrier fees (Twilio's Canada price page; check it, prices change).
   Reading the log costs nothing. If Twilio's log ever proves too short or too dear, a tiny hosted inbox is the fallback; it needs a public endpoint, which this does not.
 - It sits beside the live webhook above (`agentboard sms serve`), which is automatic and needs a tunnel; pulling is the manual opposite and the two can share the same number list.
+
+### Or let the board pull once a minute
+
+Settings (the gear, or `m`) › **Texts** › **Pull my texts every minute**. While it is on, `agentboard serve` runs the same pull by itself about every 60 seconds, so a text
+from your phone is a Todo card within a minute, with the same **From a text** chip; a small chip in the header shows "Texts 2m ago" while it runs. It is **off until you switch it on**
+(every fresh install), it is one switch for every browser (kept in `.agentboard/texts-state.json`, server side, so it holds with the tab closed and across restarts), and the
+Pull texts button still works by hand. The same rules hold: your own number only, one card per text ever, at most 20 a minute, a text is data. **Any error stops it**: Twilio
+refusing the sign-in, no network, a variable missing from the server's shell. The switch goes off, Settings says why in one line, the header chip turns amber, and nothing retries
+until you switch it on again. No popup, no sound. Both keys and `AGENTBOARD_NO_SMS` are checked on every beat: locked, the switch is disabled with the reason and no call is made;
+without `AGENTBOARD_TEXTS=1` the timer thread is never even started.
 
 ## Prompts and context providers (optional)
 
