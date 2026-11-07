@@ -33,7 +33,7 @@ SECRET_SHAPES = {
     "private-key": re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----"),
     "auth-header": re.compile(r"Authorization:\s*(?:Token|Bearer|Basic)\s+[A-Za-z0-9._=+/-]{10,}", re.I),
     "assigned-secret": re.compile(r"(?:api[_-]?key|secret|passwd|password|auth[_-]?token)[\"']?\s*[:=]\s*[\"']([A-Za-z0-9/+_=.-]{16,})[\"']", re.I),
-    "key-word + 40 hex": re.compile(r"(?:key|token|secret)\W{1,4}[0-9a-f]{40}(?![0-9a-f])", re.I),
+    "key-word + 40 hex": re.compile(r"(?<![A-Za-z])(?:key|token|secret)\W{1,4}[0-9a-f]{40}(?![0-9a-f])", re.I),
 }
 PHONE = re.compile(r"(?<![\d.])(?:\(?[2-9]\d{2}\)?[ .-]\d{3}[ .-]\d{4}|\+1[ ]?\d{10})(?![\d])")
 EMAIL = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}")
@@ -46,6 +46,26 @@ MAX_BYTES = 2_000_000
 
 def mask(s):
     return s[:4] + "…(" + str(len(s)) + " chars)"
+
+
+_WORDY = re.compile(r"[a-z0-9]+(?:[_.-][a-z0-9]+)+")
+
+
+def _has_letter_and_digit(v):
+    return any(c.isdigit() for c in v) and any(c.isalpha() for c in v)
+
+
+def ordinary_word(kind, hit):
+    """A look-alike that is plain words: sk- inside task-queue-implementation-notes, or a kebab-case phrase after "Authorization: Bearer". The same
+    rule the board's masker (agentboard/redact.py) uses, so the guard and the masker agree on what a key looks like."""
+    if kind == "api-key (sk-)":
+        body = re.sub(r"^sk-(?:ant-|proj-)?", "", hit)
+        return not _has_letter_and_digit(body) or bool(_WORDY.fullmatch(body))
+    if kind == "auth-header":
+        value = hit.split()[-1]
+        generated = _has_letter_and_digit(value) or value.endswith("=") or (len(value) >= 20 and any(c.isupper() for c in value) and any(c.islower() for c in value))
+        return not generated
+    return False
 
 
 def fictional_phone(m):
@@ -88,7 +108,7 @@ def scan_text(text, words=()):
             for m in rx.finditer(line):
                 hit = m.group(1) if rx.groups else m.group(0)
                 core = max(re.findall(r"[A-Za-z0-9/+_=.-]{8,}", hit) or [hit], key=len)   # the secret part: a key word before it does not count
-                if PLACEHOLDER.search(m.group(0)) or len(set(core)) <= 3:
+                if PLACEHOLDER.search(m.group(0)) or len(set(core)) <= 3 or ordinary_word(kind, m.group(0)):
                     continue   # a placeholder, or a fake like ACbbbb...: nothing real is all one or two characters
                 found.append((no, kind, mask(hit)))
         for m in PHONE.finditer(line):

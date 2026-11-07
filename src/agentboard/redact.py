@@ -73,8 +73,20 @@ def _secret_like(v):
     return _has_letter_and_digit(v) or v.endswith("=")
 
 
+def _token_like(v):
+    """For the value after "Authorization: Bearer": generated-looking (a letter and a digit, base64 padding), or long and mixed-case. A plain
+    word, a kebab-case phrase or a short name is not a token, so it is never erased."""
+    return _secret_like(v) or (len(v) >= 20 and any(c.isupper() for c in v) and any(c.islower() for c in v))
+
+
 _UUID = re.compile(r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")
 _WORDY = re.compile(r"[a-z0-9]+(?:[_.-][a-z0-9]+)+")    # snake_case and kebab-case names: identifiers, not keys
+
+
+def _api_key_like(v):
+    """For sk-...: what follows the prefix looks generated, not like words (task-queue-implementation-notes)."""
+    body = re.sub(r"^sk-(?:ant-|proj-)?", "", v)
+    return _has_letter_and_digit(body) and not _WORDY.fullmatch(body)
 
 
 def _random_like(v):
@@ -97,13 +109,13 @@ def _url_password(m):
 
 # (kind, pattern, replacement function). Order matters: a private-key block first, then headers, then the rest.
 SHAPES = [
-    ("private-key", re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----.*?(?:-----END [A-Z ]*PRIVATE KEY-----|\Z)", re.S), lambda m: _mask("private-key")),
-    ("auth-header", re.compile(r"(Authorization:\s*(?:Token|Bearer|Basic)\s+)([A-Za-z0-9._=+/~-]{10,})", re.I), _keep_prefix("secret")),
+    ("private-key", re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----(?:(?:(?!-----(?:BEGIN|END) )[\s\S]){0,10000}?-----END [A-Z ]*PRIVATE KEY-----|(?:\s*+[A-Za-z0-9+/=]{16,}+)*+)"), lambda m: _mask("private-key")),   # to its END line, or (cut off) through the base64 lines: the sentences after it stay
+    ("auth-header", re.compile(r"(Authorization:\s*+(?:Token|Bearer|Basic)\s++)([A-Za-z0-9._=+/~-]{10,}+)", re.I), _keep_prefix("secret", _token_like)),
     ("jwt", re.compile(r"(?<![A-Za-z0-9_-])eyJ[A-Za-z0-9_-]{10,}+\.[A-Za-z0-9_-]{10,}+\.[A-Za-z0-9_-]{10,}+"), _whole("jwt")),   # lookbehind + possessive: the text eyJeyJeyJ... was quadratic (44 s for 400 KB)
     ("aws-key", re.compile(r"AKIA[0-9A-Z]{16}"), _whole("aws-key")),
-    ("api-key", re.compile(r"sk-(?:ant-|proj-)?[A-Za-z0-9_-]{20,}"), _whole("api-key")),
+    ("api-key", re.compile(r"sk-(?:ant-|proj-)?[A-Za-z0-9_-]{20,}+"), _whole("api-key", _api_key_like)),
     ("github-token", re.compile(r"(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{20,}"), _whole("github-token")),
-    ("slack-token", re.compile(r"xox[abprs]-[A-Za-z0-9-]{10,}"), _whole("slack-token")),
+    ("slack-token", re.compile(r"xox[abprs]-[A-Za-z0-9-]{10,}+"), _whole("slack-token")),
     ("account-sid", re.compile(r"(?<![A-Za-z0-9])(?:AC|SK)[0-9a-f]{32}(?![A-Za-z0-9])"), _whole("account-sid")),
     ("stripe-key", re.compile(r"(?<![A-Za-z0-9])(?:sk|rk)_(?:live|test)_[A-Za-z0-9]{20,}"), _whole("stripe-key")),
     ("webhook-secret", re.compile(r"(?<![A-Za-z0-9])whsec_[A-Za-z0-9+/=]{20,}"), _whole("webhook-secret")),
@@ -113,7 +125,7 @@ SHAPES = [
     ("sendgrid-key", re.compile(r"(?<![A-Za-z0-9_-])SG\.[A-Za-z0-9_-]{16,}+\.[A-Za-z0-9_-]{16,}+"), _whole("sendgrid-key")),
     ("url-password", re.compile(r"(://[^\s:/@]++:)([^\s@/]++)(@)"), _url_password),
     ("bearer", re.compile(r"(?<![A-Za-z])(Bearer\s++)([A-Za-z0-9._~+/=-]{20,}+)"), _keep_prefix("secret", _secret_like)),
-    ("key-hex", re.compile(r"((?:api[_-]?key|key|token|secret|passwd|password)\W{1,4})([0-9a-fA-F]{32,64})(?![0-9a-fA-F])", re.I), _keep_prefix("hex")),
+    ("key-hex", re.compile(r"((?<![A-Za-z])(?:api[_-]?key|key|token|secret|passwd|password)\W{1,4})([0-9a-fA-F]{32,64})(?![0-9a-fA-F])", re.I), _keep_prefix("hex")),
     ("assigned-secret", re.compile(r"((?:aws[_-]?secret[_-]?access[_-]?key|secret[_-]?access[_-]?key|api[_-]?key|apikey|secret[_-]?key|secret|passwd|password|pwd|auth[_-]?token|access[_-]?token|refresh[_-]?token|client[_-]?secret|app[_-]?secret|private[_-]?token|signing[_-]?(?:key|secret))[\"']?\s*+[:=]\s*+[\"']?)([A-Za-z0-9/+_=.~-]{16,}+)", re.I),
      _keep_prefix("secret", _has_letter_and_digit)),
     ("generic-secret", re.compile(r"((?<![A-Za-z0-9])(?:key|auth|token|credentials?|access[_-]?key)[\"']?\s*+[:=]\s*+[\"']?)([A-Za-z0-9/+_=.~-]{20,}+)", re.I),

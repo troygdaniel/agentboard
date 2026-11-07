@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### The masker no longer erases ordinary words (Nov 7)
+- Masking happens on the way in, so what it removes is gone for good. `Authorization: Bearer|Basic|Token` masked any word of 10+ characters after it (`unauthorised-deletion` vanished from a review): it now masks only values that look generated (a letter and a digit, base64 padding, or a long mixed-case token). The `sk-` shape erased the tail of kebab-case words (`task-queue-implementation-notes` became `ta[redacted api-key]`, likewise `risk-`, `disk-`, `ask-`): what follows `sk-` must now look like a key. A `-----BEGIN … PRIVATE KEY-----` with no end line used to swallow the rest of the text: it now takes the block's base64 lines and stops where the prose starts (a whole block, even an encrypted one, still goes to its end line). A hex string after `monkey:` is no longer read as after `key:`.
+- A key glued to other letters (`xAKIA…`) is still masked: no boundary rule is an escape hatch.
+
 ### Invisible characters no longer hide a key from the masker (Nov 7)
 - `sk-` + a zero-width space + the key, or `Authorization:` + a zero-width space + ` Bearer …`, passed through unmasked (as did a bidi override or a soft hyphen inside a pasted key). The masker now matches on a copy without control, format, private-use and filler characters and masks the original by the matched span, so only secrets change: a ZWJ in an emoji, a ZWNJ in Persian or a soft hyphen in ordinary text is stored exactly as written. A text with thousands of invisible characters is cleaned of them instead of mapped (it is not prose).
 
