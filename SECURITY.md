@@ -52,7 +52,9 @@ Oct 24, 2026 for v0.3.0 against the code and at runtime; it checks literally rat
    (a cursor file plus the text's id on the card; the store refuses a second card with the same id), a pull makes at most 20 cards, and the cursor file holds only a day and message ids.
 
 Providers run only when a task explicitly lists them (`--ctx`) and a prompt is built (Copy prompt,
-`agentboard prompt`, `agentboard rebuild`). On a work machine, point `http` providers only at local
+`agentboard prompt`, `agentboard rebuild`). Building one over HTTP (`GET /api/prompt`, `/api/orch-prompt`) is refused with 403 when the browser's
+`Sec-Fetch-Site` says the request came from another site, so a hostile page cannot make the board run a configured command blind; `{arg}` and `{title}`
+are shell-quoted, and the README says not to wrap them in quotes of your own. On a work machine, point `http` providers only at local
 services, or don't configure any.
 
 ## Install-time network (not runtime)

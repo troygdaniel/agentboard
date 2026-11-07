@@ -135,6 +135,12 @@ def make_handler(default_store, port):
                     return False
             return True
 
+        def _same_site(self):
+            """A browser's Sec-Fetch-Site, when present, must be same-origin (the page itself) or none (a typed address). A client that
+            sends none (curl, the CLI, the tests) passes: the header is a browser's word about where a request came from, not a secret."""
+            site = (self.headers.get("Sec-Fetch-Site") or "").strip().lower()
+            return site in ("", "same-origin", "none")
+
         def _bind(self, url):
             """Pick the board for this request. `/b/<name>/...` is a registered board; everything else is the default board
             (so every existing link keeps working). Returns the url with the prefix removed, or None after answering."""
@@ -257,6 +263,10 @@ def make_handler(default_store, port):
                 out = transcriptlib.read(hookslib.transcript_for(self.store.dir, name)) if name else {"lines": [], "missing": True, "why": "no agent named"}
                 out["agent"] = name
                 self._send(200, out)
+            elif url.path in ("/api/orch-prompt", "/api/prompt") and not self._same_site():
+                # building a prompt runs the card's context providers (a configured shell command, an http GET): a side effect. A GET is
+                # reachable blind from another site (an <img> on a hostile page), so a browser that says cross-site is refused and nothing runs.
+                self._send(403, {"error": "bad origin"})
             elif url.path == "/api/orch-prompt":
                 text = promptlib.build_orch_prompt(self.store.load(), self.store.dir, port=port)
                 self._send(200, {"prompt": text})

@@ -517,6 +517,12 @@ Todo cards carry a copyable prompt that makes any agent claim the card and repor
 providers in `.agentboard/config.toml` (`markdown`, `file-tail`, `http`, `command`; options `max_chars`, `redact`, `private`).
 Providers run only when a task lists one with `--ctx` and a prompt is built.
 
+Two rules for a `command` provider. **Do not wrap `{arg}` or `{title}` in quotes** in `run`: each is already shell-quoted when it is
+filled in, so `grep "{arg}" notes.md` becomes `grep "'tailor pants'" notes.md` and a crafted argument can step out of your quotes;
+write `grep {arg} notes.md`. And since building a prompt *runs* these commands, the board refuses to build one for a request a browser
+marks as coming from another site (`Sec-Fetch-Site: cross-site`, e.g. an `<img>` on a hostile page pointing at `/api/prompt`); the
+Copy prompt button, the CLI and `agentboard prompt` are unaffected.
+
 ## Commands
 
 | For you | |
