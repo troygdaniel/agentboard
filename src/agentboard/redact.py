@@ -38,6 +38,9 @@ _DASH_RANGES = ((0x058A, 0x058A), (0x05BE, 0x05BE), (0x1400, 0x1400), (0x1806, 0
                 (0xFE58, 0xFE58), (0xFE63, 0xFE63), (0xFF0D, 0xFF0D), (0x10D6E, 0x10D6E), (0x10EAD, 0x10EAD),          # category Pd
                 (0x02D7, 0x02D7), (0x2043, 0x2043), (0x207B, 0x207B), (0x208B, 0x208B), (0x2212, 0x2212), (0x2796, 0x2796))   # minus signs, hyphen bullet
 _DASHES = {c: "-" for lo, hi in _DASH_RANGES for c in range(lo, hi + 1)}
+# The fullwidth forms of ASCII (U+FF01 to U+FF5E, "_" "=" ":" and the letters and digits among them) are the same characters shifted by 0xFEE0, which is
+# what a normaliser (NFKC) turns them back into: "api_key" + a fullwidth "=" + a value is an assignment to the eye and to the next program that reads it.
+_FOLD = {**{c: chr(c - 0xFEE0) for c in range(0xFF01, 0xFF5F)}, **_DASHES}      # one for one, like the dashes (the fullwidth hyphen is in both and agrees)
 
 PLACEHOLDER = re.compile(r"^[xX*._\-]+$|EXAMPLE|\$\{?\w|<[^>]*>|\{\w+\}|changeme|placeholder|dummy|redacted|^your[-_]", re.I)
 _CACHE = {}
@@ -186,10 +189,10 @@ def _extras(conf):
 
 
 def _sub_visible(rx, repl, text):
-    """rx.sub(repl, text), but matching on a copy without the invisible characters and with every Unicode dash folded to "-", and replacing
+    """rx.sub(repl, text), but matching on a copy without the invisible characters and with every Unicode dash folded to "-" and every fullwidth ASCII form folded to ASCII, and replacing
     in the original by the matched span: a key that carries a zero-width space or an en dash is masked whole, and everything else (a ZWJ in
     an emoji, a ZWNJ in Persian, the dash in "pages 3-5") stays as written."""
-    view = text if text.isascii() else text.translate(_DASHES)       # one for one: every index is the same in both
+    view = text if text.isascii() else text.translate(_FOLD)         # one for one: every index is the same in both
     hidden = [m.start() for m in _INVISIBLE.finditer(view)]
     if not hidden and view == text:
         return rx.sub(repl, text)
