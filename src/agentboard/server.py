@@ -203,6 +203,8 @@ def make_handler(default_store, port):
                 self._route_get(url, q)
             except BoardError as e:
                 self._send(500, {"error": str(e)})
+            except Exception as e:   # noqa: BLE001  (a bug must answer, not drop the connection and leave the page's poll hanging; the class name only)
+                self._send(500, {"error": f"server error ({e.__class__.__name__})"})
 
         def _route_get(self, url, q):
             if url.path in ("/", "/index.html", "/hud", "/agents"):

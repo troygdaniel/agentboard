@@ -118,6 +118,7 @@ class Store:
         except ValueError as e:
             raise BoardError(f"{self.path} is not valid JSON ({e}); restore the last good copy with `agentboard restore latest` (or `agentboard restore previous` for the version before the last save)") from e
         data.setdefault("tasks", [])
+        _check_cards(data["tasks"], self.path)   # a hand edit, a bad merge or a copied file fails here with one readable line, not a KeyError somewhere later
         data.pop("projects", None)   # projects were removed on 4 Nov 2026: an old file's list is dropped on the next save
         data.setdefault("chat", [])
         data.setdefault("chat_seq", 0)
@@ -952,6 +953,26 @@ def _log(t, text, by=None):
         entry["by"] = by
     t.setdefault("log", []).append(entry)
     del t["log"][:-LOG_MAX]
+
+
+def _check_cards(tasks, path):
+    """Every card the file holds must be a dict with a non-empty string id, a known status and a list for its log; the first card that is not
+    stops the read with one line that says which card and what to do. tasks.json is trusted data, so this is for a copied or hand-edited
+    file: better one clear refusal than every command dying on a KeyError and the page's poll getting no answer."""
+    if not isinstance(tasks, list):
+        raise BoardError(f"{path}: 'tasks' is not a list; run `agentboard verify`, or `agentboard restore latest`")
+    for n, t in enumerate(tasks, 1):
+        what = None
+        if not isinstance(t, dict):
+            what = "is not an object"
+        elif not isinstance(t.get("id"), str) or not t["id"].strip():
+            what = "has no id"
+        elif t.get("status") not in STATUSES:
+            what = f"has an unknown status {t.get('status')!r}"
+        elif "log" in t and not isinstance(t["log"], list):
+            what = "has a log that is not a list"
+        if what:
+            raise BoardError(f"{path}: card {n} {what}; run `agentboard verify`, or `agentboard restore latest` (or `restore previous`)")
 
 
 def _clean_source(source):
