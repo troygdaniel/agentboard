@@ -1,9 +1,11 @@
 """The once-a-minute pull of your texts (Nov 7): OFF until switched on in Settings, locked by AGENTBOARD_NO_SMS, stopped by any error.
 Fake Twilio only: no network. Builds on test_pull_texts' fixtures."""
+import io
 import json
 import os
 import threading
 import unittest
+import warnings
 from datetime import timedelta
 from pathlib import Path
 from unittest import mock
@@ -14,7 +16,14 @@ from agentboard.store import BoardError, Store
 from test_pull_texts import HTML, NOW, SID, STRANGER, TOKEN, TROY, Base, ThePullButton, at
 
 
-class TheTimer(Base):
+class Fresh(Base):
+    def setUp(self):
+        super().setUp()
+        texts._HALT["why"] = ""   # the in-memory halt is per process: every test starts with the timer able to run
+        self.addCleanup(texts._HALT.__setitem__, "why", "")
+
+
+class TheTimer(Fresh):
     def tick(self, **kw):
         kw.setdefault("now", NOW)
         return texts.tick(self.s, http=self.tw, **kw)
@@ -178,6 +187,43 @@ class TheTimer(Base):
         self.assertEqual(len(first["res"]["created"]), 1)
         self.assertEqual(self.titles(), ["buy milk"])
 
+    def test_a_state_file_that_cannot_be_written_still_halts_the_timer(self):
+        texts.set_auto(self.s.dir, True)
+
+        def refused(path, sid, token):
+            raise BoardError("Twilio answered 500")
+
+        os.chmod(self.s.dir, 0o555)   # the board folder goes read-only under the timer
+        self.addCleanup(os.chmod, self.s.dir, 0o755)
+        res = texts.tick(self.s, http=refused, now=NOW)
+        self.assertIsInstance(res, BoardError)
+        self.assertTrue(json.loads(self.state_text())["auto"])   # the file could not be changed…
+        st = texts.status(self.s.dir)
+        self.assertFalse(st["on"])                               # …but the board says stopped
+        self.assertEqual(st["line"], "Stopped: Twilio answered 500")
+        for _ in range(3):
+            self.assertIsNone(texts.tick(self.s, http=refused, now=NOW))   # and no beat calls Twilio again
+        os.chmod(self.s.dir, 0o755)
+        texts.set_auto(self.s.dir, True)   # a fresh switch-on is the only thing that clears the halt
+        self.tw.text("buy milk", at(6))
+        self.assertEqual(len(self.tick()["created"]), 1)
+
+    def test_a_pull_whose_record_cannot_be_written_stops_rather_than_repeating(self):
+        texts.set_auto(self.s.dir, True)
+        self.tw.text("buy milk", at(6))
+        os.chmod(self.s.dir, 0o555)
+        self.addCleanup(os.chmod, self.s.dir, 0o755)
+        res = self.tick()
+        self.assertIsInstance(res, BoardError)   # the pull's own cursor write fails first: an unexpected PermissionError, which halts like any other
+        self.assertEqual(texts.status(self.s.dir)["line"], "Stopped: unexpected error (PermissionError)")
+        self.assertIsNone(self.tick())
+        self.assertEqual(len(self.tw.calls), 1)
+
+    def test_the_locked_line_says_it_once(self):
+        with mock.patch.dict(os.environ, {"AGENTBOARD_NO_SMS": "1"}):
+            line = texts.status(self.s.dir)["line"]
+        self.assertEqual(line, "Locked off on this machine ($AGENTBOARD_NO_SMS is set)")
+
     def test_the_state_file_holds_the_switch_and_no_secrets(self):
         texts.set_auto(self.s.dir, True)
         self.tw.text("buy milk", at(6))
@@ -190,6 +236,17 @@ class TheTimer(Base):
 
 
 class TheSwitch(ThePullButton):
+    def setUp(self):
+        super().setUp()
+        texts._HALT["why"] = ""
+        self.addCleanup(texts._HALT.__setitem__, "why", "")
+
+    def test_only_a_json_true_turns_it_on(self):
+        for bad in ("false", "true", 1, "1", "yes", [True]):
+            code, d = self.call("/api/texts-auto", {"on": bad})
+            self.assertEqual((code, d["on"]), (200, False), bad)
+        self.assertTrue(self.call("/api/texts-auto", {"on": True})[1]["on"])
+
     def test_the_page_is_told_the_timer_state_with_the_tasks(self):
         code, d = self.call("/api/tasks")
         self.assertEqual(code, 200)
@@ -223,7 +280,7 @@ class TheSwitch(ThePullButton):
             self.assertNotIn(secret, raw)
 
 
-class TheSecondKey(Base):
+class TheSecondKey(Fresh):
     """Texts need the machine's say-so (AGENTBOARD_TEXTS=1) as well as the board's ([texts] enabled). Without it nothing texts-related exists."""
 
     def no_key(self):
@@ -245,6 +302,41 @@ class TheSecondKey(Base):
             self.assertFalse(st["on"])
         self.assertEqual(self.tw.calls, [])
         self.assertEqual(self.cards(), [])
+
+    def test_the_key_is_exactly_1(self):
+        for v in (" 1", "1 ", "true", "yes", "01"):
+            with mock.patch.dict(os.environ, {texts.OPTIN_ENV: v}):
+                self.assertFalse(texts.available(self.s.dir), repr(v))
+        with mock.patch.dict(os.environ, {texts.OPTIN_ENV: "1"}):
+            self.assertTrue(texts.available(self.s.dir))
+
+    def test_the_timer_thread_exists_only_with_both_keys_and_no_lock(self):
+        from agentboard import server as serverlib
+        import socket as socketlib
+
+        def threads_started(env):
+            names = []
+            real = threading.Thread
+
+            def spy(*a, **kw):
+                names.append(kw.get("name") or getattr(kw.get("target"), "__name__", ""))
+                return real(*a, **kw)
+
+            with socketlib.socket() as sk:
+                sk.bind(("127.0.0.1", 0))
+                port = sk.getsockname()[1]
+            with mock.patch.dict(os.environ, env), mock.patch.object(threading, "Thread", spy), \
+                    mock.patch.object(serverlib.ThreadingHTTPServer, "serve_forever", side_effect=KeyboardInterrupt), \
+                    mock.patch("sys.stdout", new_callable=io.StringIO), warnings.catch_warnings():
+                warnings.simplefilter("ignore", ResourceWarning)   # serve() has no close path after Ctrl+C; the socket is dropped with the test
+                serverlib.serve(self.s, port=port, open_browser=False)
+            return names
+
+        self.assertIn("texts-timer", threads_started({}))                               # both keys, no lock
+        self.assertNotIn("texts-timer", threads_started({texts.OPTIN_ENV: ""}))        # no machine key
+        self.assertNotIn("texts-timer", threads_started({"AGENTBOARD_NO_SMS": "1"}))   # locked
+        (self.s.dir / "config.toml").write_text("")
+        self.assertNotIn("texts-timer", threads_started({}))                            # no board key
 
     def test_the_lock_still_wins_over_both_keys(self):
         with mock.patch.dict(os.environ, {"AGENTBOARD_NO_SMS": "1", texts.OPTIN_ENV: "1"}):

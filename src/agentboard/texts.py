@@ -65,7 +65,7 @@ def _locked():
 
 
 def _opted_in():
-    return os.environ.get(OPTIN_ENV, "").strip() == "1"   # exactly 1, nothing looser
+    return os.environ.get(OPTIN_ENV) == "1"   # exactly "1": not " 1", not "true"
 
 
 def allowed(board_dir):
@@ -349,6 +349,12 @@ def summary_line(res):
 # browser). Any error stops it and says why; nothing retries until you switch it on again. AGENTBOARD_NO_SMS is read on every tick.
 EVERY_S = 60
 _TICKING = threading.Lock()   # one timed pull at a time: a slow Twilio answer never stacks a second one
+_HALT = {"why": ""}        # set in memory the moment a tick fails, before the state file is written: a halt holds even when that write fails
+
+
+def timer_wanted(board_dir):
+    """Whether `agentboard serve` starts the timer thread at all: both keys turned and the machine not locked (tick re-checks every beat)."""
+    return allowed(board_dir)[0]
 
 
 def status(board_dir):
@@ -360,9 +366,10 @@ def status(board_dir):
     st = _read_state(board_dir)
     on = st["auto"] and ok
     if not ok:
-        line = ("Locked off on this machine" if locked else "Off") + f" ({why.split(':')[-1].strip() if ':' in why else why})"
-    elif st["error"]:
-        line = f"Stopped: {st['error']}"
+        line = f"Locked off on this machine (${LOCK_ENV} is set)" if locked else f"Off ({why})"
+    elif st["error"] or _HALT["why"]:
+        line = f"Stopped: {st['error'] or _HALT['why']}"
+        on = False
     elif on:
         line = "Pulling every minute"
     else:
@@ -388,14 +395,16 @@ def set_auto(board_dir, on):
         if on:
             st["error"] = ""
         _write_state(board_dir, st)
+        if on:
+            _HALT["why"] = ""   # only a fresh switch-on clears a halt
     return status(board_dir)
 
 
 def tick(store, http=None, now=None):
     """One beat of the timer, called by the server about every EVERY_S seconds. Returns None when there was nothing to do (off, locked,
     or a pull already running), else the pull's result dict, or the BoardError that stopped the timer (already recorded in the state)."""
-    if not allowed(store.dir)[0]:
-        return None   # a lock set, or a key taken away, after the server started still wins: no call, no change of the switch
+    if _HALT["why"] or not allowed(store.dir)[0]:
+        return None   # halted, or a lock set / a key taken away after the server started: no call, no change of the switch
     if not _read_state(store.dir)["auto"]:
         return None
     if not _TICKING.acquire(blocking=False):
@@ -406,16 +415,25 @@ def tick(store, http=None, now=None):
         except Exception as e:   # noqa: BLE001  (any error stops the timer, the unexpected kind included: never a silent retry loop)
             if not isinstance(e, BoardError):
                 e = BoardError(f"unexpected error ({e.__class__.__name__})")   # the class name only: never a message that could carry a header or a body
-            with _LOCK:   # stop: the switch goes off and the reason is kept for the chip; nothing retries by itself
-                st = _read_state(store.dir)
-                st["auto"], st["error"] = False, re.sub(r"\s*\n\s*-?\s*", "; ", str(e)).strip("; ")[:300]
-                _write_state(store.dir, st)
+            why = re.sub(r"\s*\n\s*-?\s*", "; ", str(e)).strip("; ")[:300]
+            with _LOCK:   # stop: the halt is set in memory first, then the switch goes off on disk and the reason is kept for the chip
+                _HALT["why"] = why
+                try:
+                    st = _read_state(store.dir)
+                    st["auto"], st["error"] = False, why
+                    _write_state(store.dir, st)
+                except OSError:
+                    pass   # the state file could not be written: the in-memory halt still stops every later beat
             return e
         with _LOCK:
             st = _read_state(store.dir)
             st["last"] = {"at": (now or datetime.now(timezone.utc)).isoformat(), "made": len(res["created"])}
             st["error"] = ""
-            _write_state(store.dir, st)
+            try:
+                _write_state(store.dir, st)
+            except OSError as e:   # the pull worked but its record did not: stop, as for any other error, rather than pull again with no memory
+                _HALT["why"] = f"could not write {STATE_FILE} ({e.__class__.__name__})"
+                return BoardError(_HALT["why"])
         return res
     finally:
         _TICKING.release()

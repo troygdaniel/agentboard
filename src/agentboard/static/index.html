@@ -1984,10 +1984,10 @@ async function load() {
     const minute = Math.floor(Date.now() / 60000);
     if (!hold) {   // the redraw waits for the typing; the status pill, the asks, the open card and the chat below do not
       let changed = false;
-      if (text !== raw) { raw = text; tick = minute; const j = JSON.parse(text); tasks = j.tasks; TX = j.texts || null; renderTexts(); changed = true; }
-      else if (minute !== tick) renderTexts();   // "3m ago" on the chip moves with the minute
+      if (text !== raw) { raw = text; tick = minute; const j = JSON.parse(text); tasks = j.tasks; TX = j.texts || null; changed = true; }
       else if (minute !== tick && !selectionInside($('board'))) { tick = minute; changed = true; }   // the minute tick ("3 min ago") waits while you have text selected
       if (changed) render();
+      if (changed) renderTexts();   // the texts chip and Settings row follow the same beats: new data, or the minute
     }
     setStatus(true);
     checkAsks();
@@ -3706,7 +3706,7 @@ function renderTexts() {
     + `<span class="mix-about">Reads Twilio's log for texts from your own number and makes a Todo card from each, with the From a text chip. Nothing else: a text never claims, runs, deploys or closes anything, and nothing is texted back.</span></div>`;
   if (box.innerHTML !== html && document.activeElement?.id !== 'cfg-tx') box.innerHTML = html;
 }
-$('texts-chip').onclick = () => toggleMix(true);
+$('texts-chip').onclick = () => { toggleMix(true); $('cfg-texts-h').scrollIntoView({ block: 'start' }); };   // the Texts group is the sheet's last: bring it into view
 async function setTextsAuto(on) {
   try { TX = await api('/api/texts-auto', { on }); showError(''); } catch (e) { showError(e.message); }
   renderTexts(); load();

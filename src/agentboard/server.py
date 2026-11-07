@@ -332,7 +332,7 @@ def make_handler(default_store, port):
                     self._send(200, {"line": texts.summary_line(res), "made": len(res["created"])})
                 elif path == "/api/texts-auto":
                     # the Settings switch for the once-a-minute pull; refused when locked or not set up, so the timer never starts blind
-                    self._send(200, texts.set_auto(self.store.dir, bool(body.get("on"))))
+                    self._send(200, texts.set_auto(self.store.dir, body.get("on") is True))   # only a JSON true turns it on; "false", 1 or "yes" do not
                 elif path == "/api/reply":
                     if not isinstance(body["text"], str):
                         raise BoardError("text must be a string")
@@ -428,16 +428,16 @@ def serve(store, port=8765, open_browser=True):
                 continue
             try:
                 res = texts.tick(store)
-            except Exception as e:   # noqa: BLE001  (a timer problem never stops a board)
+            except Exception as e:   # noqa: BLE001  (a timer problem never stops a board; tick has halted itself, so this is a log line, not a retry)
                 print(f"agentboard: texts timer: {e.__class__.__name__}")
-                res = None
+                res, last = None, time.time()
             if res is not None:
                 last = time.time()
                 if isinstance(res, BoardError):
                     print(f"agentboard: texts timer stopped: {res}".split("\n")[0])
 
-    if texts._opted_in() and not texts._locked():   # the thread does not even exist on a machine that has not said AGENTBOARD_TEXTS=1 (and tick re-checks every beat)
-        threading.Thread(target=_texts_timer, daemon=True).start()
+    if texts.timer_wanted(store.dir):   # the thread does not even exist unless both keys turn and the machine is not locked (and tick re-checks every beat)
+        threading.Thread(target=_texts_timer, daemon=True, name="texts-timer").start()
     try:
         srv.serve_forever()
     except KeyboardInterrupt:
