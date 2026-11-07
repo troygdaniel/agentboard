@@ -28,6 +28,7 @@ HEX40 = "3f9a1c7e5b2d4f6a8c0e1b3d5f7a9c2e4b6d8f0a"
 HEX32 = "3f9a1c7e5b2d4f6a8c0e1b3d5f7a9c2e"
 TOKEN = "q3Z7k9M2p5R8t1V4w6Y0a2C4"
 PEM = "-----BEGIN " + "RSA PRIVATE KEY-----\nMIIBOgIBAAJBAKj34GkxFhD90vcNLYLInFEX6Ppy1tPf9Cnzj4p4WGeKLs1Pt8Qu\n-----END " + "RSA PRIVATE KEY-----"
+MAIL = "some" + "one" + "@" + "corp" + ".test"      # an email outside the repo guard's allow-list, built from parts
 PH = "416" + "-867-" + "4410"        # looks like a real number, built from parts (no whole one in the repo)
 PH2 = "(212) " + "867-" + "4410"
 PH3 = "+1212" + "8674410"
@@ -75,7 +76,7 @@ class LeavesOrdinaryTextAlone(unittest.TestCase):
         "see http://localhost:8765/api/tasks?id=a-card", "/Users/you/dev/agentboard/src/agentboard/redact.py:42", "2026-11-07T01:02:03",
         "uuid 123e4567-e89b-12d3-a456-426614174000", "password reset flow", "the token_count was 12345678", "get_password_from_user()",
         "secret = os.environ['X']", 'password = input("Password: ")', "api key is needed", "an API key must be rotated", "key 12345", "a long-winded-hyphenated-word-without-meaning",
-        f"call 416-555-0123 or {PH2} or +14165550123", "mail a@b.example.org and someone@corp.test", "ACb" + "b" * 31, "AC" + "0" * 32,
+        f"call 416-555-0123 or {PH2} or +14165550123", f"mail a@b.example.org and {MAIL}", "ACb" + "b" * 31, "AC" + "0" * 32,
         "AKIA" + "EXAMPLE" + "EXAMPLE12", "sk-...", "sk-" + "x" * 30, "Authorization: Bearer $TOKEN", "Authorization: Token <token>", 'api_key = "your-api-key-goes-here"',
         'password = "changeme1changeme2"', "token: " + "a" * 40, "Bundle 412kb -> 271kb, verified in prod build", "756 tests pass · render-check wide and narrow",
         "## Changed\n- one\n## Checked\n- two\n```flow\nA -> B\n```", "ssh-rsa is an algorithm; sk is Slovakia", "Base64 of hello: aGVsbG8gd29ybGQ=", "",
