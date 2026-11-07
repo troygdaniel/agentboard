@@ -219,7 +219,11 @@ def make_handler(default_store, port):
                         d["subs_total"], d["subs_done"] = counts[t["id"]]
                         d["subs"] = lists[t["id"]]
                     slim.append(d)
-                self._send(200, {"tasks": slim})
+                out = {"tasks": slim}
+                tx = texts.status(self.store.dir)   # the timer's switch and last pull, for Settings and the header chip (rides this poll; no secrets)
+                if tx["show"]:   # nothing at all unless this machine opted in (AGENTBOARD_TEXTS=1) and the board has [texts] on
+                    out["texts"] = tx
+                self._send(200, out)
             elif url.path == "/api/hud":
                 conf = _config(self.store)
                 data = hud.build(self.store.load(), abandoned_min=hud.stale_minutes(conf), retired=hud.retired(conf), roster=hud.roster(conf), owner=self.store.owner)
@@ -326,6 +330,9 @@ def make_handler(default_store, port):
                     # a button the owner pressed: the only way the board ever reads texts, and never by itself
                     res = texts.pull(self.store)
                     self._send(200, {"line": texts.summary_line(res), "made": len(res["created"])})
+                elif path == "/api/texts-auto":
+                    # the Settings switch for the once-a-minute pull; refused when locked or not set up, so the timer never starts blind
+                    self._send(200, texts.set_auto(self.store.dir, bool(body.get("on"))))
                 elif path == "/api/reply":
                     if not isinstance(body["text"], str):
                         raise BoardError("text must be a string")
@@ -412,6 +419,25 @@ def serve(store, port=8765, open_browser=True):
             time.sleep(tick)
 
     threading.Thread(target=_autopilot, daemon=True).start()
+
+    def _texts_timer():   # the once-a-minute pull of your texts, only while its switch in Settings is on (texts.tick checks the switch and the lock every beat)
+        last = 0.0
+        while True:
+            time.sleep(5)   # a short beat so a fresh switch-on pulls within seconds; the pull itself runs at most once per EVERY_S
+            if time.time() - last < texts.EVERY_S:
+                continue
+            try:
+                res = texts.tick(store)
+            except Exception as e:   # noqa: BLE001  (a timer problem never stops a board)
+                print(f"agentboard: texts timer: {e.__class__.__name__}")
+                res = None
+            if res is not None:
+                last = time.time()
+                if isinstance(res, BoardError):
+                    print(f"agentboard: texts timer stopped: {res}".split("\n")[0])
+
+    if texts._opted_in() and not texts._locked():   # the thread does not even exist on a machine that has not said AGENTBOARD_TEXTS=1 (and tick re-checks every beat)
+        threading.Thread(target=_texts_timer, daemon=True).start()
     try:
         srv.serve_forever()
     except KeyboardInterrupt:

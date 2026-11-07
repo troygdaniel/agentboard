@@ -57,21 +57,44 @@ def _section(board_dir, name):
     return c if isinstance(c, dict) else {}
 
 
+OPTIN_ENV = "AGENTBOARD_TEXTS"   # the second key: texts need this machine's say-so as well as the board's. Unset = nothing texts-related exists here.
+
+
+def _locked():
+    return os.environ.get(LOCK_ENV, "").strip().lower() not in ("", "0", "false", "no")
+
+
+def _opted_in():
+    return os.environ.get(OPTIN_ENV, "").strip() == "1"   # exactly 1, nothing looser
+
+
+def allowed(board_dir):
+    """The one gate every texts path goes through (the command, the button, the switch, the timer, the page): (ok, reason).
+    Two keys must turn: the machine's (AGENTBOARD_TEXTS=1 in the shell that runs agentboard) and the board's ([texts] enabled = true).
+    AGENTBOARD_NO_SMS=1 beats both. A later card tightens this in one place; keep every check here."""
+    if _locked():
+        return False, f"texting is locked off on this machine (${LOCK_ENV} is set); unset it to allow it"
+    if not _opted_in():
+        return False, f"texts are off on this machine: export {OPTIN_ENV}=1 in the shell that runs agentboard to allow them"
+    if not _section(board_dir, "texts").get("enabled"):
+        return False, "pulling texts is off: set [texts] enabled = true in config.toml"
+    return True, ""
+
+
 def settings(board_dir):
     """(conf dict, problems). Problems say why a pull will not run: it is off until you set it up, and locked off by AGENTBOARD_NO_SMS."""
     c, sms_c = _section(board_dir, "texts"), _section(board_dir, "sms")
     problems = []
-    if os.environ.get(LOCK_ENV, "").strip().lower() not in ("", "0", "false", "no"):
-        problems.append(f"texting is locked off on this machine (${LOCK_ENV} is set); unset it to allow it")
-    if not c.get("enabled"):
-        problems.append("pulling texts is off: set [texts] enabled = true in config.toml")
+    ok, why = allowed(board_dir)
+    if not ok:
+        problems.append(why)
     number = e164(c.get("number", "")) if isinstance(c.get("number"), str) else ""
     if not re.fullmatch(r"\+1\d{10}", number):
         problems.append('[texts] number = "+1..." is missing: the Twilio number you text')
     raw_allowed = c.get("allowed", sms_c.get("allowed", []))
-    allowed = [e164(x) for x in raw_allowed if isinstance(x, str)] if isinstance(raw_allowed, list) else []
-    allowed = [a for a in allowed if re.fullmatch(r"\+\d{8,15}", a)]
-    if not allowed:
+    senders = [e164(x) for x in raw_allowed if isinstance(x, str)] if isinstance(raw_allowed, list) else []
+    senders = [a for a in senders if re.fullmatch(r"\+\d{8,15}", a)]
+    if not senders:
         problems.append('[texts] allowed = ["+1..."] is empty: list your own number (only texts from it count)')
     sid = os.environ.get(SID_ENV, "").strip()
     if not re.fullmatch(r"AC[0-9a-fA-F]{32}", sid):
@@ -84,13 +107,12 @@ def settings(board_dir):
         cap = max(1, min(100, int(c.get("max_per_pull", MAX_PER_PULL))))
     except (TypeError, ValueError):
         cap = MAX_PER_PULL
-    return {"number": number, "allowed": allowed, "sid": sid, "token": token, "max": cap}, problems
+    return {"number": number, "allowed": senders, "sid": sid, "token": token, "max": cap}, problems
 
 
 def available(board_dir):
-    """Whether the board should offer a Pull texts button: [texts] is switched on and the machine is not locked. (A missing token shows when you press it.)"""
-    locked = os.environ.get(LOCK_ENV, "").strip().lower() not in ("", "0", "false", "no")
-    return bool(_section(board_dir, "texts").get("enabled")) and not locked
+    """Whether the board should offer a Pull texts button: both keys turned and the machine not locked. (A missing token shows when you press it.)"""
+    return allowed(board_dir)[0]
 
 
 # -- Twilio (read-only, one host) -------------------------------------------------------------------------------------------
@@ -137,8 +159,13 @@ def _read_state(board_dir):
         d = json.loads((Path(board_dir) / STATE_FILE).read_text())
     except (OSError, ValueError):
         d = {}
+    last = d.get("last") if isinstance(d.get("last"), dict) else {}
     return {"since": d.get("since") if isinstance(d.get("since"), str) else "",
-            "sids": d.get("sids") if isinstance(d.get("sids"), dict) else {}}
+            "sids": d.get("sids") if isinstance(d.get("sids"), dict) else {},
+            # the timer's own few fields (see `tick`): its switch, what the last timed pull did, and why it stopped. No secrets.
+            "auto": d.get("auto") is True,
+            "last": {"at": str(last.get("at") or ""), "made": int(last.get("made") or 0)} if last else {},
+            "error": str(d.get("error") or "")[:300]}
 
 
 def _write_state(board_dir, state):
@@ -313,3 +340,80 @@ def summary_line(res):
     if res["more"]:
         out += f" · {res['more']} more waiting, pull again"
     return out
+
+
+# -- the timer ------------------------------------------------------------------------------------------------------------------
+# `agentboard serve` can pull by itself, once a minute, when you switch it on in Settings (OFF until you do, every start). It does
+# exactly what the button does: `pull()`, same once-per-text memory, same cap, same number list, same SID and token from the shell
+# that started the server. The switch lives in the state file (server side: it holds with the tab closed and is one switch for every
+# browser). Any error stops it and says why; nothing retries until you switch it on again. AGENTBOARD_NO_SMS is read on every tick.
+EVERY_S = 60
+_TICKING = threading.Lock()   # one timed pull at a time: a slow Twilio answer never stacks a second one
+
+
+def status(board_dir):
+    """What the board shows for the timer: {show, locked, on, line, last_at, last_made, error}. Never a SID, token, number or text.
+    `show` is false (and the page draws nothing) unless this machine opted in with AGENTBOARD_TEXTS=1 and the board has [texts] on."""
+    ok, why = allowed(board_dir)
+    locked = _locked()
+    show = _opted_in() and bool(_section(board_dir, "texts").get("enabled"))   # locked still shows, disabled, with the reason
+    st = _read_state(board_dir)
+    on = st["auto"] and ok
+    if not ok:
+        line = ("Locked off on this machine" if locked else "Off") + f" ({why.split(':')[-1].strip() if ':' in why else why})"
+    elif st["error"]:
+        line = f"Stopped: {st['error']}"
+    elif on:
+        line = "Pulling every minute"
+    else:
+        line = "Off"
+    return {"show": show, "locked": locked, "on": on, "line": line,
+            "last_at": st["last"].get("at", ""), "last_made": st["last"].get("made", 0), "error": st["error"]}
+
+
+def set_auto(board_dir, on):
+    """The Settings switch. Turning it on checks the whole setup first (lock, both keys, config, SID and token present) and clears an old
+    error; turning it off just stops it. Returns status(). Raises BoardError with the reasons (they name variables, never values)."""
+    on = bool(on)
+    ok, why = allowed(board_dir)
+    if not ok:
+        raise BoardError(why + "; the timer will not start")
+    if on:
+        _, problems = settings(board_dir)
+        if problems:
+            raise BoardError("the timer will not start:\n  - " + "\n  - ".join(problems))
+    with _LOCK:
+        st = _read_state(board_dir)
+        st["auto"] = on
+        if on:
+            st["error"] = ""
+        _write_state(board_dir, st)
+    return status(board_dir)
+
+
+def tick(store, http=None, now=None):
+    """One beat of the timer, called by the server about every EVERY_S seconds. Returns None when there was nothing to do (off, locked,
+    or a pull already running), else the pull's result dict, or the BoardError that stopped the timer (already recorded in the state)."""
+    if not allowed(store.dir)[0]:
+        return None   # a lock set, or a key taken away, after the server started still wins: no call, no change of the switch
+    if not _read_state(store.dir)["auto"]:
+        return None
+    if not _TICKING.acquire(blocking=False):
+        return None
+    try:
+        try:
+            res = pull(store, http=http, now=now)
+        except BoardError as e:
+            with _LOCK:   # stop: the switch goes off and the reason is kept for the chip; nothing retries by itself
+                st = _read_state(store.dir)
+                st["auto"], st["error"] = False, re.sub(r"\s*\n\s*-?\s*", "; ", str(e)).strip("; ")[:300]
+                _write_state(store.dir, st)
+            return e
+        with _LOCK:
+            st = _read_state(store.dir)
+            st["last"] = {"at": (now or datetime.now(timezone.utc)).isoformat(), "made": len(res["created"])}
+            st["error"] = ""
+            _write_state(store.dir, st)
+        return res
+    finally:
+        _TICKING.release()

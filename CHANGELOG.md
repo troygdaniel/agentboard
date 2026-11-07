@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### The board can pull your texts once a minute (Nov 7)
+- **Settings › Texts › Pull my texts every minute**: while on, `agentboard serve` runs `pull-texts` by itself about every 60 seconds, so a text from your phone is a Todo card (From a text chip) within a minute. OFF until you switch it on; one switch for every browser, kept server side in `texts-state.json`, so it holds across restarts and with the tab closed. The Pull texts button still works by hand.
+- **A header chip** ("Texts 2m ago", a green dot) while it runs; press it to open Settings. Under 600px only the dot shows.
+- **Any error stops it**: a refused sign-in, no network, a 4xx/5xx, a variable gone from the server's shell. The switch goes off, Settings says why in one line (variable names, never values), the chip turns amber. No retry loop, no popup, no sound; switch it on again to retry.
+- **Same rules as a hand pull**: your own number only, one card per text ever (a restart, a flip or the button never makes a twin), at most 20 cards a pull, no other Twilio call, nothing texted back. A timed pull makes no toast: the new cards are the news.
+- **Two keys for anything texts.** New: the machine must say `AGENTBOARD_TEXTS=1` (in the shell that runs agentboard) as well as the board's `[texts] enabled = true`. Without it there is no `pull-texts`, no button, no switch, no chip, no timer thread and no call: a work laptop that never exports it cannot be switched on from the board. `AGENTBOARD_NO_SMS=1` still beats both, and all of it is checked on every beat through one function (`texts.allowed`). **If you already pull texts, add `export AGENTBOARD_TEXTS=1` next to your Twilio variables.**
+
 ### The card panel has tabs: Summary, Conversation, Terminal (Nov 6)
 - **Every tab of a held card wears the compact head** the side panel had (avatar, agent name, its state and last update, the card it is on), not the card's title block, so the content gets the room. The title form still takes its place while you edit the title (`e`); a subtask or an unheld card keeps the title block.
 - **Three tabs under the open card's title**, for a card an agent holds: **Summary** is the card as before; **Conversation** is that agent's thread (your exchange since its current card) with a composer; **Terminal** is its session. One click, or `t` to cycle (on the `?` list). The agent pill still works, as a shortcut to Conversation.
