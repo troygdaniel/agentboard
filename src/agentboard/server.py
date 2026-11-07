@@ -395,9 +395,12 @@ def serve(store, port=8765, open_browser=True):
     threading.Thread(target=_backups, daemon=True).start()
 
     def _autopilot():   # [chat] autopilot / casual: the board's own rounds on the cheaper model, when switched on
-        from . import agentchat, hud, runs
+        from . import agentchat, hud, lockdown, runs
         tick, last_auto = 20.0, 0.0
         while True:
+            if lockdown.locked("claude"):   # AGENTBOARD_LOCKDOWN: the rounds do not run at all, and say nothing about it
+                time.sleep(tick)
+                continue
             try:
                 conf = promptlib.load_config(store.dir)
                 chat = conf.get("chat", {}) if isinstance(conf.get("chat"), dict) else {}

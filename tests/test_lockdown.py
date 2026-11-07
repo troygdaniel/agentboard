@@ -1,5 +1,7 @@
 """The master lock (AGENTBOARD_LOCKDOWN): fail closed, read on every call, generic."""
 import os
+import subprocess
+import sys
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -55,6 +57,13 @@ class LockdownTests(unittest.TestCase):
         src = Path(lockdown.__file__).read_text().lower()
         for word in ("twilio", "sms", "pull-texts", "texts"):
             self.assertNotIn(word, src)
+
+    def test_every_module_that_uses_it_imports_on_its_own(self):
+        """store imports backup, backup imports lockdown, lockdown raises store's BoardError: no module may need another loaded first."""
+        src = str(Path(lockdown.__file__).resolve().parents[1])
+        for mod in ("lockdown", "store", "backup", "providers", "voice", "runs", "agentchat", "reports", "cli", "server"):
+            r = subprocess.run([sys.executable, "-c", f"import agentboard.{mod}"], capture_output=True, text=True, env={**os.environ, "PYTHONPATH": src})
+            self.assertEqual(r.returncode, 0, f"import agentboard.{mod} on its own: {r.stderr.strip()[-300:]}")
 
 
 if __name__ == "__main__":

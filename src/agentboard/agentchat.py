@@ -12,7 +12,7 @@ import re
 import subprocess
 from datetime import datetime, timedelta
 
-from . import untrusted
+from . import lockdown, untrusted
 from .store import CHAT_TOPICS, BoardError
 
 PROTOCOL = """\
@@ -217,6 +217,7 @@ def casual_eligible(m):
 
 
 def casual_line(claude, model, budget, m):
+    lockdown.refuse("claude")   # AGENTBOARD_LOCKDOWN: no claude -p from the board on this machine
     to = f" to {m['to']}" if m.get("to") else ""
     text = m["text"] + ((" " + m["detail"].splitlines()[0]) if m.get("detail") and len(m["text"]) < 60 else "")
     argv = [claude, "-p", "--output-format", "json", "--model", str(model), "--max-budget-usd", f"{budget:g}"]
@@ -552,6 +553,7 @@ def draft_share(store, name, claude, model=None, budget=None, recent_chat=12, mi
 
 
 def _ask_model(claude, model, budget, prompt):
+    lockdown.refuse("claude")   # AGENTBOARD_LOCKDOWN: no claude -p from the board on this machine
     argv = [claude, "-p", "--output-format", "json", "--model", str(model), "--max-budget-usd", f"{budget:g}"]
     try:
         p = subprocess.run(argv, input=prompt, capture_output=True, text=True, timeout=IDLE_TIMEOUT_S)

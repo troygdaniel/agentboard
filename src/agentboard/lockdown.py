@@ -17,8 +17,6 @@ Rules (the same as every other hard-off variable on this board):
 """
 import os
 
-from .store import BoardError
-
 ENV = "AGENTBOARD_LOCKDOWN"
 _OFF = ("", "0", "false", "no")
 
@@ -31,4 +29,5 @@ def locked(feature=None):
 def refuse(feature):
     """Raise BoardError saying `feature` is locked off, when it is; do nothing when it is not."""
     if locked(feature):
+        from .store import BoardError   # imported here, not at the top: store imports backup, and backup imports this module
         raise BoardError(f"{feature} is locked off on this machine (${ENV} is set); unset it to allow it")

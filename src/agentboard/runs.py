@@ -19,6 +19,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 
+from . import lockdown
 from . import prompt as promptlib
 from .store import BoardError
 
@@ -228,6 +229,7 @@ def check_startable(store, card_id, name, force=False):
 
 def run_card(store, card_id, *, name=None, color=None, cwd=None, budget=None, minutes=None, force=False, log=print):
     """Run one card to the end in the foreground. Returns the final run record."""
+    lockdown.refuse("run")   # AGENTBOARD_LOCKDOWN: no unattended claude -p on this machine
     conf = run_conf(store.dir)
     name = name or os.environ.get("AGENTBOARD_NAME") or "oneshot"
     budget = float(budget if budget is not None else conf.get("budget_usd", DEFAULT_BUDGET_USD))
@@ -383,6 +385,7 @@ def list_lines(board_dir):
 
 def detach(argv_tail, board_dir, card_id):
     """Start `agentboard run ...` (without --detach) in its own session and return at once (what ORCH uses)."""
+    lockdown.refuse("run")
     base = runs_dir(board_dir) / card_id
     base.mkdir(parents=True, exist_ok=True)
     out = open(base / "supervisor.log", "ab")
