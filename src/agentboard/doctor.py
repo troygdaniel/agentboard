@@ -17,6 +17,7 @@ from pathlib import Path
 
 from . import __version__, lockdown
 from . import prompt as promptlib
+from . import providers
 from .store import BoardError
 
 PASS, WARN, FAIL, INFO = "PASS", "WARN", "FAIL", "INFO"
@@ -345,7 +346,25 @@ def check_hooks(project):
     return out
 
 
-def check_config(board_dir):
+def config_reads(conf, board_dir):
+    """[(label, file name, inside the project?)] for each file config.toml has read into card prompts: markdown and file-tail providers
+    and [prompt] template_file. Only file names, never the folder."""
+    out = []
+    provs = conf.get("providers") if isinstance(conf.get("providers"), dict) else {}
+    for name, p in provs.items():
+        if isinstance(p, dict) and p.get("type") in ("markdown", "file-tail") and isinstance(p.get("path"), str):
+            f = Path(p["path"]).expanduser()
+            f = f if f.is_absolute() else Path(board_dir).parent / f
+            out.append((f"providers.{name}", f.name[:60], providers.inside_project(f, board_dir)))
+    pr = conf.get("prompt") if isinstance(conf.get("prompt"), dict) else {}
+    if isinstance(pr.get("template_file"), str) and pr["template_file"].strip():
+        f = (Path(board_dir) / pr["template_file"]).expanduser()
+        out.append(("prompt.template_file", f.name[:60], providers.inside_project(f, board_dir)))
+    return out
+
+
+def check_config(board_dir, locked=None):
+    locked = lockdown.locked() if locked is None else locked
     try:
         conf = promptlib.load_config(board_dir)
     except BoardError as e:
@@ -369,10 +388,21 @@ def check_config(board_dir):
     out = []
     if not switches:
         out.append(_res(PASS, "config", "no switch in config.toml starts a program or sends data out"))
-    elif lockdown.locked():
+    elif locked:
         out.append(_res(PASS, "config", f"{len(switches)} switch(es) in config.toml would start a program or send data out, but {lockdown.ENV} is on: " + "; ".join(switches)))
     else:
         out.append(_res(WARN, "config", f"{len(switches)} switch(es) in config.toml start a program or send data out: " + "; ".join(switches) + f" ({lockdown.ENV} would stop them)"))
+    reads = config_reads(conf, board_dir)
+    if reads:
+        outside = [r for r in reads if not r[2]]
+        listing = lambda rs: "; ".join(f"{label} ({name})" for label, name, _inside in rs)
+        if not outside:
+            out.append(_res(INFO, "config reads", f"config.toml reads {len(reads)} file(s) into card prompts, all inside the project folder: {listing(reads)}"))
+        elif locked:
+            out.append(_res(PASS, "config reads", f"{len(outside)} file(s) named in config.toml are outside the project folder and would be refused ({lockdown.ENV} is on): {listing(outside)}"))
+        else:
+            out.append(_res(WARN, "config reads", f"config.toml reads {len(outside)} file(s) OUTSIDE the project folder into card prompts: {listing(outside)}; "
+                                                f"with {lockdown.ENV} set they are refused"))
     if other:
         out.append(_res(INFO, "config", "other sections, not checked here: " + ", ".join(other)))
     return out
