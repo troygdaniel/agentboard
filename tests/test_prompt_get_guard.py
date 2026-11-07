@@ -47,6 +47,15 @@ class PromptGetGuardTests(unittest.TestCase):
                 self.assertIn(b"bad origin", raw)
         self.assertFalse(self.mark.exists(), "a provider ran for a cross-site request")
 
+    def test_a_foreign_origin_without_sec_fetch_site_is_refused_too(self):
+        # an older browser (Safari before 16.4) sends Origin on a cross-site fetch but no Sec-Fetch-Site: still refused, nothing runs
+        for origin in ("http://evil.com", "null", f"http://localhost:{self.port}.evil.com"):
+            for path in (f"/api/prompt?id={self.card}", "/api/orch-prompt"):
+                self.assertEqual(self.get(path, {"Origin": origin})[0], 403, (origin, path))
+        self.assertFalse(self.mark.exists())
+        self.assertEqual(self.get(f"/api/prompt?id={self.card}", {"Origin": f"http://localhost:{self.port}"})[0], 200)   # the page's own origin
+        self.assertTrue(self.mark.exists())
+
     def test_the_page_itself_still_gets_the_prompt_and_the_provider_runs(self):
         code, raw = self.get(f"/api/prompt?id={self.card}", {"Sec-Fetch-Site": "same-origin"})
         self.assertEqual(code, 200)

@@ -160,7 +160,10 @@ def make_handler(default_store, port):
             """A browser's Sec-Fetch-Site, when present, must be same-origin (the page itself) or none (a typed address). A client that
             sends none (curl, the CLI, the tests) passes: the header is a browser's word about where a request came from, not a secret."""
             site = (self.headers.get("Sec-Fetch-Site") or "").strip().lower()
-            return site in ("", "same-origin", "none")
+            if site not in ("", "same-origin", "none"):
+                return False
+            origin = self.headers.get("Origin")   # an older browser says only this much; a foreign one is refused all the same
+            return not origin or origin.split("://", 1)[-1] in allowed_hosts
 
         def _bind(self, url):
             """Pick the board for this request. `/b/<name>/...` is a registered board; everything else is the default board
