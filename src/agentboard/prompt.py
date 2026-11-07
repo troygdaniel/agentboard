@@ -6,7 +6,7 @@ import sys
 import tomllib
 from pathlib import Path
 
-from . import providers
+from . import lockdown, providers
 from .untrusted import is_text_card, marked, text_lines as _text_lines
 from .store import DEFAULT_OWNER, BoardError, owner_name
 
@@ -322,7 +322,10 @@ def build_prompt(task, board_dir, public=False, tasks=None):
         template = _HEAD + _PARENT_MID + _ASK
     if ptconf.get("template_file"):
         try:
-            template = (Path(board_dir) / ptconf["template_file"]).expanduser().read_text()
+            tfile = (Path(board_dir) / ptconf["template_file"]).expanduser()
+            if lockdown.locked("prompt") and not providers.inside_project(tfile, board_dir):
+                raise BoardError(f"prompt template_file {tfile.name}: outside the project folder, and this machine is locked down (AGENTBOARD_LOCKDOWN is set)")
+            template = tfile.read_text()
         except OSError as e:
             raise BoardError(f"prompt template_file: {e}") from e
     elif ptconf.get("template"):

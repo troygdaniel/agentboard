@@ -17,6 +17,7 @@ from pathlib import Path
 
 from . import __version__, lockdown
 from . import prompt as promptlib
+from . import plugins, providers, serverstate
 from .store import BoardError
 
 PASS, WARN, FAIL, INFO = "PASS", "WARN", "FAIL", "INFO"
@@ -78,6 +79,11 @@ def _host(name):
     return name.rsplit(":", 1)[0].strip("[]")
 
 
+def _env_on(env, name):
+    """Is a hard-off variable on in this environment: anything but unset, "", 0, false or no (the rule every lock here uses)."""
+    return env.get(name, "").strip().lower() not in _OFF
+
+
 def _short(path):
     p = str(path)
     home = str(Path.home())
@@ -124,13 +130,33 @@ def check_locks(env):
         return env.get(name, "").strip().lower() not in _OFF
     out = []
     if on(lockdown.ENV):
-        out.append(_res(PASS, "lock", f"{lockdown.ENV} is on: chat rounds, one-shot runs, command and http providers, the backup copy, voice and spawn are refused"))
+        out.append(_res(PASS, "lock", f"{lockdown.ENV} is on in this shell: chat rounds, one-shot runs, command and http providers, the backup copy, voice and spawn are refused"))
     else:
-        out.append(_res(WARN, "lock", f"{lockdown.ENV} is not set; on a work laptop set it to 1 (it stops everything that starts a program or sends data out)"))
+        out.append(_res(WARN, "lock", f"{lockdown.ENV} is not set in this shell; on a work laptop set it to 1 (it stops everything that starts a program or sends data out)"))
     others = [f"{n} {'on' if on(n) else 'off'}" for n in names if n != lockdown.ENV]
     if others:
         out.append(_res(INFO, "lock", "narrow locks: " + ", ".join(others)))
     return out
+
+
+def check_plugins():
+    """Is any plugin code allowed to run here, and which packages could run? Reads the gate (plugins.disabled_reason) and the entry-point
+    NAMES from package metadata: nothing is imported, loaded or run, so this is safe to run on a locked machine."""
+    from importlib.metadata import entry_points
+    try:
+        eps = sorted({(ep.name, str(ep.value).split(":")[0]) for ep in entry_points(group=plugins.GROUP)})
+    except Exception:   # noqa: BLE001  (odd package metadata is "could not list", never a crash)
+        eps = None
+    named = ", ".join(f"{n} ({m})" for n, m in eps) if eps else ""
+    why = plugins.disabled_reason()
+    if why is None:
+        if eps is None:
+            return [_res(WARN, "plugins", "plugins are ON (the key is set, no lock) but the installed ones could not be listed")]
+        if not eps:
+            return [_res(INFO, "plugins", f"plugins are allowed (${plugins.ENV}=1, no lock) but none are installed")]
+        return [_res(WARN, "plugins", f"plugins are ON (${plugins.ENV}=1, no lock): code from {named} runs inside agentboard, with the same access as the board")]
+    tail = f"; installed but not loaded: {named}" if eps else ("; none are installed" if eps == [] else "")
+    return [_res(PASS, "plugins", f"plugins are {why}: nothing is looked up, imported or run{tail}")]
 
 
 def _board_pids(runner):
@@ -155,8 +181,8 @@ def _lsof(runner, pids, extra):
     return text.splitlines() if text is not None else None
 
 
-def check_listeners(runner):
-    pids = _board_pids(runner)
+def check_listeners(runner, pids=None):
+    pids = _board_pids(runner) if pids is None else pids
     if pids is None:
         return [_res(INFO, "listeners", "could not list processes (ps), so running servers were not checked")]
     if not pids:
@@ -184,6 +210,34 @@ def check_listeners(runner):
     else:
         out.append(_res(PASS, "connections", "no open connection to another machine"))
     return out
+
+
+def check_servers(board_dir, pids, shell_locked):
+    """(results, locked): what each RUNNING server on this board says it was started with (server-<pid>.json, see serverstate.py) against
+    this shell. `locked` is True only when this shell has the lock AND every server that recorded its state does too, so a later PASS never
+    rests on the doctor's own environment alone."""
+    if not pids:
+        return [], shell_locked
+    states = {pid: serverstate.read(board_dir, int(pid)) for pid in pids}
+    known = {pid: s for pid, s in states.items() if s}
+    if not known:
+        return [_res(INFO, "server", f"{len(pids)} agentboard server(s) running but none recorded how it was started for this board "
+                                     f"(an older build, or another board): restart the board's server to have its lock state checked")], shell_locked
+    out, locked = [], shell_locked
+    for pid, s in sorted(known.items(), key=lambda kv: int(kv[0])):
+        who = f"server pid {pid}" + (f" (port {s['port']})" if s["port"] else "")
+        plugins_on = s["plugins_open"]
+        extra = f"; plugins ON: {', '.join(s['plugins_loaded']) or 'allowed'}" if plugins_on else ""
+        if s["lockdown"] and not plugins_on:
+            out.append(_res(PASS, "server", f"{who} was started with {lockdown.ENV} on and plugins closed"))
+        elif shell_locked and not s["lockdown"]:
+            out.append(_res(WARN, "server", f"{who} was started WITHOUT {lockdown.ENV} although this shell has it on{extra}; restart it from a shell that has it"))
+        elif plugins_on:
+            out.append(_res(WARN, "server", f"{who} was started with plugins ON ({', '.join(s['plugins_loaded']) or 'allowed'}){'' if s['lockdown'] else f'; {lockdown.ENV} is off'}"))
+        else:
+            out.append(_res(INFO, "server", f"{who} was started without {lockdown.ENV}; plugins closed"))
+        locked = locked and s["lockdown"]
+    return out, locked
 
 
 def check_files(board_dir):
@@ -345,7 +399,25 @@ def check_hooks(project):
     return out
 
 
-def check_config(board_dir):
+def config_reads(conf, board_dir):
+    """[(label, file name, inside the project?)] for each file config.toml has read into card prompts: markdown and file-tail providers
+    and [prompt] template_file. Only file names, never the folder."""
+    out = []
+    provs = conf.get("providers") if isinstance(conf.get("providers"), dict) else {}
+    for name, p in provs.items():
+        if isinstance(p, dict) and p.get("type") in ("markdown", "file-tail") and isinstance(p.get("path"), str):
+            f = Path(p["path"]).expanduser()
+            f = f if f.is_absolute() else Path(board_dir).parent / f
+            out.append((f"providers.{name}", f.name[:60], providers.inside_project(f, board_dir)))
+    pr = conf.get("prompt") if isinstance(conf.get("prompt"), dict) else {}
+    if isinstance(pr.get("template_file"), str) and pr["template_file"].strip():
+        f = (Path(board_dir) / pr["template_file"]).expanduser()
+        out.append(("prompt.template_file", f.name[:60], providers.inside_project(f, board_dir)))
+    return out
+
+
+def check_config(board_dir, locked=None):
+    locked = lockdown.locked() if locked is None else locked
     try:
         conf = promptlib.load_config(board_dir)
     except BoardError as e:
@@ -369,10 +441,21 @@ def check_config(board_dir):
     out = []
     if not switches:
         out.append(_res(PASS, "config", "no switch in config.toml starts a program or sends data out"))
-    elif lockdown.locked():
+    elif locked:
         out.append(_res(PASS, "config", f"{len(switches)} switch(es) in config.toml would start a program or send data out, but {lockdown.ENV} is on: " + "; ".join(switches)))
     else:
         out.append(_res(WARN, "config", f"{len(switches)} switch(es) in config.toml start a program or send data out: " + "; ".join(switches) + f" ({lockdown.ENV} would stop them)"))
+    reads = config_reads(conf, board_dir)
+    if reads:
+        outside = [r for r in reads if not r[2]]
+        listing = lambda rs: "; ".join(f"{label} ({name})" for label, name, _inside in rs)
+        if not outside:
+            out.append(_res(INFO, "config reads", f"config.toml reads {len(reads)} file(s) into card prompts, all inside the project folder: {listing(reads)}"))
+        elif locked:
+            out.append(_res(PASS, "config reads", f"{len(outside)} file(s) named in config.toml are outside the project folder and would be refused ({lockdown.ENV} is on): {listing(outside)}"))
+        else:
+            out.append(_res(WARN, "config reads", f"config.toml reads {len(outside)} file(s) OUTSIDE the project folder into card prompts: {listing(outside)}; "
+                                                f"with {lockdown.ENV} set they are refused"))
     if other:
         out.append(_res(INFO, "config", "other sections, not checked here: " + ", ".join(other)))
     return out
@@ -438,8 +521,12 @@ def run(board_dir, project=None, env=None, runner=subprocess.run):
     results += check_version(runner)
     results += check_install()
     results += check_locks(env)
-    results += check_listeners(runner)
-    results += check_config(board_dir)
+    results += check_plugins()
+    pids = _board_pids(runner)
+    results += check_listeners(runner, pids)
+    server_lines, locked = check_servers(board_dir, pids or [], _env_on(env, lockdown.ENV))
+    results += server_lines
+    results += check_config(board_dir, locked=locked)
     results += check_knowledge(board_dir)
     results += check_files(board_dir)
     results += check_git(project, board_dir, runner)

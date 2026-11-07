@@ -1,4 +1,5 @@
 """Local HTTP server: serves the board UI and a small JSON API. Localhost only."""
+import atexit
 import json
 import re
 import secrets
@@ -12,7 +13,7 @@ from urllib.parse import parse_qs, urlparse
 from . import boards, hud, private
 from . import hooks as hookslib
 from . import transcript as transcriptlib
-from . import plugins, reports, runs, summary, voice
+from . import plugins, reports, runs, serverstate, summary, voice
 from . import markdown as mdlib
 from . import prompt as promptlib
 from .store import BoardError, Store, subtask_counts, subtask_list
@@ -489,6 +490,8 @@ def serve(store, port=8765, open_browser=True):
     if loaded:
         print("  plugins: " + ", ".join(loaded))
         plugins.start_threads(store)
+    serverstate.write(store.dir, port, loaded)   # what this server was started with (lock, plugins), for agentboard doctor; never raises
+    atexit.register(serverstate.remove, store.dir)
     try:
         srv.serve_forever()
     except KeyboardInterrupt:

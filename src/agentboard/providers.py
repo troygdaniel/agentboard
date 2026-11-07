@@ -48,10 +48,24 @@ def run_provider(name, arg, conf, task, base_dir):
     return text
 
 
+def inside_project(path, base_dir):
+    """Does `path` (symlinks followed) sit inside the project folder, the one holding .agentboard? A link inside the project that points
+    outside is outside."""
+    try:
+        root = Path(base_dir).resolve().parent
+        p = Path(path).resolve()
+    except (OSError, RuntimeError):
+        return False
+    return p == root or root in p.parents
+
+
 def _path(conf, base_dir):
     p = Path(conf["path"]).expanduser()
     # relative paths resolve against the project root (parent of .agentboard/)
-    return p if p.is_absolute() else (Path(base_dir).parent / p)
+    p = p if p.is_absolute() else (Path(base_dir).parent / p)
+    if lockdown.locked("providers") and not inside_project(p, base_dir):   # a copied config.toml must not pull any readable file into a prompt
+        raise ProviderError(f"{p.name}: outside the project folder, and this machine is locked down (AGENTBOARD_LOCKDOWN is set)")
+    return p
 
 
 def markdown(arg, conf, task, base_dir):
