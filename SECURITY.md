@@ -16,7 +16,7 @@ with none). **`AGENTBOARD_LOCKDOWN=1` refuses all of them at once** (see "The ma
 install time.
 
 **Not covered:** the board has no login. Any program running as the same user, or a browser extension, can reach the local port;
-websites cannot. A fix exists and is held for the owner's decision (see "Known gaps"). Texting features are not in this tree at all.
+websites cannot. A fix was written and the owner decided not to merge it (see "Known gaps"). Texting features are not in this tree at all.
 
 ## What was checked, and how
 
@@ -100,9 +100,9 @@ add a source; with plugins off or locked there are none. Core code never opens a
 ## Known gaps
 
 - **No login on the local port.** Any program running as the same user, or a browser extension, can read and change every card through `127.0.0.1:8765`;
-  websites cannot (Host, Origin, `Sec-Fetch-Site` and content-type checks, and a Content-Security-Policy). A key-cookie lock exists (`sec-local-token`, branch
-  `sec-web`) and is held for the owner's decision because it changes how the board is opened (`agentboard open` once per browser; `serve --no-token` turns it off).
-  Until it is merged, treat the board as readable by everything that runs as you.
+  websites cannot (Host, Origin, `Sec-Fetch-Site` and content-type checks, and a Content-Security-Policy). A key-cookie lock was written (`sec-local-token`, branch
+  `sec-web`) and the owner decided not to merge it, because it changes how the board is opened (`agentboard open` once per browser; `serve --no-token` turns it off).
+  The branch is parked, not deleted. Treat the board as readable by everything that runs as you.
 - **A plugin is trusted code.** It can do whatever its code does. Install none on a work machine; the master lock refuses them.
 - **Text you do not control becomes card text** when an agent copies web or email content into the board. It is escaped in the page, masked for secrets and framed as
   quoted data in prompts, but it is untrusted: do not point agents that read email or web pages at a board on a work machine.

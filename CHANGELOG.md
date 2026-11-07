@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### The audit page and SECURITY.md say what was decided (Nov 7)
+- The login fix (`sec-local-token`) is no longer "held": the owner decided not to merge it, so the board has no login and the docs now say that plainly (the branch is parked, not deleted). The page also stops listing the two secret-masking cards as open; both are done. Documentation only.
+
 ### The masker no longer erases ordinary words (Nov 7)
 - Masking happens on the way in, so what it removes is gone for good. `Authorization: Bearer|Basic|Token` masked any word of 10+ characters after it (`unauthorised-deletion` vanished from a review): it now masks only values that look generated (a letter and a digit, base64 padding, or a long mixed-case token). The `sk-` shape erased the tail of kebab-case words (`task-queue-implementation-notes` became `ta[redacted api-key]`, likewise `risk-`, `disk-`, `ask-`): what follows `sk-` must now look like a key. A `-----BEGIN … PRIVATE KEY-----` with no end line used to swallow the rest of the text: it now takes the block's base64 lines and stops where the prose starts (a whole block, even an encrypted one, still goes to its end line). A hex string after `monkey:` is no longer read as after `key:`.
 - A key glued to other letters (`xAKIA…`) is still masked: no boundary rule is an escape hatch.
@@ -27,7 +30,7 @@
 - **`agentboard doctor` has a plugins line**: PASS when no plugin can load (and which are installed), WARN naming the code that runs when `AGENTBOARD_PLUGINS=1`. Nothing is loaded to find out.
 
 ### The Nov 7 security audit: verdict, work-laptop checklist, SECURITY.md (Nov 7)
-- **`docs/security-audit-2026-11-07.md`** is the one-page verdict of the five overnight audits (network, install, the page and API, data and secrets, a red-team re-check): safe to run on a managed work laptop with `AGENTBOARD_LOCKDOWN=1` set, what is still open (the board has no login; the key-cookie lock is held for the owner's decision), what was re-checked by hand and what was not, and a checklist of what to install, set, check and not enable.
+- **`docs/security-audit-2026-11-07.md`** is the one-page verdict of the five overnight audits (network, install, the page and API, data and secrets, a red-team re-check): safe to run on a managed work laptop with `AGENTBOARD_LOCKDOWN=1` set, what is still open (the board has no login; the owner decided not to merge the key-cookie lock), what was re-checked by hand and what was not, and a checklist of what to install, set, check and not enable.
 - **`SECURITY.md`** now says what the master lock refuses, how to check a machine (`agentboard doctor` and the one-line commands), the known gaps, and what changed since Oct 24; the README's "On a work laptop" section matches.
 
 ### Doctor: calmer about an empty folder, and it spots a stale install (Nov 7)

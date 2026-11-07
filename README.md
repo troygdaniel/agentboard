@@ -529,8 +529,8 @@ What to expect when you clone this onto a managed machine (the full audit and ch
 4. **Check it:** `agentboard doctor` prints PASS / WARN / FAIL lines you can paste into a review (want 0 FAIL, 0 WARN with the lock set). `agentboard plugins` says
    plugins are locked; `lsof -nP -a -p $(pgrep -f "agentboard serve" | head -1) -i` shows one line, `127.0.0.1:8765 (LISTEN)`.
 5. **Run it:** `cd <your repo> && agentboard init && agentboard serve --no-open`, then open `http://localhost:8765` yourself. The server listens on `127.0.0.1` only.
-   **There is no login:** any program running as the same user can reach the port (websites cannot). It is for one person per machine; a key-cookie lock is available
-   for the owner to switch on (see `SECURITY.md`, "Known gaps").
+   **There is no login:** any program running as the same user can reach the port (websites cannot). It is for one person per machine; an optional key-cookie lock was
+   written but is not part of this release (see `SECURITY.md`, "Known gaps").
 6. **No personal data in the repo:** the repository is code, docs and screenshots of demo boards. Your task data lives in `<your repo>/.agentboard/` (mode 700, files 600),
    which `init` git-ignores. If your repo is shared, keep it that way, and run `python3 tests/publiccheck.py` before any push.
 7. **Updating:** `git pull`, review, `rm -rf build && pipx install . --force`, then restart `agentboard serve`. (Remove `build/` first: otherwise a module deleted from the source can come back into the installed copy; `agentboard doctor` warns if it did.)
