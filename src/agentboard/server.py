@@ -130,7 +130,14 @@ def make_handler(default_store, port):
                 if origin and origin.split("://", 1)[-1] not in allowed_hosts:
                     self._send(403, {"error": "bad origin"})
                     return False
-                if "application/json" not in (self.headers.get("Content-Type") or ""):
+                site = (self.headers.get("Sec-Fetch-Site") or "").strip().lower()
+                if site and site not in ("same-origin", "none"):   # a browser says where a request came from; another site's page is refused outright
+                    self._send(403, {"error": "bad origin"})
+                    return False
+                # the media type itself, not a substring: "text/plain;charset=application/json" is a CORS-simple type a hostile page can
+                # send without a preflight, so only an exact application/json (parameters allowed) counts
+                media = (self.headers.get("Content-Type") or "").split(";", 1)[0].strip().lower()
+                if media != "application/json":
                     self._send(415, {"error": "json required"})
                     return False
             return True
