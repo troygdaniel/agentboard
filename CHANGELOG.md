@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Invisible characters no longer hide a key from the masker (Nov 7)
+- `sk-` + a zero-width space + the key, or `Authorization:` + a zero-width space + ` Bearer …`, passed through unmasked (as did a bidi override or a soft hyphen inside a pasted key). The masker now matches on a copy without control, format, private-use and filler characters and masks the original by the matched span, so only secrets change: a ZWJ in an emoji, a ZWNJ in Persian or a soft hyphen in ordinary text is stored exactly as written. A text with thousands of invisible characters is cleaned of them instead of mapped (it is not prose).
+
 ### `agentboard start` masks secrets too (Nov 7)
 - `start`, the way every agent begins a card, skipped the masker: a key in its title or description was stored whole, and because a card id is a slug of the title the lower-cased key also landed in the id, in report file names and in lookups. The title, description (now capped like `add`) and agent name are masked before the id is made.
 - Found by the same sweep: a chat message's `propose` text, its `files` and its sender, the SendMessage mirror (which cut the first line to 300 characters before masking and could leave half a key), and the history lines that quote an older card's title ("Title changed from …", "Blocked by …").
