@@ -7,6 +7,9 @@
 - **Cards made from a text keep their guard**: such a card (its `source` says `text`) still reaches an agent as quoted words, never as instructions, in prompts, `list`, `recall` and `report`.
 - Earlier commits on GitHub still contain the removed code; history was not rewritten.
 
+### The version string (Nov 7)
+- `agentboard --version` (and `agentboard doctor`) said 0.3.0 while the package was 0.3.1: `__init__.py` was not bumped with `pyproject.toml`. They agree now, and `tests/test_version.py` fails if `pyproject.toml`, `__init__.py` or the README's `--version` line drift apart again.
+
 ### Board files are private (Nov 7)
 - Only `tasks.json`, its `.bak` and the snapshots were mode 0600; reports (every review body), `config.toml` (phone numbers), `sessions.json`, the chat files, run logs and the folders were readable by any other account, and a Mac home folder is not private. Now the command line and `serve` run with umask 077, `serve` tightens what is already there, and the daily `sync_dir` copy is private too.
 - Programs the board starts for you (`claude -p` runs, provider commands) and files meant for others (the project's `.gitignore`, `.claude/settings.json`, `summary --html`) keep your umask. `AGENTBOARD_UMASK=022` turns it off for a shared folder.

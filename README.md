@@ -27,7 +27,7 @@ Requirements: **Python 3.11 or newer**, and [pipx](https://pipx.pypa.io) (`brew 
     pipx install git+https://github.com/troygdaniel/agentboard     # from GitHub
     # or, from a checkout:
     git clone https://github.com/troygdaniel/agentboard && cd agentboard && pipx install .
-    agentboard --version                                           # prints: 0.3.0
+    agentboard --version                                           # prints: 0.3.1
 
 No pipx? From inside a checkout, with `python3` being 3.11+ (`python3 --version`):
 
