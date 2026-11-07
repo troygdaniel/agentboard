@@ -53,7 +53,7 @@ class Masks(unittest.TestCase):
             (f"token: {HEX40}", "token: [redacted hex]"),
             (f"the secret {HEX32}", "the secret [redacted hex]"),
             (f"before\n{PEM}\nafter", "before\n[redacted private-key]\nafter"),
-            ("a cut-off key\n-----BEGIN " + "PRIVATE KEY-----\nMIIBabc", "a cut-off key\n[redacted private-key]"),
+            ("a cut-off key\n-----BEGIN " + "PRIVATE KEY-----\nMIIBOgIBAAJBAKj34GkxFhD90vcNLYLInFEX6Ppy1tPf9Cnz", "a cut-off key\n[redacted private-key]"),
         ]
         for text, want in cases:
             self.assertEqual(redact.scrub(text), want, text[:50])

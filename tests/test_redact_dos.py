@@ -24,6 +24,7 @@ UNITS = {
     "sk_live_": "sk_live_", "AIza": "AIza", "AIza+34": "AIza" + "a" * 34, "hooks": "hooks.slack.com/services/TA/BA/", "npm_": "npm_", "SG.": "SG.", "SG.a.": "SG." + "a" * 20 + ".",
     "://": "://", "://a:": "://a:", "://a:b": "://a:b", "Bearer+19": "Bearer " + "a" * 19, "key=+19": "key=" + "a" * 19, "whsec_": "whsec_", "credentials=": "credentials=",
     "aws secret": "aws_secret_access_key  =  ",
+    "BEGIN+text": BEGIN + " " + "w" * 9000 + " ", "END": END + " ", "BEGIN BEGIN": BEGIN + " " + BEGIN + " ", "auth token": "Authorization: Token ", "auth + 9 chars": "Authorization: Bearer " + "a" * 9 + " ",
     "secret + spaces": "secret   ", "space": " ", "quote": 'password="', "api_key": "api_key ", "Bearer": "Bearer ", "dash": "-", "x-": "x-", "digit": "1", "dots": ".", "newline": "\n",
 }
 

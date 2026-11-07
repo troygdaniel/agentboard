@@ -71,6 +71,15 @@ class AndLeavesTheHarmlessAlone(unittest.TestCase):
                      "AKIA" + "EXAMPLE" + "EXAMPLE12", "token: " + "a" * 40):
             self.assertEqual(kinds(text), set(), text)
 
+    def test_plain_words_that_contain_a_key_prefix_or_follow_an_authorization_header(self):
+        for text in ("the task-queue-implementation-notes card", "risk-assessment-of-the-deployment-plan", "disk-backup-job-with-a-long-name-here", "sk-learn-pipeline-for-the-model-build-2026",
+                     "Authorization: Bearer unauthorised-deletion planned", "Authorization: Basic authentication-scheme-description", "monkey: " + "3f9a1c7e5b2d4f6a" + "8c0e1b3d5f7a9c2e4b6d8f0a"):
+            self.assertEqual(kinds(text), set(), text)
+
+    def test_but_a_generated_looking_value_is_still_flagged(self):
+        for text in ("Authorization: Bearer " + "q3Z7k9M2p5R8t1V4w6Y0a2C4", "Authorization: Basic " + "dXNlcjpwYXNzd29yZA==", "sk" + "-" + "q3Z7k9M2p5R8t1V4w6Y0a2C4e6G8i0K2"):
+            self.assertTrue(kinds(text), text)
+
     def test_fictional_phone_numbers(self):
         for text in ("416-555-0123", "(212) 555 0123", "+1 416 555 0123", "+14165550123", "555-123-4567", "1 212 555 0199", "416-867-5310", "(212) 867-5309"):
             self.assertEqual(kinds(text), set(), text)
