@@ -12,7 +12,9 @@ the page), open a socket, run a program, or follow a path it was not given by a 
 and invisible characters and is quoted data, never instructions; a card made from a text stays marked as one.
 """
 import html
+import os
 import re
+import stat
 from datetime import datetime
 from pathlib import Path
 
@@ -93,15 +95,47 @@ def search_cards(tasks, ws):
     return out
 
 
-def _report_text(path):
+def _open_regular(path):
+    """A descriptor on `path` only if it is a regular file reached without following a final symlink: the check and the read are the same
+    open, so a file swapped for a link between them is refused (O_NOFOLLOW), and a FIFO or device never blocks us (O_NONBLOCK, then fstat).
+    None when it is anything else or cannot be opened."""
+    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0) | getattr(os, "O_CLOEXEC", 0)
     try:
-        if path.is_symlink() or not path.is_file():
-            return ""
-        raw = path.read_bytes()[:MAX_REPORT_BYTES]
+        fd = os.open(str(path), flags)
+    except OSError:   # ELOOP for a symlink, ENOENT, EACCES, …
+        return None
+    try:
+        if not stat.S_ISREG(os.fstat(fd).st_mode):
+            os.close(fd)
+            return None
+    except OSError:
+        os.close(fd)
+        return None
+    return fd
+
+
+def _report_text(path):
+    fd = _open_regular(path)
+    if fd is None:
+        return ""
+    try:
+        with os.fdopen(fd, "rb") as f:
+            raw = f.read(MAX_REPORT_BYTES)
     except OSError:
         return ""
     text = raw.decode("utf-8", "replace")
     return html.unescape(_TAGS.sub(" ", text)) if path.suffix == ".html" else text
+
+
+def _file_date(path):
+    """The day a report or extras file was last written, read through the same kind of descriptor; '' when it is not a regular file."""
+    fd = _open_regular(path)
+    if fd is None:
+        return ""
+    try:
+        return datetime.fromtimestamp(os.fstat(fd).st_mtime).strftime("%Y-%m-%d")
+    finally:
+        os.close(fd)
 
 
 def search_reports(board_dir, tasks, ws):
@@ -111,7 +145,7 @@ def search_reports(board_dir, tasks, ws):
     candidates = [(r["card"], r["at"].strftime("%Y-%m-%d"), d / r["file"]) for r in reports.list_reports(board_dir)]
     for p in (sorted(d.glob("*.md")) if d.is_dir() else []):
         if _EXTRAS.fullmatch(p.name):
-            candidates.append((p.stem, datetime.fromtimestamp(p.stat().st_mtime).strftime("%Y-%m-%d") if p.exists() else "", p))
+            candidates.append((p.stem, _file_date(p), p))
     for card, date, path in candidates:   # newest report first, so on a tie the newest wins
         text = _report_text(path)
         score, _i = score_fields([(1, text)], ws)
