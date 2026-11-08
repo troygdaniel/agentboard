@@ -55,7 +55,7 @@ step.
 ## Test runs
 
 - The kit, quick mode, 01:50: 11 of 11 merged, page script parses after each, every module compiles.
-- Full suite on the finished trial tip, before the sweep and the fixups: 83 failed, 1469 passed (02:10). After the `tomllib` sweep: 6 failed, 1546 passed (02:25). After `_after_all.py`: see the line appended below.
+- Full suite on the finished trial tip, before the sweep and the fixups: 83 failed, 1469 passed (02:10). After the `tomllib` sweep: 6 failed, 1546 passed (02:25). After `_after_all.py`: **1 failed, 1551 passed** (02:45): the one open item above, `test_signoff_files` on the mode of `.claude/settings.json`.
 
 ## How to run it in the morning
 
