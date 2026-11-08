@@ -558,6 +558,7 @@ class Audit:
         timeout_cfg = self.handler.timeout
         # a flood of idle connections
         held = []
+        self.handler.timeout = 30   # (the short timeout set for the stalled-client check would free the early connections before the last one is open)
         try:
             for _ in range(self.srv.MAX_CONNECTIONS + 30):
                 try:
@@ -570,6 +571,7 @@ class Audit:
             for c in held:
                 with contextlib.suppress(OSError):
                     c.close()
+            self.handler.timeout = 2
         time.sleep(0.3)
         self.ok(over.status == 503 and self.alive(), "http: a flood of connections is capped", f"{len(held)} idle connections held: the next is refused with 503 at once, and the server answers normally after they close",
                 f"status {over.status}; alive={self.alive()}")

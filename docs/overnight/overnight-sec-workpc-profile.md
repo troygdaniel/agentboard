@@ -1,6 +1,6 @@
 # overnight-sec-workpc-profile: the work-PC profile and `agentboard selfcheck`
 
-Branch `overnight/overnight-sec-workpc-profile` (public repo, nothing merged, nothing pushed). The three server bug fixes it found were split out at ORCH's request as branch `security-server-hardening` (d02208c, off main 8b07a0d) to merge tonight; this branch still contains them, so a merge of both is clean. Card `overnight-sec-workpc-profile`, AGENT-3.
+Branch `overnight/overnight-sec-workpc-profile` (public repo, nothing pushed), rebased onto public main 5e7a929 (Merge chat-f7) on Nov 8. The three server bug fixes it found were split out at ORCH's request as branch `security-server-hardening` (d02208c, off main 8b07a0d) and are **already merged to main**; after the rebase this branch no longer carries them (its `server.py` differs from main only by the profile: no browser, no chat rounds, no git line, `nosniff` on every response). Card `overnight-sec-workpc-profile`, AGENT-3.
 
 ## What changed
 
@@ -102,7 +102,11 @@ RESULT: PASS
 
 ## Tests
 
-Full suite on the branch tip: **1222 tests, OK** (run in the foreground; 189 s on a loaded machine). `tests/publiccheck.py`: 0 findings. Two existing tests were updated because they pinned things this branch changed on purpose: `test_file_modes` (the server is built by `server.new_server`, no longer by a direct `ThreadingHTTPServer` call) and `test_server_state` (the state file now also records `profile`). Note for whoever reruns it: start the suite in the foreground; a shell `&` makes the child processes ignore SIGINT and the two real-server tests in `test_server_state` then time out waiting for a server that cannot be interrupted.
+Full suite on the rebased branch tip: **1316 tests, OK** (run in the foreground; 227 s on a loaded machine). `agentboard selfcheck` with the profile on: 54 PASS, 0 FAIL, three runs in a row. `tests/publiccheck.py`: 0 findings. One existing test was updated because it pinned something this branch changed on purpose: `test_server_state` (the state file now also records `profile`); the `test_file_modes` change went to main with the hardening branch. Note for whoever reruns it: start the suite in the foreground; a shell `&` makes the child processes ignore SIGINT and the two real-server tests in `test_server_state` then time out waiting for a server that cannot be interrupted.
+
+## The rebase
+
+On Nov 8, after `chat-f7`, `hooks-known-only` and `hooks-settings-orig` merged. One conflict (an import line in `doctor.py`: main added `redact` and `untrusted`, this branch adds `profile`; both kept). The selfcheck's connection-flood check failed once on the rebased tree because the audit server's 2-second stalled-client timeout freed the early idle connections before the last one was open on a loaded machine; the audit now holds the timeout at 30 s for that one check. `agentboard selfcheck --live 8765` against the home board is unchanged in outcome: every probe passes except `nosniff` (the installed server predates it) and it reports the lock off / plugins open as a WARN.
 
 ## Decisions and risks
 
