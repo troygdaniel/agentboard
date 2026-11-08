@@ -4,7 +4,24 @@ Reviewer: AGENT-8 (card `overnight-crossreview`), independent of the branch auth
 clean `git archive` of a tip, one at a time; render checks ran headless Chrome against throwaway boards; twelve read-only code reviews, each
 claim checked against the code before it was kept. First pass 00:55 (18 tips), this pass 06:00 to 07:00 (21 tips, 14 more full suite runs, main c4aca6a).
 
-## The short version (read this, then decide)
+## 07:10 update: use `overnight/combined-19`, not combined-11
+
+AGENT-5 finished the merge kit at 06:49: **`overnight/combined-19` (df5fc24)** is every overnight branch except `config-validation`, merged
+with the kit's fixups. Checked here from a clean archive: **1675 passed, 4 skipped, 1 xfailed, exactly green**; trial merge onto main c4aca6a
+clean; it contains the sign-off fix f23d1e8, the lifecycle tip 4359186, agent-prompts 63909aa and perf-scale 25112c6, and the perf-scale
+HIGH (stale page after typing) is **fixed inside it** (index.html:2174 remembers the ETag only with the body applied). So the morning path is now:
+
+1. Merge `overnight/combined-19`.
+2. Then `overnight-config-validation` 580059f, only after its HIGH (`config show` prints secret-bearing strings, `xr-config-show-prints-secrets`)
+   and its MEDIUM are fixed; the kit left it out for that reason.
+3. The two product decisions below (3.9 floor, hold check) are both inside combined-19.
+4. Open cards after this: `xr-config-show-prints-secrets` (HIGH), `xr-config-check-label-and-tomllib`, `xr-prompts-readme-stale` (README line; check
+   whether the kit's fixups covered it). Everything else filed tonight is fixed in combined-19.
+
+Counts: MERGE 1 tree (19 branches inside it), MERGE AFTER FIX 1 (config-validation), DROP 0, decisions 2, new HIGH 1 still open.
+The 06:00 text below is kept as written; where it says "combined-11", read combined-19.
+
+## The short version as of 06:00 (combined-11)
 
 **ORCH's merge kit already did the merge for you, as a dry run.** `overnight/combined-11` (59b848e, 03:58) is every overnight branch merged
 in a working order plus the cross-branch fixups, built by the kit on `overnight/overnight-morning-merge-kit` (script, per-branch
