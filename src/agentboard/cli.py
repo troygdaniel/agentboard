@@ -14,7 +14,7 @@ from pathlib import Path
 from . import __version__
 from . import agentchat
 from . import hooks as hookslib
-from . import listeners
+from . import cursors, listeners
 from . import backup as backuplib
 from . import hud as hudlib
 from . import lockdown
@@ -457,16 +457,6 @@ def cmd_chat_tail(a):
         pass
 
 
-def _cursor_path(s):
-    return s.dir / "chat-cursors.json"
-
-
-def _cursors(s):
-    try:
-        d = json.loads(_cursor_path(s).read_text())
-        return d if isinstance(d, dict) else {}
-    except (OSError, ValueError):
-        return {}
 
 
 def cmd_chat_inbox(a):
@@ -474,7 +464,7 @@ def cmd_chat_inbox(a):
     per name in .agentboard/chat-cursors.json; --after overrides it, --all ignores it. --wait blocks for the next one."""
     name = _chat_name(a)
     s = _store()
-    after = None if a.all else (a.after if a.after is not None else _cursors(s).get(name))
+    after = None if a.all else (a.after if a.after is not None else cursors.get(s.dir, name))
     deadline = time.time() + (a.wait or 0)
     with (listeners.listening_as(s.dir, name, "inbox") if a.wait else contextlib.nullcontext()):   # the board sees who will wake
         while True:
@@ -485,12 +475,7 @@ def cmd_chat_inbox(a):
     for m in msgs:
         print(_chat_line(m))
     if msgs and not a.keep:
-        cur = _cursors(s)
-        cur[name] = max(msgs[-1]["seq"], cur.get(name, 0) if isinstance(cur.get(name), int) else 0)
-        try:
-            _cursor_path(s).write_text(json.dumps(cur))
-        except OSError:
-            pass
+        cursors.advance(s.dir, name, msgs[-1]["seq"])
     if not msgs:
         print("(nothing new)" if not a.wait else "(nothing new; waited)")
         if a.wait:
@@ -529,7 +514,7 @@ def cmd_chat_idle(a):
     if not s.chat_agents():
         raise BoardError("agent chat is off for this board")
     claude = os.environ.get("AGENTBOARD_CLAUDE") or a.claude or runslib.claude_binary(s.dir)
-    after = _cursors(s).get(name)
+    after = cursors.get(s.dir, name)
     deadline = time.time() + (a.wait or 0)
     while True:
         inbox = s.chat_inbox(name, after=after)
@@ -550,12 +535,7 @@ def cmd_chat_idle(a):
         print("(nothing to answer)")
         sys.exit(1)
     d = agentchat.draft_reply(s, name, claude, model=a.model, budget=a.budget, inbox=inbox)
-    cur = _cursors(s)
-    cur[name] = inbox[-1]["seq"]
-    try:
-        _cursor_path(s).write_text(json.dumps(cur))
-    except OSError:
-        pass
+    cursors.advance(s.dir, name, inbox[-1]["seq"])
     if not d:
         print("(the draft was: nothing to say)")
         return 0
@@ -1378,17 +1358,12 @@ def cmd_answer(a):
                 print(f"({_reply_when(r)})", file=sys.stderr)   # on stderr, so `$(agentboard answer ...)` still captures only the reply
                 print(r["text"])
                 return
-            msgs = s.chat_thread_new(name, after=_cursors(s).get(name)) if name else []
+            msgs = s.chat_thread_new(name, after=cursors.get(s.dir, name)) if name else []
             if msgs:
                 for m in msgs:
                     print(f"({_message_when(m)})", file=sys.stderr)
                     print(m["text"])
-                cur = _cursors(s)   # read, the same way `chat inbox` records what it printed
-                cur[name] = max(msgs[-1]["seq"], cur.get(name, 0) if isinstance(cur.get(name), int) else 0)
-                try:
-                    _cursor_path(s).write_text(json.dumps(cur))
-                except OSError:
-                    pass
+                cursors.advance(s.dir, name, msgs[-1]["seq"])   # read, the same way `chat inbox` records what it printed
                 print(f"(not a card reply: answer on the board with `agentboard chat send \"<one line>\" --name {name} --to {s.owner}`, then keep waiting)", file=sys.stderr)
                 return
             if not a.wait or time.time() >= deadline:

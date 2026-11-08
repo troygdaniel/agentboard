@@ -394,7 +394,7 @@ class AutopilotTests(_FakeClaude):
         posted = agentchat.autopilot_once(self.s, str(self.fake), self.roster)
         self.assertEqual([(m["sender"], m["via"], m["to"]) for m in posted], [("AGENT-3", "idle", "AGENT-2")])   # AGENT-2 asked, so it is not news to it; AGENT-1 is busy
         self.assertEqual(posted[0]["reply_to"], 3)            # the line to all (seq 1, the switch's own notice, is never answered by a ghost)
-        self.assertEqual(agentchat.read_cursors(self.s)["AGENT-3"], posted[0]["seq"] - 1)   # the cursor stops before its own auto line, so its real session reads it
+        self.assertEqual(agentchat.read_cursors(self.s)["agent-3"], posted[0]["seq"] - 1)   # the cursor stops before its own auto line, so its real session reads it
         again = agentchat.autopilot_once(self.s, str(self.fake), self.roster)
         self.assertEqual(again, [])                           # AGENT-2's only news is an auto line: the board never answers itself
         line = agentchat.chat_line(posted[0])

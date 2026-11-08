@@ -98,8 +98,8 @@ class TheListenerList(Base):
     def test_receipts_are_the_cursors_and_the_listeners(self):
         self.s.chat_send(self.s.owner, "hi", kind="user", to="AGENT-4")
         self.run_cli("chat", "inbox", "--name", "AGENT-4")
-        (self.s.dir / "chat-cursors.json").write_text(json.dumps({"AGENT-4": 1, "bad": "x", "worse": True}))
-        self.assertEqual(listeners.receipts(self.s.dir), {"read": {"AGENT-4": 1}, "listening": {}})
+        (self.s.dir / "chat-cursors.json").write_text(json.dumps({"AGENT-4": 1, "agent-4": 3, "bad": "x", "worse": True}))
+        self.assertEqual(listeners.receipts(self.s.dir), {"read": {"agent-4": 3}, "listening": {}})   # keys lower-cased, the higher seq wins
 
 
 class TheNudge(Base):

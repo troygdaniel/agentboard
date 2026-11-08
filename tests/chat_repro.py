@@ -16,7 +16,7 @@ from pathlib import Path
 SRC = str(Path(__file__).resolve().parents[1] / "src")
 sys.dont_write_bytecode = True
 sys.path.insert(0, SRC)
-from agentboard import hooks, listeners  # noqa: E402
+from agentboard import cursors, hooks, listeners  # noqa: E402
 from agentboard.store import BoardError, Store  # noqa: E402
 
 TMP = Path(tempfile.mkdtemp())
@@ -69,7 +69,7 @@ p = cli("chat", "inbox", "--name", "R2", "--wait", "30", name="R2", stdout=subpr
 time.sleep(1.2)
 m = owner_says("did you get this?", to="R2")
 p.wait(timeout=20)
-cur = listeners.read_cursors(BOARD).get("R2")
+cur = cursors.get(BOARD, "R2")
 code, again = run("chat", "inbox", "--name", "R2", name="R2")
 say("R2", f"line #{m['seq']} printed to a reader that was gone: cursor now {cur} (the board counts it READ); the next inbox says: {again!r} -> the line is lost for good")
 
@@ -83,7 +83,7 @@ time.sleep(0.2)
 m = owner_says("are you there?", to="R3")
 stale = json.loads((BOARD / listeners.FILE).read_text()).get("R3")
 say("R3", f"wait killed (the user typed in the terminal / the session ended): listening before={before}, after={listeners.is_listening(BOARD, 'R3')} (stale file entry still there: {bool(stale)}); "
-          f"line #{m['seq']} waits unread for as long as nobody looks: {len(S.chat_inbox('R3', after=listeners.read_cursors(BOARD).get('R3')))} unread")
+          f"line #{m['seq']} waits unread for as long as nobody looks: {len(S.chat_inbox('R3', after=cursors.get(BOARD, 'R3')))} unread")
 
 # ---- R4: two sessions with one name -----------------------------------------------------------------------------------------------------
 a = cli("chat", "inbox", "--name", "R4", "--wait", "600", name="R4")
@@ -132,10 +132,10 @@ for rnd in range(8):
         procs.append(subprocess.Popen([sys.executable, "-c", code], env=e, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
     for p in procs:
         p.wait(timeout=60)
-    cur = listeners.read_cursors(BOARD)
-    lost_total += sum(1 for n in names if n not in cur)
+    cur = cursors.read(BOARD)
+    lost_total += sum(1 for n in names if cursors.key(n) not in cur)
     runs_total += len(names)
-say("R7", f"{runs_total} sessions reading at the same instant (8 rounds of 20): {lost_total} cursor updates lost (chat-cursors.json is read, changed and written back without a lock). A lost cursor means the same lines come again and the 'read' receipt is wrong; it never loses a line")
+say("R7", f"{runs_total} sessions reading at the same instant (8 rounds of 20): {lost_total} cursor updates lost (chat-cursors.json: a locked, forward-only, atomic write since rev1107-stophook-case; before it, 39 of 160 were lost). A lost cursor means the same lines come again and the 'read' receipt is wrong; it never loses a line")
 
 # ---- R8: more unread than one read shows --------------------------------------------------------------------------------------------------
 for i in range(60):

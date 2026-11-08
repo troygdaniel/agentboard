@@ -115,12 +115,9 @@ def is_listening(board_dir, name):
 
 
 def read_cursors(board_dir):
-    """{name: last seq read}: what `chat inbox` and `answer --wait` wrote when they printed a line."""
-    try:
-        d = json.loads((Path(board_dir) / "chat-cursors.json").read_text())
-    except (OSError, ValueError):
-        return {}
-    return {str(k): v for k, v in d.items() if isinstance(v, int) and not isinstance(v, bool)} if isinstance(d, dict) else {}
+    """{name, lower-cased: last seq read}: what `chat inbox` and `answer --wait` wrote when they printed a line (cursors.py)."""
+    from . import cursors
+    return cursors.read(board_dir)
 
 
 def receipts(board_dir):
