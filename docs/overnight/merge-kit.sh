@@ -131,12 +131,13 @@ if(!m){console.log("no script block");process.exit(1)} try{new Function(m[1]);co
 
 declare -a R_BRANCH R_MERGED R_TESTS R_NOTES
 FAIL=0
+NOMERGE=0   # a branch that did not land (conflict with no resolution, or missing): the fixups step needs every branch in
 i=0
 for br in "${ORDER[@]}"; do
   i=$((i+1))
   ref="origin/$br"
   if ! git -C "$CLONE" rev-parse -q --verify "$ref" >/dev/null; then
-    R_BRANCH+=("$br"); R_MERGED+=("no"); R_TESTS+=("-"); R_NOTES+=("no such branch"); FAIL=1; continue
+    R_BRANCH+=("$br"); R_MERGED+=("no"); R_TESTS+=("-"); R_NOTES+=("no such branch"); FAIL=1; NOMERGE=1; continue
   fi
   tip="$(git -C "$CLONE" rev-parse --short "$ref")"
   ahead="$(git -C "$CLONE" rev-list --count HEAD.."$ref")"
@@ -166,7 +167,7 @@ for br in "${ORDER[@]}"; do
       done
       git -C "$CLONE" merge --abort
       cl="$(echo "$conflicts" | tr '\n' ' ')"
-      R_BRANCH+=("$br ($tip)"); R_MERGED+=("no"); R_TESTS+=("-"); R_NOTES+=("conflict: ${cl}- aborted, see the suggestions above"); FAIL=1
+      R_BRANCH+=("$br ($tip)"); R_MERGED+=("no"); R_TESTS+=("-"); R_NOTES+=("conflict: ${cl}- aborted, see the suggestions above"); FAIL=1; NOMERGE=1
       continue
     fi
   fi
@@ -187,7 +188,7 @@ done
 # cross-branch fixups: pins that are true on each branch alone and false once all are together (a doctor line count, a module map, a
 # file table), applied after the last merge as one commit and tested once more; the script says what it changed.
 AFTER="$RES_DIR/_after_all.py"
-if [ -f "$AFTER" ] && [ "$FAIL" = "0" ]; then
+if [ -f "$AFTER" ] && [ "$NOMERGE" = "0" ]; then   # every branch landed: the fixups are what make the combined tree green, so a red suite above does not skip them
   echo
   echo "== after all: cross-branch fixups ($AFTER)"
   if "$PY" "$AFTER" "$CLONE" 2>&1 | sed 's/^/   /' && [ -n "$(git -C "$CLONE" status --porcelain)" ]; then
@@ -197,7 +198,7 @@ if [ -f "$AFTER" ] && [ "$FAIL" = "0" ]; then
     else
       ( cd "$CLONE" && PYTHONPATH="$CLONE/src" "$PY" -m pytest -q -p no:cacheprovider tests >"$LOG/after-all-suite.txt" 2>&1 )
       tests="$(tail -1 "$LOG/after-all-suite.txt" | sed 's/ in [0-9.]*s.*//')"
-      case "$tests" in *failed*|*error*) FAIL=1; tests="$tests (see $LOG/after-all-suite.txt)";; esac
+      case "$tests" in *failed*|*error*) FAIL=1; tests="$tests, see $LOG/after-all-suite.txt";; *) FAIL=0;; esac   # the final tree's suite is the verdict
     fi
     R_BRANCH+=("(cross-branch fixups)"); R_MERGED+=("yes"); R_TESTS+=("$tests; $(page_check 2>&1 | tail -1)"); R_NOTES+=("_after_all.py: the pins each branch set alone, made true for all of them")
   fi
