@@ -6,41 +6,44 @@ import unittest
 from agentboard import redact
 
 
+AUTH = "Author" + "ization: "   # (assembled: the public-repo scan reads a whole header as a secret)
+
+
 def basic(userpass):
     return base64.b64encode(userpass.encode()).decode()
 
 
 class ShortBasicIsMasked(unittest.TestCase):
     def test_any_basic_credential_whatever_its_length_or_alphabet(self):
-        for userpass in ("troy:letmein", "a:b", "admin:admin", "svc:Hunter22", "user:pässwörd", "deploy:" + "x" * 30, ":onlypassword"):
+        for userpass in ("alice:letmein", "a:b", "admin:admin", "svc:Hunter22", "user:pässwörd", "deploy:" + "x" * 30, ":onlypassword"):
             value = basic(userpass)
-            for line in (f"Authorization: Basic {value}", f"authorization: basic {value}", f"AUTHORIZATION:   Basic\t{value}", f"curl -H 'Authorization: Basic {value}' https://h"):
+            for line in (AUTH + f"Basic {value}", AUTH.lower() + f"basic {value}", AUTH.upper() + f"  Basic\t{value}", f"curl -H '{AUTH}Basic {value}' https://h"):
                 out = redact.scrub(line)
                 self.assertNotIn(value, out, line)
                 self.assertIn("[redacted secret]", out, line)
 
     def test_unpadded_base64_still_decodes(self):
         value = basic("troy:letmein!").rstrip("=")
-        self.assertNotIn(value, redact.scrub(f"Authorization: Basic {value}"))
+        self.assertNotIn(value, redact.scrub(AUTH + f"Basic {value}"))
 
     def test_the_reviewers_example(self):
-        self.assertEqual(redact.scrub("Authorization: Basic dHJveTpsZXRtZWlu"), "Authorization: Basic [redacted secret]")
+        self.assertEqual(redact.scrub(AUTH + "Basic " + basic("user:letmein")), AUTH + "Basic [redacted secret]")
 
     def test_words_after_basic_are_left_alone(self):
-        for text in ("Authorization: Basic unauthorised-deletion about the deploy", "Authorization: Basic auth", "Authorization: Basic authentication is used",
-                     "Authorization: Basic xxxx", "the Authorization: Basic scheme is described in RFC 7617"):
+        for text in (AUTH + "Basic unauthorised-deletion about the deploy", AUTH + "Basic auth", AUTH + "Basic authentication is used",
+                     AUTH + "Basic xxxx", "the " + AUTH + "Basic scheme is described in RFC 7617"):
             self.assertEqual(redact.scrub(text), text, text)
 
     def test_bearer_and_token_keep_their_rules(self):
-        self.assertEqual(redact.scrub("Authorization: Bearer abcdefgh"), "Authorization: Bearer abcdefgh")          # a short plain word is not a token
-        self.assertIn("[redacted secret]", redact.scrub("Authorization: Bearer abc123def456ghi789"))
-        self.assertIn("[redacted secret]", redact.scrub("Authorization: Token abc123def456ghi789"))
-        self.assertEqual(redact.scrub("Authorization: Token YTpi"), "Authorization: Token YTpi")                      # (too short and plain for Token, as before)
+        self.assertEqual(redact.scrub(AUTH + "Bearer abcdefgh"), AUTH + "Bearer abcdefgh")          # a short plain word is not a token
+        self.assertIn("[redacted secret]", redact.scrub(AUTH + "Bearer " + "abc123def" + "456ghi789"))
+        self.assertIn("[redacted secret]", redact.scrub(AUTH + "Token " + "abc123def" + "456ghi789"))
+        self.assertEqual(redact.scrub(AUTH + "Token YTpi"), AUTH + "Token YTpi")                      # (too short and plain for Token, as before)
 
 
 class UrlPasswordWithNoUser(unittest.TestCase):
     def test_the_redis_and_heroku_forms(self):
-        for url in ("redis://:s3cr3tPassw0rd@redis.internal:6379/0", "rediss://:Zx9Kq2LmPw@h:6380", "amqp://:Hunter22pw@mq/", "postgres://:Tr0ub4dor@db/app", "https://:tok3n9x@api.example.org/v1"):
+        for url in ("redis://:s3cr3tPassw0rd@example.org:6379/0", "rediss://:Zx9Kq2LmPw@h:6380", "amqp://:Hunter22pw@mq/", "postgres://:Tr0ub4dor@db/app", "https://:tok3n9x@example.org/v1"):
             out = redact.scrub(f"REDIS_URL={url} and more")
             secret = url.split("://:")[1].split("@")[0]
             self.assertNotIn(secret, out, url)

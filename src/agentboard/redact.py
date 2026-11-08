@@ -95,7 +95,7 @@ def _token_like(v):
 
 def _basic_like(v):
     """For the value after "Authorization: Basic": base64 of user:password, so any value that decodes to something with a colon in it. Short
-    ones (troy:letmein is dHJveTpsZXRtZWlu: no digit, no padding, 16 characters) have nothing else generated-looking about them. Words and
+    ones (user:letmein is dXNlcjpsZXRtZWlu: no digit, no padding, 16 characters) have nothing else generated-looking about them. Words and
     kebab-case phrases do not decode (a hyphen is not base64), and a plain word that happens to be valid base64 has no colon behind it."""
     if _token_like(v):
         return True
