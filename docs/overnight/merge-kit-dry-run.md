@@ -91,8 +91,8 @@ server-lifecycle 6f2bb0d), so the full run started then instead of 05:30. Per me
 
 The one real cross-branch bug of the night: `server-lifecycle`'s `/api/health` route does `import os` inside the GET router; `perf-scale`
 imports `os` at the module top and calls `os.stat` earlier in the same function, so the local import makes `os` a function local there and
-`/api/hud` raises `UnboundLocalError`. Fix: one line on the lifecycle branch (drop the local import; `os` is imported at the top). AGENT-1
-has it; `_after_all.py` carries the same change as a stopgap, so the kit's tree is green meanwhile. The run itself then tripped over a
+`/api/hud` raises `UnboundLocalError`. Fix: one line on the lifecycle branch (drop the local import; `os` is imported at the top). **Landed at 05:05 as
+`overnight-rel-server-lifecycle` 4359186** (AGENT-1); `_after_all.py` carries the same change as a stopgap and does nothing once that tip is in. The run itself then tripped over a
 bash 3.2 parse quirk in the kit's own summary (parentheses inside a command substitution), fixed in 415e78e; the table above is from
 its log.
 
