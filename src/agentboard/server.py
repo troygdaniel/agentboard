@@ -1,6 +1,7 @@
 """Local HTTP server: serves the board UI and a small JSON API. Localhost only."""
 import atexit
 import json
+import os
 import re
 import secrets
 import threading
@@ -240,7 +241,6 @@ def make_handler(default_store, port):
                 page = _INLINE_SCRIPT.sub(f'<script nonce="{nonce}">', html.replace("</head>", inject + "</head>", 1))
                 self._send(200, page.encode(), "text/html; charset=utf-8", {**FRAME_HEADERS, "Content-Security-Policy": PAGE_CSP.format(nonce=nonce)})
             elif url.path == "/api/health":   # loopback only, no board data: is this agentboard, which pid, since when, what is loaded
-                import os
                 from . import __version__, lockdown
                 self._send(200, {"ok": True, "agentboard": __version__, "pid": os.getpid(), "port": port, "started": _STARTED["iso"],
                                  "uptime_s": int(time.time() - _STARTED["at"]) if _STARTED["at"] else 0,
