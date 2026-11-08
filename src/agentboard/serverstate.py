@@ -4,7 +4,7 @@ A process's environment cannot be read from outside (macOS hides it), so doctor 
 could say PASS while the board's server, started from a LaunchAgent or another terminal, ran without it. The server now writes
 `server-<pid>.json` in the board folder when it starts:
 
-    {"pid": 4242, "port": 8765, "started": "2026-11-07T09:30:00", "lockdown": true, "plugins_open": false, "plugins_loaded": []}
+    {"pid": 4242, "port": 8765, "started": "2026-11-07T09:30:00", "lockdown": true, "plugins_open": false, "plugins_loaded": [], "profile": true}
 
 Only yes/no answers and plugin names: no value of any environment variable, no path, no secret. Mode 0600 (the folder is private anyway),
 written atomically, removed when the server exits normally; one file per pid, so two servers on one board do not overwrite each other.
@@ -17,7 +17,7 @@ import re
 from datetime import datetime
 from pathlib import Path
 
-from . import lockdown, plugins
+from . import lockdown, plugins, profile
 
 PREFIX = "server-"
 MAX_BYTES = 4096
@@ -32,7 +32,7 @@ def path_for(board_dir, pid):
 def record(port, loaded):
     """What this process was started with, as the file will hold it."""
     return {"pid": os.getpid(), "port": int(port), "started": datetime.now().isoformat(timespec="seconds"),
-            "lockdown": lockdown.locked(), "plugins_open": plugins.disabled_reason() is None,
+            "lockdown": lockdown.locked(), "plugins_open": plugins.disabled_reason() is None, "profile": profile.in_effect(),
             "plugins_loaded": sorted(str(n) for n in (loaded or []))}
 
 
@@ -102,4 +102,4 @@ def read(board_dir, pid):
     return {"pid": pid, "lockdown": d["lockdown"], "plugins_open": d["plugins_open"],
             "plugins_loaded": [n for n in loaded if isinstance(n, str) and _NAME.fullmatch(n)][:20] if isinstance(loaded, list) else [],
             "port": port if isinstance(port, int) and not isinstance(port, bool) else None,
-            "started": d["started"][:25] if isinstance(d.get("started"), str) else ""}
+            "started": d["started"][:25] if isinstance(d.get("started"), str) else "", "profile": d.get("profile") is True}

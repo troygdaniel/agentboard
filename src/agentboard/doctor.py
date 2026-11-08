@@ -20,6 +20,7 @@ from pathlib import Path
 from . import __version__, lockdown
 from . import prompt as promptlib
 from . import plugins, providers, redact, repoguard, serverstate, untrusted
+from . import profile as profilelib
 from .store import BoardError
 
 PASS, WARN, FAIL, INFO = "PASS", "WARN", "FAIL", "INFO"
@@ -30,6 +31,7 @@ TIMEOUT_S = 10
 MAX_FILES = 3000          # tracked files scanned for key-shaped strings
 MAX_SHOWN = 5             # hits listed before "and N more"
 CORE_OUTBOUND = {"providers"}   # the modules of the core that may open an outbound connection (a URL you write in config.toml)
+AUDIT_ONLY = {"guards", "selfcheck"}   # they refuse outside connections / talk to a throwaway loopback server (work profile: `agentboard selfcheck`)
 
 _HERE = Path(__file__).resolve().parent
 
@@ -105,7 +107,7 @@ def check_version(runner):
     return out
 
 
-def check_locks(env):
+def check_locks(env, board_dir=None):
     source = "\n".join(p.read_text(errors="ignore") for p in sorted(_HERE.glob("*.py")) if p.name != "doctor.py")
     names = sorted(set(re.findall(r"AGENTBOARD_NO_[A-Z]+", source)) | {lockdown.ENV})
 
@@ -119,6 +121,9 @@ def check_locks(env):
     others = [f"{n} {'on' if on(n) else 'off'}" for n in names if n != lockdown.ENV]
     if others:
         out.append(_res(INFO, "lock", "narrow locks: " + ", ".join(others)))
+    why = profilelib.reason(board_dir)
+    out.append(_res(PASS, "profile", f"the work profile is on ({why}); `agentboard selfcheck` proves it") if why
+                 else _res(INFO, "profile", "the work profile is not on; `agentboard profile work` turns on the lock, loopback-only networking and no program starts (then `agentboard selfcheck`)"))
     return out
 
 
@@ -256,7 +261,7 @@ def check_servers(board_dir, pids, shell_locked):
         plugins_on = s["plugins_open"]
         extra = f"; plugins ON: {', '.join(s['plugins_loaded']) or 'allowed'}" if plugins_on else ""
         if s["lockdown"] and not plugins_on:
-            out.append(_res(PASS, "server", f"{who} was started with {lockdown.ENV} on and plugins closed"))
+            out.append(_res(PASS, "server", f"{who} was started with {lockdown.ENV} on and plugins closed" + (", under the work profile (no outside connection, no program started)" if s.get("profile") else "")))
         elif shell_locked and not s["lockdown"]:
             out.append(_res(WARN, "server", f"{who} was started WITHOUT {lockdown.ENV} although this shell has it on{extra}; restart it from a shell that has it"))
         elif plugins_on:
@@ -536,8 +541,12 @@ def check_code():
             outbound.append(p.stem)
         if SERVER_IMPORT.search(src):
             servers.append(p.stem)
+    audit = sorted(set(outbound) & AUDIT_ONLY)
+    outbound = [m for m in outbound if m not in AUDIT_ONLY]
+    servers = [m for m in servers if m not in AUDIT_ONLY]
     extra = sorted(set(outbound) - CORE_OUTBOUND)
-    text = f"modules that can make an outbound connection: {', '.join(outbound) or 'none'}; modules that can listen: {', '.join(servers) or 'none'}"
+    text = (f"modules that can make an outbound connection: {', '.join(outbound) or 'none'}; modules that can listen: {', '.join(servers) or 'none'}"
+            + (f"; the work-profile guards and selfcheck ({', '.join(audit)}) only refuse or talk to loopback" if audit else ""))
     if extra:
         return [_res(WARN, "code", text + f". Beyond the core ({', '.join(sorted(CORE_OUTBOUND))}): {', '.join(extra)}: each is off unless configured; check the lock above")]
     return [_res(PASS, "code", text)]
@@ -579,7 +588,7 @@ def run(board_dir, project=None, env=None, runner=subprocess.run):
     results = []
     results += check_version(runner)
     results += check_install()
-    results += check_locks(env)
+    results += check_locks(env, board_dir)
     results += check_plugins()
     results += check_plugin_load(board_dir)
     pids = _board_pids(runner)
