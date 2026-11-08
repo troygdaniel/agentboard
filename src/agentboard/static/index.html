@@ -923,6 +923,11 @@
   .sw.on { color: var(--text); }
   .chat-form { display: flex; gap: 8px; padding: 14px 20px; border-top: 1px solid var(--line); flex: none; }
   .chat-form input { flex: 1; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 6px 12px; min-height: 32px; }
+  .chat-form:has(+ .goes) { padding-bottom: 6px; }
+  .goes { flex: none; padding: 0 20px 12px; min-height: calc(1.4em + 12px); font-size: var(--fs-xs); line-height: 1.4; color: var(--muted); }   /* who reads this line (chat-f8); the height is reserved so the box does not jump */
+  .goes.warn { color: color-mix(in srgb, var(--warn) 78%, var(--text)); }
+  .goes[hidden] { display: none; }
+  #thread.term #thread-goes, #chat.term #chat-goes { display: none; }
   #keys { position: fixed; inset: 0; z-index: 40; display: none; place-items: center; background: rgba(0,0,0,.35); }
   #keys.on { display: grid; }
   #keys .sheet { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 22px 26px; width: min(420px, calc(100vw - 32px)); box-shadow: 0 20px 60px rgba(0,0,0,.35); }
@@ -1063,7 +1068,7 @@
   .term-jump { position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); background: var(--surface); box-shadow: var(--shadow-hover); font-size: var(--fs-sm); min-height: 28px; padding: 3px 12px; }
   .term-jump[hidden] { display: none; }
   #p-conv { margin-top: 16px; display: flex; flex-direction: column; gap: 14px; font-size: var(--fs-base); }
-  #p-chat-form[hidden], #p-term-foot[hidden] { display: none; }
+  #p-chat-form[hidden], #p-term-foot[hidden], #p-chat-goes[hidden] { display: none; }
   .th-ask.term { border-color: var(--warn); box-shadow: 0 0 0 3px color-mix(in srgb, var(--warn) 8%, transparent); } .th-ask.term .lab { color: var(--warn); }
   .th-ask .hint { font-size: var(--fs-xs); color: var(--muted); margin-top: 6px; }
   .term-line.ask { color: #ffc857; margin: 8px 0; }
@@ -1401,9 +1406,10 @@
   <div class="p-body" id="chat-body"></div>
   <div class="term-foot" id="chat-foot" hidden></div>
   <form id="chat-form" class="chat-form">
-    <input id="chat-input" placeholder="Tell ORCH what you want… (@AGENT-2 to address someone else)" aria-label="Tell ORCH what you want" autocomplete="off">
+    <input id="chat-input" placeholder="Message ORCH, or @AGENT-2…" aria-label="Message ORCH, or @ a name" autocomplete="off">
     <button class="btn primary">Send</button>
   </form>
+  <div class="goes" id="chat-goes" aria-live="polite"></div>
 </aside>
 
 <aside id="thread" aria-label="Agent thread">
@@ -1416,6 +1422,7 @@
     <input id="thread-input" placeholder="Say anything to the agent…" aria-label="Say something to the agent" autocomplete="off">
     <button class="btn primary">Send</button>
   </form>
+  <div class="goes" id="thread-goes" aria-live="polite"></div>
 </aside>
 
 <aside id="panel" aria-label="Task details">
@@ -1433,6 +1440,7 @@
     <input id="p-chat-input" placeholder="Say anything to the agent…" aria-label="Say something to the agent" autocomplete="off">
     <button class="btn primary">Send</button>
   </form>
+  <div class="goes" id="p-chat-goes" aria-live="polite" hidden></div>
 </aside>
 
 <script>
@@ -2014,7 +2022,7 @@ async function load() {
 }
 
 // --- shared agent chat: a self-organize channel the owner can see and join ---
-let chatMsgs = [], chatMaxSeq = 0, chatSeenSeq = 0, chatUnread = 0, chatFirstLoad = true, chatReceipts = { read: {}, listening: {} };
+let chatMsgs = [], chatMaxSeq = 0, chatSeenSeq = 0, chatUnread = 0, chatFirstLoad = true, chatReceipts = { read: {}, listening: {} }, chatNames = [];
 const chatExpanded = new Set();   // seqs of unusually long messages a reader chose to expand
 async function loadChat() {
   try {
@@ -2024,6 +2032,8 @@ async function loadChat() {
     const msgs = d.messages || [];
     const maxSeq = msgs.length ? msgs[msgs.length - 1].seq : 0;
     chatReceipts = d.receipts || { read: {}, delivered: {}, listening: {} };   // who read what, who is listening (see receiptHtml)
+    chatNames = Array.isArray(d.names) ? d.names : [];                          // who a line can reach (see whoReads)
+    refreshGoes();
     if (chatFirstLoad) {
       // Establish the baseline on the very first poll after page load, whether or not any
       // messages exist yet — if this were gated on "the first poll that finds a non-empty
@@ -2272,6 +2282,7 @@ function renderThread() {
   if (!threadName || !$('thread').classList.contains('open')) return;
   $('thread-head').innerHTML = threadHeadHtml(threadName);
   $('thread-input').placeholder = `Say anything to ${threadName}…`;
+  refreshGoes();
   $('thread-input').setAttribute('aria-label', `Say something to ${threadName}`);
   if (threadTab === 'term') return;   // the terminal redraws on its own poll, never under the conversation's
   const body = $('thread-body');
@@ -2295,14 +2306,79 @@ document.addEventListener('click', e => {   // the ways in are redrawn with the 
   const o = e.target.closest('#thread [data-open], #p-conv [data-open], #p-body .p-th [data-open]');
   if (o) openPanel(o.dataset.open);
 });
-$('thread-form').addEventListener('submit', async e => {
-  e.preventDefault();
-  const i = $('thread-input'), text = i.value.trim(), to = threadName;
-  if (!text || !to) return;
-  i.value = '';
-  try { await api('/api/chat', { text, to }); showError(''); } catch (err) { showError('Could not send: ' + err.message); }
+// Who reads this line (chat-f8, from docs/chat-words-design.md). One function for the three boxes: the ORCH drawer (ORCH by default,
+// "@NAME …" for someone else, "@all" for everyone), an agent's thread, a card's chat. It returns the "goes to" line, whether it is
+// a warning, and an error that stops the send while the text stays in the box. The words are the design's, verbatim.
+const NAME_CAP = 6;
+const normName = n => String(n || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+function knownName(n) { return chatNames.find(k => sameName(k, n)) || (isOrch(n) ? 'ORCH' : null); }
+function closestName(typed) {
+  const t = normName(typed); if (!t) return null;
+  const scored = chatNames.map(n => { const k = normName(n); let p = 0; while (p < t.length && p < k.length && t[p] === k[p]) p++; return { n, p, inside: k.includes(t) || t.includes(k) }; });
+  scored.sort((a, b) => b.p - a.p);
+  const best = scored[0];
+  return best && (best.p >= 3 || best.inside) ? best.n : null;
+}
+function listenState(name) {
+  const k = nameKey(chatReceipts.listening, name);
+  if (!k) return { word: 'not listening: it reads this when its session next runs', warn: true };
+  const n = chatReceipts.listening[k].sessions || 1;
+  return n > 1 ? { word: `${n} sessions: ${n > 2 ? 'each' : 'both'} may answer`, warn: true } : { word: 'listening', warn: false };
+}
+function whoReads(text, defaultTo, where) {
+  const t = String(text || '');
+  const m = where === 'drawer' ? t.match(/^@([\w-]*)(\s?)([\s\S]*)$/) : null;
+  if (m) {
+    const typed = m[1], spaced = !!m[2], rest = m[3].trim();
+    if (sameName(typed, 'all') && spaced) {
+      const n = Object.keys(chatReceipts.listening || {}).length;
+      return { to: 'all', line: `Goes to everyone listening (${n}). No one owns the answer.`, warn: false, error: rest ? '' : 'Add what to tell everyone after the name.' };
+    }
+    const full = knownName(typed);
+    if (!full || !spaced) {   // still typing the name
+      const cands = chatNames.filter(n => n.toUpperCase().startsWith(typed.toUpperCase()));
+      if (cands.length) return { to: null, tab: cands[0], line: `Names: ${cands.slice(0, NAME_CAP).join(', ')} · Tab takes the first`, warn: false, error: `Finish the name: Tab takes ${cands[0]}.` };
+      const close = closestName(typed);
+      const line = close ? `No one named ${typed}. Did you mean ${close}? Tab uses it.`
+        : `No one named ${typed}. On this board: ${chatNames.slice(0, NAME_CAP).join(', ')}${chatNames.length > NAME_CAP ? ` and ${chatNames.length - NAME_CAP} more` : ''}.`;
+      return { to: null, tab: close, line, warn: true, error: line };
+    }
+    const ls = listenState(full);
+    return { to: full, line: `Goes to ${full} · ${ls.word}`, warn: ls.warn, error: rest ? '' : `Add what to tell ${full} after the name.` };
+  }
+  if (!defaultTo) return { to: null, line: 'This card has no holder yet: nobody reads a line here.', warn: true, error: 'This card has no holder yet.' };
+  const ls = listenState(defaultTo);
+  const who = where === 'thread' ? `${defaultTo} only` : where === 'card' ? `${defaultTo}, who holds this card` : defaultTo;
+  return { to: defaultTo, line: `Goes to ${who} · ${ls.word}`, warn: ls.warn, error: '' };
+}
+const GOES = [['chat-input', 'chat-goes', 'drawer', () => 'ORCH'], ['thread-input', 'thread-goes', 'thread', () => threadName], ['p-chat-input', 'p-chat-goes', 'card', () => lastDetail?.agent]];
+function setGoes(id, line, warn) { const g = $(id); if (!g) return; g.textContent = line; g.classList.toggle('warn', !!warn); }
+function refreshGoes() {
+  for (const [inp, goes, where, dflt] of GOES) {
+    const i = $(inp); if (!i || $(goes)?.dataset.hold) continue;   // hold: a refusal stays until the next keystroke
+    const w = whoReads(i.value, dflt(), where); setGoes(goes, w.line, w.warn);
+  }
+}
+for (const [inp, goes, where, dflt] of GOES) {
+  $(inp).addEventListener('input', () => { delete $(goes).dataset.hold; const w = whoReads($(inp).value, dflt(), where); setGoes(goes, w.line, w.warn); });
+  $(inp).addEventListener('keydown', e => {   // Tab takes the offered name
+    if (e.key !== 'Tab' || where !== 'drawer') return;
+    const w = whoReads($(inp).value, dflt(), where);
+    if (!w.tab) return;
+    e.preventDefault(); $(inp).value = $(inp).value.replace(/^@[\w-]*\s?/, `@${w.tab} `); $(inp).dispatchEvent(new Event('input'));
+  });
+}
+async function sendLine(inp, goes, where, dflt) {   // the text stays in the box until the board has taken it (design §3)
+  const i = $(inp), text = i.value.trim();
+  if (!text) return;
+  const w = whoReads(text, dflt(), where);
+  if (w.error) { setGoes(goes, w.error, true); $(goes).dataset.hold = '1'; i.focus(); return; }
+  const body = where === 'drawer' && text.startsWith('@') ? { text } : { text, to: w.to };   // the server reads "@NAME …" itself
+  try { await api('/api/chat', body); i.value = ''; showError(''); delete $(goes).dataset.hold; refreshGoes(); }
+  catch (err) { setGoes(goes, 'Not sent: the board did not answer. Your text is still here; send again.', true); $(goes).dataset.hold = '1'; }
   loadChat();
-});
+}
+$('thread-form').addEventListener('submit', e => { e.preventDefault(); sendLine('thread-input', 'thread-goes', 'thread', () => threadName); });
 quickEvents($('thread-body'));
 $('chat-body').addEventListener('click', async e => {
   const card = e.target.closest('[data-chat-card]');
@@ -2656,14 +2732,7 @@ document.addEventListener('click', e => {
   const say = e.target.closest('#p-conv [data-say]');
   if (say && lastDetail?.agent) { say.disabled = true; api('/api/chat', { text: say.dataset.say, to: lastDetail.agent }).then(() => { showError(''); loadChat(); }).catch(err => { showError('Could not send: ' + err.message); say.disabled = false; }); }
 });
-$('p-chat-form').addEventListener('submit', async e => {
-  e.preventDefault();
-  const i = $('p-chat-input'), text = i.value.trim(), to = lastDetail?.agent;
-  if (!text || !to) return;
-  i.value = '';
-  try { await api('/api/chat', { text, to }); showError(''); } catch (err) { showError('Could not send: ' + err.message); }
-  loadChat();
-});
+$('p-chat-form').addEventListener('submit', e => { e.preventDefault(); sendLine('p-chat-input', 'p-chat-goes', 'card', () => lastDetail?.agent); });
 
 function panelHtml(t) {
   const doing = t.status === 'doing', stale = doing && ago(t.updated).min >= STALE_MIN;
@@ -2775,6 +2844,7 @@ function renderPanel(t) {
     $('p-body').innerHTML = panelHtml(t);
     $('p-body').scrollTop = keep;
     $('p-chat-form').hidden = panelTab !== 'chat' || !panelHasTabs(t);
+    $('p-chat-goes').hidden = $('p-chat-form').hidden;
     if (panelTab === 'chat' && panelHasTabs(t)) { $('p-chat-input').placeholder = `Say anything to ${t.agent}…`; $('p-chat-input').setAttribute('aria-label', `Say something to ${t.agent}`); markConvSeen(t); }
     if (panelTab === 'term' && panelHasTabs(t)) {
       if (termCtx?.aside === 'panel' && termCtx.name === t.agent) { termRaw = ''; loadTerm(); }   // the body was redrawn under it: draw the well again, in place
@@ -3759,15 +3829,7 @@ document.addEventListener('click', e => {
   if ($('chat').classList.contains('open')) closeChat(); else openChat();
 });
 $('chat-close').onclick = closeChat;
-$('chat-form').addEventListener('submit', async e => {
-  e.preventDefault();
-  const i = $('chat-input'), text = i.value.trim();
-  if (!text) return;
-  i.value = '';
-  const to = text.startsWith('@') ? undefined : 'ORCH';   // the drawer talks to ORCH; "@AGENT-2 …" reaches someone else
-  try { await api('/api/chat', to ? { text, to } : { text }); showError(''); } catch (err) { showError('Could not send: ' + err.message); }
-  loadChat();
-});
+$('chat-form').addEventListener('submit', e => { e.preventDefault(); sendLine('chat-input', 'chat-goes', 'drawer', () => 'ORCH'); });
 $('later-body').addEventListener('submit', async e => {
   e.preventDefault();
   const i = $('later-input');

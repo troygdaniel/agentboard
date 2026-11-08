@@ -147,8 +147,8 @@ class PanelMarkupTests(unittest.TestCase):
             self.assertIn(piece, th)
 
     def test_sending_addresses_the_agent_and_the_thread_redraws_with_chat_and_board(self):
-        self.assertIn("const i = $('thread-input'), text = i.value.trim(), to = threadName;", HTML)
-        self.assertIn("api('/api/chat', { text, to })", HTML)
+        self.assertIn("sendLine('thread-input', 'thread-goes', 'thread', () => threadName)", HTML)   # the thread's box: the agent reads it (chat-f8)
+        self.assertIn("try { await api('/api/chat', body); i.value = ''; showError('');", HTML)        # cleared only once the board took it
         self.assertIn("renderThread();\n  renderPanelConv(); updatePanelDot();\n}", body("renderChat"))
         self.assertIn("renderThread();   // the head reads the cards", HTML)
 

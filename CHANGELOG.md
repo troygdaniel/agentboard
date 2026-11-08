@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### The chat box says who reads the line, and a refused send keeps your text (Nov 8)
+- Under each chat box (the ORCH drawer, an agent's thread, a card's chat) one small line now says who the line goes to and whether
+  anything wakes them: `Goes to ORCH · listening`, `Goes to AGENT-2 · not listening: it reads this when its session next runs` (amber),
+  `Goes to AGENT-1 · 2 sessions: both may answer` (amber), `Goes to everyone listening (4). No one owns the answer.`, and while a name
+  is being typed, `Names: AGENT-1, AGENT-2 · Tab takes the first`. A name nobody has is stopped, not sent: `No one named AGENT-33. Did
+  you mean AGENT-3? Tab uses it.`; a name alone gets `Add what to tell AGENT-2 after the name.`; and when the board does not answer,
+  `Not sent: the board did not answer. Your text is still here; send again.` The box used to be cleared before the board answered, so a
+  refused send lost what you typed; now the text stays until the send is taken. `/api/chat` carries `names` (who a line can reach).
+  The words and layout are AGENT-2's design, `docs/chat-words-design.md`; fix F8 of `docs/conversation-reliability-analysis.md`.
+
 ### An offline install path for a locked-down PC (Nov 8)
 - The README's two install commands both reach PyPI for build tools the first time: pipx upgrades its own pip before it looks at the
   package (so `pipx install agentboard.whl` fails offline too), and `pip install .` downloads setuptools for its isolated build. On a work

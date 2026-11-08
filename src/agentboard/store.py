@@ -876,6 +876,11 @@ class Store:
         names.update(listeners.listening(self.dir))
         return sorted(n for n in names if n)
 
+    def known_names(self):
+        """Who a line can reach right now (for the board's composer): ORCH, the owner, card holders, chat senders, listeners."""
+        with self._lock():
+            return self._known_names(self._read())
+
     def _known_name(self, data, to):
         t = str(to).strip().lower()
         return any(t == n.lower() for n in self._known_names(data))
