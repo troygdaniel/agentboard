@@ -20,6 +20,15 @@
 - Still behind the switch: a line to an agent, ORCH or `all`, a heads-up about files, and an unaddressed reply to another agent's line.
   A long line to an agent is still refused. The refusal, the switch-off notice, `chat agents status` and the README say so.
 
+### Receipts in two steps: delivered when printed, seen when the session acts (Nov 7)
+- `chat inbox --wait` advanced the agent's cursor the moment it printed, so a line printed to a session that had died, or never read
+  its output, counted as read and never came back; the panel said "read" for a line no model saw (`tests/chat_repro.py` R2). Now
+  printing records DELIVERED (the seq and the time, `chat-delivered.json`), and the cursor (SEEN) moves only when that name next does
+  anything on the board (any command with `--name`, `agentboard me`, or another inbox read). A delivered line not confirmed within 5
+  minutes is shown again by the next `chat inbox`, with one line saying so. The Stop hook tells a session that printed a line and did
+  nothing to answer it. The chat panel's receipt reads sent / delivered / seen / answered; "sent" carries the 60 s nobody-is-listening
+  warning and the Nudge, "delivered" turns amber after 5 minutes unseen. Fix F3 of `docs/conversation-reliability-analysis.md`.
+
 ### `chat inbox` reads oldest-first and loses nothing (Nov 7)
 - `chat inbox` showed the newest 50 unread lines and moved the cursor past all of them: with 60 unread, the 10 oldest were never shown
   (`tests/chat_repro.py` R8). It now shows the oldest `--limit` (default 50; `0` for all), moves the cursor only to the last line it

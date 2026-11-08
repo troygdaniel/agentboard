@@ -71,10 +71,11 @@ class WakeTests(unittest.TestCase):
         self.assertEqual(out.strip(), "how is it going?")
         self.assertIn("message from", err)
         self.assertIn("--to", err)   # how to answer: on the board, to the owner
-        cursors = json.loads((self.s.dir / "chat-cursors.json").read_text())
-        self.assertEqual(cursors["alice"], self.s.chat_list()[-1]["seq"])
-        out, err = self.run_answer_without_wait()
-        self.assertEqual(out, "")   # read once: it does not print again
+        from agentboard import cursors
+        self.assertEqual(cursors.pending(self.s.dir, "alice")["seq"], self.s.chat_list()[-1]["seq"])   # delivered: printed, not yet seen
+        out, err = self.run_answer_without_wait()   # the session is back as alice: that confirms it, and it does not print again
+        self.assertEqual(out, "")
+        self.assertEqual(cursors.get(self.s.dir, "alice"), self.s.chat_list()[-1]["seq"])
 
     def run_answer_without_wait(self):
         out, err = io.StringIO(), io.StringIO()

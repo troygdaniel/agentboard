@@ -907,7 +907,7 @@
   .cmsg-rcpt { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-top: 3px; font-size: var(--fs-xs); color: var(--muted); }
   .cmsg.user .cmsg-rcpt { justify-content: flex-end; text-align: right; }
   .cmsg-rcpt .st { text-transform: uppercase; letter-spacing: var(--tr-tight); font-weight: 600; }
-  .cmsg-rcpt.answered .st { color: var(--ok); } .cmsg-rcpt.read .st { color: var(--info); }
+  .cmsg-rcpt.answered .st { color: var(--ok); } .cmsg-rcpt.seen .st { color: var(--info); }
   .cmsg-rcpt.late .st, .cmsg-rcpt .warn { color: color-mix(in srgb, var(--warn) 78%, var(--text)); }
   .cmsg-rcpt .btn { min-height: 24px; padding: 1px 10px; font-size: var(--fs-xs); border-color: color-mix(in srgb, var(--warn) 55%, var(--line)); }
   .cmsg-rcpt .nudged { color: var(--muted); }
@@ -2021,7 +2021,7 @@ async function loadChat() {
     const d = await r.json();
     const msgs = d.messages || [];
     const maxSeq = msgs.length ? msgs[msgs.length - 1].seq : 0;
-    chatReceipts = d.receipts || { read: {}, listening: {} };   // who read what, who is listening (see receiptHtml)
+    chatReceipts = d.receipts || { read: {}, delivered: {}, listening: {} };   // who read what, who is listening (see receiptHtml)
     if (chatFirstLoad) {
       // Establish the baseline on the very first poll after page load, whether or not any
       // messages exist yet — if this were gated on "the first poll that finds a non-empty
@@ -2110,26 +2110,33 @@ function chatBubble(m) {
   return `<div class="cmsg ${m.kind} ${fresh ? 'enter' : ''}" style="--c:${hudColor(m.kind === 'agent' ? agentColor(m.sender) : '')}"><div class="cmsg-head"><b>${esc(m.sender)}</b>${to}${topic}<span>${ago(m.at).text}</span></div>`
     + `<div class="cmsg-txt ${long && !open ? 'clamp' : ''} ${spoken ? 'spoken' : ''}">${esc(body)}</div>${toggle}${meta}${detail}${act}${receiptHtml(m)}</div>`;
 }
-// Receipts (Nov 7): a line you send one agent says what became of it. "delivered" is only the inbox; "read" means its session printed
-// it (chat inbox or answer --wait moved its cursor past it); "answered" means it wrote back to you after. A line the board drafted
-// for an idle agent (via idle, shown as auto) is neither: its session has not seen yours, and the autopilot never moves its cursor. A session that has gone
-// quiet reads nothing until something wakes it, so after a minute unread the line says whether anything will: a wait of its own
-// running ("listening"), or not, with one click that asks ORCH to message its session (the board itself cannot reach a session).
-const RECEIPT_WARN_S = 60;
+// Receipts (Nov 7, two steps since chat-f3): a line you send one agent says what became of it. "sent" is only the inbox; "delivered"
+// means a session printed it (chat inbox or answer --wait); "seen" means that session did something on the board as that name since;
+// "answered" means it wrote back to you after. A line the board drafted for an idle agent (via idle, shown as auto) is none of these:
+// the autopilot never moves a cursor. A session that has gone quiet reads nothing until something wakes it, so after a minute sent the
+// line says whether anything will: a wait of its own running ("listening"), or not, with one click that asks ORCH to message its
+// session (the board itself cannot reach a session). A line delivered but not seen in 5 minutes comes again with the next inbox read.
+const RECEIPT_WARN_S = 60, RESHOW_S = 300;
 const nameKey = (obj, name) => Object.keys(obj || {}).find(k => sameName(k, name));
 function receiptOf(m) {
   if (m.kind !== 'user' || !m.to || m.to === 'all' || toOwner(m) || m.via) return null;
   const to = m.to;
   if (chatMsgs.some(x => x.kind === 'agent' && !x.via && sameName(x.sender, to) && x.seq > m.seq && (toOwner(x) || x.reply_to === m.seq))) return { state: 'answered' };
   const rk = nameKey(chatReceipts.read, to);
-  if (rk && chatReceipts.read[rk] >= m.seq) return { state: 'read' };
+  if (rk && chatReceipts.read[rk] >= m.seq) return { state: 'seen' };
+  const dk = nameKey(chatReceipts.delivered, to), del = dk && chatReceipts.delivered[dk];
+  if (del && del.seq >= m.seq) {
+    const since = (Date.now() - new Date(String(del.at).replace(' ', 'T')).getTime()) / 1000;
+    return { state: 'delivered', late: since >= RESHOW_S };
+  }
   const age = (Date.now() - new Date(String(m.at).replace(' ', 'T')).getTime()) / 1000;
-  return { state: 'delivered', late: age >= RECEIPT_WARN_S, listening: !!nameKey(chatReceipts.listening, to), orch: !!nameKey(chatReceipts.listening, 'ORCH') };
+  return { state: 'sent', late: age >= RECEIPT_WARN_S, listening: !!nameKey(chatReceipts.listening, to), orch: !!nameKey(chatReceipts.listening, 'ORCH') };
 }
 function receiptHtml(m) {
   const r = receiptOf(m);
   if (!r) return '';
-  if (r.state !== 'delivered' || !r.late) return `<div class="cmsg-rcpt ${r.state}"><span class="st">${r.state}</span></div>`;
+  if (r.state === 'delivered' && r.late) return `<div class="cmsg-rcpt delivered late"><span class="st">delivered</span><span class="warn">Not seen in 5 min: it comes again with the next inbox read.</span></div>`;
+  if (r.state !== 'sent' || !r.late) return `<div class="cmsg-rcpt ${r.state}"><span class="st">${r.state}</span></div>`;
   const to = esc(m.to);
   let warn, act = '';
   if (isOrch(m.to)) warn = r.listening ? `ORCH is listening but has not read this yet: it is in the middle of something` : `ORCH is not listening: nothing on the board wakes it. Type in its terminal, or boot one with Copy prompt`;
@@ -2139,7 +2146,7 @@ function receiptHtml(m) {
     act = m.nudged ? `<span class="nudged">asked ORCH to message it ${esc(ago(m.nudged).text)}</span>`
       : `<button class="btn" type="button" data-nudge="${m.seq}" title="${r.orch ? 'ORCH is listening: it messages the session' : 'ORCH is not listening either: the ask waits in its drawer'}">Nudge via ORCH</button>`;
   }
-  return `<div class="cmsg-rcpt delivered late"><span class="st">delivered</span><span class="warn">${warn}</span>${act}</div>`;
+  return `<div class="cmsg-rcpt sent late"><span class="st">sent</span><span class="warn">${warn}</span>${act}</div>`;
 }
 document.addEventListener('click', async e => {   // the receipt sits in the ORCH drawer, the agent thread and the card panel alike
   const b = e.target.closest('[data-nudge]'); if (!b) return;
@@ -2147,7 +2154,7 @@ document.addEventListener('click', async e => {   // the receipt sits in the ORC
   try { const d = await api('/api/chat-nudge', { seq: +b.dataset.nudge }); showError(d.orch_listening ? '' : 'Asked ORCH, but ORCH is not listening either: it reads the ask at its next turn'); chatActKey = ''; loadChat(); }
   catch (err) { showError('Could not nudge: ' + err.message); b.disabled = false; }
 });
-setInterval(() => { if (chatMsgs.some(m => receiptOf(m)?.state === 'delivered')) renderChat(); }, 15000);   // the minute passes without a poll noticing
+setInterval(() => { if (chatMsgs.some(m => ['sent', 'delivered'].includes(receiptOf(m)?.state))) renderChat(); }, 15000);   // the minute (and the 5) pass without a poll noticing
 function renderChat() {
   if (chatTab === 'term') { renderThread(); return; }   // the drawer shows ORCH's terminal: its conversation waits
   const body = $('chat-body');

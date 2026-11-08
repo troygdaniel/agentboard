@@ -121,5 +121,7 @@ def read_cursors(board_dir):
 
 
 def receipts(board_dir):
-    """What the chat panel needs to say delivered / read / answered and whether anyone will wake: the cursors and the listeners."""
-    return {"read": read_cursors(board_dir), "listening": listening(board_dir)}
+    """What the chat panel needs to say sent / delivered / seen / answered and whether anyone will wake: the cursors (seen), what was
+    printed to each name and when (delivered), and the listeners."""
+    from . import cursors
+    return {**cursors.receipts(board_dir), "listening": listening(board_dir)}
