@@ -3945,6 +3945,7 @@ function renderAgentsPane() {
     return `<div class="mix-row plain ro"><span class="nm">${esc(n)}</span><span class="val"><b>${s > 1 ? s + ' sessions' : s ? 'listening' : 'not listening'}</b></span></div>`;
   }).join('') : '<div class="mix-row plain ro"><span class="nm">Nobody has spoken on this board yet</span><span class="val"></span></div>';
 }
+const intOf = v => Number.isFinite(v) ? Math.trunc(v) : 0;   // a number into markup is always a whole number, whatever the server sent
 const agoMin = m => m == null ? 'never' : m < 1 ? 'just now' : m < 90 ? m + ' min ago' : m < 48 * 60 ? Math.floor(m / 60) + ' h ago' : Math.floor(m / 1440) + ' days ago';
 async function loadSettingsInfo() {
   try { const r = await fetch('/api/settings', { cache: 'no-store' }); if (!r.ok) return; settingsInfo = await r.json(); } catch (e) { return; }   // a board that cannot answer simply has no Security or Backup tab
@@ -3952,17 +3953,18 @@ async function loadSettingsInfo() {
 }
 function renderStatusRows() {   // read-only: each row says what it is and names the key or the command that changes it; no path, pattern or name is ever shown
   const I = settingsInfo; if (!I) return;
+  const n = intOf, minOrNull = v => v == null ? null : n(v);
   const ro = (name, val, about, warn) => `<div class="mix-row plain ro"><span class="nm">${name}</span><span class="val${warn ? ' warn' : ''}"><b>${val}</b></span><span class="mix-about">${about}</span></div>`;
   const mask = !I.redact.enabled ? 'Keys and tokens agents write reach the board as written. Delete <code>[redact] enabled = false</code> from config.toml.'
     : 'Keys, tokens and passwords are masked before they reach a card, a report or a log.' + (I.redact.phones ? ' Phone numbers are masked too.' : '')
-      + (I.redact.extra ? ` ${I.redact.extra} pattern${I.redact.extra === 1 ? '' : 's'} of your own ${I.redact.extra === 1 ? 'is' : 'are'} added.` : '') + ' <code>[redact]</code> in config.toml.';
+      + (n(I.redact.extra) ? ` ${n(I.redact.extra)} pattern${n(I.redact.extra) === 1 ? '' : 's'} of your own ${n(I.redact.extra) === 1 ? 'is' : 'are'} added.` : '') + ' <code>[redact]</code> in config.toml.';
   $('cfg-security').innerHTML = ro('Lockdown', I.lockdown ? 'on' : 'off', 'On a locked-down machine the board starts no program, reaches no network and copies no data out. Set <code>AGENTBOARD_LOCKDOWN</code> in the shell that starts it.')
     + ro('Work profile', I.profile ? 'on' : 'off', 'Loopback-only networking, no program started by the board, plugins refused. <code>agentboard profile work</code> turns it on.')
     + ro('Secret masking', I.redact.enabled ? 'on' : 'OFF', mask, !I.redact.enabled)
-    + ro('Plugins', I.plugins.allowed ? `${I.plugins.loaded} loaded` + (I.plugins.failed ? `, ${I.plugins.failed} failed` : '') : 'off', I.plugins.allowed ? 'Plugins may add a tab and a page script. Set <code>AGENTBOARD_PLUGINS</code> to change it.' : 'This machine does not allow plugins. Set <code>AGENTBOARD_PLUGINS=1</code> to allow them.')
+    + ro('Plugins', I.plugins.allowed ? `${n(I.plugins.loaded)} loaded` + (n(I.plugins.failed) ? `, ${n(I.plugins.failed)} failed` : '') : 'off', I.plugins.allowed ? 'Plugins may add a tab and a page script. Set <code>AGENTBOARD_PLUGINS</code> to change it.' : 'This machine does not allow plugins. Set <code>AGENTBOARD_PLUGINS=1</code> to allow them.')
     + ro('Self-check', 'on request', 'Run <code>agentboard selfcheck</code> to prove the guards. It starts a throwaway server, so it is not run from this page.');
-  $('cfg-backup').innerHTML = ro('Last backup', agoMin(I.backup.last_min), `${I.backup.snapshots} kept. The board copies its data before a risky change; <code>agentboard backup</code> makes one now.`)
-    + ro('Sync copy', I.backup.sync ? (I.backup.last_sync_min == null ? 'on' : 'on · ' + agoMin(I.backup.last_sync_min)) : 'off', 'A nightly copy of the newest backup to a folder you name in <code>[backup] sync_dir</code> in config.toml.')
+  $('cfg-backup').innerHTML = ro('Last backup', agoMin(minOrNull(I.backup.last_min)), `${n(I.backup.snapshots)} kept. The board copies its data before a risky change; <code>agentboard backup</code> makes one now.`)
+    + ro('Sync copy', I.backup.sync ? (I.backup.last_sync_min == null ? 'on' : 'on · ' + agoMin(n(I.backup.last_sync_min))) : 'off', 'A nightly copy of the newest backup to a folder you name in <code>[backup] sync_dir</code> in config.toml.')
     + ro('Data folder', I.data_private ? 'private' : 'readable by others', I.data_private ? "Only you can read the board's data (mode 700)." : 'Other accounts on this machine can read it. <code>agentboard doctor</code> shows the fix.', !I.data_private);
 }
 function renderSettingsPanes() { renderThemeRow(); renderBoardRows(); renderAgentsPane(); loadSettingsInfo(); }

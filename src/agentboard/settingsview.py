@@ -21,16 +21,41 @@ def _minutes_since(stamp):
         return None
 
 
+def _backup(board_dir):
+    """The backup block, each field on its own: a snapshot folder that cannot be read must not turn the sync flag off, and an odd `sync_dir` must not
+    turn the snapshot count to zero (`sync_dir = "~nosuchuser/x"` makes Path.expanduser raise; the flag is read from the config string, not from that)."""
+    snapshots, last_min, sync, last_sync_min = 0, None, False, None
+    try:
+        b = Backups(board_dir)
+    except Exception:   # noqa: BLE001
+        return {"snapshots": 0, "last_min": None, "sync": False, "last_sync_min": None}
+    try:
+        snapshots = len(b.snapshots())
+    except Exception:   # noqa: BLE001
+        pass
+    try:
+        age = b.age_minutes()
+        last_min = None if age is None else max(0, int(age))   # a snapshot dated in the future is "just now", not minus millions
+    except Exception:   # noqa: BLE001
+        pass
+    try:
+        v = b.conf.get("sync_dir")
+        sync = isinstance(v, str) and bool(v.strip()) and not lockdown.locked("backup-sync")
+    except Exception:   # noqa: BLE001
+        pass
+    try:
+        last_sync_min = _minutes_since(b.last_sync())
+    except Exception:   # noqa: BLE001
+        pass
+    return {"snapshots": snapshots, "last_min": last_min, "sync": sync, "last_sync_min": last_sync_min}
+
+
 def status(board_dir):
     """The status as plain booleans, counts and minutes. Anything that cannot be read is reported as off or None, never as an error text."""
     try:
         conf = redact.settings(board_dir)
     except Exception:   # noqa: BLE001  (a broken config.toml must not break the sheet: masking then reads as its default)
         conf = dict(redact.DEFAULTS, extra=[])
-    try:
-        b = Backups(board_dir).status()
-    except Exception:   # noqa: BLE001
-        b = {}
     try:
         private = (os.stat(board_dir).st_mode & 0o077) == 0
     except OSError:
@@ -40,6 +65,6 @@ def status(board_dir):
         "profile": bool(profile.in_effect()),
         "plugins": {"allowed": plugins.disabled_reason() is None, "loaded": len(plugins.active()), "failed": len(plugins.failed())},
         "redact": {"enabled": bool(conf.get("enabled", True)), "phones": bool(conf.get("phones")), "extra": len(conf.get("extra") or [])},
-        "backup": {"snapshots": int(b.get("snapshots") or 0), "last_min": b.get("last_backup_min"), "sync": bool(b.get("sync_dir")), "last_sync_min": _minutes_since(b.get("last_sync"))},
+        "backup": _backup(board_dir),
         "data_private": private,
     }

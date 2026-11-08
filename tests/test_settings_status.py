@@ -4,7 +4,9 @@ every other; no route changes any of it; and the page only reads it, naming the 
 import json
 import os
 import re
+import shutil
 import socket
+import subprocess
 import tempfile
 import threading
 import unittest
@@ -106,6 +108,35 @@ class TheValues(Base):
         self.assertTrue(r["last_min"] is None or isinstance(r["last_min"], int))
 
 
+class TheBackupFieldsAreIndependent(Base):
+    """AGENT-3's review of 4b2d5ee: one odd field must not blank the others, and a snapshot dated in the future must not read as minus millions."""
+
+    def snapshot_files(self):
+        self.s.add("A card")
+        self.s.backups.take("hand-named")
+        return self.s.backups.snapshots()
+
+    def test_an_odd_sync_dir_does_not_zero_the_snapshot_count(self):
+        files = self.snapshot_files()
+        self.assertTrue(files)
+        self.config('[backup]\nsync_dir = "~nosuchuser/x"\n')   # Path.expanduser raises on this
+        r = settingsview.status(self.dir)["backup"]
+        self.assertEqual(r["snapshots"], len(files))
+        self.assertIs(r["sync"], True)   # read from the config string, not from the folder
+
+    def test_a_locked_down_machine_reports_the_sync_copy_off(self):
+        self.config(f'[backup]\nsync_dir = "{SECRET_DIR}"\n')
+        with mock.patch.dict(os.environ, {"AGENTBOARD_LOCKDOWN": "1"}):
+            self.assertIs(settingsview.status(self.dir)["backup"]["sync"], False)
+
+    def test_a_snapshot_dated_in_the_future_is_just_now_not_negative(self):
+        files = self.snapshot_files()
+        far = os.stat(files[0]).st_mtime + 10 ** 9
+        for f in files:
+            os.utime(f, (far, far))
+        self.assertEqual(settingsview.status(self.dir)["backup"]["last_min"], 0)
+
+
 class TheRoute(Base):
     def setUp(self):
         super().setUp()
@@ -140,6 +171,25 @@ class TheRoute(Base):
         for method in ("POST", "PUT", "DELETE"):
             status, _ = self.request(method, body=b"{}")
             self.assertNotEqual(status, 200, method)
+
+
+class ThePageCoercesEveryNumberItPutIntoMarkup(unittest.TestCase):
+    """AGENT-3: the server always sends integers, so nothing was exploitable, but a string in a count must still never reach innerHTML as markup."""
+
+    def test_every_count_goes_through_intof(self):
+        rows = re.search(r"function renderStatusRows\(\) \{.*?\n\}\n", HTML, re.S).group(0)
+        for raw in ("${I.redact.extra}", "${I.plugins.loaded}", "${I.plugins.failed}", "${I.backup.snapshots}", "agoMin(I.backup.last_min)", "agoMin(I.backup.last_sync_min)"):
+            self.assertNotIn(raw, rows)
+        for coerced in ("${n(I.plugins.loaded)}", "${n(I.backup.snapshots)}", "${n(I.redact.extra)}", "agoMin(minOrNull(I.backup.last_min))", "agoMin(n(I.backup.last_sync_min))"):
+            self.assertIn(coerced, rows)
+
+    @unittest.skipUnless(shutil.which("node"), "node is not installed: the coercion is checked as text only")
+    def test_intof_turns_anything_that_is_not_a_finite_number_into_zero(self):
+        fn = re.search(r"const intOf = v => [^\n]*\n", HTML).group(0)
+        r = subprocess.run(["node", "-e", fn + "console.log(JSON.stringify([intOf('<img src=x onerror=alert(1)>'), intOf(NaN), intOf(Infinity), intOf(null), intOf(undefined), intOf('5'), intOf(3.9), intOf(-2.5), intOf(7)]));"],
+                           capture_output=True, text=True, timeout=30)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(json.loads(r.stdout), [0, 0, 0, 0, 0, 0, 3, -2, 7])
 
 
 class ThePageOnlyReadsIt(unittest.TestCase):
