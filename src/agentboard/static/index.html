@@ -583,13 +583,16 @@
   .h-dog { flex: none; display: flex; flex-direction: column; gap: 2px; margin: 0 0 12px; padding: 6px 12px; max-height: 28vh; overflow: auto; border: 1px solid color-mix(in srgb, var(--warn) 45%, var(--line)); border-radius: 10px; background: color-mix(in srgb, var(--warn) 7%, var(--surface)); font-size: var(--fs-sm); }   /* the watchdog's findings (overnight-rel-agent-protocol): its own row above the grid */
   .h-dog[hidden] { display: none; }
   .hud:has(.h-dog:not([hidden])) { grid-template-rows: auto minmax(0, 1fr); }   /* the strip takes a row of its own; the lanes keep the rest */
-  .h-dog .row { display: flex; align-items: center; gap: 10px; min-height: 28px; }
+  .h-dog .row { display: flex; flex: none; align-items: center; gap: 10px; min-height: 28px; }   /* flex: none, or wrapped rows shrink and overprint in a scrolling strip */
   .h-dog .kind { flex: none; font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: var(--tr-tight); font-weight: 600; color: color-mix(in srgb, var(--warn) 78%, var(--text)); min-width: 7.5em; }
   .h-dog .what { flex: 1; min-width: 0; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .h-dog .what b { font-weight: 600; }
   .h-dog .btn { flex: none; min-height: 26px; padding: 1px 10px; font-size: var(--fs-xs); }
   .h-dog .did { flex: none; font-size: var(--fs-xs); color: var(--ok); }
-  @media (max-width: 720px) { .h-dog .what { white-space: normal; } .h-dog .row { flex-wrap: wrap; } }
+  @media (max-width: 720px) {   /* a phone: the kind and the button share the first line, the sentence takes a full line under them */
+    .h-dog .row { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 2px 8px; padding: 4px 0; }
+    .h-dog .what { grid-column: 1 / -1; white-space: normal; }
+  }
   .h-one > h2 .ln-wait { margin-left: auto; color: var(--warn); font-size: var(--fs-xs); letter-spacing: 0; text-transform: none; font-weight: 600; }
   .h-scroll { overflow-x: hidden; scrollbar-gutter: stable; }
   .h-row { cursor: default; } .h-row.attn[data-id] { cursor: pointer; }

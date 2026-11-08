@@ -1233,6 +1233,10 @@ def cmd_watchdog(a):
     from . import watchdog
     s = _store()
     items = watchdog.findings(s, stale_min=a.stale_minutes)
+    if a.fix is not None and a.fix != "all":   # checked first, so `--fix abc` is refused even on a clean board
+        parts = [x.strip() for x in str(a.fix).split(",") if x.strip()]
+        if not parts or not all(x.isdigit() for x in parts):
+            raise BoardError(f"--fix takes finding numbers (1, or 1,3) or all; not {a.fix!r}")
     if a.json:
         print(json.dumps(items, indent=1))
         return
@@ -1244,15 +1248,19 @@ def cmd_watchdog(a):
         print(f"{head}\n    {f['what']}" + (f"\n    fix: {f['fix']['label']}  (agentboard watchdog --fix {n})" if f.get("fix") else ""))
     if a.fix is None:
         return
-    picks = range(1, len(items) + 1) if a.fix == "all" else [int(x) for x in str(a.fix).split(",") if x.strip().isdigit()]
+    picks = list(range(1, len(items) + 1)) if a.fix == "all" else [int(x.strip()) for x in str(a.fix).split(",") if x.strip()]
     for n in picks:
         f = items[n - 1] if 1 <= n <= len(items) else None
         if not f:
-            raise BoardError(f"no finding number {n}")
+            raise BoardError(f"no finding number {n} (the list has {len(items)})")
         if not f.get("fix"):
             print(f"{n}. {f['kind']}: nothing the board can do; {f['what']}")
             continue
-        touched = watchdog.heal(s, f["fix"]["action"], f["fix"]["id"])
+        try:
+            touched = watchdog.heal(s, f["fix"]["action"], f["fix"]["id"])
+        except BoardError as e:   # an earlier fix in the same run covered it (a vanished agent's release-all takes its stuck cards too)
+            print(f"{n}. {f['fix']['label']}: already done ({e})")
+            continue
         print(f"{n}. {f['fix']['label']}: done ({', '.join(touched)})")
 
 

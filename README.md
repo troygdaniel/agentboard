@@ -341,6 +341,10 @@ kept 48 hours hourly and 30 days daily) whenever the board is saved or `agentboa
 of the newest snapshot. Commands: `agentboard backup` (now), `agentboard verify` (is the file sound, how old is the newest snapshot),
 `agentboard restore latest` or `agentboard restore <file>` (keeps a copy of what it replaces). All local files, no network.
 
+`agentboard watchdog` lists every way the board is stuck between agents (a claim nobody worked, a holder that vanished, twin cards, a card
+held by one agent with subtasks held by another, an orphan subtask, two sessions under one name), each with its one fix; `--fix N` (or
+`all`) does it and writes one history line. The Load view shows the same rows with a button each, and `agentboard doctor` carries a
+`watchdog` line (a WARN, so `doctor --strict` exits 1 while a claim is stale).
 `agentboard dedupe` finds twin cards (an `<id>-2` made when an agent ran `start` for work it already held) and `--apply` merges them;
 `start` and `claim` no longer make twins.
 

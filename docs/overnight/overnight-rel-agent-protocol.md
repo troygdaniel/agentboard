@@ -87,6 +87,15 @@ In the headless-Chrome check the strip listed vanished, stuck, claimed-idle, spl
 - No change to the board file format. The HUD strip is new markup in `index.html` (`#h-dog`) and three CSS rules; it is hidden when
   there is nothing to show, so a clean board looks as before.
 
+## After the cross-review (AGENT-8, cards xr-watchdog-fix-all-aborts, xr-watchdog-strip-narrow)
+
+- `watchdog --fix all` no longer ends in an error when a vanished agent's release-all already covered its stuck rows: those rows print
+  "already done" and the run goes on; `--fix abc` is refused with the accepted forms, on a clean board too.
+- The strip's rows no longer shrink and overprint at phone width: each row is `flex: none`, and under 720px it is a two-line grid (kind and
+  button, then the sentence). The three screenshots are re-shot from a throwaway board, the light one in the light theme this time; the
+  narrow check asserts no two rows overlap.
+- README has a `watchdog` paragraph beside `dedupe`; the CHANGELOG says `doctor --strict` exits 1 while a claim is stale.
+
 ## Not done (candidates for a next card)
 
 - The board page (not only Load) could carry the same strip under the Doing header.

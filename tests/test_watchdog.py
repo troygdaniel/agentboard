@@ -218,6 +218,20 @@ class TheCli(Base):
         code, out, err = self.run_cli("watchdog", "--fix", "9")
         self.assertIn("ok", out)   # nothing to fix: the list is empty, --fix 9 is not reached
 
+    def test_fix_all_finishes_when_a_vanished_agents_release_covered_its_stuck_rows_and_a_bad_fix_is_refused(self):
+        self.s.start("A", "AGENT-5", None)
+        self.s.start("B", "AGENT-5", None)
+        self.s.update("b", 30, "some work")
+        hooks.remember_session(self.s.dir, "AGENT-5", session_id="s5")
+        self.age("a", "b")
+        code, out, err = self.run_cli("watchdog", "--stale-minutes", "60", "--fix", "all")
+        self.assertIsNone(code, str(code))                                  # the run ends well
+        self.assertIn("Release AGENT-5's cards to Todo: done (a, b)", out)
+        self.assertEqual(out.count("already done"), 2)                     # the stuck and claimed-idle rows were covered by the release-all
+        self.assertEqual([t["status"] for t in self.s.load()], ["todo", "todo"])
+        code, out, err = self.run_cli("watchdog", "--fix", "abc")
+        self.assertIn("--fix takes finding numbers (1, or 1,3) or all; not 'abc'", str(code))
+
 
 class TheHudAndTheDoctor(Base):
     def test_doctor_warns_with_the_counts_and_passes_when_clean(self):
