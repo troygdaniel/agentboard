@@ -55,6 +55,7 @@ DEFAULT_ORDER=(
   overnight/overnight-rel-agent-protocol-3
   overnight/overnight-install-quickstart
 )
+SKIP_RE='overnight/overnight-crossreview|overnight/overnight-morning-merge-kit'   # the review and this kit; a branch with nothing ahead of main is skipped anyway
 ORDER=()
 if [ -n "$ORDER_FILE" ]; then
   while IFS= read -r line; do
@@ -77,6 +78,15 @@ git -C "$CLONE" config user.name "merge-kit (dry run)"
 git -C "$CLONE" checkout -q -B trial "origin/$MAIN" 2>/dev/null || git -C "$CLONE" checkout -q -B trial "$MAIN" || { echo "no $MAIN" >&2; exit 2; }
 BASE="$(git -C "$CLONE" rev-parse --short HEAD)"
 echo "merge-kit: trial branch starts at $MAIN = $BASE"
+# any overnight/* branch that landed after the order was written goes last, so nothing is missed (the table says it was not in the order)
+LATE=()
+for b in $(git -C "$CLONE" for-each-ref --format='%(refname:short)' 'refs/remotes/origin/overnight/*' | sed 's#^origin/##'); do
+  case " ${ORDER[*]} " in *" $b "*) continue;; esac
+  echo "$b" | grep -Eq "^($SKIP_RE)$" && continue
+  [ "$(git -C "$CLONE" rev-list --count HEAD..origin/$b)" = "0" ] && continue
+  LATE+=("$b")
+done
+if [ ${#LATE[@]} -gt 0 ]; then echo "merge-kit: not in the order, appended last: ${LATE[*]}"; ORDER+=("${LATE[@]}"); fi
 
 suggest() {   # a resolution for the conflicts the night has seen (AGENT-8's review and the authors' rebases)
   case "$1" in
