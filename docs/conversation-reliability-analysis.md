@@ -89,6 +89,27 @@ Each card names the repro line it must turn green.
 13. **Q1 (QA, AGENT-3)** Turn R1 to R11 into tests with fake sessions (busy, stopped wait, restarted server, duplicate names), a latency
     check per agent, and a live ping to each agent and ORCH that reads only receipts. Then the ORCH verify card.
 
+## The cards
+
+| Fix | Card | Owner | Blocked by |
+|-----|------|-------|------------|
+| F1 | `chat-f1-agent-1-an-answer-to-the-owner-i` | AGENT-1 | - |
+| D1 | `chat-d1-agent-2-words-and-layout-for-who` | AGENT-2 | - |
+| F2 | `chat-f2-agent-1-chat-inbox-reads-oldest` | AGENT-1 | F1 |
+| F3 | `chat-f3-agent-1-two-step-receipts-printe` | AGENT-1 | F2 |
+| F4 | `chat-f4-agent-1-one-listener-entry-per-p` | AGENT-1 | F3 |
+| F5 | `chat-f5-agent-1-chat-send-to-an-unknown` | AGENT-1 | F4 |
+| F6 | `chat-f6-agent-1-the-stop-hook-works-from` | AGENT-1 | F3 |
+| F7 | `chat-f7-agent-1-orch-listens-like-every` | AGENT-1 | F6 |
+| F8 | `chat-f8-agent-1-build-the-design-recipie` | AGENT-1 | D1, F4, F5 |
+| P1 | `chat-p1-agent-4-the-rule-for-a-woken-age` | AGENT-4 | F1 |
+| P2 | `chat-p2-agent-4-delivered-seen-answered` | AGENT-4 | F3 |
+| S1 | `chat-s1-agent-3-security-review-of-the-c` | AGENT-3 | F6, F7 |
+| Q1 | `chat-q1-agent-3-chat-e2e-qa-fake-session` | AGENT-3 | F7, F8 |
+
+The two placeholders `conversation-reliability-dev` and `-qa` are covered by F1 to F8 and S1/Q1; `conversation-reliability-verify` (merge,
+install, live ping, daily check) follows Q1.
+
 ## What stays with the owner
 
 Switching agent chat on or off is the owner's call; after F1 it no longer decides whether an answer reaches the thread. Running
