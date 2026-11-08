@@ -186,6 +186,89 @@ class Init(Base):
         self.assertIn(str(self.here / ".agentboard"), out)
 
 
+class InitNeverTouchesAnotherBoard(Base):
+    """Cross-review xr-firstrun-demo-wrong-board: `init --demo` seeded the sample cards into the board AGENTBOARD_DIR names, not the one init made."""
+
+    def setUp(self):
+        super().setUp()
+        self.other = self.root / "live" / ".agentboard"
+        self.other.mkdir(parents=True)
+        self.live = Store(self.other)
+        self.live.add("Real work", status="todo")
+        self.before = (self.other / "tasks.json").read_bytes()
+        os.environ["AGENTBOARD_DIR"] = str(self.other)
+        self.new = self.root / "fresh"
+        self.new.mkdir()
+        os.chdir(self.new)
+
+    def assertLiveBoardUntouched(self):
+        self.assertEqual((self.other / "tasks.json").read_bytes(), self.before)
+        self.assertEqual([t["title"] for t in self.live.load()], ["Real work"])
+
+    def test_the_flag_seeds_the_new_board_and_leaves_the_named_one_alone(self):
+        code, out, _e = self.run_cli("init", "--demo")
+        self.assertEqual(code, 0)
+        self.assertTrue(all(t["id"].startswith("demo-") for t in Store(self.new / ".agentboard").load()))
+        self.assertTrue(Store(self.new / ".agentboard").load())
+        self.assertLiveBoardUntouched()
+        self.assertIn("added sample cards", out)
+
+    def test_the_answer_yes_at_a_terminal_does_the_same(self):
+        self.run_cli("init", tty=True, stdin_tty=True, answers=["y"])
+        self.assertTrue(Store(self.new / ".agentboard").load())
+        self.assertLiveBoardUntouched()
+
+    def test_init_says_that_the_shell_still_points_at_the_other_board(self):
+        _c, out, _e = self.run_cli("init", "--no-demo")
+        self.assertIn(f"AGENTBOARD_DIR is set to {self.other}", out)
+        self.assertIn("not this new one", out)
+        self.assertLiveBoardUntouched()
+
+    def test_no_note_when_the_variable_names_the_new_board_itself(self):
+        os.environ["AGENTBOARD_DIR"] = str(self.new / ".agentboard")
+        _c, out, _e = self.run_cli("init", "--demo")
+        self.assertNotIn("is set to", out)
+        self.assertTrue(Store(self.new / ".agentboard").load())
+        self.assertLiveBoardUntouched()
+
+    def test_with_no_variable_nothing_changed(self):
+        del os.environ["AGENTBOARD_DIR"]
+        _c, out, _e = self.run_cli("init", "--demo")
+        self.assertNotIn("is set to", out)
+        self.assertTrue(Store(self.new / ".agentboard").load())
+
+    def test_a_named_board_is_protected_the_same_way(self):
+        """`--board NAME` and AGENTBOARD_BOARD name a registered board and win over the folder, like AGENTBOARD_DIR does."""
+        from agentboard import boards
+        os.environ["AGENTBOARD_HOME"] = str(self.root / "boards-home")
+        boards.register("live", self.other)
+        del os.environ["AGENTBOARD_DIR"]
+        os.environ["AGENTBOARD_BOARD"] = "live"
+        _c, out, _e = self.run_cli("init", "--demo")
+        self.assertIn("AGENTBOARD_BOARD is set to live", out)
+        self.assertTrue(Store(self.new / ".agentboard").load())
+        self.assertLiveBoardUntouched()
+        del os.environ["AGENTBOARD_BOARD"]
+        os.rename(self.new / ".agentboard", self.new / "gone")
+        _c, out, _e = self.run_cli("--board", "live", "init", "--demo")                    # the flag is the same thing
+        self.assertLiveBoardUntouched()
+        self.assertTrue(Store(self.new / ".agentboard").load())
+
+    def test_the_demo_command_itself_still_follows_the_variable(self):
+        """`agentboard demo` is about the board in use, which is what it should stay."""
+        self.run_cli("demo")
+        self.assertTrue(any(t["id"].startswith("demo-") for t in self.live.load()))
+
+    def test_the_bare_command_names_the_variable_not_the_folder(self):
+        _c, out, _e = self.run_cli()
+        self.assertIn("The board in use (AGENTBOARD_DIR is set):", out)
+        self.assertNotIn("This folder's board", out)
+        del os.environ["AGENTBOARD_DIR"]
+        os.chdir(self.here)
+        self.run_cli("init", "--no-demo")
+        self.assertIn("This folder's board:", self.run_cli()[1])
+
+
 class Hints(Base):
     def setUp(self):
         super().setUp()

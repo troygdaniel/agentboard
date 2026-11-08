@@ -123,6 +123,27 @@ def _ask_yes(question):
         return False
 
 
+def _env_board_in_use():
+    """(variable, value) when this shell names a board by AGENTBOARD_BOARD or AGENTBOARD_DIR (they win over the folder you are in), else None."""
+    for var in ("AGENTBOARD_BOARD", "AGENTBOARD_DIR"):
+        if os.environ.get(var):
+            return var, os.environ[var]
+    return None
+
+
+def _env_board_other_than(d):
+    """(variable, value) when the shell names a board and it is not `d`; None when it names none or names this one."""
+    named = _env_board_in_use()
+    if not named:
+        return None
+    try:
+        if find_dir().resolve() == Path(d).resolve():
+            return None
+    except BoardError:
+        pass
+    return named
+
+
 def _board_above(here):
     """The nearest .agentboard/ in a folder ABOVE `here`, or None: `init` here would start a second board next to it."""
     for d in here.parents:
@@ -164,7 +185,8 @@ def _add_instructions(path, board_dir):
         with open(path, "rb") as f:
             f.seek(-1, os.SEEK_END)
             lead = "\n" if f.read(1) == b"\n" else "\n\n"   # one blank line between what was there and our block
-    with open(path, "a") as f:
+    fd = os.open(path, os.O_WRONLY | os.O_APPEND | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_CLOEXEC", 0), 0o666)   # O_NOFOLLOW: a link is an error, never a path out of the project (a platform without it relies on the check before)
+    with os.fdopen(fd, "a") as f:
         f.write(lead + block)
     return "added"
 
@@ -192,12 +214,16 @@ def cmd_init(a):
         lines.append(f"added {DIR_NAME}/ to .gitignore (task data can hold private context)")
     if above is not None:
         lines.append(f"note: {above} is a board in a folder above this one; agents run from here use this new board, not that one")
+    elsewhere = _env_board_other_than(d)
+    if elsewhere:
+        lines.append(f"note: {elsewhere[0]} is set to {elsewhere[1]}, so agentboard commands in this shell use that board, not this new one; unset it to use this one")
     print("\n".join(lines))
     want_demo = getattr(a, "demo", False)
     if not existed and not want_demo and not getattr(a, "no_demo", False) and sys.stdin.isatty() and sys.stdout.isatty():
         want_demo = _ask_yes("Add a few sample cards so the board is not empty? (`agentboard rm --demo` removes them)")
     if want_demo and not existed:
-        cmd_demo(argparse.Namespace(live=False, minutes=0))
+        demolib.seed(Store(d))   # the board init just made, never the one find_dir() would pick (AGENTBOARD_DIR, --board): that could be a live board
+        print("added sample cards (ids start with demo-); remove with: agentboard rm --demo")
     connected = _offer_instructions(a, here, d, existed, interactive=sys.stdin.isatty() and sys.stdout.isatty())
     print("next:\n"
           "  agentboard serve         show the board in your browser (http://localhost:8765; Ctrl+C stops it)\n"
@@ -214,12 +240,16 @@ def _offer_instructions(a, here, board_dir, existed, interactive):
         return False
     if getattr(a, "add_instructions", False):
         path = path or here / "AGENTS.md"
+        if path.is_symlink():   # CLAUDE.md and AGENTS.md can both be links (to a shared folder, say): writing through one would change a file outside this project
+            print(f"{path.name} here is a link, and agentboard never writes through a link: `agentboard instructions` prints the lines to paste")
+            return False
     elif path is None or existed or not interactive or _has_instructions(path):
         return path is not None and _has_instructions(path)
     elif not _ask_yes(f"Add agentboard's instructions to {path.name} so your agents report to the board? (a block you can delete; nothing else in the file changes)"):
         return False
     try:
-        did = _add_instructions(path, board_dir)
+        with private.as_user():   # CLAUDE.md / AGENTS.md is for teammates and CI, like .gitignore: the board folder is private, this file is not
+            did = _add_instructions(path, board_dir)
     except OSError as e:
         print(f"could not write {path.name}: {e.strerror or e}; `agentboard instructions` prints the lines to paste")
         return False
@@ -1558,7 +1588,9 @@ def _welcome():
     try:
         d = find_dir()
         n = sum(1 for t in Store(d).load() if not t.get("parent_id"))
-        text += f"\n\nThis folder's board: {d} ({n} task{'s' if n != 1 else ''}). `agentboard serve` shows it."
+        named = _env_board_in_use()   # a board named by the shell wins over the folder, so it is not "this folder's"
+        label = f"The board in use ({named[0]} is set)" if named else "This folder's board"
+        text += f"\n\n{label}: {d} ({n} task{'s' if n != 1 else ''}). `agentboard serve` shows it."
     except BoardError:
         pass
     return text

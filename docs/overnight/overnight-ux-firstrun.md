@@ -301,6 +301,17 @@ demo-ci                        done     Σ100%  [bolt]  [2/2 subtasks]  Set up C
 At a terminal two things show that a pipe cannot: `agentboard init` asks "Add a few sample cards so the board is not empty? [y/N]", and an empty
 `agentboard list` prints one line saying how to add a task. Both are pinned by tests that fake a terminal.
 
+## Cross-review fix (AGENT-8, card xr-firstrun-demo-wrong-board, HIGH)
+
+`agentboard init --demo` (and answering yes to the sample-cards question) seeded the twelve sample cards into the board that `AGENTBOARD_DIR`, `AGENTBOARD_BOARD` or `--board` named,
+not into the board `init` had just made in the current folder: an agent session with `AGENTBOARD_DIR` exported (common) would have filled a live board with `demo-*` cards. Fixed:
+
+- `init` seeds the board it created (`demolib.seed(Store(d))`), never the one `find_dir()` would pick. The sample cards are the only thing `init` writes besides the new board's own files and `.gitignore`.
+- When the shell names a different board, `init` now says so: *note: AGENTBOARD_DIR is set to <path>, so agentboard commands in this shell use that board, not this new one; unset it to use this one.*
+- The bare `agentboard` welcome had the same root cause (it said "This folder's board" for the board the variable named); it now says "The board in use (AGENTBOARD_DIR is set)".
+- `agentboard demo` itself is unchanged: it is about the board in use.
+- Tests (`tests/test_first_run.py`, class `InitNeverTouchesAnotherBoard`, 8 tests): a live board with a card and `AGENTBOARD_DIR` pointing at it, `init --demo` and the terminal "yes" in a new folder leave the live board's bytes unchanged and seed the new one; the note appears only when the variable names another board; a registered board (`AGENTBOARD_BOARD`, `--board`) is protected the same way; the welcome names the variable. 6 mutants (seeding through `_store()` or `cmd_demo`, no note, a note for the same board, the welcome's label, only one of the two variables), all caught.
+
 ## What changed, by file
 
 - `src/agentboard/cli.py`: the welcome and the nearest-command error (a small `ArgumentParser` subclass); guided `init` (`--demo`, `--no-demo`); the hints on empty `list`, out-of-range percent, unknown id; `list --agent` and a validated `--status`; `serve` port check and help text; the `add` reminder for agents only; the plugin hint only when a plugin is installed.
@@ -311,7 +322,7 @@ At a terminal two things show that a pipe cannot: `agentboard init` asks "Add a 
 
 ## Checks
 
-- Full suite on this branch: **1220 tests, OK** (python -m unittest discover -s tests, run Nov 7 23:42 to 23:45). An earlier run under heavy machine load (load average 14, other agents running suites) failed three timing tests in `test_redact_dashes` and `test_redact_dos`; their code is untouched and they pass when the Mac is quiet.
+- Full suite on this branch: **1228 tests, OK** (Nov 8 00:56 to 00:59, after the cross-review fix; it was 1220 before it). An earlier run under heavy machine load (load average 14, other agents running suites) failed three timing tests in `test_redact_dashes` and `test_redact_dos`; their code is untouched and they pass when the Mac is quiet.
 - `python3 tests/publiccheck.py`: 0 findings.
 - 37 mutants of the new code (each welcome, hint, guard, route and page rule removed or bent), all caught by `tests/test_first_run.py` (two by a hang: a port check that let a real server start).
 - Rendered and clicked in a real browser on throwaway boards: the welcome, New task, Add sample cards, the tour (Next, Back, arrow keys, Esc, focus back), the shortcuts sheet's tour link, a 420 px window, By agent with six agents.
