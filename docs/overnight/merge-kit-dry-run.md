@@ -98,7 +98,7 @@ its log.
 
 The settings-mode item is closed by the sign-off pack's f23d1e8 (the table row now says what `write_settings` does).
 
-## The 05:30 run on the final tips (main f360942; in progress at 06:33, the end is appended below)
+## The 05:30 run on the final tips (main f360942; ended 06:50)
 
 | step | branch (tip) | resolution | suite after the merge |
 |---|---|---|---|
@@ -115,7 +115,13 @@ The settings-mode item is closed by the sign-off pack's f23d1e8 (the table row n
 | 11 to 14 | rel-agent-protocol, ux-firstrun, ux-init-agent-instructions, ux-nav-and-panel-words | already in (their stacks' tips carried them) | |
 | 15 | sec-signoff-pack f23d1e8 (on combined-11: it carries the fixups) | CHANGELOG by the kit | **1588 passed, 0 failed** |
 | 16 | agent-prompts 63909aa | clean | **1625 passed, 0 failed** |
-| 17 to 19 | config-validation 580059f, perf-scale fd03e24, rel-server-lifecycle 4359186, then the fixups and the final suite | running | appended below |
+| 17 | config-validation 580059f | clean | **1640 passed, 0 failed** |
+| 18 | perf-scale fd03e24 | CHANGELOG by the kit | 1646 passed, 1 failed: `test_doctor.Cli.test_the_command_prints_the_report_and_exits_1_on_a_fail` |
+| 19 | rel-server-lifecycle 4359186 (with the `import os` fix) | CHANGELOG by the kit | 1654 passed, 1 failed (the same doctor test); the `/api/hud` 500s are gone |
+| fixups | `_after_all.py` | nothing left to change (the sign-off tip carried them) | run ended 06:50, trial tip 540bc90, 87 merge commits on f360942 |
+
+AGENT-7 moved two tips during this run (perf-scale 25112c6 and config-validation 67c562d, AGENT-8's two 06:00 HIGHs); a quick pass
+on those tips merged all fifteen branches with the same resolutions, and one full suite on that tree is the last line of this document.
 
 The mid-run failures (1 to 7) are the cross-branch pins of the earlier section (module map, documents index, sign-off file table, doctor
 line cap, selfcheck tables, the settings-mode row): each branch's own test is true alone and false once the others are in, and all of
