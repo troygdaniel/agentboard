@@ -1,6 +1,6 @@
 # Settings: tabs
 
-**Status: design, stage 1 of the card `settings-ui-tabs`.** Mockup (every tab, wide and narrow, a search state, light and dark): `docs/settings-tabs-mockup.html`,
+**Status: designed in stage 1 (4d3b032), built in stage 2 (the shell, General, Sound, Agents and chat, search, the plugin API); Security and Backup are phase 2.** The card is `settings-ui-tabs`. Mockup (every tab, wide and narrow, a search state, light and dark): `docs/settings-tabs-mockup.html`,
 with `settings-tabs-design-wide-light.png`, `-wide-dark.png`, `-narrow-light.png` and `-narrow-dark.png`. Every value in it is made up.
 
 ## The problem
@@ -17,22 +17,23 @@ A tab is drawn only while it has something in it. With no plugins the sheet has 
 |-----|-------|--------|
 | **General** | **Look**: Theme (new: Auto / Light / Dark, the same switch as the header's half-moon), Calm cards, Lively, From the future, Motion. **This board** (status): Owner, Stale after | Look moves here from the old sheet; the board's own values are read-only, each with the key that changes it |
 | **Sound** | Sound, Ambient bed, Volume; **Touch and ambience** (Touch, Rain, Wind, Pad, Pulse, Deep space, Tide) in two columns; **Effects** (Echo, Duck the bed, Signatures, All clear, Chimes, Future sound, Hourly chime) | the old sheet's bulk, unchanged rows |
-| **Agents and chat** | **Agent chat**: Agents may talk to each other (new control, the existing `/api/chat-agents`, the same as `agentboard chat agents on`). **Who is listening** (status, from the receipts the chat already polls) | new rows on existing data |
+| **Agents and chat** | **Agent chat**: Agents may talk to each other, shown as on or off **with the command that changes it** (`agentboard chat agents on` / `off`): a read-only status, no switch (ORCH, 8 Nov). **Who is listening** (status, from the receipts the chat already polls) | new rows on existing data |
 | **Texts** | Pull my texts, Text me back (Off / Dry run / Send, the inline Send confirm), the restart chip's row, the remember switch | plugin (home) |
 | **Facts** | Keep a daily list of my events and to-dos, Refresh now | plugin (home) |
 | **Security** | Status: lockdown, redaction, plugins allowed, last self-check | phase 2 (below) |
 | **Backup and data** | Status: last backup, data folder mode | phase 2 (below) |
 
-The sheet is 720px wide and `min(680px, 100vh - 48px)` tall; the tab list is vertical on the left, the pane scrolls inside it. At 900px of window height
-General, Agents and chat, Texts and Facts fit whole; **Sound is the one tab that scrolls** (about five rows of effects below the fold). Splitting Ambience
-into its own tab would fix that and cost a tab for a section most people open once; the design keeps one Sound tab.
+The sheet is 720px wide and `min(720px, 100vh - 48px)` tall; the tab list is vertical on the left, the pane scrolls inside it. At 900px of window height
+General and Agents and chat fit whole, and so does a plugin's tab (Texts, Facts); **Sound is the one tab that scrolls**: measured in the built page its pane is about
+1.7 screens tall (1170px in a 671px pane) because it holds 17 rows. Splitting Ambience and Effects into their own tabs would shorten it and cost two tabs for
+sections most people open once; the build keeps one Sound tab, and the search box finds any layer in one keystroke.
 
 ## Nothing removed, nothing renamed
 
 Rows keep their labels, their about lines and their element ids (`cfg-snd`, `cfg-amb`, `cfg-vol`, `lyr-*`, `mix-close`, the containers `mix-touch`,
-`mix-amb`, `mix-fx`, `mix-look`). Only places change: Look moves to General; Touch, Ambience and Effects move to Sound (Touch and Ambience share one heading,
-Touch and ambience, in two columns); the paragraph that explains the sound defaults sits at the top of Sound. About lines are clamped to two lines in a tab, the
-whole line is the row's title and opens on a click. New: the Theme row, the Agent chat switch, the tab list, the search box.
+`mix-amb`, `mix-fx`, `mix-look`). Only places change: Look moves to General; Touch, Ambience and Effects move to Sound, **each under the heading it had** (the mockup merged two of them; the build
+did not), laid out in two columns; the paragraph that explains the sound defaults sits at the top of Sound. About lines are clamped to two lines in a tab, the
+whole line is the row's title (a hover away). New: the Theme row, the Agent chat status row, the tab list, the search box.
 
 ## What a plugin does
 
@@ -71,22 +72,20 @@ the panes are one column. Because the search box finds a setting on any tab, no 
 Light and dark use only the board's tokens; the amber dot and the Send confirm keep their `--warn` colours; the flash is the only motion and is replaced by
 a bar under reduced motion.
 
-## Two decisions for ORCH
+## Decided (ORCH, 8 Nov)
 
-1. **Security and Backup and data are phase 2.** They are read-only status (the lockdown state, whether redaction is on, whether plugins are allowed, the
-   last self-check, the age of the last backup), and the page has no endpoint for them. A single `GET /api/settings` returning booleans, counts and ages
-   (never a path, a key or a name) would feed both; it needs its own security review (AGENT-3) before it ships. The shell takes them as two more `AB.settingsTab`
-   calls, so nothing in the build waits on them. The build covers General, Sound, Agents and chat and the plugin tabs.
-2. **Agents and chat writes a board-wide setting from the page.** The call exists (`/api/chat-agents`, used by the CLI's switch) and is reversible, free and
-   the owner's alone; the switch says what it does in one line. If you would rather keep that one in the terminal, the tab shows the status and the command
-   instead.
+1. **Security and Backup and data are read-only status tabs, as phase 2.** They need a new `GET /api/settings`: loopback only with the Host check, on / off and
+   counts only (no paths, no patterns, no secrets: the same rule as `config show`), and AGENT-3 reviews it before it merges. The shell takes them as two more
+   `AB.settingsTab` calls, so nothing in stage 2 waits on them.
+2. **Agent chat is not written from the page.** The tab shows the status and the command to change it. If Troy later wants a switch, it gets a confirm box like
+   Send's.
 
 ## Build order
 
-1. The shell: tablist, panes, `AB.settingsTab`, `AB.settingsBadge`, the old sections moved into General and Sound with the same ids, memory, deep link,
-   keyboard, 390px, reduced motion. Page-script check, tests (the old Settings tests updated where a heading moved), before and after screenshots.
-2. Search, the Theme row, the Agent chat switch and the listeners rows.
-3. The home plugin's two page scripts on their own branch; then AGENT-6 render-checks every tab, light and dark, wide and narrow.
+1. **Stage 2 (built):** the shell (tablist, panes, `AB.settingsTab`, `AB.settingsBadge`), General, Sound and Agents and chat, search, the Theme row, memory,
+   deep link, keyboard, 390px, reduced motion; page-script check, 31 tests, before and after screenshots.
+2. The home plugin's two page scripts on their own branch (its tests, its repo); then AGENT-6 render-checks every tab, light and dark, wide and narrow.
+3. **Phase 2:** `GET /api/settings`, the Security and Backup and data tabs, AGENT-3's review.
 
 ## Not designed
 

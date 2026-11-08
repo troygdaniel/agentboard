@@ -26,7 +26,10 @@ class HeaderTests(unittest.TestCase):
         self.assertIn("#filter { display: none; }", HTML)
         self.assertNotIn("<span>Live</span>", HEADER)
         self.assertNotIn("<dt><kbd>/</kbd></dt>", HTML)                 # the / shortcut only served the field
-        self.assertNotIn("e.key === '/'", HTML)
+        # the slash served only the header's filter field; since Nov 8 it is the Settings sheet's search box, and only while that sheet is open
+        self.assertEqual(HTML.count("e.key === '/'"), 1)
+        self.assertIn("if (e.key === '/' && mixIsOpen()) { e.preventDefault(); $('mix-search').focus(); return; }", HTML)
+        self.assertNotIn("$('filter').focus()", HTML)
 
     def test_an_active_filter_still_shows_and_can_be_cleared(self):
         self.assertIn('<span class="summary" id="filter-summary" role="status"></span><button class="btn filter-clear" id="filter-clear" hidden aria-label="Clear the filter"', HEADER)
@@ -48,7 +51,8 @@ class HeaderTests(unittest.TestCase):
         self.assertIn("#theme, #cfg-btn, #help-btn { width: 44px; height: 44px;", HTML)
         self.assertEqual(ICONS.count('id="cfg-btn"'), 1)
         self.assertIn("$('cfg-btn').onclick = () => toggleMix();", HTML)
-        self.assertIn("if (open) $('mix').querySelector('input').focus(); else $('cfg-btn').focus();", HTML)
+        self.assertIn("selectSettingsTab(tabId || hashTab() || rememberedSettingsTab() || 'general', { focus: true });", HTML)   # opening focuses the selected tab (Nov 8: Settings in tabs)
+        self.assertIn("$('cfg-btn').focus();", HTML)                                                                   # closing returns to the gear
 
 
 class SettingsTests(unittest.TestCase):
