@@ -1,6 +1,6 @@
 # Texts reply: wording and the Settings switch
 
-**Status: design only, nothing built.** It follows `docs/texts-reply-plan.md` and uses the plan's recommended answer to each of its four open points; the last section says what changes if Troy answers differently. Mockups (light, dark, narrow, and a live Settings sheet to click through): `docs/texts-reply-design-mockup.html`, with `docs/texts-reply-design-light.png`, `-dark.png` and `-narrow.png`. Every example is a made-up card. All code stays in the home plugin.
+**Status: built (Nov 7, 2026) in the home plugin (`agentboard-home`, `reply.py` and `page.js`); that repo's README is the source of truth. Where this design differs from the build, the build wins: answers carry titles only (no snippet), the pull timer runs every 15 seconds, and at the day's cap replies pause and resume the next day.** It follows `docs/texts-reply-plan.md` and uses the plan's recommended answer to each of its four open points; the last section says what changes if Troy answers differently. Mockups (light, dark, narrow, and a live Settings sheet to click through): `docs/texts-reply-design-mockup.html`, with `docs/texts-reply-design-light.png`, `-dark.png` and `-narrow.png`. Every example is a made-up card. All code stays in the home plugin.
 
 ## What the board says back
 
@@ -11,8 +11,8 @@ Board voice: plain ASCII, no emoji, no links, no exclamation marks, no "I", no s
 | One card | `Added: Buy toothpaste` |
 | A text that made 3 cards | `Added 3: Buy toothpaste; Call the vet; Renew the pass` |
 | 8 cards from one pull (burst) | `Also added 5: Call the vet; Renew the pass; Pay Hydro; and 2 more` (after 3 texts have their own reply) |
-| Question, one match | `Added: Is the backup tested? Answer: 2026-11-02 Backup restore check - restored 12 cards from a copy, all matched.` |
-| Question, two matches | `Added: What did we decide on invoices? Answer: 1) 2026-10-28 Invoice numbering - one counter, no gaps; 2) 2026-10-21 Late fee wording - 30 days, plain text.` |
+| Question, one match | `Added: Is the backup tested? Answer: 2026-11-02 Backup restore check.` (as built: date and title only, no snippet) |
+| Question, two matches | `Added: What did we decide on invoices? Answer: 1) 2026-10-28 Invoice numbering; 2) 2026-10-21 Late fee wording.` (titles only) |
 | Question, no match | `Added: Is the backup tested? Answer: no match in cards or reports.` |
 | Long title | `Added: Rewrite the onboarding checklist so that new hires see the three...` |
 
@@ -21,7 +21,7 @@ The rules behind the table:
 - **"Added:" first, always.** It says what the board did (made a card). The card lands in Todo, so the sender never has to wonder.
 - **The word "Answer:"** separates the ack from the answer. The plan used ` - `, but card titles can hold a dash, so the line could not be read back unambiguously.
 - **Numbers only when there are two matches.** One match is a sentence; two are `1) ... ; 2) ...`.
-- **Cuts end in `...`** at a word boundary: the title at 60 characters, each snippet at about 110, the whole reply at 320 (cut last, so the reply never ends mid-word).
+- **Cuts end in `...`** at a word boundary: the title at 60 characters (there is no snippet in the build), the whole reply at 320 (cut last, so the reply never ends mid-word).
 - **Dates are `YYYY-MM-DD`**, as on the cards and reports.
 - **No match says so**, and says where it looked: `no match in cards or reports.` Silence would read as "broken".
 - **A title is data, not wording.** The cleaning from the plan still applies, in its order: it can change how a title reads, and the build should keep it readable:
@@ -30,7 +30,7 @@ The rules behind the table:
 
 ## The switch
 
-**Where:** Settings, in the existing **Texts** group, under "Pull my texts every minute". One row, built on the segmented control the sheet already uses for Off / Subtle / Full (same classes, same look, so the build adds no new component).
+**Where:** Settings, in the existing **Texts** group, under the pull timer's row ("Pull my texts every 15 seconds"; it said "every minute" when this was written). One row, built on the segmented control the sheet already uses for Off / Subtle / Full (same classes, same look, so the build adds no new component).
 
 **Label:** `Text me back`. Three positions:
 

@@ -1,5 +1,8 @@
 """Offline repros of the board-chat loss paths (docs/conversation-reliability-analysis.md). A THROWAWAY board in a temp folder, real `agentboard`
-processes as the fake sessions, fake text only. Nothing touches a real board (AGENTBOARD_DIR points at the temp folder), nothing is sent anywhere.
+processes as the fake sessions, fake text only. Nothing touches a real board: every process runs with AGENTBOARD_DIR pointing at the temp
+folder and HOME set to it, from an empty folder beside it as its working directory (so the one probe that runs with no board in its environment,
+R11, finds none: `find_dir` treats an empty AGENTBOARD_DIR as unset and would otherwise walk up from the repo to the real board under it).
+Nothing is sent anywhere.
 
     python3 tests/chat_repro.py          # about a minute; prints one line per loss path (R1 to R11), the ids the analysis uses
 
@@ -16,12 +19,14 @@ from pathlib import Path
 SRC = str(Path(__file__).resolve().parents[1] / "src")
 sys.dont_write_bytecode = True
 sys.path.insert(0, SRC)
-from agentboard import hooks, listeners  # noqa: E402
+from agentboard import cursors, hooks, listeners  # noqa: E402
 from agentboard.store import BoardError, Store  # noqa: E402
 
 TMP = Path(tempfile.mkdtemp())
-BOARD = TMP / ".agentboard"
-BOARD.mkdir()
+BOARD = TMP / "proj" / ".agentboard"   # the throwaway board
+BOARD.mkdir(parents=True)
+CWD = TMP / "empty"                     # where every probe runs: no board in it or above it
+CWD.mkdir()
 (BOARD / "config.toml").write_text('[board]\nowner = "Troy"\n')
 S = Store(BOARD)
 S.add("seed card")
@@ -38,15 +43,18 @@ def cli(*args, name=None, env=None, stdout=subprocess.PIPE, stdin=None):
     e = dict(ENV, **(env or {}))
     if name:
         e["AGENTBOARD_NAME"] = name
-    return subprocess.Popen([sys.executable, "-m", "agentboard", *args], env=e, stdout=stdout, stderr=subprocess.STDOUT, stdin=stdin, text=True)
+    return subprocess.Popen([sys.executable, "-m", "agentboard", *args], env=e, cwd=str(CWD), stdout=stdout, stderr=subprocess.STDOUT, stdin=stdin, text=True)
 
 
 def run(*args, name=None, env=None, input=None):
     e = dict(ENV, **(env or {}))
     if name:
         e["AGENTBOARD_NAME"] = name
-    r = subprocess.run([sys.executable, "-m", "agentboard", *args], env=e, capture_output=True, text=True, input=input, timeout=60)
+    r = subprocess.run([sys.executable, "-m", "agentboard", *args], env=e, cwd=str(CWD), capture_output=True, text=True, input=input, timeout=60)
     return r.returncode, (r.stdout + r.stderr).strip()
+
+
+assert not any((d / ".agentboard").is_dir() for d in (CWD, *CWD.parents)), f"a board sits above {CWD}: the no-board probe would read it"
 
 
 def owner_says(text, to=None):
@@ -69,9 +77,12 @@ p = cli("chat", "inbox", "--name", "R2", "--wait", "30", name="R2", stdout=subpr
 time.sleep(1.2)
 m = owner_says("did you get this?", to="R2")
 p.wait(timeout=20)
-cur = listeners.read_cursors(BOARD).get("R2")
+cur, left = cursors.get(BOARD, "R2"), cursors.pending(BOARD, "R2")
+from datetime import datetime, timedelta  # noqa: E402
+cursors.deliver(BOARD, "R2", m["seq"], now=datetime.now() - timedelta(seconds=cursors.RESHOW_S + 60))   # nothing confirmed it for 6 minutes
 code, again = run("chat", "inbox", "--name", "R2", name="R2")
-say("R2", f"line #{m['seq']} printed to a reader that was gone: cursor now {cur} (the board counts it READ); the next inbox says: {again!r} -> the line is lost for good")
+say("R2", f"line #{m['seq']} printed to a reader that was gone: seen cursor {cur}, delivered #{left['seq'] if left else None} (not seen); 6 min later the next inbox "
+          f"{'shows it AGAIN' if f'#{m[chr(115)+chr(101)+chr(113)]}' in again else 'says ' + repr(again)} (before chat-f3 the cursor moved on print and the line was lost for good)")
 
 # ---- R3: a stopped wait ------------------------------------------------------------------------------------------------------------------
 p = cli("chat", "inbox", "--name", "R3", "--wait", "600", name="R3")
@@ -83,23 +94,24 @@ time.sleep(0.2)
 m = owner_says("are you there?", to="R3")
 stale = json.loads((BOARD / listeners.FILE).read_text()).get("R3")
 say("R3", f"wait killed (the user typed in the terminal / the session ended): listening before={before}, after={listeners.is_listening(BOARD, 'R3')} (stale file entry still there: {bool(stale)}); "
-          f"line #{m['seq']} waits unread for as long as nobody looks: {len(S.chat_inbox('R3', after=listeners.read_cursors(BOARD).get('R3')))} unread")
+          f"line #{m['seq']} waits unread for as long as nobody looks: {len(S.chat_inbox('R3', after=cursors.get(BOARD, 'R3')))} unread")
 
 # ---- R4: two sessions with one name -----------------------------------------------------------------------------------------------------
 a = cli("chat", "inbox", "--name", "R4", "--wait", "600", name="R4")
 time.sleep(1.2)
 b = cli("chat", "inbox", "--name", "R4", "--wait", "3", name="R4")   # a second AGENT-N row: same name, shorter wait
 time.sleep(1.2)
-entry = listeners.listening(BOARD).get("R4")
+entry = listeners.listening(BOARD).get("R4") or {}
 owner_says("one line, two sessions", to="R4")
 oa, ob = a.communicate(timeout=20)[0], b.communicate(timeout=20)[0]
 got = sum(1 for o in (oa, ob) if "one line, two sessions" in o)
-say("R4a", f"two sessions named R4 and one line to R4: {got} of 2 sessions got it (both will answer); the registry held {1 if entry else 0} entry for the pair while both ran")
+warned = sum(1 for o in (oa, ob) if "sessions are listening as R4" in o)
+say("R4a", f"two sessions named R4 and one line to R4: {got} of 2 sessions got it (both will answer); the board showed {entry.get('sessions', 0)} sessions for the name while both ran and {warned} of them was warned at registration (before chat-f4: 1 entry, no warning)")
 a = cli("chat", "inbox", "--name", "R4", "--wait", "600", name="R4")
 time.sleep(1.2)
 b = cli("chat", "inbox", "--name", "R4", "--wait", "2", name="R4")
 b.communicate(timeout=20)
-say("R4b", f"the second one's wait ends (timeout): the first is still running (pid alive={listeners.alive(a.pid)}) but the board says listening={listeners.is_listening(BOARD, 'R4')} -> a false 'nobody is listening' warning")
+say("R4b", f"the second one's wait ends (timeout): the first is still running (pid alive={listeners.alive(a.pid)}) and the board says listening={listeners.is_listening(BOARD, 'R4')}, {listeners.sessions(BOARD, 'R4')} session (before chat-f4: listening=False, a false 'nobody is listening' warning)")
 a.kill()
 a.wait()
 
@@ -109,13 +121,14 @@ say("R5", f"chat, cursors and listeners are files in the board folder; a second 
 
 # ---- R6: a name nobody has --------------------------------------------------------------------------------------------------------------
 S.set_chat_agents(True)
-for typo in ("AGENT-33", "Agent 3", "agent3 "):
+S.start("a card", "AGENT-3", None)   # a real name on the board
+for typo in ("AGENT-33", "Agent 3", "agent3 ", "AGENT-3"):
     try:
         m = S.chat_send("R6", "hello?", kind="agent", to=typo)
-        res = "accepted silently"
+        res = "posted, a known name"
     except BoardError as e:
-        res = f"refused: {str(e)[:60]}"
-    say("R6", f"line to {typo!r}: {res}; nobody named that is listening, nothing tells the sender")
+        res = f"refused: {str(e)[:80]}"
+    say("R6", f"line to {typo!r}: {res} (before chat-f5: accepted silently, nothing told the sender; since the f8 fixes an agent's line to no one is not sent)")
 S.set_chat_agents(False)
 
 # ---- R7: reads at the same instant -------------------------------------------------------------------------------------------------
@@ -129,21 +142,22 @@ for rnd in range(8):
     procs = []
     for n in names:
         e = dict(ENV, AGENTBOARD_NAME=n)
-        procs.append(subprocess.Popen([sys.executable, "-c", code], env=e, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
+        procs.append(subprocess.Popen([sys.executable, "-c", code], env=e, cwd=str(CWD), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
     for p in procs:
         p.wait(timeout=60)
-    cur = listeners.read_cursors(BOARD)
-    lost_total += sum(1 for n in names if n not in cur)
+    cur = cursors.read(BOARD)
+    lost_total += sum(1 for n in names if cursors.key(n) not in cur)
     runs_total += len(names)
-say("R7", f"{runs_total} sessions reading at the same instant (8 rounds of 20): {lost_total} cursor updates lost (chat-cursors.json is read, changed and written back without a lock). A lost cursor means the same lines come again and the 'read' receipt is wrong; it never loses a line")
+say("R7", f"{runs_total} sessions reading at the same instant (8 rounds of 20): {lost_total} cursor updates lost (chat-cursors.json: a locked, forward-only, atomic write since rev1107-stophook-case; before it, 39 of 160 were lost). A lost cursor means the same lines come again and the 'read' receipt is wrong; it never loses a line")
 
 # ---- R8: more unread than one read shows --------------------------------------------------------------------------------------------------
 for i in range(60):
     owner_says(f"line {i}", to="R8")
 code, out = run("chat", "inbox", "--name", "R8", name="R8")
-shown = len([l for l in out.splitlines() if l.startswith("#")])
+shown = len([l for l in out.splitlines() if l.startswith("#") and "-> R8" in l])     # only the 60 to R8: lines to all from earlier probes are in this inbox too
 code2, out2 = run("chat", "inbox", "--name", "R8", name="R8")
-say("R8", f"60 unread lines: one read shows {shown} and moves the cursor past all 60; the next read says {out2!r} -> {60 - shown} lines lost silently (default --limit)")
+shown2 = len([l for l in out2.splitlines() if l.startswith("#") and "-> R8" in l])
+say("R8", f"60 unread lines: one read shows {shown} (oldest first) and the next shows {shown2} -> {60 - shown - shown2} lines lost (default --limit; before chat-f2 the first read showed the newest 50 and moved the cursor past all 60: 10 lost)")
 
 # ---- R9: the log keeps 500 ---------------------------------------------------------------------------------------------------------------
 for i in range(520):
@@ -182,12 +196,14 @@ S.set_chat_agents(False)
 # ---- R11: the Stop hook --------------------------------------------------------------------------------------------------------------------
 payload = json.dumps({"session_id": "abc", "stop_hook_active": False})
 owner_says("unread thread line", to="R11")
-code, o1 = run("hook", "stop", input=payload, env={"AGENTBOARD_DIR": ""}, name="R11")       # a home-folder session: no board in its environment
+code, o1 = run("hook", "stop", input=payload, env={"AGENTBOARD_DIR": ""}, name="R11")       # a home-folder session: no board in its environment, none above its cwd (TMP), none chosen
 code, o2 = run("hook", "stop", input=payload, name=None)                                       # board found, but the session never said who it is
 code, o3 = run("hook", "stop", input=payload, name="R11")                                      # board and name known, an unread owner line
 listeners.register(BOARD, "R11b", "inbox", pid=os.getpid())
 code, o4 = run("hook", "stop", input=payload, name="R11b")                                     # listening, nothing unread
 say("R11", f"stop hook: no board in env -> {o1[:40]!r}; board but no name -> {o2[:40]!r}; name + unread owner line -> {'BLOCKS: ' + o3[:70] if o3 else 'nothing'}; name + listening + nothing unread -> {o4[:30]!r}")
-say("R11", "the hook only works where it is installed and where the session can find the board: check `agentboard hooks status --project <folder>` for each folder sessions start in")
+code, o5 = run("hook", "stop", "--dir", str(BOARD), input=payload, env={"AGENTBOARD_DIR": ""}, name="R11")   # the folder hooks install bakes in: no environment needed (chat-f6)
+say("R11", f"stop hook with --dir <board> (what hooks install writes now): no board in env -> {'BLOCKS: ' + o5[:70] if o5 else 'nothing'}")
+say("R11", "run `agentboard hooks install --user` once from the board's folder, then restart sessions: every session on this Mac gets the hooks, whatever folder it starts in; `agentboard doctor` shows the Stop hook line")
 
 print("\nDONE", TMP)

@@ -2,6 +2,76 @@
 
 ## Unreleased
 
+### By agent no longer hides lanes past the edge: a fade and a "+4 more" chip (Nov 8)
+- With six or more agents the lanes scroll sideways under a scrollbar that overlay-scrollbar systems hide, so a lane past the right edge had no
+  sign it was there, and an agent waiting on you could go unseen. Each edge that has more now fades, and a chip counts what is past it
+  (`+4 more · 1 needs you ›`, `‹ 2 more`), says when one needs you or is ready for review, and jumps to the lane that needs you first, else the next.
+  Nothing shows when every lane fits, under Load, or off the By agent view. A keyboard reaches the chips; reduced motion jumps without the glide.
+  (`ux-by-agent-hides-lanes-past-the-fifth-w`; `docs/by-agent-lane-cue/`)
+
+### `agentboard doctor` and the repo guard read one set of rules, so the doctor's standing FAIL on fixtures is gone (Nov 8)
+- The doctor's `tracked files` scan and `tests/publiccheck.py` carried two copies of the secret shapes and the allow rules, and they disagreed: the doctor showed a FAIL all day on seven fixture keys inside tests that the guard, rightly, allowed (plain words after `sk-`, the song's phone number, a key of one repeated letter). A standing FAIL trains people to ignore the doctor. Both now read `src/agentboard/repoguard.py`: the same shapes (keys, tokens, private keys, Authorization headers, assigned secrets, phone numbers, emails, home paths, the owner's private words) and the same allow rules. A real-looking key still FAILs wherever it sits, a test file included; a fixture the guard lets through is a PASS. The doctor's kind names are now the guard's (`aws-key`, `assigned-secret`, `phone number`); emails and home paths, which only the guard checked before, are WARN lines in the doctor too.
+
+### Five small findings of the Nov 7 merge review (Nov 8)
+- One rule for a hard-off variable: `lockdown.env_on(name, env=None)`; doctor and the plugin gate use it instead of their own copies of
+  the off-words. (`rev1107-doctor-dup-env`)
+- A config path with an embedded NUL (`template_file`, a markdown or file-tail provider) made `prompt`, `/api/prompt` and `doctor`
+  crash under lockdown with a `ValueError`; it now reads as outside the project, as any unreadable path does. (`rev1107-lockdown-nul-crash`)
+- The masker treated a lower-case hex run with one dash or dot as a kebab-case word, so `token=<hex>-<hex>`, `key: <hex>.<hex>`,
+  `sk-live-<hex>` and a Mailgun-style `key-<32 hex>` passed. A segment with three or more digits is not a word now; identifiers
+  (`task-queue-implementation-notes`, `user_profile_cache_v2_final`) and dates in prose are untouched. (`rev1107-redact-wordy-hex`)
+- Three small masker gaps: a zero-length owner pattern no longer duplicates the invisible character around it; `agentboard redact` walks a
+  chat line's `files` and its proposed action too; a key-shaped session name is masked before it reaches `sessions.json`, the listener
+  file or the cursor file; a cut-off PEM with `Proc-Type`/`DEK-Info` header lines is masked through them. (`rev1107-redact-small-gaps`)
+- One stamp parser, `store.parse_stamp`, replaces four copies (hud, the chat, the cursors, the CLI); the Stop hook's `known_name` is
+  `resolve_sender` without the fallback; `REASON_MAX` is the cap it says it is (600, the same length as before). The cursor file itself
+  became one locked module earlier (`cursors.py`). (`rev1107-cursor-file-dup`)
+
+### Nine lines where the board and the terminal did not match the chat design (Nov 8)
+- `chat send --to` a name nobody has posts nothing and exits 1: `Not sent: no one named AGENT-33. Closest: AGENT-3. Send again with
+  --to AGENT-3.` (or `Names on this board: ORCH, AGENT-1, …`); the name is checked before the agent-chat switch; the roster in
+  `[orch] agents` counts as known names. The switch-off and over-the-limit refusals read as the design wrote them, and a long line to
+  the owner now says `Sent, cut at 300 characters: the rest is in the detail.` The owner's own typo from the board is still posted and
+  marked (the composer stops it first).
+- Receipts: `Nobody is listening for AGENT-4.` (`…for ORCH: it reads the board at its next check.`); a listening-but-busy agent is
+  muted, not amber: `AGENT-5 is listening but busy: it reads this when its step ends.`; after the Nudge, `ORCH asked 2m ago to message
+  it`. The composer's `On this board:` list puts ORCH first and leaves the owner's own name out, and an exact `@AGENT-2` with no space
+  counts as a complete name. Found by AGENT-2's check of chat-f8 against `docs/chat-words-design.md`.
+
+### The chat box says who reads the line, and a refused send keeps your text (Nov 8)
+- Under each chat box (the ORCH drawer, an agent's thread, a card's chat) one small line now says who the line goes to and whether
+  anything wakes them: `Goes to ORCH · listening`, `Goes to AGENT-2 · not listening: it reads this when its session next runs` (amber),
+  `Goes to AGENT-1 · 2 sessions: both may answer` (amber), `Goes to everyone listening (4). No one owns the answer.`, and while a name
+  is being typed, `Names: AGENT-1, AGENT-2 · Tab takes the first`. A name nobody has is stopped, not sent: `No one named AGENT-33. Did
+  you mean AGENT-3? Tab uses it.`; a name alone gets `Add what to tell AGENT-2 after the name.`; and when the board does not answer,
+  `Not sent: the board did not answer. Your text is still here; send again.` The box used to be cleared before the board answered, so a
+  refused send lost what you typed; now the text stays until the send is taken. `/api/chat` carries `names` (who a line can reach).
+  The words and layout are AGENT-2's design, `docs/chat-words-design.md`; fix F8 of `docs/conversation-reliability-analysis.md`.
+
+### An offline install path for a locked-down PC (Nov 8)
+- The README's two install commands both reach PyPI for build tools the first time: pipx upgrades its own pip before it looks at the
+  package (so `pipx install agentboard.whl` fails offline too), and `pip install .` downloads setuptools for its isolated build. On a work
+  PC with no package index neither works. The README now has an "Offline" paragraph: build the pure-Python wheel once on any machine
+  (`python3 -m pip wheel --no-deps -w dist .`), then `python3 -m venv` + `pip install --no-index <wheel>` on the offline one. The wheel is to
+  be attached to every tagged release from here on (release checklist: `rm -rf build && python3 -m pip wheel --no-deps -w dist .`, upload
+  `dist/agentboard-<version>-py3-none-any.whl`). Found by the overnight clean room (`qa-offline-install-needs-index`).
+
+### A line to a name nobody has is said so (Nov 7)
+- `chat send --to AGENT-33` (or `Agent 3`, or `agent3 ` with a stray space) was accepted without a word, and the sender thought it
+  was sent (`tests/chat_repro.py` R6). Known names are ORCH, the owner, every card holder, every chat sender and every listener, any
+  case. A line to any other name still posts (a new session may not have spoken yet) but is marked: the terminal prints "nobody named
+  AGENT-33 has spoken or is listening; did you mean AGENT-3?", the board shows a "no such name yet" chip on the line with the same
+  words in its tooltip, and the API returns `to_unknown` and `closest`. Fix F5 of `docs/conversation-reliability-analysis.md`.
+
+### The masker's wall-clock tests measure the code, not the scheduler (Nov 7)
+- `test_redact_dos.py` and `test_redact_fullwidth.py` asserted a megabyte of hostile text is masked in under 2 s (3 s fullwidth); linear work takes 0.05 s and the quadratic bug took minutes, yet the pair failed four times on Nov 7 on green code whenever two test suites shared a laptop at load 15 to 20. `tests/timing.py` now scales each limit by a same-moment linear baseline (300 `str.translate` passes over a megabyte, 0.25 s idle), tries a slow run up to three times and keeps the best, and never stretches a limit past 30 s. Quadratic work still fails every try. Inputs, caps and content checks are unchanged; two full suites run at once at load 19 were both exactly green.
+
+### Messages to agents get a reply: listeners, receipts, a Stop hook and a nudge through ORCH (Nov 7, 64e2bca)
+- A line typed to an agent used to sit in its inbox until something woke the session. Now every prompt tells a session to keep `agentboard chat inbox --name X --wait 3600` running between cards, the board lists who does (`.agentboard/chat-listeners.json`, by pid), and each line you send one agent carries a receipt in the ORCH drawer, the agent's thread and the card panel: **delivered** (in its inbox), **read** (its wait printed it), **answered** (it wrote back). After a minute unread the line says whether the agent is listening and, when it is not, offers **Nudge via ORCH**: the board asks ORCH, in its own thread, to message that session. `agentboard hooks install` now adds a second hook, Stop, that tells a session about to go quiet with an unread line from you (or no wait running) before it does, once.
+
+### An unknown command gets one line saying a plugin's command is not available here (Nov 7, 63dbf9b)
+- `agentboard texts-pending` from a plain shell said only "invalid choice". When the word is no core command and plugins are off or locked, the CLI adds one line to stderr: plugins are off (and why), so a command a plugin adds is not available here; run it from the board's shell, with its environment.
+
 ### An answer to the owner is never refused by the agent-chat switch (Nov 7)
 - With agent chat off, `chat send` refused a threaded reply (`--reply-to`), a `--topic help` line, a `--detail`, a two-line answer and a
   proposal even when the line was for the owner, and a line over 300 characters was refused with "put the rest in --detail", which was
@@ -10,6 +80,54 @@
   and is never refused for its length: over the limit it is cut at a word, ends in an ellipsis, and the rest goes to the top of the detail.
 - Still behind the switch: a line to an agent, ORCH or `all`, a heads-up about files, and an unaddressed reply to another agent's line.
   A long line to an agent is still refused. The refusal, the switch-off notice, `chat agents status` and the README say so.
+
+### Two sessions under one name are two listeners, not one (Nov 7)
+- The listener file kept one entry per name, so two sessions named alike overwrote each other: one line to the name woke both and
+  both answered, and when the shorter-lived one ended the board said nobody was listening while the other still was, and offered a
+  Nudge for it (`tests/chat_repro.py` R4a, R4b). Now each process is its own entry under the name (an older file still reads), a
+  session removes only its own, "listening" holds while any is left, and the board shows an amber "N sessions" chip on the name in
+  the thread head and under your line's receipt. A second wait starting under a live name is told so in its terminal (not in the chat: a
+  line to the name would wake both waits). The Stop hook no longer counts one of the board's own notices as an unanswered owner line.
+  Fix F4 of `docs/conversation-reliability-analysis.md`.
+
+### Receipts in two steps: delivered when printed, seen when the session acts (Nov 7)
+- `chat inbox --wait` advanced the agent's cursor the moment it printed, so a line printed to a session that had died, or never read
+  its output, counted as read and never came back; the panel said "read" for a line no model saw (`tests/chat_repro.py` R2). Now
+  printing records DELIVERED (the seq and the time, `chat-delivered.json`), and the cursor (SEEN) moves only when that name next does
+  anything on the board (any command with `--name`, `agentboard me`, or another inbox read). A delivered line not confirmed within 5
+  minutes is shown again by the next `chat inbox`, with one line saying so. The Stop hook tells a session that printed a line and did
+  nothing to answer it. The chat panel's receipt reads sent / delivered / seen / answered; "sent" carries the 60 s nobody-is-listening
+  warning and the Nudge, "delivered" turns amber after 5 minutes unseen. Fix F3 of `docs/conversation-reliability-analysis.md`.
+
+### `chat inbox` reads oldest-first and loses nothing (Nov 7)
+- `chat inbox` showed the newest 50 unread lines and moved the cursor past all of them: with 60 unread, the 10 oldest were never shown
+  (`tests/chat_repro.py` R8). It now shows the oldest `--limit` (default 50; `0` for all), moves the cursor only to the last line it
+  showed, and ends with "(N more unread, from #seq: run it again)". The idle drafter and the autopilot read everything unread as
+  before. Together with the locked, forward-only cursor write (`cursors.py`) this is fix F2 of `docs/conversation-reliability-analysis.md`:
+  R7 loses 0 of 160 concurrent cursor updates, R8 loses 0 of 60 lines; a test runs twelve real processes reading one line at once.
+
+### The chat repro script no longer reads the real board for one probe (Nov 7)
+- `tests/chat_repro.py` ran its R11 probe (`hook stop` with no board in the environment) with `AGENTBOARD_DIR` set to an empty string,
+  which `find_dir` treats as unset: run from the repo root as documented, the probe walked up to the repo's own `.agentboard/` and read
+  the real chat, cursors and listeners, against the script's promise and the analysis doc's "no board in env -> does nothing". Every
+  process the script starts now runs from the temp folder, the script refuses to start under a real board, and the doc says what R11
+  measures. Found by the Nov 7 merge review (`rev1107-repro-reads-live-board`).
+
+### The autopilot no longer marks a line read or answered for a session that never saw it (Nov 7)
+- With `[chat] autopilot` on, the board drafting a reply for an idle agent moved that agent's chat cursor to the newest line and
+  posted with `reply_to`, so the panel showed read and answered, and the Stop hook saw nothing unread, for a line the agent's
+  session never saw. The board now keeps its own marker per agent (`seen` in `chat-autopilot.json`) and never touches the session's
+  cursor; the panel counts only a real line (not one marked auto) as an answer. Off by default; found by the Nov 7 merge review
+  (`rev1107-autopilot-marks-read`).
+
+### One chat cursor per name, whatever the case, and the Stop hook reads it too (Nov 7)
+- `chat-cursors.json` (where each session got to in the chat) was read and written by four modules, each by the exact-case name
+  and none under a lock. `agentboard me --name AGENT-4` plus `chat inbox --name agent-4` left the cursor under one spelling while
+  the Stop hook looked it up by the other, so every owner line to that name in the 500-line log (lines to an earlier session with the
+  reused name included) blocked the stop at every turn end. Now `cursors.py` is the one place: the key is the name lower-cased, a
+  write takes a file lock and only moves forward, the file is replaced atomically, and an older mixed-case file reads as the highest
+  seq per name. The CLI (`chat inbox`, `chat idle`, `answer --wait`), the idle drafter, the receipts and the Stop hook all go through
+  it. Found by the Nov 7 merge review (`rev1107-stophook-case`); the repro's R7 (twenty readers waking on one line) loses no update.
 
 ### The listener file survives twenty waits waking at once (Nov 7)
 - `chat-listeners.json` (who has a `chat inbox --wait` or `answer --wait` running) was read, changed and written back with no lock

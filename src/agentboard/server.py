@@ -132,7 +132,10 @@ def make_handler(default_store, port):
             n = int(self.headers.get("Content-Length") or 0)
             if n < 0 or n > MAX_BODY:   # a negative length would make read() wait for the client to hang up
                 raise BoardError("bad body length")
-            body = json.loads(self.rfile.read(n) or b"{}")
+            try:
+                body = json.loads(self.rfile.read(n) or b"{}")
+            except RecursionError:   # [[[[ ... ]]]] a megabyte deep: a refusal, not a dropped connection and a traceback in the log
+                raise BoardError("the JSON is nested too deeply") from None
             if not isinstance(body, dict):
                 raise BoardError("expected a JSON object")
             return body
@@ -232,8 +235,10 @@ def make_handler(default_store, port):
                 self._send(200, reports.index_html(self.store.dir, self.base).encode(), "text/html; charset=utf-8", REPORT_HEADERS)
             elif url.path.startswith("/reports/"):
                 name = url.path[len("/reports/"):]
-                path = reports.reports_dir(self.store.dir) / name
-                if reports.NAME_RE.match(name) and path.is_file():
+                folder = reports.reports_dir(self.store.dir)
+                path = folder / name
+                # a file in the reports folder, itself: a link in there that points out of it is not a report
+                if reports.NAME_RE.match(name) and path.is_file() and not path.is_symlink() and path.resolve().parent == folder.resolve():
                     self._send(200, path.read_bytes(), "text/html; charset=utf-8", REPORT_HEADERS)
                 else:
                     self._send(404, {"error": "no such report"})
@@ -292,7 +297,9 @@ def make_handler(default_store, port):
                 after = q.get("after", [None])[0]
                 after = int(after) if after and after.lstrip("-").isdigit() else None
                 self._send(200, {"messages": self.store.chat_list(after=after, limit=200), "agents": self.store.chat_agents(),
-                                 "receipts": listeners.receipts(self.store.dir)})   # who read what, who is listening: the panel's delivered / read / answered
+                                 "receipts": listeners.receipts(self.store.dir),   # who read what, who is listening: the panel's sent / delivered / seen / answered
+                                 "retired": sorted(hud.retired(_config(self.store))),   # [hud] retired: a line to one of these gets no warning and no Nudge
+                                 "names": self.store.known_names()})               # who a line can reach: the composer's "goes to" line
             elif url.path == "/api/transcript":
                 # the session's transcript for one agent, read only, tailed from the file its session registered on claim/start
                 name = (q.get("agent") or [""])[0]
@@ -425,14 +432,47 @@ def make_handler(default_store, port):
                     self._send(404, {"error": "not found"})
             except (BoardError, KeyError, ValueError, TypeError, AttributeError) as e:   # bad shapes are the client's mistake: 400, never a dropped connection
                 self._send(400, {"error": str(e) or e.__class__.__name__})
+            except Exception as e:   # noqa: BLE001  (a bug answers too, with the class name only, like a GET: no dropped connection, no traceback in the log)
+                self._send(500, {"error": f"server error ({e.__class__.__name__})"})
 
     return Handler
+
+
+class BoundedHTTPServer(ThreadingHTTPServer):
+    """A thread per connection, but at most MAX_CONNECTIONS at once: one more is answered 503 and closed at once. Each connection holds its thread
+    for at most the handler's 15 s timeout, so a program that opens thousands of idle sockets could otherwise pile up threads without end."""
+    MAX_CONNECTIONS = 128
+
+    def __init__(self, *a, **kw):
+        self._slots = threading.BoundedSemaphore(self.MAX_CONNECTIONS)
+        super().__init__(*a, **kw)
+
+    def process_request(self, request, client_address):
+        if not self._slots.acquire(blocking=False):
+            try:
+                request.sendall(b"HTTP/1.0 503 Service Unavailable\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
+            except OSError:
+                pass
+            self.shutdown_request(request)
+            return
+        super().process_request(request, client_address)
+
+    def process_request_thread(self, request, client_address):
+        try:
+            super().process_request_thread(request, client_address)
+        finally:
+            self._slots.release()
+
+
+def new_server(store, port, host="127.0.0.1"):
+    """The board's listener: loopback, the handler for this board, a bounded number of connections."""
+    return BoundedHTTPServer((host, port), make_handler(store, port))
 
 
 def serve(store, port=8765, open_browser=True):
     private.tighten_dir(store.dir)   # whatever an earlier version left readable by others (private.py)
     try:
-        srv = ThreadingHTTPServer(("127.0.0.1", port), make_handler(store, port))
+        srv = new_server(store, port)
     except OSError as e:
         raise SystemExit(f"agentboard: cannot listen on port {port} ({e.strerror}); "
                          f"is another board running? Try --port {port + 1}")

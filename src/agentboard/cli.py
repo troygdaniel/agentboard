@@ -14,7 +14,7 @@ from pathlib import Path
 from . import __version__
 from . import agentchat
 from . import hooks as hookslib
-from . import listeners
+from . import chatwake, cursors, listeners
 from . import backup as backuplib
 from . import hud as hudlib
 from . import lockdown
@@ -29,7 +29,7 @@ from . import runs as runslib
 from . import untrusted
 from .server import serve
 from . import boards as boardlib
-from .store import CHAT_TOPICS, DIR_NAME, BoardError, Store, find_dir, subtask_counts
+from .store import CHAT_LINE_MAX, CHAT_TOPICS, DIR_NAME, BoardError, Store, find_dir, parse_stamp, subtask_counts
 
 SAMPLE_CONFIG = '''\
 # agentboard config. Providers add context to task prompts.
@@ -372,10 +372,19 @@ def cmd_dictate(a):
 _chat_line = agentchat.chat_line
 
 
+def _twins_warning(s, name):
+    """A second live session is waiting under this name (chat-f4): one line to the terminal. The board's side is the "N sessions"
+    chip the listener count puts on the name (thread head and receipts), not a chat line: a line to the name would wake both waits."""
+    n = listeners.sessions(s.dir, name)
+    if n >= 2:
+        print(f"({n} sessions are listening as {name}: a line to {name} reaches all of them and each may answer; rename one with /rename in that session)", file=sys.stderr)
+
+
 def _chat_name(a):
     name = a.name or os.environ.get("AGENTBOARD_NAME") or (_store().owner if getattr(a, "user", False) else None)
     if not name:
         raise BoardError("give --name (or set AGENTBOARD_NAME) so the board can show who's talking")
+    name = _store()._scrub(name)   # masked before it is written anywhere (sessions, listeners, cursors), as the store masks it on a card
     hookslib.remember_session(_store().dir, name)   # so the SendMessage hook can post as this session
     return name
 
@@ -383,6 +392,7 @@ def _chat_name(a):
 def cmd_me(a):
     """Tell the board who this session is, so mirrored messages carry the name."""
     s = _store()
+    a.name = s._scrub(a.name)   # masked before it is written anywhere
     sid = hookslib.remember_session(s.dir, a.name, session_id=a.session)
     who = f"session {a.session[:8]} is" if a.session else "this session is"
     print(f"{who} {a.name}" + ("" if sid else " (no CLAUDE_CODE_SESSION_ID in this shell; set AGENTBOARD_NAME or pass --session)"))
@@ -391,6 +401,8 @@ def cmd_me(a):
 def cmd_hook(a):
     """Called by Claude Code: after a SendMessage (send-message) or as the session is about to go quiet (stop); the payload is on
     stdin. Always exits 0; send-message prints nothing, stop prints a decision only when the session should not stop yet."""
+    if a.dir:
+        os.environ["AGENTBOARD_DIR"] = a.dir   # baked in by hooks install: the hook finds its board from any folder a session starts in
     try:
         s = _store()
     except BoardError:
@@ -405,14 +417,15 @@ def cmd_hooks(a):
     """hooks install: the SendMessage mirror and the Stop check into this project's .claude/settings.json; hooks uninstall: take them
     out again; hooks status."""
     s = _store()
-    project = Path(a.project).expanduser() if a.project else s.dir.parent
+    project = Path.home() if a.user else (Path(a.project).expanduser() if a.project else s.dir.parent)
     if a.what == "install":
-        p, changed = hookslib.install(project)
+        p, changed = hookslib.install(project, s.dir)
         print(f"{'installed' if changed else 'already installed'}: {p}\ncommand: {hookslib.installed_command(project)}\n"
               f"and: {hookslib.installed_command(project, 'stop')}\n"
               "The first copies the text of every SendMessage call in this project's sessions into the board's chat files (.agentboard): "
               "do not send secrets in SendMessage. The second stops a session going quiet on an unread board line, or with no wait running. "
-              "Restart running sessions once.")
+              f"Both name the board folder ({s.dir}), so they work from any folder a session starts in"
+              + (" (the user's settings: every session on this Mac). " if a.user else ". ") + "Restart running sessions once.")
     elif a.what == "uninstall":
         p, changed = hookslib.uninstall(project)
         print(f"{'removed from' if changed else 'not installed in'}: {p}" + ("\nRestart running sessions once." if changed else ""))
@@ -431,6 +444,8 @@ def cmd_chat_send(a):
     m = _store().chat_send(name, a.text, kind="user" if a.user else "agent", to=a.to, topic=a.topic, detail=detail, card=a.card,
                            files=a.file or None, propose=a.propose, reply_to=a.reply_to)
     print(_chat_line(m))
+    if len((a.text or "").strip().partition("\n")[0].strip()) > CHAT_LINE_MAX and m["text"].endswith("\u2026"):
+        print(f"Sent, cut at {CHAT_LINE_MAX} characters: the rest is in the detail.", file=sys.stderr)
 
 
 def _for(m, name):
@@ -457,16 +472,6 @@ def cmd_chat_tail(a):
         pass
 
 
-def _cursor_path(s):
-    return s.dir / "chat-cursors.json"
-
-
-def _cursors(s):
-    try:
-        d = json.loads(_cursor_path(s).read_text())
-        return d if isinstance(d, dict) else {}
-    except (OSError, ValueError):
-        return {}
 
 
 def cmd_chat_inbox(a):
@@ -474,23 +479,27 @@ def cmd_chat_inbox(a):
     per name in .agentboard/chat-cursors.json; --after overrides it, --all ignores it. --wait blocks for the next one."""
     name = _chat_name(a)
     s = _store()
-    after = None if a.all else (a.after if a.after is not None else _cursors(s).get(name))
+    if not a.keep and a.after is None and not a.all:   # two steps: what an earlier read printed is seen now that the session is back, unless it sat unconfirmed too long
+        left = cursors.pending(s.dir, name)
+        if left and cursors.confirm(s.dir, name, within=cursors.RESHOW_S) is None:
+            print(f"(printed to you {int(left['age_s'] // 60)} min ago and never confirmed: shown again)")
+    after = None if a.all else (a.after if a.after is not None else cursors.get(s.dir, name))
     deadline = time.time() + (a.wait or 0)
     with (listeners.listening_as(s.dir, name, "inbox") if a.wait else contextlib.nullcontext()):   # the board sees who will wake
+        if a.wait:
+            _twins_warning(s, name)
         while True:
-            msgs = s.chat_inbox(name, after=after, limit=a.limit)
-            if msgs or not a.wait or time.time() >= deadline:
+            unread = s.chat_inbox(name, after=after, limit=None)
+            if unread or not a.wait or time.time() >= deadline:
                 break
-            time.sleep(a.interval)
+            chatwake.sleep_until_change(s.dir, a.interval, max(0.0, min(chatwake.NET_S, deadline - time.time())))   # a stat a second; the board is read when a line lands
+    msgs, more = (unread, []) if a.limit <= 0 else (unread[:a.limit], unread[a.limit:])   # the oldest first; the cursor stops at the last line shown, so the rest come next time
     for m in msgs:
         print(_chat_line(m))
     if msgs and not a.keep:
-        cur = _cursors(s)
-        cur[name] = max(msgs[-1]["seq"], cur.get(name, 0) if isinstance(cur.get(name), int) else 0)
-        try:
-            _cursor_path(s).write_text(json.dumps(cur))
-        except OSError:
-            pass
+        cursors.deliver(s.dir, name, msgs[-1]["seq"])   # DELIVERED: printed. SEEN when this name next does anything on the board (cursors.confirm)
+    if more:
+        print(f"({len(more)} more unread, from #{more[0]['seq']}: run `agentboard chat inbox --name {name}` again" + ("" if a.keep else ", or --limit 0 for all") + ")")
     if not msgs:
         print("(nothing new)" if not a.wait else "(nothing new; waited)")
         if a.wait:
@@ -529,10 +538,10 @@ def cmd_chat_idle(a):
     if not s.chat_agents():
         raise BoardError("agent chat is off for this board")
     claude = os.environ.get("AGENTBOARD_CLAUDE") or a.claude or runslib.claude_binary(s.dir)
-    after = _cursors(s).get(name)
+    after = cursors.get(s.dir, name)
     deadline = time.time() + (a.wait or 0)
     while True:
-        inbox = s.chat_inbox(name, after=after)
+        inbox = s.chat_inbox(name, after=after, limit=None)
         if inbox or not a.wait or time.time() >= deadline:
             break
         time.sleep(a.interval)
@@ -550,12 +559,7 @@ def cmd_chat_idle(a):
         print("(nothing to answer)")
         sys.exit(1)
     d = agentchat.draft_reply(s, name, claude, model=a.model, budget=a.budget, inbox=inbox)
-    cur = _cursors(s)
-    cur[name] = inbox[-1]["seq"]
-    try:
-        _cursor_path(s).write_text(json.dumps(cur))
-    except OSError:
-        pass
+    cursors.advance(s.dir, name, inbox[-1]["seq"])
     if not d:
         print("(the draft was: nothing to say)")
         return 0
@@ -683,7 +687,7 @@ def _agent_name(a):
     name = a.name or os.environ.get("AGENTBOARD_NAME")
     if not name:
         raise BoardError("give --name (or set AGENTBOARD_NAME) so the board can show who is working")
-    return name
+    return _store()._scrub(name)   # masked before it is written anywhere (sessions, listeners, cursors), as the store masks it on a card
 
 
 # The agent palette, kept out of the status-color families (--warn/--hwarn amber ~25-50°, --ok/--hok green ~145-165°,
@@ -1333,7 +1337,7 @@ def add_plugin_commands(sub):
 def _reply_when(r):
     """'replied 2026-11-03 18:23 by Alex, 4 min ago': so an agent can tell a fresh reply from one it already acted on."""
     try:
-        mins = max(0, round((datetime.now() - datetime.strptime(r["at"], "%Y-%m-%dT%H:%M:%S")).total_seconds() / 60))
+        mins = max(0, round((datetime.now() - parse_stamp(r["at"])).total_seconds() / 60))
     except (KeyError, TypeError, ValueError):
         return "replied"
     ago = "just now" if mins < 1 else f"{mins} min ago" if mins < 120 else f"{mins // 60} h ago"
@@ -1346,7 +1350,7 @@ REMOVED_NOTE = "Removed: the card is no longer on the board, stop work on it and
 def _message_when(m):
     """'message from Alex on the board, 4 min ago': a line the owner typed to this agent in its thread, not on a card."""
     try:
-        mins = max(0, round((datetime.now() - datetime.strptime(m["at"], "%Y-%m-%dT%H:%M:%S")).total_seconds() / 60))
+        mins = max(0, round((datetime.now() - parse_stamp(m["at"])).total_seconds() / 60))
     except (KeyError, TypeError, ValueError):
         return f"message from {m.get('sender') or 'the user'} on the board"
     ago = "just now" if mins < 1 else f"{mins} min ago" if mins < 120 else f"{mins // 60} h ago"
@@ -1365,8 +1369,11 @@ def cmd_answer(a):
                 r = s.answer(a.id)
                 if name is None:
                     name = Store.get(s.load(), a.id).get("agent") or ""
+                    if name:
+                        cursors.confirm(s.dir, name, within=cursors.RESHOW_S)   # back as this name: what an earlier wait printed is seen (unless it sat too long)
                     if a.wait and name:
                         listener = (name, listeners.register(s.dir, name, f"answer {a.id}"))
+                        _twins_warning(s, name)
             except BoardError:
                 if not seen:
                     raise BoardError(f"no such task: {a.id} (it is not on the board: removed, or the id is wrong)") from None
@@ -1378,17 +1385,12 @@ def cmd_answer(a):
                 print(f"({_reply_when(r)})", file=sys.stderr)   # on stderr, so `$(agentboard answer ...)` still captures only the reply
                 print(r["text"])
                 return
-            msgs = s.chat_thread_new(name, after=_cursors(s).get(name)) if name else []
+            msgs = s.chat_thread_new(name, after=cursors.get(s.dir, name)) if name else []
             if msgs:
                 for m in msgs:
                     print(f"({_message_when(m)})", file=sys.stderr)
                     print(m["text"])
-                cur = _cursors(s)   # read, the same way `chat inbox` records what it printed
-                cur[name] = max(msgs[-1]["seq"], cur.get(name, 0) if isinstance(cur.get(name), int) else 0)
-                try:
-                    _cursor_path(s).write_text(json.dumps(cur))
-                except OSError:
-                    pass
+                cursors.deliver(s.dir, name, msgs[-1]["seq"])   # delivered, the same way `chat inbox` records what it printed; seen when the session next acts
                 print(f"(not a card reply: answer on the board with `agentboard chat send \"<one line>\" --name {name} --to {s.owner}`, then keep waiting)", file=sys.stderr)
                 return
             if not a.wait or time.time() >= deadline:
@@ -1530,9 +1532,11 @@ def main(argv=None):
     sp.add_argument("--session", help="register this name for another session id (ORCH, when an agent reports its id)")
     sp = add("hook", cmd_hook, "for Claude Code hooks: send-message mirrors a SendMessage call to the chat; stop keeps a session from going quiet on an unread board line (payload on stdin)")
     sp.add_argument("event", choices=["send-message", "stop"])
+    sp.add_argument("--dir", help="the board folder (hooks install writes it into the command, so the hook finds the board from any folder)")
     sp = add("hooks", cmd_hooks, "install or uninstall the SendMessage mirror and Stop hooks in this project's .claude/settings.json (full path), or show their status")
     sp.add_argument("what", nargs="?", choices=["install", "uninstall", "status"], default="status")
     sp.add_argument("--project", help="the project folder (default: the one holding .agentboard)")
+    sp.add_argument("--user", action="store_true", help="install in ~/.claude/settings.json instead: every session on this Mac, whatever folder it starts in")
     sp = add("lookup", cmd_lookup, "read-only search of done and archived cards, reports and any source a plugin adds: the best few matches with date and a short snippet")
     sp.add_argument("query", nargs="?", help="a few words")
     sp.add_argument("--in", dest="source", metavar="SOURCE", help="search one source (see --list-sources)")
@@ -1691,7 +1695,7 @@ def main(argv=None):
     csp.add_argument("--keep", action="store_true", help="do not move your cursor")
     csp.add_argument("--wait", type=float, metavar="SECONDS", help="block up to SECONDS for the next message (exit 1 if none)")
     csp.add_argument("--interval", type=float, default=2.0)
-    csp.add_argument("--limit", type=int, default=50)
+    csp.add_argument("--limit", type=int, default=50, help="how many to show, oldest first (default 50; 0: all); the rest wait for the next read")
     csp = cadd("approvals", cmd_chat_approvals, "proposed actions and what the owner decided (--name: only yours)")
     csp.add_argument("--name", help="only this agent's proposals (or $AGENTBOARD_NAME)")
     csp = cadd("approve", cmd_chat_decide, "approve a proposed action (the owner)")
@@ -1735,10 +1739,26 @@ def main(argv=None):
         p.error("give a task id or --all")
     if a.cmd == "rm" and not (a.demo or a.id):
         p.error("give a task id or --demo")
+    _seen_step(a)
     try:
         a.fn(a)
     except BoardError as e:
         sys.exit(f"agentboard: {e}")
+
+
+def _seen_step(a):
+    """The second step of a receipt (cursors.py): a session that runs any board command as a name has seen what its wait printed.
+    Not for `chat inbox` (it applies the 5-minute rule itself), the hooks (they run beside the session, not as its act), or
+    `serve`/`tail`/`run` (the owner's, not an agent's turn)."""
+    if a.cmd in ("hook", "hooks", "serve", "tail", "run", "init", "board", "plugins") or a.fn is cmd_chat_inbox:
+        return
+    name = getattr(a, "name", None) or os.environ.get("AGENTBOARD_NAME")
+    if not name:
+        return
+    try:
+        cursors.confirm(find_dir(), name)
+    except (BoardError, OSError):
+        pass
 
 
 if __name__ == "__main__":

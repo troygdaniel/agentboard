@@ -13,8 +13,11 @@ from pathlib import Path
 from agentboard import redact, transcript
 from agentboard.server import make_handler
 from agentboard.store import DESCRIPTION_MAX, BoardError, Store
+from timing import Mixin, limit
 
-LIMIT = 2.0          # seconds: linear work is about 0.05 s per MB; the quadratic case took minutes
+LIMIT = 2.0          # seconds on an idle machine: linear work is about 0.05 s per MB; the quadratic case took minutes.
+                     # Every timing assertion goes through tests/timing.py: the limit stretches with the machine's load of the moment
+                     # and a run over it is tried again (best of three), so a busy laptop cannot fail green code.
 JWT = "ey" + "J" + "hbGciOiJIUzI1NiJ9" + "." + "eyJzdWIiOiIxMjM0NTY3ODkwIn0" + "." + "dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U"
 BEGIN, END = "-----BEGIN " + "PRIVATE KEY-----", "-----END " + "PRIVATE KEY-----"        # built from parts: the repo scan flags a whole one
 UNITS = {
@@ -29,26 +32,18 @@ UNITS = {
 }
 
 
-def timed(fn, *a, **k):
-    t = time.perf_counter()
-    out = fn(*a, **k)
-    return time.perf_counter() - t, out
-
-
-class EveryShapeIsLinear(unittest.TestCase):
+class EveryShapeIsLinear(Mixin, unittest.TestCase):
     def test_a_megabyte_of_any_shape_prefix_is_masked_in_well_under_the_limit(self):
         for name, unit in UNITS.items():
             text = (unit * (1_000_000 // len(unit) + 1))[:1_000_000]
-            dt, _ = timed(redact.scrub, text)
-            self.assertLess(dt, LIMIT, f"{name!r} took {dt:.1f}s")
+            self.assertFast(redact.scrub, LIMIT, text, msg=repr(name))
 
     def test_the_original_attack_text(self):
-        dt, out = timed(redact.scrub, "eyJ" * 330_000)       # 990 KB
-        self.assertLess(dt, LIMIT)
+        out = self.assertFast(redact.scrub, LIMIT, "eyJ" * 330_000)       # 990 KB
         self.assertEqual(out, "eyJ" * 330_000)               # nothing in it is a JWT, so nothing is changed
 
 
-class ARealJwtIsStillFound(unittest.TestCase):
+class ARealJwtIsStillFound(Mixin, unittest.TestCase):
     def test_bare_after_token_after_bearer_in_json_and_in_a_sentence(self):
         for text, want in ((JWT, "[redacted jwt]"), (f"token={JWT}", "token=[redacted jwt]"), (f"Authorization: Bearer {JWT}", None),
                            (f"Bearer {JWT} end", "Bearer [redacted jwt] end"), (json.dumps({"jwt": JWT}), '{"jwt": "[redacted jwt]"}'),
@@ -60,12 +55,11 @@ class ARealJwtIsStillFound(unittest.TestCase):
 
     def test_a_jwt_among_a_lot_of_other_text_is_found_fast(self):
         text = "noise eyJ " * 50_000 + JWT + " more " * 50_000
-        dt, out = timed(redact.scrub, text)
-        self.assertLess(dt, LIMIT)
+        out = self.assertFast(redact.scrub, LIMIT, text)
         self.assertNotIn(JWT, out)
 
 
-class TheInputIsBoundedBeforeMasking(unittest.TestCase):
+class TheInputIsBoundedBeforeMasking(Mixin, unittest.TestCase):
     def test_head_cuts_at_a_word_boundary_and_leaves_small_text_alone(self):
         self.assertEqual(redact.head("short", 100), "short")
         self.assertEqual(redact.head("aaa bbb ccc", 9), "aaa bbb")             # the cut fell inside ccc: back to the space
@@ -83,15 +77,14 @@ class TheInputIsBoundedBeforeMasking(unittest.TestCase):
         self.assertEqual(redact.scrub("a " * 100, bound=50), redact.head("a " * 100, 50))
 
 
-class TheStoreStaysResponsive(unittest.TestCase):
+class TheStoreStaysResponsive(Mixin, unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         self.s = Store(Path(self.tmp.name) / ".agentboard")
 
     def test_a_huge_description_is_stored_capped_and_fast(self):
-        dt, t = timed(self.s.add, "Big", "eyJ" * 330_000, status="todo", task_id="big")
-        self.assertLess(dt, LIMIT)
+        t = self.assertFast(self.s.add, LIMIT, "Big", "eyJ" * 330_000, status="todo", task_id="big")
         self.assertLessEqual(len(t["description"]), DESCRIPTION_MAX)
 
     def test_every_path_that_takes_long_text_is_fast(self):
@@ -105,8 +98,7 @@ class TheStoreStaysResponsive(unittest.TestCase):
                          ("ask", lambda: s.ask("c", big, body_md=big)), ("chat", lambda: s.chat_send("AGENT-1", "hi\n" + big, detail=big)),
                          ("chat, one huge line to the owner (cut into line plus detail)", lambda: s.chat_send("AGENT-1", big)),
                          ("chat, one huge line to an agent (refused)", lambda: self.assertRaises(BoardError, s.chat_send, "AGENT-1", big, to="AGENT-2"))):
-            dt, _ = timed(fn)
-            self.assertLess(dt, LIMIT, name)
+            self.assertFast(fn, LIMIT, msg=name)
 
     def test_a_secret_near_the_start_of_a_huge_body_is_still_masked(self):
         key = "AK" + "IA" + "Q3Z7K9M2P5R8T1V4"
@@ -118,19 +110,18 @@ class TheStoreStaysResponsive(unittest.TestCase):
         self.assertNotIn(key, (s.dir / "tasks.json").read_text())
 
 
-class TheTranscriptTabStaysResponsive(unittest.TestCase):
+class TheTranscriptTabStaysResponsive(Mixin, unittest.TestCase):
     def test_a_huge_text_block_a_huge_command_and_a_huge_typed_line(self):
         big = "eyJ" * 330_000
         lines = [json.dumps({"type": "assistant", "message": {"content": [{"type": "text", "text": big}, {"type": "tool_use", "name": "Bash", "input": {"command": big}}]}}),
                  json.dumps({"type": "user", "message": {"content": big}})]
-        dt, out = timed(lambda: [e for raw in lines for e in transcript.parse_line(raw)])
-        self.assertLess(dt, 1.0)
+        out = self.assertFast(lambda: [e for raw in lines for e in transcript.parse_line(raw)], 1.0)
         self.assertEqual({e["kind"] for e in out}, {"text", "tool", "user"})
         for e in out:
             self.assertLessEqual(len(e["text"]), transcript.TEXT_MAX)
 
 
-class TheServerKeepsAnswering(unittest.TestCase):
+class TheServerKeepsAnswering(Mixin, unittest.TestCase):
     def test_a_big_post_does_not_freeze_the_next_request(self):
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
@@ -158,8 +149,8 @@ class TheServerKeepsAnswering(unittest.TestCase):
         urllib.request.urlopen(f"http://127.0.0.1:{port}/api/tasks", timeout=30).read()
         results["get"] = time.perf_counter() - t
         th.join(30)
-        self.assertLess(results["post"], LIMIT)
-        self.assertLess(results["get"], LIMIT)
+        self.assertLess(results["post"], limit(LIMIT))
+        self.assertLess(results["get"], limit(LIMIT))
 
 
 if __name__ == "__main__":

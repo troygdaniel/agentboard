@@ -17,6 +17,8 @@ token or secret. A commit hash, a card id, a path or a sentence is never touched
 
 What you type yourself (a reply, a send-back note, a chat line from the owner) is left as written: you chose to say it.
 `agentboard redact` shows what is already stored; `agentboard redact --apply` masks it (after a snapshot)."""
+import base64
+import binascii
 import bisect
 import re
 import tomllib
@@ -91,21 +93,51 @@ def _token_like(v):
     return _secret_like(v) or (len(v) >= 20 and any(c.isupper() for c in v) and any(c.islower() for c in v))
 
 
+def _basic_like(v):
+    """For the value after "Authorization: Basic": base64 of user:password, so any value that decodes to something with a colon in it. Short
+    ones (user:letmein is dXNlcjpsZXRtZWlu: no digit, no padding, 16 characters) have nothing else generated-looking about them. Words and
+    kebab-case phrases do not decode (a hyphen is not base64), and a plain word that happens to be valid base64 has no colon behind it."""
+    if _token_like(v):
+        return True
+    try:
+        raw = base64.b64decode(v + "=" * (-len(v) % 4), validate=True)
+    except (binascii.Error, ValueError):
+        return False
+    return b":" in raw
+
+
+def _auth_header(m):
+    """Authorization: Token|Bearer|Basic VALUE. Bearer and Token keep the rule they always had (a value that looks generated); Basic is always a
+    credential, so it is judged by what it decodes to and may be short."""
+    scheme, value = m.group(1).split()[-1].lower(), m.group(2)
+    basic = scheme == "basic"
+    if len(value) < (4 if basic else 10) or _few_kinds(value) or PLACEHOLDER.search(value) or not (_basic_like(value) if basic else _token_like(value)):
+        return m.group(0)
+    return m.group(1) + _mask("secret")
+
+
 _UUID = re.compile(r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")
 _WORDY = re.compile(r"[a-z0-9]+(?:[_.-][a-z0-9]+)+")    # snake_case and kebab-case names: identifiers, not keys
+
+
+def _wordy(v):
+    """A snake_case or kebab-case identifier (task-queue-implementation-notes, user_profile_cache_v2_final, risk-assessment-2026-plan):
+    lower-case segments joined by _ . or -. A segment that mixes letters with three or more digits (a1b2c3d4e5f6, the halves of
+    key-<32 hex>) is a token with a dash in it, not a word; a plain number (2026) is a word."""
+    return bool(_WORDY.fullmatch(v)) and not any(sum(c.isdigit() for c in seg) >= 3 and any(c.isalpha() for c in seg) for seg in re.split(r"[_.-]", v))
 
 
 def _api_key_like(v):
     """For sk-...: what follows the prefix looks generated, not like words (task-queue-implementation-notes)."""
     body = re.sub(r"^sk-(?:ant-|proj-)?", "", v)
-    return _has_letter_and_digit(body) and not _WORDY.fullmatch(body)
+    return _has_letter_and_digit(body) and not _wordy(body)
 
 
 def _random_like(v):
     """For a generic name (key, auth, token): long, a letter and a digit, and not a lower-case identifier like user_profile_cache_v2_final."""
     if _UUID.fullmatch(v):
         return True
-    return len(v) >= 20 and _has_letter_and_digit(v) and not _WORDY.fullmatch(v)
+    return len(v) >= 20 and _has_letter_and_digit(v) and not _wordy(v)
 
 
 _PASSWORD_WORDS = {"password", "pass", "passwd", "pwd", "secret", "user", "username", "token", "changeme", "yourpassword", "your-password", "mypassword"}
@@ -121,8 +153,8 @@ def _url_password(m):
 
 # (kind, pattern, replacement function). Order matters: a private-key block first, then headers, then the rest.
 SHAPES = [
-    ("private-key", re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----(?:(?:(?!-----(?:BEGIN|END) )[\s\S]){0,10000}?-----END [A-Z ]*PRIVATE KEY-----|(?:\s*+[A-Za-z0-9+/=]{16,}+)*+)"), lambda m: _mask("private-key")),   # to its END line, or (cut off) through the base64 lines: the sentences after it stay
-    ("auth-header", re.compile(r"(Authorization:\s*+(?:Token|Bearer|Basic)\s++)([A-Za-z0-9._=+/~-]{10,}+)", re.I), _keep_prefix("secret", _token_like)),
+    ("private-key", re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----(?:(?:(?!-----(?:BEGIN|END) )[\s\S]){0,10000}?-----END [A-Z ]*PRIVATE KEY-----|(?:\s*+(?:[A-Za-z][A-Za-z-]{1,20}: [^\n]{0,120}|[A-Za-z0-9+/=]{16,}+))*+)"), lambda m: _mask("private-key")),   # to its END line, or (cut off) through its header lines (Proc-Type, DEK-Info) and base64 lines: the sentences after it stay
+    ("auth-header", re.compile(r"(Authorization:\s*+(?:Token|Bearer|Basic)\s++)([A-Za-z0-9._=+/~-]{4,}+)", re.I), _auth_header),
     ("jwt", re.compile(r"(?<![A-Za-z0-9_-])eyJ[A-Za-z0-9_-]{10,}+\.[A-Za-z0-9_-]{10,}+\.[A-Za-z0-9_-]{10,}+"), _whole("jwt")),   # lookbehind + possessive: the text eyJeyJeyJ... was quadratic (44 s for 400 KB)
     ("aws-key", re.compile(r"AKIA[0-9A-Z]{16}"), _whole("aws-key")),
     ("api-key", re.compile(r"sk-(?:ant-|proj-)?[A-Za-z0-9_-]{20,}+"), _whole("api-key", _api_key_like)),
@@ -135,7 +167,7 @@ SHAPES = [
     ("slack-webhook", re.compile(r"(?:https?://)?hooks\.slack\.com/services/T[A-Z0-9]+/B[A-Z0-9]+/[A-Za-z0-9]+"), _whole("slack-webhook")),
     ("npm-token", re.compile(r"(?<![A-Za-z0-9_])npm_[A-Za-z0-9]{36}(?![A-Za-z0-9])"), _whole("npm-token")),
     ("sendgrid-key", re.compile(r"(?<![A-Za-z0-9_-])SG\.[A-Za-z0-9_-]{16,}+\.[A-Za-z0-9_-]{16,}+"), _whole("sendgrid-key")),
-    ("url-password", re.compile(r"(://[^\s:/@]++:)([^\s@/]++)(@)"), _url_password),
+    ("url-password", re.compile(r"(://[^\s:/@]*+:)([^\s@/]++)(@)"), _url_password),   # the user may be empty: redis://:PASSWORD@host
     ("bearer", re.compile(r"(?<![A-Za-z])(Bearer\s++)([A-Za-z0-9._~+/=-]{20,}+)"), _keep_prefix("secret", _secret_like)),
     ("key-hex", re.compile(r"((?<![A-Za-z])(?:api[_-]?key|key|token|secret|passwd|password)\W{1,4})([0-9a-fA-F]{32,64})(?![0-9a-fA-F])", re.I), _keep_prefix("hex")),
     ("assigned-secret", re.compile(r"((?:aws[_-]?secret[_-]?access[_-]?key|secret[_-]?access[_-]?key|api[_-]?key|apikey|secret[_-]?key|secret|passwd|password|pwd|auth[_-]?token|access[_-]?token|refresh[_-]?token|client[_-]?secret|app[_-]?secret|private[_-]?token|signing[_-]?(?:key|secret))[\"']?\s*+[:=]\s*+[\"']?)([A-Za-z0-9/+_=.~-]{16,}+)", re.I),
@@ -191,7 +223,8 @@ def _extras(conf):
 def _sub_visible(rx, repl, text):
     """rx.sub(repl, text), but matching on a copy without the invisible characters and with every Unicode dash folded to "-" and every fullwidth ASCII form folded to ASCII, and replacing
     in the original by the matched span: a key that carries a zero-width space or an en dash is masked whole, and everything else (a ZWJ in
-    an emoji, a ZWNJ in Persian, the dash in "pages 3-5") stays as written."""
+    an emoji, a ZWNJ in Persian, the dash in "pages 3-5") stays as written. One exception: the part of a MATCH that is kept (the name in
+    `x–api–key: KEY`) comes out of the folded copy, so it reads with plain hyphens and ASCII (`x-api-key: [redacted secret]`); the tests say so."""
     view = text if text.isascii() else text.translate(_FOLD)         # one for one: every index is the same in both
     hidden = [m.start() for m in _INVISIBLE.finditer(view)]
     if not hidden and view == text:
@@ -206,7 +239,8 @@ def _sub_visible(rx, repl, text):
         r = repl(m)
         if r == m.group(0):                        # left as it is: the original, invisible characters and dashes and all, stays
             continue
-        a, b = orig(m.start()), orig(m.end() - 1) + 1
+        a = orig(m.start())
+        b = a if m.end() == m.start() else orig(m.end() - 1) + 1   # a zero-length match (an owner pattern like z*) inserts, it never swallows the character after it
         out.append(text[last:a])
         out.append(r)
         last = b
@@ -283,7 +317,7 @@ def scrub_data(data, board_dir, apply=False, owner=None):
         return hits
 
     def one(where, d, key):
-        v = d.get(key)
+        v = d[key] if isinstance(d, list) else d.get(key)
         found = []
         new = scrub(v, conf=conf, found=found)
         for kind, head in found:
@@ -300,4 +334,12 @@ def scrub_data(data, board_dir, apply=False, owner=None):
         if isinstance(m, dict) and m.get("kind") != "user":
             for f in ("text", "detail"):
                 one(f"chat #{m.get('seq')} {f}", m, f)
+            files = m.get("files")
+            if isinstance(files, list):
+                for i in range(len(files)):
+                    if isinstance(files[i], str):
+                        one(f"chat #{m.get('seq')} file #{i + 1}", files, i)
+            act = m.get("action")
+            if isinstance(act, dict):
+                one(f"chat #{m.get('seq')} action", act, "text")
     return hits

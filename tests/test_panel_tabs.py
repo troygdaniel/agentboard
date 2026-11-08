@@ -77,7 +77,7 @@ class ConversationTests(unittest.TestCase):
         self.assertIn('data-say="${esc(o)}"', ta)
         self.assertIn("answer in its window", ta)
         self.assertIn("api('/api/chat', { text: say.dataset.say, to: lastDetail.agent })", HTML)
-        self.assertIn("const i = $('p-chat-input'), text = i.value.trim(), to = lastDetail?.agent;", HTML)
+        self.assertIn("sendLine('p-chat-input', 'p-chat-goes', 'card', () => lastDetail?.agent)", HTML)   # the card's box: the holder reads it (chat-f8)
 
     def test_the_question_is_read_from_the_terminal_already_drawn_or_polled_lightly(self):
         la = body("loadAsk", "async function")

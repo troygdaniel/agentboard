@@ -4,12 +4,12 @@ the fullwidth block (U+FF01 to U+FF5E) to ASCII on the matching copy, one for on
 (Japanese and Chinese punctuation, fullwidth words) is never rewritten."""
 import json
 import tempfile
-import time
 import unicodedata
 import unittest
 from pathlib import Path
 
 from agentboard import redact, transcript
+from timing import Mixin
 from agentboard.store import Store
 
 # Fakes are assembled from pieces so this file never holds a whole one.
@@ -108,14 +108,11 @@ class TheSetIsSound(unittest.TestCase):
             self.assertNotIn(cp, redact._FOLD, hex(cp))
 
 
-class StillFast(unittest.TestCase):
+class StillFast(Mixin, unittest.TestCase):
     def test_hostile_amounts_of_fullwidth_text(self):
         for name, text in (("only fullwidth", "Ａ" * 1_000_000), ("gh and a fullwidth underscore", ("gh" + "p＿") * 250_000), ("fullwidth prose", ("ｗｏｒｄ " * 200_000)),
                            ("key split by fullwidth", ("keｙ＝" + "a" * 19 + " ") * 25_000)):
-            t = time.perf_counter()
-            redact.scrub(text)
-            dt = time.perf_counter() - t
-            self.assertLess(dt, 3.0, f"{name}: {dt:.1f}s")
+            self.assertFast(redact.scrub, 3.0, text, msg=name)   # 3 s idle; tests/timing.py stretches it with the load and retries
 
     def test_the_bound_still_applies(self):
         out = redact.scrub("word " * 100 + "Ａ" * 10, bound=50)

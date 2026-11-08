@@ -42,7 +42,6 @@ LOCK_ENV = "AGENTBOARD_NO_PLUGINS"
 NAME_RE = re.compile(r"[a-z][a-z0-9_-]{0,30}")
 PATH_RE = re.compile(r"[a-z0-9][a-z0-9_/-]{0,63}")   # no dots, no "..", no leading slash
 RESERVED = ("page.js", "page.css")   # page.css stays reserved although there is no such file: the page's CSP allows inline styles, not stylesheet files
-_OFF = ("", "0", "false", "no")
 _LOCK = threading.Lock()
 _LOADED = {}    # name -> Plugin, in load order
 _FAILED = []    # (name, ExceptionClassName)
@@ -54,7 +53,7 @@ def disabled_reason():
     """Why plugins are off right now, in a few words, or None when they are allowed."""
     if lockdown.locked("plugins"):
         return f"locked: ${lockdown.ENV} is set"
-    if os.environ.get(LOCK_ENV, "").strip().lower() not in _OFF:
+    if lockdown.env_on(LOCK_ENV):
         return f"locked: ${LOCK_ENV} is set"
     if os.environ.get(ENV) != "1":
         return f"off: ${ENV} is not 1"

@@ -13,9 +13,9 @@ import subprocess
 import tempfile
 from datetime import datetime, timedelta
 
-from . import private
+from . import cursors, private
 from . import lockdown, untrusted
-from .store import CHAT_TOPICS, BoardError
+from .store import CHAT_TOPICS, BoardError, parse_stamp
 
 PROTOCOL = """\
 ## Talking to other agents (agent chat is on)
@@ -384,29 +384,20 @@ DEFAULT_AUTOPILOT_EVERY = 180      # seconds between rounds
 DEFAULT_AUTOPILOT_PER_HOUR = 12    # drafts an hour, over every agent: the spend ceiling is this times idle_budget_usd
 
 
-def _cursors_path(store):
-    return store.dir / "chat-cursors.json"
-
-
 def read_cursors(store):
-    try:
-        d = json.loads(_cursors_path(store).read_text())
-        return d if isinstance(d, dict) else {}
-    except (OSError, ValueError):
-        return {}
+    """{name, lower-cased: last seq read} (cursors.py)."""
+    return cursors.read(store.dir)
 
 
 def write_cursor(store, name, seq):
-    cur = read_cursors(store)
-    cur[name] = max(int(seq), cur.get(name, 0) if isinstance(cur.get(name), int) else 0)
-    try:
-        _cursors_path(store).write_text(json.dumps(cur))
-    except OSError:
-        pass
+    """Move `name`'s cursor forward to `seq` (cursors.py: locked, lower-cased, never back)."""
+    return cursors.advance(store.dir, name, seq)
 
 
 def _hour_count(store, now):
-    """The autopilot's little state file: drafts this hour, and when each agent last shared something unprompted."""
+    """The autopilot's little state file: drafts this hour, when each agent last shared something unprompted, and `seen`, the
+    board's own marker per agent (the last seq it drafted for). The session's cursor in chat-cursors.json is never the board's to
+    move: a line the board answered for an agent is still unread by that agent until its own session reads it."""
     p = store.dir / "chat-autopilot.json"
     try:
         d = json.loads(p.read_text())
@@ -414,14 +405,17 @@ def _hour_count(store, now):
         d = {}
     hour = now.strftime("%Y-%m-%dT%H")
     shared = d.get("shared") if isinstance(d.get("shared"), dict) else {}
-    return p, (d.get("count", 0) if d.get("hour") == hour else 0), hour, shared
+    seen = {cursors.key(k): v for k, v in d.get("seen", {}).items() if isinstance(v, int) and not isinstance(v, bool)} if isinstance(d.get("seen"), dict) else {}
+    return p, (d.get("count", 0) if d.get("hour") == hour else 0), hour, shared, seen
+
+
+def autopilot_seen(store, name):
+    """The board's own marker for `name`: the last seq the autopilot drafted a reply for (not the session's cursor)."""
+    return _hour_count(store, datetime.now())[4].get(cursors.key(name))
 
 
 def _t(s):
-    try:
-        return datetime.strptime(s, "%Y-%m-%dT%H:%M:%S")
-    except (TypeError, ValueError):
-        return None
+    return parse_stamp(s)
 
 
 def idle_agents(tasks, roster):
@@ -453,19 +447,19 @@ def autopilot_once(store, claude, roster, model=None, budget=None, per_hour=None
     if not store.chat_agents():
         return []
     tasks = store.load()
-    cursors = read_cursors(store)
+    cursors_now = read_cursors(store)
     posted = []
     share_every_min = float(share_every_min if share_every_min is not None else conf.get("share_every_min", DEFAULT_SHARE_EVERY_MIN))
     live_min = float(live_min if live_min is not None else conf.get("live_min", DEFAULT_LIVE_MIN))
     recent = store.chat_list(limit=200)
-    p, count, hour, shared = _hour_count(store, now)
+    p, count, hour, shared, seen = _hour_count(store, now)
     for name in idle_agents(tasks, roster):
         if count >= per_hour:
             break
         if awake(tasks, recent, name, now, live_min):   # its real session is talking or working: let it speak for itself
             continue
-        after = cursors.get(name)
-        inbox = [m for m in store.chat_inbox(name, after=after if isinstance(after, int) else None) if not m.get("via")]   # the board never answers itself (auto lines, its own notices)
+        after = max(cursors_now.get(cursors.key(name), 0), seen.get(cursors.key(name), 0)) or None   # past what its session read, and what the board already drafted for
+        inbox = [m for m in store.chat_inbox(name, after=after, limit=None) if not m.get("via")]   # the board never answers itself (auto lines, its own notices)
         sharing = not inbox
         mine = None
         if sharing:   # nothing to answer: offer one thing from its own work, once in a while, and only if it has a history
@@ -484,11 +478,12 @@ def autopilot_once(store, claude, roster, model=None, budget=None, per_hour=None
             continue
         if sharing:
             shared[name] = now.strftime("%Y-%m-%dT%H:%M:%S")
-        else:
-            write_cursor(store, name, store.chat_list(limit=1)[-1]["seq"] if store.chat_list(limit=1) else inbox[-1]["seq"])
+        else:   # the board's own marker moves; the session's cursor does not, so the panel and the Stop hook still see the line unread
+            newest = store.chat_list(limit=1)
+            seen[cursors.key(name)] = newest[-1]["seq"] if newest else inbox[-1]["seq"]
         count += 1
         try:
-            p.write_text(json.dumps({"hour": hour, "count": count, "shared": shared}))
+            p.write_text(json.dumps({"hour": hour, "count": count, "shared": shared, "seen": seen}))
         except OSError:
             pass
         if not d:

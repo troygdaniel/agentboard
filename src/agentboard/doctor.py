@@ -19,7 +19,7 @@ from pathlib import Path
 
 from . import __version__, lockdown
 from . import prompt as promptlib
-from . import plugins, providers, redact, serverstate, untrusted
+from . import plugins, providers, redact, repoguard, serverstate, untrusted
 from .store import BoardError
 
 PASS, WARN, FAIL, INFO = "PASS", "WARN", "FAIL", "INFO"
@@ -28,35 +28,13 @@ PLUGIN_LINE_MAX = 400     # a plugin's doctor line is cut here (after masking)
 PLUGIN_LINES_MAX = 40     # lines one plugin may add
 TIMEOUT_S = 10
 MAX_FILES = 3000          # tracked files scanned for key-shaped strings
-MAX_BYTES = 1_000_000     # a bigger file is skipped
 MAX_SHOWN = 5             # hits listed before "and N more"
 CORE_OUTBOUND = {"providers"}   # the modules of the core that may open an outbound connection (a URL you write in config.toml)
 
-_OFF = ("", "0", "false", "no")
 _HERE = Path(__file__).resolve().parent
 
-KEY_PATTERNS = [   # (kind, regex, level): the first three are never legitimate in a repo
-    ("private key", re.compile(r"-----BEGIN (?:RSA |EC |DSA |OPENSSH |PGP )?PRIVATE KEY"), FAIL),
-    ("cloud or API key", re.compile(r"\b(?:AKIA[0-9A-Z]{16}|AC[0-9a-f]{32}|sk-[A-Za-z0-9_-]{20,}|gh[pousr]_[A-Za-z0-9]{30,}|xox[abprs]-[A-Za-z0-9-]{10,})\b"), FAIL),
-    ("key-like assignment", re.compile(r"""(?i)\b(?:api[_-]?key|secret|token|passw(?:or)?d)\b["']?\s*[:=]\s*["']([A-Za-z0-9_\-/+=]{24,})["']"""), WARN),
-    ("phone number", re.compile(r"(?<![\d.])(?:\+1[ .-]?)?\(?[2-9]\d{2}\)?[ .-]\d{3}[ .-]\d{4}(?!\d)|(?<!\d)\+1[2-9]\d{9}(?!\d)"), WARN),
-]
 NETWORK_IMPORT = re.compile(r"^\s*(?:import|from)\s+(?:urllib\.request|urllib3|http\.client|socket|ssl|smtplib|ftplib|requests|httpx|aiohttp|websocket)\b", re.M)
 SERVER_IMPORT = re.compile(r"^\s*(?:import|from)\s+(?:http\.server|socketserver|asyncio)\b", re.M)
-
-
-def _fake(kind, text):
-    """A match that is plainly a placeholder: the 555 exchange is fiction in practice (555-0100 to 555-0199 are reserved for it), a key
-    that is one or two characters repeated (ACbbbb... or AKIAXXXX...) is an example, and a quoted "secret" with no digit in it is words."""
-    if kind == "phone number":
-        d = re.sub(r"\D", "", text)[-10:]
-        return "555" in (d[:3], d[3:6])
-    if kind == "key-like assignment":
-        return not re.search(r"\d", text)
-    if kind == "cloud or API key":
-        body = re.sub(r"^(?:AKIA|AC|sk-|gh[pousr]_|xox[abprs]-)", "", text)
-        return len(set(body.lower())) <= 3
-    return False
 
 
 def _res(level, name, text):
@@ -85,8 +63,8 @@ def _host(name):
 
 
 def _env_on(env, name):
-    """Is a hard-off variable on in this environment: anything but unset, "", 0, false or no (the rule every lock here uses)."""
-    return env.get(name, "").strip().lower() not in _OFF
+    """Is a hard-off variable on in this environment (lockdown.env_on: the one rule every lock, the plugin gate and this report use)."""
+    return lockdown.env_on(name, env)
 
 
 def _short(path):
@@ -132,7 +110,7 @@ def check_locks(env):
     names = sorted(set(re.findall(r"AGENTBOARD_NO_[A-Z]+", source)) | {lockdown.ENV})
 
     def on(name):
-        return env.get(name, "").strip().lower() not in _OFF
+        return _env_on(env, name)
     out = []
     if on(lockdown.ENV):
         out.append(_res(PASS, "lock", f"{lockdown.ENV} is on in this shell: chat rounds, one-shot runs, command and http providers, the backup copy, voice and spawn are refused"))
@@ -393,29 +371,23 @@ def check_git(project, board_dir, runner):
     listing = _run(runner, ["git", "-C", str(project), "ls-files", "-z"]) or ""
     files = [f for f in listing.split("\0") if f and not (rel and (f == rel or f.startswith(rel + "/")))]
     hits, scanned = [], 0
+    words = repoguard.private_words()   # the owner's own words, from the file outside the repo (none: that check is skipped, as in publiccheck)
     for f in files[:MAX_FILES]:
-        p = Path(project) / f
-        try:
-            if p.is_symlink() or p.stat().st_size > MAX_BYTES:
-                continue
-            raw = p.read_bytes()
-        except OSError:
-            continue
-        if b"\0" in raw[:4096]:
+        text = repoguard.readable(Path(project) / f)
+        if text is None:
             continue
         scanned += 1
-        for n, line in enumerate(raw.decode("utf-8", "ignore").splitlines(), 1):
-            for kind, rx, level in KEY_PATTERNS:
-                if any(not _fake(kind, m.group(m.lastindex or 0)) for m in rx.finditer(line)):
-                    hits.append((level, kind, f, n))
+        for n, kind, _sample in repoguard.scan_text(text, words):   # the SAME shapes and allow rules as tests/publiccheck.py: one source
+            hits.append((FAIL if repoguard.certain(kind) else WARN, kind, f, n))
     note = f" ({len(files) - MAX_FILES} more not scanned)" if len(files) > MAX_FILES else ""
     if not hits:
-        out.append(_res(PASS, "tracked files", f"{scanned} tracked file(s) scanned: no key-shaped string and no phone number{note}"))
+        out.append(_res(PASS, "tracked files", f"{scanned} tracked file(s) scanned: no key-shaped string, phone number, email, home path or private word (the rules of tests/publiccheck.py){note}"))
     else:
         level = FAIL if any(h[0] == FAIL for h in hits) else WARN
         shown = "; ".join(f"{kind} at {f}:{n}" for _l, kind, f, n in sorted(hits, key=lambda h: (h[0] != FAIL, h[2], h[3]))[:MAX_SHOWN])
         more = f"; and {len(hits) - MAX_SHOWN} more" if len(hits) > MAX_SHOWN else ""
-        out.append(_res(level, "tracked files", f"{len(hits)} possible secret(s) or phone number(s) in {scanned} tracked file(s): {shown}{more} (the text is not printed){note}"))
+        out.append(_res(level, "tracked files", f"{len(hits)} possible secret(s) or private value(s) in {scanned} tracked file(s): {shown}{more} (the text is not printed; "
+                                                f"python3 tests/publiccheck.py lists them all){note}"))
     return out
 
 
@@ -446,6 +418,17 @@ def check_hooks(project):
     if not out:
         out.append(_res(INFO, "hooks", "no Claude Code settings file with hooks found (~/.claude or the project)"))
     return out
+
+
+def check_stop_hook(project):
+    """One line on the Stop hook (the one that keeps a session from going quiet on an unread board line): where it is installed and
+    whether the board folder it names exists; WARN when it is nowhere or names no board."""
+    from . import hooks
+    found = hooks.stop_hook_state(project)
+    if not found:
+        return [_res(WARN, "Stop hook", "not installed: run agentboard hooks install --user once from the board's folder, then restart sessions "
+                                        "(without it a session that goes quiet on an unread board line is never nudged)")]
+    return [_res(PASS if ok else WARN, "Stop hook", f"{_short(p)}: {text}") for p, text, ok in found]
 
 
 def config_reads(conf, board_dir):
@@ -581,6 +564,7 @@ def run(board_dir, project=None, env=None, runner=subprocess.run):
     results += check_files(board_dir)
     results += check_git(project, board_dir, runner)
     results += check_hooks(project)
+    results += check_stop_hook(project)
     results += check_code()
     return results
 

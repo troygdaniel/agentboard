@@ -71,10 +71,11 @@ class WakeTests(unittest.TestCase):
         self.assertEqual(out.strip(), "how is it going?")
         self.assertIn("message from", err)
         self.assertIn("--to", err)   # how to answer: on the board, to the owner
-        cursors = json.loads((self.s.dir / "chat-cursors.json").read_text())
-        self.assertEqual(cursors["alice"], self.s.chat_list()[-1]["seq"])
-        out, err = self.run_answer_without_wait()
-        self.assertEqual(out, "")   # read once: it does not print again
+        from agentboard import cursors
+        self.assertEqual(cursors.pending(self.s.dir, "alice")["seq"], self.s.chat_list()[-1]["seq"])   # delivered: printed, not yet seen
+        out, err = self.run_answer_without_wait()   # the session is back as alice: that confirms it, and it does not print again
+        self.assertEqual(out, "")
+        self.assertEqual(cursors.get(self.s.dir, "alice"), self.s.chat_list()[-1]["seq"])
 
     def run_answer_without_wait(self):
         out, err = io.StringIO(), io.StringIO()
@@ -146,8 +147,8 @@ class PanelMarkupTests(unittest.TestCase):
             self.assertIn(piece, th)
 
     def test_sending_addresses_the_agent_and_the_thread_redraws_with_chat_and_board(self):
-        self.assertIn("const i = $('thread-input'), text = i.value.trim(), to = threadName;", HTML)
-        self.assertIn("api('/api/chat', { text, to })", HTML)
+        self.assertIn("sendLine('thread-input', 'thread-goes', 'thread', () => threadName)", HTML)   # the thread's box: the agent reads it (chat-f8)
+        self.assertIn("try { await api('/api/chat', body); i.value = ''; showError('');", HTML)        # cleared only once the board took it
         self.assertIn("renderThread();\n  renderPanelConv(); updatePanelDot();\n}", body("renderChat"))
         self.assertIn("renderThread();   // the head reads the cards", HTML)
 

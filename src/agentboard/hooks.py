@@ -23,14 +23,14 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-from . import listeners, untrusted
-from .store import BoardError, owner_name
+from . import cursors, listeners, untrusted
+from .store import DEFAULT_OWNER, BoardError, owner_name
 
 HOOK_COMMAND = "agentboard hook send-message"
 EVENTS = {"send-message": ("PostToolUse", "SendMessage"), "stop": ("Stop", None)}   # hook event -> (settings list, matcher)
 SESSION_ENV = "CLAUDE_CODE_SESSION_ID"
 MAX_SESSIONS = 200
-REASON_MAX = 400
+REASON_MAX = 600   # the longest reason the Stop hook returns: the block text with the quoted line and the commands fits
 
 
 def sessions_path(board_dir):
@@ -81,11 +81,11 @@ def session_name(board_dir, session_id):
     return rec.get("name") if isinstance(rec, dict) else None
 
 
-def resolve_sender(board_dir, payload):
-    """$AGENTBOARD_NAME, else the name this session gave itself, else a short handle from the session id."""
+def resolve_sender(board_dir, payload, fallback=True):
+    """$AGENTBOARD_NAME, else the name this session gave itself, else (with fallback) a short handle from the session id, else None."""
     name = os.environ.get("AGENTBOARD_NAME") or session_name(board_dir, payload.get("session_id"))
-    if name:
-        return name
+    if name or not fallback:
+        return name or None
     sid = str(payload.get("session_id") or "")
     return f"session-{sid[:6]}" if sid else "a session"
 
@@ -98,7 +98,10 @@ def clean_to(to):
 
 def mirror_send_message(store, payload):
     """Post a SendMessage call to the chat. Returns the message, or None when there is nothing to mirror (not a SendMessage,
-    no text, sent to 'main', or agent chat off for this board)."""
+    no text, sent to 'main', agent chat off for this board, or a session the board does not know). Only a session that said who it
+    is on this board (AGENTBOARD_NAME in its shell, or `agentboard me --name X` once) is mirrored: with the hooks in the user's own
+    settings (`hooks install --user`), every Claude Code session on the Mac runs this hook, and the text of a session in another
+    project is not this board's business (the chat security review, Nov 8)."""
     if not isinstance(payload, dict) or payload.get("tool_name") != "SendMessage":
         return None
     inp = payload.get("tool_input") or {}
@@ -108,7 +111,9 @@ def mirror_send_message(store, payload):
         return None
     if not store.chat_agents():
         return None
-    sender = resolve_sender(store.dir, payload)
+    sender = known_name(store.dir, payload)
+    if sender is None:
+        return None
     text = store._scrub(text, 4300)   # masked BEFORE the first line is cut to 300: a key must not be cut in half and left behind
     first, _, rest = text.partition("\n")
     return store.chat_send(sender, first.strip()[:300], to=to, detail=rest.strip() or None, via="mirror")
@@ -127,7 +132,7 @@ def run_hook(store, stdin=None):
 # ---- the Stop hook: an unread line from the owner, or no wait running, is said before the session goes quiet -----------------
 def known_name(board_dir, payload):
     """The board name of the session the payload came from, or None when it never said (a session that is not an agent here)."""
-    name = os.environ.get("AGENTBOARD_NAME") or session_name(board_dir, payload.get("session_id"))
+    name = resolve_sender(board_dir, payload, fallback=False)
     return name if name and name != owner_name(board_dir) else None
 
 
@@ -141,17 +146,25 @@ def stop_decision(store, payload):
     if not name:
         return None
     owner = store.owner
-    unread = store.chat_thread_new(name, after=listeners.read_cursors(store.dir).get(name))
+    who = owner if owner != DEFAULT_OWNER else "the board's owner"   # the prose: without a [board] owner the name is "you", and "you wrote to you" reads wrong
+    unread = [m for m in store.chat_thread_new(name, after=cursors.get(store.dir, name)) if m.get("via") != "board"]   # the board's own notices need no answer
     if unread:
         last = unread[-1]
+        seq = last["seq"]   # the answer names the line it answers (--reply-to), so the panel can say "answered" rather than "wrote back"
         said = untrusted.one_line(last.get("text"), 160)
         more = f" and {len(unread) - 1} more" if len(unread) > 1 else ""
-        reason = (f"{owner} wrote to you on the board{more}, unread: “{said}”. Read it with `agentboard chat inbox --name {name}`, answer with "
-                  f"`agentboard chat send \"<one line>\" --name {name} --to {owner}`, then start `agentboard chat inbox --name {name} --wait 3600` "
-                  "as a background command so the next line wakes you.")
-        return {"decision": "block", "reason": reason[:REASON_MAX + 200]}
+        left = cursors.pending(store.dir, name)
+        if left and left["seq"] >= last["seq"]:   # printed by its wait (delivered), and the session has done nothing on the board since
+            reason = (f"{who[0].upper()}{who[1:]} wrote to you on the board{more}; your wait printed it but you have not acted on it: “{said}”. Answer with "
+                      f"`agentboard chat send \"<one line>\" --name {name} --to {owner} --reply-to {seq}`, then start `agentboard chat inbox --name {name} --wait 3600` "
+                      "as a background command so the next line wakes you.")
+        else:
+            reason = (f"{who[0].upper()}{who[1:]} wrote to you on the board{more}, unread: “{said}”. Read it with `agentboard chat inbox --name {name}`, answer with "
+                      f"`agentboard chat send \"<one line>\" --name {name} --to {owner} --reply-to {seq}`, then start `agentboard chat inbox --name {name} --wait 3600` "
+                      "as a background command so the next line wakes you.")
+        return {"decision": "block", "reason": reason[:REASON_MAX]}
     if not listeners.is_listening(store.dir, name):
-        return {"decision": "block", "reason": (f"Nothing is listening for you on the board: a line {owner} types there would wait until you happen to look. "
+        return {"decision": "block", "reason": (f"Nothing is listening for you on the board: a line {who} types there would wait until you happen to look. "
                                                 f"Start `agentboard chat inbox --name {name} --wait 3600` as a background command (Bash with run_in_background) "
                                                 "and end your turn; it prints the line and exits when one arrives, and that wakes you.")}
     return None
@@ -183,14 +196,47 @@ def _exe():
     return f"{shlex.quote(sys.executable)} -m agentboard"   # run as a module: still a full path
 
 
-def hook_command(event="send-message"):
-    return f"{_exe()} hook {event}"
+def hook_command(event="send-message", board_dir=None):
+    """The command a hook runs: agentboard's full path, the event and, when given, the board folder (--dir), so the hook finds the board
+    from any folder a session starts in (chat-f6: without it a home-folder session's Stop hook found no board and printed nothing)."""
+    cmd = f"{_exe()} hook {event}"
+    return cmd + (f" --dir {shlex.quote(str(Path(board_dir).resolve()))}" if board_dir else "")
 
 
-def hook_entry(command=None, event="send-message"):
+def hook_entry(command=None, event="send-message", board_dir=None):
     _list, matcher = EVENTS[event]
-    entry = {"hooks": [{"type": "command", "command": command or hook_command(event)}]}
+    entry = {"hooks": [{"type": "command", "command": command or hook_command(event, board_dir)}]}
     return {"matcher": matcher, **entry} if matcher else entry
+
+
+def hook_board(command):
+    """The board folder an installed hook command names (--dir), or None for an older one without it."""
+    try:
+        argv = shlex.split(str(command or ""))
+    except ValueError:
+        return None
+    if "--dir" in argv:
+        j = argv.index("--dir")
+        return argv[j + 1] if j + 1 < len(argv) else None
+    return None
+
+
+def stop_hook_state(project_dir):
+    """Where the Stop hook is installed and whether its board folder is good, for `agentboard doctor`: [(settings path, text, ok)]; []
+    when it is installed nowhere (the user's settings and the project's are both looked at)."""
+    out = []
+    for folder in (Path.home(), Path(project_dir)):
+        cmd = installed_command(folder, "stop")
+        if cmd is None:
+            continue
+        board = hook_board(cmd)
+        if board is None:
+            out.append((settings_path(folder), "installed without a board folder, so it finds the board only from the project: run agentboard hooks install --user again, then restart sessions", False))
+        elif not (Path(board) / "tasks.json").is_file():
+            out.append((settings_path(folder), f"installed but no board found at {board}: run agentboard hooks install --user from the board's folder", False))
+        else:
+            out.append((settings_path(folder), f"installed for the board at {board}", True))
+    return out
 
 
 def _load(project_dir):
@@ -213,9 +259,16 @@ def _ours(h, event=None):
         argv = shlex.split(str(h.get("command", "")))
     except ValueError:
         return False
-    if len(argv) < 3 or argv[-2] != "hook" or argv[-1] not in EVENTS or (event and argv[-1] != event):
+    try:
+        i = argv.index("hook")
+    except ValueError:
         return False
-    return os.path.basename(argv[0]) == "agentboard" or argv[-3] == "agentboard"
+    if i < 1 or i + 1 >= len(argv) or argv[i + 1] not in EVENTS or (event and argv[i + 1] != event):
+        return False
+    for extra in argv[i + 2:]:   # only our own options may follow the event (--dir <folder>)
+        if extra.startswith("-") and extra != "--dir":
+            return False
+    return os.path.basename(argv[0]) == "agentboard" or (i >= 3 and argv[i - 1] == "agentboard" and argv[i - 2] == "-m")
 
 
 def _entries(hooks, event):
@@ -227,11 +280,13 @@ def _entries(hooks, event):
     return lst, [e for e in lst if isinstance(e, dict) and (e.get("matcher") == matcher if matcher else not e.get("matcher"))]
 
 
-def install(project_dir):
-    """Add both hooks to the project's settings (creating the file), keeping everything else. Idempotent: a hook already there is
-    left alone, one that is missing is added (an older install had only the mirror). An old bare entry is rewritten with the full
-    path. Returns (path, changed)."""
+def install(project_dir, board_dir=None):
+    """Add both hooks to the settings under `project_dir` (the project's .claude/settings.json; the user's own when `project_dir` is the
+    home folder), creating the file and keeping everything else. Idempotent: a hook already there is left alone, one that is missing is
+    added (an older install had only the mirror). An old bare entry, or one that names no board folder or another one when `board_dir`
+    is given, is rewritten. Returns (path, changed)."""
     p, data = _load(project_dir)
+    want_board = str(Path(board_dir).resolve()) if board_dir else None
     hooks = data.setdefault("hooks", {})
     if not isinstance(hooks, dict):
         raise BoardError(f"{p}: 'hooks' is not an object")
@@ -241,20 +296,24 @@ def install(project_dir):
         if not isinstance(lst, list):
             raise BoardError(f"{p}: hooks.{name} is not a list")
         if installed_command(project_dir, event, data) is None:
-            lst.append(hook_entry(event=event))
+            lst.append(hook_entry(event=event, board_dir=board_dir))
             changed = True
             continue
         for e in _entries(hooks, event)[1]:
             for h in e.get("hooks") or []:
-                if _ours(h, event) and str(h.get("command", "")).strip() == HOOK_COMMAND:   # the old bare form
-                    h["command"] = hook_command(event)
+                if not _ours(h, event):
+                    continue
+                cmd = str(h.get("command", "")).strip()
+                bare = cmd == HOOK_COMMAND or cmd == f"agentboard hook {event}"   # the old bare form
+                if bare or (want_board and hook_board(cmd) != want_board):   # or one that names no board folder, or another board
+                    h["command"] = hook_command(event, board_dir)
                     changed = True
     if not changed:
         return p, False
     from . import private
     with private.as_user():   # the project's .claude/settings.json is shared with Claude Code and your team, not board data
         p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_text(json.dumps(data, indent=2) + "\n")
+        write_settings(p, json.dumps(data, indent=2) + "\n")
     return p, True
 
 
@@ -283,10 +342,46 @@ def uninstall(project_dir):
     if not hooks:
         del data["hooks"]
     if data:
-        p.write_text(json.dumps(data, indent=2) + "\n")
+        write_settings(p, json.dumps(data, indent=2) + "\n")
     else:
         p.unlink()   # the file held nothing but our hooks: leave no empty settings.json behind
     return p, True
+
+
+def write_settings(p, text):
+    """Write a Claude Code settings file the safe way: through a temp file in the same folder, flushed, then renamed over the target, so a
+    failure (disk full, a kill) leaves the old file whole, never a truncated one; the file as it was before agentboard ever touched it is
+    kept once as <file>.orig (never overwritten), and the version before the last write as <file>.bak; the file's mode is kept (a new
+    file is 0600); a symlinked settings.json (dotfiles) stays a symlink and its target is rewritten. The user's own ~/.claude/settings.json
+    holds permissions, env and other hooks, so this matters there most (the chat security review, Nov 8)."""
+    import tempfile
+    p = Path(p)
+    target = p.resolve() if p.is_symlink() else p
+    mode = None
+    if target.exists():
+        mode = os.stat(target).st_mode & 0o777
+        if not os.path.exists(f"{target}.orig"):   # the pristine file, once: a later install or uninstall never replaces it
+            with contextlib_suppress(OSError):
+                shutil.copy2(target, f"{target}.orig")
+        with contextlib_suppress(OSError):
+            shutil.copy2(target, f"{target}.bak")
+    fd, tmp = tempfile.mkstemp(dir=target.parent, prefix=f".{target.name}-", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w") as f:
+            f.write(text)
+            f.flush()
+            os.fsync(f.fileno())
+        os.chmod(tmp, mode if mode is not None else 0o600)
+        os.replace(tmp, target)
+    except BaseException:
+        with contextlib_suppress(OSError):
+            os.unlink(tmp)
+        raise
+
+
+def contextlib_suppress(*exc):
+    import contextlib
+    return contextlib.suppress(*exc)
 
 
 def installed_command(project_dir, event="send-message", data=None):

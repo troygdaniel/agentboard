@@ -12,8 +12,8 @@ from agentboard import cli, doctor, lockdown
 from agentboard.store import Store
 
 AWS = "AKIA" + "ABCDEFGHIJKLMNOP"      # built in pieces so this file is not itself a hit
-PHONE = "(416) 867-" + "5309"          # a real-looking number built in pieces, so this file holds no phone number for the scan to find
-PHONE2 = "416-867-" + "5310"
+PHONE = "(416) 867-" + "5311"          # a real-looking number built in pieces, so this file holds no phone number for the scan to find (867-5309/5310 are the song's: fiction to the guard)
+PHONE2 = "416-867-" + "5312"
 
 
 class FakeRunner:
@@ -150,19 +150,19 @@ class Git(unittest.TestCase):
         self.assertIn("k.py:1", line[2])
         self.assertIn("n.md:1", line[2])
         self.assertNotIn(AWS, line[2])
-        self.assertNotIn("5309", line[2])
+        self.assertNotIn("5311", line[2])
 
     def test_a_private_key_header_fails_and_a_key_like_assignment_only_warns(self):
         self.repo({"id.pem": "-----BEGIN " + "RSA PRIVATE KEY-----\nabc\n"})
         line = next(x for x in doctor.check_git(self.proj, self.board, subprocess.run) if x[1] == "tracked files")
         self.assertEqual(line[0], doctor.FAIL)
-        self.assertIn("private key at id.pem:1", line[2])
+        self.assertIn("private-key at id.pem:1", line[2])
         self.git("rm", "-q", "-f", "id.pem")
         (self.proj / "cfg.py").write_text('api_key = "' + "k3y9" * 8 + '"\nTOKEN_ENV = "AGENTBOARD_SOME_TOKEN_NAME_X"\n')
         self.git("add", "-A")
         line = next(x for x in doctor.check_git(self.proj, self.board, subprocess.run) if x[1] == "tracked files")
         self.assertEqual(line[0], doctor.WARN)
-        self.assertIn("key-like assignment at cfg.py:1", line[2])
+        self.assertIn("assigned-secret at cfg.py:1", line[2])   # the kind names are publiccheck's: one source
         self.assertNotIn("cfg.py:2", line[2])   # an environment variable NAME is not a secret
 
     def test_plain_placeholders_are_not_reported_but_real_looking_values_still_are(self):
@@ -175,6 +175,28 @@ class Git(unittest.TestCase):
         line = next(x for x in doctor.check_git(self.proj, self.board, subprocess.run) if x[1] == "tracked files")
         self.assertEqual(line[0], doctor.WARN)
         self.assertIn("real.md:1", line[2])
+
+    def test_doctor_and_publiccheck_see_the_same_things(self):
+        """One source (repoguard): what the guard allows the doctor allows, and what the guard flags the doctor flags. A real-looking key FAILS
+        wherever it is (a test file is no shelter); a fixture the guard lets through (plain words after sk-, the song's number, a key of one
+        repeated letter, a placeholder word) is a PASS. These were the seven standing FAILs of Nov 7."""
+        import sys
+        sys.path.insert(0, str(Path(__file__).parent))
+        import publiccheck
+        fixtures = ("sk-learn-pipeline-for-the-model-build-2026 is a card id\n", "sid AC" + "b" * 32 + " key AKIA" + "X" * 16 + "\n", "call (416) 867-" + "5309\n",
+                    "Authorization: Bearer unauthorised-deletion planned\n", 'api_key = "your-key-here-xxxxxxxxxxxxxxxxxx"\n')
+        self.repo({"test_fixture.py": "".join(fixtures), "notes.md": "".join(fixtures)})
+        line = next(x for x in doctor.check_git(self.proj, self.board, subprocess.run) if x[1] == "tracked files")
+        self.assertEqual(line[0], doctor.PASS, line)
+        self.assertEqual(publiccheck.scan_text("".join(fixtures)), [])
+        real = f'KEY = "{AWS}"\n'
+        for where in ("test_real.py", "real.py"):   # a test file and a source file: the same verdict
+            with self.subTest(where):
+                self.repo({where: real})
+                line = next(x for x in doctor.check_git(self.proj, self.board, subprocess.run) if x[1] == "tracked files")
+                self.assertEqual(line[0], doctor.FAIL, line)
+                self.assertIn(f"aws-key at {where}:1", line[2])
+                self.assertEqual([k for _n, k, _s in publiccheck.scan_text(real)], ["aws-key"])
 
     def test_only_a_phone_number_is_a_warning(self):
         self.repo({"n.md": f"call {PHONE} tonight\n", "ok.py": "x = 1\n"})

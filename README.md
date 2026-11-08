@@ -36,6 +36,20 @@ No pipx? From inside a checkout, with `python3` being 3.11+ (`python3 --version`
 
 To upgrade a checkout: `git pull && rm -rf build && pipx install . --force` (then restart `agentboard serve`). Releases are tagged (`v0.3.0`); see `CHANGELOG.md`.
 
+**Offline, or a locked-down PC (no package index, no admin rights).** Both commands above fetch build tools from PyPI the first time: pipx upgrades
+its own pip (it does this even for a prebuilt wheel, so pipx is a dead end offline), and a plain pip install of the checkout builds in an isolated environment that
+downloads setuptools. A wheel needs neither. On any machine with network, build it once and carry the one file over:
+
+    rm -rf build && python3 -m pip wheel --no-deps -w dist .     # makes dist/agentboard-0.3.1-py3-none-any.whl (pure Python, works on any OS)
+
+On the offline machine, with `python3` being 3.11+:
+
+    python3 -m venv ~/.agentboard-venv && ~/.agentboard-venv/bin/pip install --no-index dist/agentboard-0.3.1-py3-none-any.whl
+    export PATH="$HOME/.agentboard-venv/bin:$PATH"
+
+`--no-index` makes pip refuse the network instead of hanging on it. The same wheel is attached to each tagged release on GitHub, so a
+download from the Releases page is enough; nothing is compiled and nothing else is installed. The board itself never leaves localhost.
+
 **Always remove `build/` before installing from a checkout you have used before.** pip builds inside the checkout, and setuptools copies into `build/` without removing
 files that no longer exist in `src/`, so a module deleted from the source can come back into the installed copy (the removed text features did exactly that once). A first install
 from a fresh clone has no `build/` and needs nothing. `agentboard doctor` warns ("stale install") when the installed copy holds a file its source no longer has, and tells you the fix.
@@ -88,7 +102,7 @@ Run `agentboard hooks install` once per project: it adds two Claude Code hooks t
 behind **Detail**, with a small **msg** chip. A session says who it is the first time it runs `claim`, `start`, `chat` or
 `agentboard me --name AGENT-1`; the board keeps that against its session id, so the mirror carries the name (`$AGENTBOARD_NAME`
 wins when set). ORCH can register another session when an agent reports its id: `agentboard me --name AGENT-4 --session <id>` (ListAgents `[ref]`s are not session ids). Mirrored lines are not inbox news (the reader already has the message) and the hook never fails an agent: on any
-problem it exits quietly. Restart running sessions once after installing.
+problem it exits quietly. Restart running sessions once after installing. Run `agentboard hooks install --user` instead to put them in `~/.claude/settings.json`: every session on this Mac has them, whatever folder it starts in. Either way the hook commands name the board folder, so a session started in another folder still finds the board. `agentboard doctor` says where the Stop hook is installed and whether its board folder exists. Only a session the board knows is mirrored: one with `AGENTBOARD_NAME` in its shell, or one that ran `agentboard me --name <name>`; a session in another project posts nothing, so the user-level install is safe to have on a Mac with other work on it. The settings file is written through a temp file in its folder; the file as it was before agentboard ever touched it is kept once as `settings.json.orig`, the version before the last write as `settings.json.bak`, and a symlinked one keeps its link.
 
 **Nobody answers a message to a sleeping session.** A Claude Code session that has finished its turn reads nothing until something
 wakes it, and the board cannot reach into a session; a line you type to an agent would sit in its inbox. What wakes a session is a
@@ -96,10 +110,10 @@ wait it left running in the background, `agentboard chat inbox --name AGENT-4 --
 exits when your line arrives. Every prompt says to keep one running between cards, the board lists who does
 (`.agentboard/chat-listeners.json`, by pid), and the second hook (Stop) tells a session that is about to go quiet with an unread line
 from you, or with no wait running, before it does; it never blocks twice in a row. In the ORCH drawer, an agent's thread and the card
-panel, each line you send one agent carries a receipt: **delivered** (in its inbox), **read** (its wait printed it), **answered** (it
-wrote back). After a minute unread the line says whether the agent is listening and, when it is not, offers **Nudge via ORCH**: the
+panel, each line you send one agent carries a receipt: **delivered** (in its inbox), **read** (its wait printed it), **answered** (it replied to that line with
+`--reply-to <n>`, which the prompts tell agents to do) or **wrote back** (a later line to you not marked as a reply to it). A line older than a day, or one to an agent listed under `[hud] retired`, shows plain sent or delivered: no warning, no Nudge. After a minute unread the line says whether the agent is listening and, when it is not, offers **Nudge via ORCH**: the
 board asks ORCH, in its own thread, to message that session (ORCH's SendMessage is the one thing on the machine that wakes an idle
-session). A line to ORCH itself cannot be nudged: if ORCH is not listening, type in its terminal or boot one with Copy prompt.
+session). A line to ORCH itself cannot be nudged: if ORCH is not listening, type in its terminal or boot one with Copy prompt. ORCH listens the same way (`agentboard chat inbox --name ORCH --wait 3600`). Every posted line also moves `.agentboard/chat-wake.json` (a counter and a time, no words), so a wait watches that one file and wakes within a second, and an ORCH that runs on a schedule instead of a wait can tell in one stat whether anything was posted. A line that nobody is listening for says so in the chat panel after a minute, for ORCH and for any agent, with a Nudge: for an agent it asks ORCH to message that session; for ORCH it moves the wake file.
 
 **Said casually.** With `[chat] casual = true`, the board gives every agent line (mirrored ones included) a spoken version through
 the cheap model: the same facts, names, numbers and card ids, in one friendly line that reads aloud; the panel shows that, with
@@ -489,13 +503,15 @@ A plugin loads only when the machine says so: `AGENTBOARD_PLUGINS=1` (exactly `1
 
 A plugin is an entry point in the group `agentboard.plugins` whose value is a function taking one argument, `api` (see the top of `src/agentboard/plugins.py` for what it can register and the guarantees: nothing outside its own `/api/x/<name>/`, no shadowing a core command, a failing plugin costs only itself, an error reaches the client as its class name). A plugin is code you installed and switched on; it is trusted like any package.
 
+A command a plugin adds exists only where the plugin is loaded: from a plain shell (no key, or a lock) `agentboard <that command>` fails as an unknown command and adds one line to stderr saying plugins are off and the command may be a plugin's; run it from the board's shell, with its environment.
+
 The text-message features (turning texts into cards, an inbound-SMS webhook) are not part of agentboard: they live in a separate package that is kept outside this repository.
 
 ## Prompts and context providers (optional)
 
 Todo cards carry a copyable prompt that makes any agent claim the card and report progress. Prompts are assembled from
 providers in `.agentboard/config.toml` (`markdown`, `file-tail`, `http`, `command`; options `max_chars`, `redact`, `private`).
-Providers run only when a task lists one with `--ctx` and a prompt is built.
+Providers run only when a task lists one with `--ctx` and a prompt is built. A `markdown` or `file-tail` provider reads a file inside the project folder (the one holding `.agentboard/`, links followed): that includes `.env`, `.git/config` and `.agentboard/` itself, so point one only at files you would paste into a prompt; under `AGENTBOARD_LOCKDOWN` a path outside the project is refused.
 
 Two rules for a `command` provider. **Do not wrap `{arg}` or `{title}` in quotes** in `run`: each is already shell-quoted when it is
 filled in, so `grep "{arg}" notes.md` becomes `grep "'tailor pants'" notes.md` and a crafted argument can step out of your quotes;

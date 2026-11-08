@@ -54,7 +54,8 @@ class DrawerMarkupTests(unittest.TestCase):
         self.assertIn('id="chat-av"', aside)
         self.assertIn('id="chat-close"', aside)
         self.assertNotIn("<label", aside)   # Everyone and Agents talk left the drawer (Troy, Nov 6): the CLI keeps both
-        self.assertIn("Tell ORCH what you want", aside)
+        self.assertIn("Message ORCH, or @AGENT-2…", aside)   # the composer says who reads the line (chat-f8); the goes-to line under it names the default
+        self.assertIn('id="chat-goes"', aside)
         for gone in ("chat-all", "chat-sw", "chat-agents", "chatAll", "Agents talk"):
             self.assertNotIn(gone, HTML)
 
@@ -65,8 +66,8 @@ class DrawerMarkupTests(unittest.TestCase):
         self.assertIn("m.seq > chatSeenSeq && chatShows(m)", HTML)   # the count is what the drawer would show
 
     def test_sending_addresses_orch_unless_an_at_name(self):
-        self.assertIn("const to = text.startsWith('@') ? undefined : 'ORCH';", HTML)
-        self.assertIn("api('/api/chat', to ? { text, to } : { text })", HTML)
+        self.assertIn("$('chat-form').addEventListener('submit', e => { e.preventDefault(); sendLine('chat-input', 'chat-goes', 'drawer', () => 'ORCH'); });", HTML)
+        self.assertIn("const body = where === 'drawer' && text.startsWith('@') ? { text } : { text, to: w.to };", HTML)   # the server reads "@NAME …" itself
 
     def test_the_button_is_caught_on_the_document_and_closing_returns_focus_to_it(self):
         self.assertIn("if (!e.target.closest('.orch-btn')) return;", HTML)

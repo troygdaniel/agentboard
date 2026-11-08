@@ -1,5 +1,6 @@
 """Task storage: one JSON file, locked and written atomically."""
 import contextlib
+import difflib
 import functools
 import json
 import os
@@ -9,6 +10,8 @@ import tomllib
 from pathlib import Path
 
 from . import backup
+from . import chatwake
+from . import listeners
 from . import redact
 
 try:
@@ -179,7 +182,7 @@ class Store:
                     raise BoardError(f"a subtask follows its parent ({parent['status']}); drop --status")
                 status = parent["status"]
             status = status or "backlog"
-            tid = task_id or _unique_id(title, {t["id"] for t in tasks})
+            tid = task_id or _unique_id(title, {t["id"] for t in tasks}, prefix=parent["id"] if parent else None)   # a subtask's id starts with its parent's
             if any(t["id"] == tid for t in tasks):
                 raise BoardError(f"task id already exists: {tid}")
             if source and source.get("key") and any((t.get("source") or {}).get("key") == source["key"] for t in tasks):
@@ -243,7 +246,7 @@ class Store:
             if parent:
                 if not force:
                     _parent_must_be_doing(parent, {"id": "a new subtask"}, "start")
-            tid = task_id or _unique_id(title, {t["id"] for t in tasks})
+            tid = task_id or _unique_id(title, {t["id"] for t in tasks}, prefix=parent["id"] if parent else None)   # a subtask's id starts with its parent's
             existing = next((t for t in tasks if t["id"] == tid), None)
             if existing:  # same agent re-announcing the same work is a no-op
                 if existing.get("agent") == name and existing["status"] == "doing":
@@ -836,16 +839,26 @@ class Store:
                     raise BoardError(f"no chat message #{reply_to}")
                 if not to and parent.get("kind") != "user":   # an unaddressed reply to an agent's line is talking to that agent
                     talk = True
+            unknown = to and to != "all" and not to_owner and not self._known_name(data, to)   # a name nobody has
+            if unknown and kind == "agent" and via != "mirror":   # an agent's line to no one is not sent (docs/chat-words-design.md section 3); the name is checked before the switch. A mirror records a message already sent elsewhere: posted, marked
+                close = _closest_name(to, self._known_names(data))
+                raise BoardError(f"Not sent: no one named {to}. Closest: {close}. Send again with --to {close}." if close
+                                 else f"Not sent: no one named {to}. Names on this board: {', '.join(self._board_names(data))}.")
             if talk and kind == "agent" and not data.get("chat_agents"):
-                raise BoardError("agent chat is off for this board; its owner turns it on with `agentboard chat agents on` "
-                                 f"(a status line, and any answer to {_who(self.owner)}, still posts)")
+                raise BoardError(f"Not sent: agent chat is off, so agents post one-line status only. A line to {_who(self.owner)} still goes; "
+                                 "to reach another agent, the owner runs: agentboard chat agents on")
             if len(text) > CHAT_LINE_MAX:
                 if talk:
-                    raise BoardError(f"keep the line under {CHAT_LINE_MAX} characters; put the rest in --detail")
+                    raise BoardError(f"Not sent: {len(text)} characters, the limit is {CHAT_LINE_MAX}. Shorten it, or keep the rest in --detail.")
                 text, detail = _split_long_line(text, detail)   # an answer to the owner is kept whole: line plus detail
             seq = data["chat_seq"] + 1
             data["chat_seq"] = seq
             msg = {"seq": seq, "at": _now(), "sender": sender, "text": text, "kind": kind}
+            if unknown:
+                msg["to_unknown"] = True
+                close = _closest_name(to, self._known_names(data))
+                if close:
+                    msg["closest"] = close
             if via not in (None, "idle", "board", "mirror"):   # idle: drafted for an idle agent; board: the board's own notice; mirror: a session's private message, mirrored
                 raise BoardError("via must be 'idle', 'board', 'mirror' or left out")
             for k, v in (("to", to), ("topic", topic), ("detail", detail), ("card", card), ("files", files), ("reply_to", reply_to), ("via", via)):
@@ -856,7 +869,33 @@ class Store:
             data["chat"].append(msg)
             del data["chat"][:-CHAT_MAX]
             self._write(data)
+            chatwake.bump(self.dir, to)   # the wake file moves: a wait on it reads the board now, a schedule sees it in one stat (chat-f7)
             return msg
+
+    def _known_names(self, data):
+        """Who a line can reach: ORCH, the owner, the roster ([orch] agents in config.toml), every card holder, every chat sender, every
+        listener. Spellings as the board has them."""
+        names = {"ORCH", self.owner}
+        names.update(_roster(self.dir))
+        names.update(t.get("agent") for t in data["tasks"] if t.get("agent"))
+        names.update(m.get("sender") for m in data["chat"] if m.get("kind") == "agent" and m.get("sender"))
+        names.update(listeners.listening(self.dir))
+        return sorted(n for n in names if n)
+
+    def known_names(self):
+        """Who a line can reach right now (for the board's composer): ORCH, the owner, card holders, chat senders, listeners."""
+        with self._lock():
+            return self._known_names(self._read())
+
+    def _board_names(self, data, cap=6):
+        """The names for a refusal or the composer: ORCH first, then the agents, never the owner's own name; at most `cap`, then "and N more"."""
+        names = ["ORCH"] + [n for n in self._known_names(data) if n != "ORCH" and n != self.owner]
+        shown = names[:cap]
+        return shown + ([f"and {len(names) - cap} more"] if len(names) > cap else [])
+
+    def _known_name(self, data, to):
+        t = str(to).strip().lower()
+        return any(t == n.lower() for n in self._known_names(data))
 
     def chat_set_said(self, seq, said):
         """Keep the casual rendering of a message (the same facts in a spoken tone); the original text is untouched.
@@ -893,8 +932,8 @@ class Store:
     def chat_nudge(self, seq, now=None):
         """The owner's one click when a line to an agent has gone unread: the board asks ORCH, in ORCH's own thread, to message that
         agent's session (ORCH's SendMessage is the only thing on the machine that wakes an idle session). Recorded on the line as
-        `nudged`, once a minute at most. A line to ORCH itself cannot be nudged this way: nothing on the board reaches an ORCH that
-        is not listening. Returns the ORCH line."""
+        `nudged`, once a minute at most. A line to ORCH itself: refused while ORCH's wait is listening (it prints the line itself);
+        otherwise the nudge marks the line and moves the wake file an ORCH on a schedule checks, and returns None. Else the ORCH line."""
         with self._lock():
             data = self._read()
             m = next((m for m in data["chat"] if m["seq"] == int(seq)), None)
@@ -903,12 +942,18 @@ class Store:
             to = m.get("to") or ""
             if m.get("kind") != "user" or not to or to == "all" or _to_owner(to, self.owner):
                 raise BoardError("only a line you sent to one agent can be nudged")
-            if to.upper() == "ORCH":
-                raise BoardError("ORCH is not listening, and nothing on the board wakes it: type in its terminal, or boot one with Copy prompt")
             stamp = now or _now()
             last = m.get("nudged")
             if last and _seconds_between(last, stamp) < NUDGE_GAP_S:
                 raise BoardError(f"already nudged at {str(last)[11:16]}; give ORCH a minute")
+            if to.upper() == "ORCH":   # a line to ORCH itself: its wait prints it; without a wait, the nudge moves the wake file its schedule checks (chat-f7)
+                from . import listeners
+                if listeners.is_listening(self.dir, "ORCH"):
+                    raise BoardError("ORCH is listening: its wait prints your line within seconds, no nudge needed")
+                m["nudged"] = stamp
+                self._write(data)
+                chatwake.bump(self.dir, "ORCH")
+                return None
             m["nudged"] = stamp
             self._write(data)
         text = " ".join(str(m.get("text") or "").split())[:120]   # the owner's own words
@@ -917,7 +962,8 @@ class Store:
 
     def chat_inbox(self, name, after=None, limit=50):
         """What `name` has not read yet: messages after seq `after` from someone else, addressed to them, to all, or to no one
-        in particular (a plain status line). The agent remembers the last seq it saw."""
+        in particular (a plain status line), OLDEST first, the first `limit` of them (None: all). The agent remembers the last seq
+        it saw; a caller that shows a page moves the cursor to the last line it showed, never past lines it cut."""
         with self._lock():
             msgs = self._read()["chat"]
         def mine(m):   # what the board said for this agent while it was idle is news to it, whoever it was sent to
@@ -925,7 +971,7 @@ class Store:
         out = [m for m in msgs if (after is None or m["seq"] > after) and m.get("via") != "mirror"   # a mirrored message already reached its reader
                and (mine(m) or (m["sender"] != name
                and (not m.get("to") or m["to"] == "all" or m["to"] == name or m["to"].lower() == name.lower())))]
-        return out[-limit:]
+        return out if limit is None else out[:limit]
 
     def chat_thread_new(self, name, after=None):
         """What the owner said to `name` on the board (the agent's thread) after seq `after`: a message there wakes
@@ -955,15 +1001,22 @@ CHAT_MAX = 500
 NUDGE_GAP_S = 60   # one nudge a minute per line
 
 
-def _seconds_between(earlier, later):
-    """Seconds from one board stamp (YYYY-MM-DDTHH:MM:SS) to another; a stamp that does not parse counts as long ago."""
+STAMP = "%Y-%m-%dT%H:%M:%S"   # every time the board writes: card updated/created, log lines, chat at, cursors, listeners
+
+
+def parse_stamp(s):
+    """A board stamp as a datetime, or None when it is not one (the one parser: hud, the chat, the cursors and the CLI all use it)."""
     from datetime import datetime
     try:
-        a = datetime.strptime(str(earlier)[:19], "%Y-%m-%dT%H:%M:%S")
-        b = datetime.strptime(str(later)[:19], "%Y-%m-%dT%H:%M:%S")
-    except ValueError:
-        return float("inf")
-    return (b - a).total_seconds()
+        return datetime.strptime(str(s)[:19], STAMP)
+    except (TypeError, ValueError):
+        return None
+
+
+def _seconds_between(earlier, later):
+    """Seconds from one board stamp to another; a stamp that does not parse counts as long ago."""
+    a, b = parse_stamp(earlier), parse_stamp(later)
+    return float("inf") if a is None or b is None else (b - a).total_seconds()
 
 
 OWNER_WORDS = ("you", "the user", "user", "owner")   # how a prompt names an unnamed owner: --to "the user" still reaches them
@@ -978,6 +1031,27 @@ def _split_long_line(text, detail):
     head, rest = text[:cut].rstrip() + "\u2026", text[cut:].strip()
     detail = (rest + ("\n\n" + detail if detail else "")).strip()[:CHAT_DETAIL_MAX] or None
     return head, detail
+
+
+def _roster(board_dir):
+    """The names in [orch] agents = [{name="AGENT-1"}, ...] of the board's config.toml: peers ORCH hands work to are known before they speak."""
+    try:
+        conf = tomllib.loads((Path(board_dir) / "config.toml").read_text())
+    except (OSError, ValueError, tomllib.TOMLDecodeError):
+        return []
+    spec = (conf.get("orch") or {}).get("agents") if isinstance(conf.get("orch"), dict) else None
+    if not isinstance(spec, list):
+        return []
+    return [str(p["name"]).strip() for p in spec if isinstance(p, dict) and str(p.get("name") or "").strip()]
+
+
+def _closest_name(to, names):
+    """The known name closest to `to` (AGENT-33 -> AGENT-3, 'Agent 3' -> AGENT-3), or None when nothing is close."""
+    def norm(s):
+        return re.sub(r"[\s_-]+", "", str(s).strip().lower())
+    by = {norm(n): n for n in names}
+    hits = difflib.get_close_matches(norm(to), list(by), n=1, cutoff=0.6)
+    return by[hits[0]] if hits else None
 
 
 def _to_owner(to, owner):
@@ -1302,8 +1376,13 @@ def _slug(title):
     return re.sub(r"[^a-z0-9]+", "-", str(title).lower())[:40].strip("-") or "task"
 
 
-def _unique_id(title, taken):
+def _unique_id(title, taken, prefix=None):
+    """A slug of the title that no card has. With `prefix` (a subtask: its parent's id) a slug some other card already has becomes
+    parent-id-step-one instead of step-one-2, so the id says which card the step belongs to (ux-subtask-ids-collide-across-agents); a
+    step whose name is free on the board keeps the short id, as before."""
     base = _slug(title)
+    if prefix and base in taken:
+        base = f"{prefix}-{base}"
     tid, n = base, 2
     while tid in taken:
         tid, n = f"{base}-{n}", n + 1
