@@ -1016,6 +1016,11 @@ Declare a task is blocked by another so parallel agents don't collide on orderin
 
 The card shows a lock with a link to each unresolved blocker; it clears on its own once the blocker is marked done.
 
+A card that looks stuck (claimed and never worked, a holder that vanished, two cards for one piece of work, a subtask whose parent is
+gone)? `agentboard watchdog` lists every such case with its one fix. Tell your orchestrator in one chat line and leave the fix to it (or
+to the owner): never run `--fix` on another agent's claim and never `--force` past one to get moving. Your own card's rows (an orphan
+subtask of yours, a twin you made) you may fix yourself.
+
 ## Sync
 
 Block until another task reaches a point you need, instead of polling `list` or pinging chat:
@@ -1379,6 +1384,43 @@ def cmd_verify(a):
         sys.exit(1)
 
 
+def cmd_watchdog(a):
+    """agentboard watchdog: every way the board is stuck between agents (stale claims, vanished agents, twins, split cards, orphans,
+    duplicate names, sessions the hooks cannot reach), numbered, each with its fix; --fix N (or all) does the fix and says what moved."""
+    from . import watchdog
+    s = _store()
+    items = watchdog.findings(s, stale_min=a.stale_minutes)
+    if a.fix is not None and a.fix != "all":   # checked first, so `--fix abc` is refused even on a clean board
+        parts = [x.strip() for x in str(a.fix).split(",") if x.strip()]
+        if not parts or not all(x.isdigit() for x in parts):
+            raise BoardError(f"--fix takes finding numbers (1, or 1,3) or all; not {a.fix!r}")
+    if a.json:
+        print(json.dumps(items, indent=1))
+        return
+    if not items:
+        print(f"ok  {watchdog.summary(items)}")
+        return
+    for n, f in enumerate(items, 1):
+        head = f"{n:>2}. {f['kind']:<13} {f['id'] or f['agent']}"
+        print(f"{head}\n    {f['what']}" + (f"\n    fix: {f['fix']['label']}  (agentboard watchdog --fix {n})" if f.get("fix") else ""))
+    if a.fix is None:
+        return
+    picks = list(range(1, len(items) + 1)) if a.fix == "all" else [int(x.strip()) for x in str(a.fix).split(",") if x.strip()]
+    for n in picks:
+        f = items[n - 1] if 1 <= n <= len(items) else None
+        if not f:
+            raise BoardError(f"no finding number {n} (the list has {len(items)})")
+        if not f.get("fix"):
+            print(f"{n}. {f['kind']}: nothing the board can do; {f['what']}")
+            continue
+        try:
+            touched = watchdog.heal(s, f["fix"]["action"], f["fix"]["id"])
+        except BoardError as e:   # an earlier fix in the same run covered it (a vanished agent's release-all takes its stuck cards too)
+            print(f"{n}. {f['fix']['label']}: already done ({e})")
+            continue
+        print(f"{n}. {f['fix']['label']}: done ({', '.join(touched)})")
+
+
 def cmd_dedupe(a):
     plan = _store().dedupe(apply=a.apply)
     if not plan:
@@ -1731,6 +1773,10 @@ def main(argv=None):
     sp.add_argument("--strict", action="store_true", help="exit 1 on a WARN as well")
     sp = add("verify", cmd_verify, "check the board file, its .bak and the newest snapshot (exit 1 if any is bad or the newest is over 2 hours old)")
     sp.add_argument("--all", action="store_true", help="check every snapshot")
+    sp = add("watchdog", cmd_watchdog, "the ways the board is stuck between agents (stale claims, vanished agents, twins, split cards, orphans, duplicate names), each with its one fix; --fix N does it")
+    sp.add_argument("--fix", metavar="N", help="do fix number N (several: 1,3; every one: all)")
+    sp.add_argument("--stale-minutes", dest="stale_minutes", type=float, help="the idle threshold (default: [board].stale_minutes, or 120)")
+    sp.add_argument("--json", action="store_true")
     sp = add("dedupe", cmd_dedupe, "find accidental twin cards (`<id>-2` made by a second `start`) and, with --apply, merge them into the original")
     sp.add_argument("--apply", action="store_true", help="merge them (a snapshot is taken first); without it only lists them")
     sp = add("report", cmd_report, "markdown recap of what was completed today (or --date), by agent — for a standup or daily log")
