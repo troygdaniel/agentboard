@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### By agent no longer hides lanes past the edge: a fade and a "+4 more" chip (Nov 8)
+- With six or more agents the lanes scroll sideways under a scrollbar that overlay-scrollbar systems hide, so a lane past the right edge had no
+  sign it was there, and an agent waiting on you could go unseen. Each edge that has more now fades, and a chip counts what is past it
+  (`+4 more · 1 needs you ›`, `‹ 2 more`), says when one needs you or is ready for review, and jumps to the lane that needs you first, else the next.
+  Nothing shows when every lane fits, under Load, or off the By agent view. A keyboard reaches the chips; reduced motion jumps without the glide.
+  (`ux-by-agent-hides-lanes-past-the-fifth-w`; `docs/by-agent-lane-cue/`)
+
 ### `agentboard doctor` and the repo guard read one set of rules, so the doctor's standing FAIL on fixtures is gone (Nov 8)
 - The doctor's `tracked files` scan and `tests/publiccheck.py` carried two copies of the secret shapes and the allow rules, and they disagreed: the doctor showed a FAIL all day on seven fixture keys inside tests that the guard, rightly, allowed (plain words after `sk-`, the song's phone number, a key of one repeated letter). A standing FAIL trains people to ignore the doctor. Both now read `src/agentboard/repoguard.py`: the same shapes (keys, tokens, private keys, Authorization headers, assigned secrets, phone numbers, emails, home paths, the owner's private words) and the same allow rules. A real-looking key still FAILs wherever it sits, a test file included; a fixture the guard lets through is a PASS. The doctor's kind names are now the guard's (`aws-key`, `assigned-secret`, `phone number`); emails and home paths, which only the guard checked before, are WARN lines in the doctor too.
 

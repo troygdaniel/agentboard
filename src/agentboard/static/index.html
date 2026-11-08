@@ -1117,6 +1117,23 @@
      instead of floating alone at the right; with a Report chip in the row it stays on the right of that */
   body.byagent .col.acol .card .top .when { margin-left: 0; }
   body.byagent .col.acol .card .top:has(.report-link) .when { margin-left: auto; }
+  /* more lanes than fit (6+ agents): the lanes scroll sideways under a scrollbar that overlay-scrollbar systems hide, so a lane past the edge,
+     one that needs you, had no sign it was there. A fade on each edge that has more, and a chip that counts what is past it, says what needs
+     you, and jumps to it. Drawn over the board from its rect (laneCue), off whenever everything fits. */
+  #lane-cue { position: fixed; left: 0; top: 0; width: 0; height: 0; z-index: 6; pointer-events: none; }
+  #lane-cue[hidden], body:not(.byagent) #lane-cue, body:has(#hud.open) #lane-cue { display: none; }
+  .lane-fade { position: fixed; width: 56px; opacity: 0; transition: opacity .15s; }
+  .lane-fade.on { opacity: 1; }
+  .lane-fade.r { background: linear-gradient(to right, transparent, var(--bg) 85%); }
+  .lane-fade.l { background: linear-gradient(to left, transparent, var(--bg) 85%); }
+  .lane-chip { position: fixed; pointer-events: auto; display: inline-flex; align-items: center; gap: 6px; min-height: 28px; padding: 2px 11px; border: 1px solid var(--line); border-radius: 999px;
+    background: var(--surface); color: var(--text); font: inherit; font-size: var(--fs-sm); font-weight: 600; white-space: nowrap; cursor: pointer; box-shadow: 0 2px 10px rgba(0,0,0,.14); }
+  .lane-chip[hidden] { display: none; }
+  .lane-chip:hover { border-color: var(--neutral); }
+  .lane-chip.attn { border-color: color-mix(in srgb, var(--err) 55%, var(--line)); }
+  .lane-chip .need { color: color-mix(in srgb, var(--err) 78%, var(--text)); }
+  .lane-chip .ready { color: color-mix(in srgb, var(--ok) 78%, var(--text)); }
+  @media (prefers-reduced-motion: reduce) { .lane-fade { transition: none; } }
   .col.acol h2 { flex-wrap: nowrap; min-width: 0; }
   .col.acol h2 .nm { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
   @media (max-width: 900px) {   /* a phone: swipe sideways, one column per screen */
@@ -1323,6 +1340,10 @@
   </div>
 
   <main class="board" id="board" aria-label="Task board"></main>
+  <div id="lane-cue" hidden>
+    <span class="lane-fade l" aria-hidden="true"></span><span class="lane-fade r" aria-hidden="true"></span>
+    <button type="button" class="lane-chip l" hidden></button><button type="button" class="lane-chip r" hidden></button>
+  </div>
 </div>
 
 
@@ -1729,6 +1750,59 @@ function byAgentHtml(by, filtered) {
   return todoColHtml(by.todo, filtered) + (n ? active.map(agentCol).join('') : `<div class="empty">${filtered ? 'No matches' : 'No agent is working'}</div>`);
 }
 
+// --- By agent: a cue for the lanes past the edge (6+ agents scroll sideways, and the scrollbar can be hidden) ---
+// Which lanes are not fully in view on each side of the board, drawn as an edge fade and a chip: "+3 more · 1 needs you ›" to the right,
+// "‹ 2 more" to the left. The chip jumps to the first lane that needs you, else to the next one. Nothing shows when every lane fits.
+const LANE_EDGE = 4, LANE_FADE_W = 56;
+function laneCueState(lanes, br) {   // pure: which lanes lie past each edge of the board's rect, and what needs the owner among the right-hand ones
+  const right = [], left = [];
+  for (const l of lanes) { const r = l.getBoundingClientRect(); if (r.right > br.right + LANE_EDGE) right.push(l); else if (r.left < br.left - LANE_EDGE) left.push(l); }
+  const state = l => l.querySelector('h2 em')?.className || '';
+  return { right, left, needs: right.filter(l => state(l) === 'ask'), ready: right.filter(l => state(l) === 'review') };
+}
+function laneCue() {
+  const cue = $('lane-cue'), b = $('board');
+  if (!cue || !b) return;
+  const lanes = document.body.classList.contains('byagent') ? [...b.querySelectorAll('.col.acol')] : [];
+  const br = b.getBoundingClientRect();
+  const s = laneCueState(lanes, br);
+  cue.hidden = !s.right.length && !s.left.length;
+  if (cue.hidden) return;
+  const top = Math.max(br.top, 0), bottom = Math.min(br.bottom, innerHeight);
+  const fw = innerWidth <= 900 ? LANE_FADE_W / 2 : LANE_FADE_W;   // on a phone the next lane peeks 14% of the width: a half-width fade leaves it visible
+  for (const [side, edge] of [['l', br.left], ['r', br.right - fw]]) {
+    const f = cue.querySelector('.lane-fade.' + side);
+    f.style.cssText = `left:${Math.round(edge)}px;top:${Math.round(top)}px;width:${fw}px;height:${Math.round(bottom - top)}px`;
+    f.classList.toggle('on', (side === 'l' ? s.left : s.right).length > 0);
+  }
+  const chipTop = Math.round(bottom - 42);
+  const r = cue.querySelector('.lane-chip.r'), l = cue.querySelector('.lane-chip.l');
+  r.hidden = !s.right.length; l.hidden = !s.left.length;
+  if (s.right.length) {
+    const n = s.right.length, extra = s.needs.length ? ` · <span class="need">${s.needs.length} needs you</span>` : s.ready.length ? ` · <span class="ready">${s.ready.length} ready</span>` : '';
+    r.innerHTML = `+${n} more${extra} <span aria-hidden="true">›</span>`;
+    r.setAttribute('aria-label', `${n} more ${n === 1 ? 'agent' : 'agents'} to the right${s.needs.length ? `, ${s.needs.length} needs you` : s.ready.length ? `, ${s.ready.length} ready for review` : ''}. Scroll right.`);
+    r.classList.toggle('attn', s.needs.length > 0);
+    r.style.cssText = `top:${chipTop}px;right:${Math.round(innerWidth - br.right + 12)}px`;
+  }
+  if (s.left.length) {
+    l.innerHTML = `<span aria-hidden="true">‹</span> ${s.left.length} more`;
+    l.setAttribute('aria-label', `${s.left.length} more ${s.left.length === 1 ? 'agent' : 'agents'} to the left. Scroll left.`);
+    l.style.cssText = `top:${chipTop}px;left:${Math.round(br.left + 12)}px`;
+  }
+}
+function laneJump(dir) {   // the chip's click: the first lane that needs you (to the right), else the next one in that direction
+  const b = $('board'), br = b.getBoundingClientRect(), s = laneCueState([...b.querySelectorAll('.col.acol')], br);
+  const target = dir > 0 ? (s.needs[0] || s.right[0]) : s.left[s.left.length - 1];
+  if (!target) return;
+  const tr = target.getBoundingClientRect();
+  b.scrollBy({ left: dir > 0 ? tr.right - br.right + 16 : tr.left - br.left - 16, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+}
+$('board').addEventListener('scroll', laneCue, { passive: true });
+addEventListener('resize', laneCue);
+addEventListener('scroll', laneCue, { passive: true });   // a phone scrolls the page, so the board moves under the fixed cue
+$('lane-cue').addEventListener('click', e => { const c = e.target.closest('.lane-chip'); if (c) laneJump(c.classList.contains('r') ? 1 : -1); });
+
 // --- quick replies: the options an ask names become one-tap chips ---
 const QUICK_ALWAYS = [['Go ahead', 'ok'], ['Hold', 'hold'], ['Your call', '']];
 const YESNO = /^(should|shall|can|could|do|does|did|is|are|was|will|would|may|want|ok|okay|ready|proceed|go|fine|happy|alright|mind)\b/i;
@@ -1898,6 +1972,7 @@ function render() {
     return `<section class="col ${k}" data-status="${k}"><h2>${label} <span class="cnt">${by[k].length}</span>${p}${clr}</h2>${ribbon}<div class="cards">${body}</div>${more}</section>`;
   }).join('');
   $('board').querySelectorAll('.col').forEach(c => { const k = c.querySelector('.cards'); if (k) k.scrollTop = scrolls[c.dataset.status] || 0; });
+  laneCue();   // By agent: the lanes may have changed in number or state, so the edge cue is redrawn
   if (paneHtml != null) {   // Load: the same Todo and Doing cards, in the same order, dragged between the same two panes
     const box = $('h-cards-box'), top = box.innerHTML ? box.scrollTop : hudScroll.doing;   // an emptied pane (Load just opened) takes the scroll it had last time
     box.innerHTML = paneHtml; box.scrollTop = top;
