@@ -9,7 +9,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from agentboard import cli
+from agentboard import agentfiles, cli
 
 
 class Tty(io.StringIO):
@@ -63,16 +63,16 @@ class TheFlag(Base):
                 text = (self.here / "CLAUDE.md").read_bytes().decode()
                 self.assertTrue(text.startswith(original))                      # only appended
                 added = text[len(original):]
-                self.assertTrue(added.lstrip("\n").startswith(cli.INSTR_START + "\n"))
-                self.assertTrue(added.endswith(cli.INSTR_END + "\n"))
-                self.assertTrue(added.startswith(lead + cli.INSTR_START), repr(added[:6]))   # exactly one blank line before the block (none in an empty file)
+                self.assertTrue(added.lstrip("\n").startswith(agentfiles.INSTR_START + "\n"))
+                self.assertTrue(added.endswith(agentfiles.INSTR_END + "\n"))
+                self.assertTrue(added.startswith(lead + agentfiles.INSTR_START), repr(added[:6]))   # exactly one blank line before the block (none in an empty file)
                 self.assertIn("agentboard start", added)
                 self.assertIn("added agentboard's instructions to CLAUDE.md", out)
 
     def test_the_block_is_what_agentboard_instructions_prints(self):
         (self.here / "CLAUDE.md").write_text("x\n")
         self.init("--instructions", "--no-demo")
-        block = self.read().split(cli.INSTR_START + "\n", 1)[1].rsplit("\n" + cli.INSTR_END, 1)[0]
+        block = self.read().split(agentfiles.INSTR_START + "\n", 1)[1].rsplit("\n" + agentfiles.INSTR_END, 1)[0]
         self.assertEqual(block, cli._instructions_text(self.here / ".agentboard").rstrip())
 
     def test_a_second_run_changes_nothing(self):
@@ -81,7 +81,7 @@ class TheFlag(Base):
         before = self.read()
         out = self.init("--instructions")
         self.assertEqual(self.read(), before)
-        self.assertEqual(before.count(cli.INSTR_START), 1)
+        self.assertEqual(before.count(agentfiles.INSTR_START), 1)
         self.assertIn("CLAUDE.md already has agentboard's instructions", out)
 
     def test_a_file_that_already_has_the_lines_by_hand_is_left_alone(self):
@@ -93,12 +93,12 @@ class TheFlag(Base):
         (self.here / "CLAUDE.md").write_text("a\n")
         (self.here / "AGENTS.md").write_text("b\n")
         self.init("--instructions", "--no-demo")
-        self.assertIn(cli.INSTR_START, self.read("CLAUDE.md"))
+        self.assertIn(agentfiles.INSTR_START, self.read("CLAUDE.md"))
         self.assertEqual(self.read("AGENTS.md"), "b\n")
         (self.here / "CLAUDE.md").unlink()
         os.rename(self.here / ".agentboard", self.here / "old")
         self.init("--instructions", "--no-demo")
-        self.assertIn(cli.INSTR_START, self.read("AGENTS.md"))
+        self.assertIn(agentfiles.INSTR_START, self.read("AGENTS.md"))
 
     def test_with_neither_file_the_flag_creates_agents_md_and_nothing_else_does(self):
         self.init("--no-demo", tty=True, answers=["y"])
@@ -106,7 +106,7 @@ class TheFlag(Base):
         self.assertEqual(self.asked, [])
         os.rename(self.here / ".agentboard", self.here / "old")
         self.init("--instructions", "--no-demo")
-        self.assertIn(cli.INSTR_START, self.read("AGENTS.md"))
+        self.assertIn(agentfiles.INSTR_START, self.read("AGENTS.md"))
 
     def test_a_link_is_never_followed(self):
         target = self.here.parent / "elsewhere.md"
@@ -138,7 +138,7 @@ class TheQuestion(Base):
         out = self.init("--no-demo", tty=True, answers=["y"])
         self.assertEqual(len(self.asked), 1)
         self.assertIn("CLAUDE.md", self.asked[0])
-        self.assertIn(cli.INSTR_START, self.read())
+        self.assertIn(agentfiles.INSTR_START, self.read())
         self.assertNotIn("agentboard instructions ", out.split("next:")[1])      # connected: the paste step is not offered again
 
     def test_anything_but_yes_leaves_the_file_alone(self):
@@ -164,7 +164,7 @@ class TheQuestion(Base):
         self.assertEqual((self.asked, self.read()), ([], "x\n"))
 
     def test_it_does_not_ask_about_a_file_that_already_has_the_lines(self):
-        (self.here / "CLAUDE.md").write_text(f"{cli.INSTR_START}\nmine\n{cli.INSTR_END}\n")
+        (self.here / "CLAUDE.md").write_text(f"{agentfiles.INSTR_START}\nmine\n{agentfiles.INSTR_END}\n")
         self.init("--no-demo", tty=True, answers=["y"])
         self.assertEqual(self.asked, [])
 
