@@ -957,6 +957,9 @@ with nothing running, stay reachable the same way: `agentboard chat inbox --name
 the background; it prints the next line {owner} sends you and exits, which wakes you. Nothing else does.
 
 If you are handed a task id instead, run `agentboard claim <id> --name "<your session name>"`.
+You may only update, ask or review the card you hold: the board reads your session's name from AGENTBOARD_NAME (set it once per
+session) and refuses a report on another agent's card; ORCH and the owner are the exceptions. Two sessions under one name both pass,
+so keep one name per session.
 Use your own session name so people can tell agents apart; the board gives each name its own colour.
 Create one task per deliverable, not per command. Keep titles short and status lines to one line.
 
@@ -1175,7 +1178,7 @@ def cmd_update(a):
     s = _store()
     kids = [k for k in s.load() if k.get("parent_id") == a.id]
     pct, text = _pct_and_text(a)
-    t = s.update(a.id, pct, text, body_md=_read_body(a))
+    t = s.update(a.id, pct, text, body_md=_read_body(a), by=os.environ.get("AGENTBOARD_NAME"))   # the session's name: it reports on its own card
     if pct is not None and not 0 <= pct <= 100:
         print(f"note: progress is 0 to 100; {pct} was taken as {t['progress']}", file=sys.stderr)
     if kids:
@@ -1198,7 +1201,7 @@ def _read_body(a):
 
 def cmd_ask(a):
     s = _store()
-    t = s.ask(a.id, a.question, _read_body(a))
+    t = s.ask(a.id, a.question, _read_body(a), by=os.environ.get("AGENTBOARD_NAME"))
     _notify(s.dir, f"{t.get('agent') or 'An agent'} needs your input", t["title"], a.question)
     print(f"{t['id']}: waiting on user — {a.question}")
 
@@ -1208,7 +1211,7 @@ def cmd_review(a):
     if _lacks_subtasks(s.load(), a.id):   # a warning, not a refusal: a tiny card must still be able to finish
         print(f"warning: {a.id} has no subtasks. Every card gets them as soon as it starts; add them next time "
               f'(agentboard add "<step>" --parent {a.id}).', file=sys.stderr)
-    t = s.review(a.id, a.text, _read_body(a))
+    t = s.review(a.id, a.text, _read_body(a), by=os.environ.get("AGENTBOARD_NAME"))
     if t.get("parent_id"):
         print(f"{t['id']}: subtask finished (100%) — subtasks have no review step; review the parent, {t['parent_id']}, when the deliverable is ready")
         return

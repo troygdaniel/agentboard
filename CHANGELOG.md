@@ -24,6 +24,11 @@
   releases a peer's claim itself). The tasks feed caches the findings for a few seconds between polls.
 - A claim refused because another agent holds the card now says what to do (ask ORCH, or `agentboard watchdog` if that agent is
   gone) instead of only "use --force". Card `overnight-rel-agent-protocol`; evidence in `docs/overnight/overnight-rel-agent-protocol.md`.
+- An `update`, `review` or `ask` from a session whose name is another agent's is refused with the same fix: the quiet form of two
+  agents on one card, where the second never claims and just writes on it. The name is the session's `AGENTBOARD_NAME` (the three
+  commands take no `--name`), so this is a guard against accidental cross-writes, not enforcement: a nameless caller, the holder, ORCH,
+  the owner and a card with no holder are let through, and two sessions under one name both pass. `agentboard instructions` and ORCH's
+  prompt say the rule. Card `overnight-rel-agent-protocol-3`; evidence in `docs/overnight/overnight-rel-agent-protocol-3.md`.
 
 ### By agent no longer hides lanes past the edge: a fade and a "+4 more" chip (Nov 8)
 - With six or more agents the lanes scroll sideways under a scrollbar that overlay-scrollbar systems hide, so a lane past the right edge had no
