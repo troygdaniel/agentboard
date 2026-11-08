@@ -103,7 +103,7 @@ Finish with `review` — the USER signs off and moves the card to done. After `r
 and end your turn. You are woken when {owner} replies, sends the card back, closes it ("Done by {owner}"), moves it
 or removes it, and it prints what happened. If it says the card is closed, you are free to go idle or take the next card.
 It also wakes when {owner} sends you a message on the board (your thread, outside any card) and prints it: answer with
-`{ab} chat send "<one line>" --name "<your session name>" --to {owner}`, then start the wait again.
+`{ab} chat send "<one line>" --name "<your session name>" --to {owner} --reply-to <the line's number>`, then start the wait again.
 Run `{ab} done {task_id}` ONLY if the user explicitly tells you to.
 
 If you are blocked on the user mid-task, flag it (and keep going once they answer):
@@ -114,7 +114,7 @@ If you are blocked on the user mid-task, flag it (and keep going once they answe
 `{ab} answer {task_id} --wait --timeout 3600` as a background command (in Claude Code, Bash with run_in_background)
 and end your turn. You are woken when {owner} replies, and it prints their reply; then carry on. It also wakes when
 {owner} sends you a message on the board (your thread, outside any card) and prints it: answer with
-`{ab} chat send "<one line>" --name "<your session name>" --to {owner}`, then wait again. A tool that cannot
+`{ab} chat send "<one line>" --name "<your session name>" --to {owner} --reply-to <the line's number>`, then wait again. A tool that cannot
 run background commands runs it in the foreground instead. If it times out with no reply, say you are still waiting.
 
 Between cards, and any other time you would go quiet with nothing running, keep yourself reachable the same way:
@@ -165,7 +165,7 @@ The USER signs off on the parent and moves the card to done. Run `{ab} done` ONL
 After you review the parent, do not sit idle: start `{ab} answer {parent_id} --wait --timeout 3600` as a background
 command (in Claude Code, Bash with run_in_background) and end your turn. You are woken when {owner} replies, sends the
 card back, closes it ("Done by {owner}"), moves it or removes it, and it prints what happened. A message {owner} sends you on
-the board (your thread) wakes it too: answer with `{ab} chat send "<one line>" --name "<your session name>" --to {owner}`.
+the board (your thread) wakes it too: answer with `{ab} chat send "<one line>" --name "<your session name>" --to {owner} --reply-to <the line's number>`.
 Between cards, stay reachable with `{ab} chat inbox --name "<your session name>" --wait 3600` in the background the same way.
 
 """
@@ -201,7 +201,7 @@ Any subtask still open closes with it. The USER signs off and moves the card to 
 After `review`, do not sit idle: start `{ab} answer {task_id} --wait --timeout 3600` as a background command (in
 Claude Code, Bash with run_in_background) and end your turn. You are woken when {owner} replies, sends the card back,
 closes it ("Done by {owner}"), moves it or removes it, and it prints what happened. A message {owner} sends you on the board
-(your thread) wakes it too: answer with `{ab} chat send "<one line>" --name "<your session name>" --to {owner}`.
+(your thread) wakes it too: answer with `{ab} chat send "<one line>" --name "<your session name>" --to {owner} --reply-to <the line's number>`.
 Between cards, stay reachable with `{ab} chat inbox --name "<your session name>" --wait 3600` in the background the same way.
 Run `{ab} done {task_id}` ONLY if the user explicitly tells you to.
 
@@ -433,11 +433,11 @@ description). "assign <card> to <agent>": tell that agent with SendMessage and l
 "what is everyone doing": `{ab} list --status doing`, answered in one line. A message meant for an agent that is busy: forward it with
 SendMessage. Answer on the board, one line, so it shows in the drawer; a plain line from you shows there too:
 
-    {ab} chat send "<one line>" --name ORCH --to {owner}
+    {ab} chat send "<one line>" --name ORCH --to {owner} --reply-to <the line's number>
 
 A line from the board itself, "<agent> has not read my line #N …", is {owner}'s nudge: that agent's session is not listening and
 nothing on the board wakes it, but your SendMessage does. Send it one line, "{owner} wrote to you on the board: run agentboard chat
-inbox --name <agent>, answer with chat send --to {owner}, then keep chat inbox --wait running", and tell {owner} in one line that you
+inbox --name <agent>, answer with chat send --to {owner} --reply-to <n>, then keep chat inbox --wait running", and tell {owner} in one line that you
 did. Never answer in the agent's place. A line to you that nobody was listening for shows {owner} a Nudge too: it only moves the wake
 file, so read your inbox when you next run.
 

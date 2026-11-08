@@ -909,7 +909,7 @@
   .cmsg-rcpt { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-top: 3px; font-size: var(--fs-xs); color: var(--muted); }
   .cmsg.user .cmsg-rcpt { justify-content: flex-end; text-align: right; }
   .cmsg-rcpt .st { text-transform: uppercase; letter-spacing: var(--tr-tight); font-weight: 600; }
-  .cmsg-rcpt.answered .st { color: var(--ok); } .cmsg-rcpt.seen .st { color: var(--info); }
+  .cmsg-rcpt.answered .st { color: var(--ok); } .cmsg-rcpt.wrote-back .st, .cmsg-rcpt.seen .st { color: var(--info); }
   .cmsg-rcpt.late .st, .cmsg-rcpt .warn { color: color-mix(in srgb, var(--warn) 78%, var(--text)); }
   .cmsg-rcpt .btn { min-height: 24px; padding: 1px 10px; font-size: var(--fs-xs); border-color: color-mix(in srgb, var(--warn) 55%, var(--line)); }
   .cmsg-rcpt .nudged { color: var(--muted); }
@@ -2022,7 +2022,7 @@ async function load() {
 }
 
 // --- shared agent chat: a self-organize channel the owner can see and join ---
-let chatMsgs = [], chatMaxSeq = 0, chatSeenSeq = 0, chatUnread = 0, chatFirstLoad = true, chatReceipts = { read: {}, listening: {} }, chatNames = [];
+let chatMsgs = [], chatMaxSeq = 0, chatSeenSeq = 0, chatUnread = 0, chatFirstLoad = true, chatReceipts = { read: {}, listening: {} }, chatNames = [], chatRetired = [];
 const chatExpanded = new Set();   // seqs of unusually long messages a reader chose to expand
 async function loadChat() {
   try {
@@ -2032,6 +2032,7 @@ async function loadChat() {
     const msgs = d.messages || [];
     const maxSeq = msgs.length ? msgs[msgs.length - 1].seq : 0;
     chatReceipts = d.receipts || { read: {}, delivered: {}, listening: {} };   // who read what, who is listening (see receiptHtml)
+    chatRetired = d.retired || [];   // [hud] retired: a line to one of these gets no warning and no Nudge
     chatNames = Array.isArray(d.names) ? d.names : [];                          // who a line can reach (see whoReads)
     refreshGoes();
     if (chatFirstLoad) {
@@ -2129,7 +2130,7 @@ function chatBubble(m) {
 // the autopilot never moves a cursor. A session that has gone quiet reads nothing until something wakes it, so after a minute sent the
 // line says whether anything will: a wait of its own running ("listening"), or not, with one click that asks ORCH to message its
 // session (the board itself cannot reach a session). A line delivered but not seen in 5 minutes comes again with the next inbox read.
-const RECEIPT_WARN_S = 60, RESHOW_S = 300;
+const RECEIPT_WARN_S = 60, RESHOW_S = 300, RECEIPT_MAX_S = 86400;   // after a day a line is history: no warning, no Nudge, no re-render
 const nameKey = (obj, name) => Object.keys(obj || {}).find(k => sameName(k, name));
 function sessionsChip(name) {   // "2 sessions": more than one live session answers to this name; a line reaches both and both may answer
   const k = nameKey(chatReceipts.listening, name), n = k && chatReceipts.listening[k].sessions;
@@ -2138,15 +2139,19 @@ function sessionsChip(name) {   // "2 sessions": more than one live session answ
 function receiptOf(m) {
   if (m.kind !== 'user' || !m.to || m.to === 'all' || toOwner(m) || m.via) return null;
   const to = m.to;
-  if (chatMsgs.some(x => x.kind === 'agent' && !x.via && sameName(x.sender, to) && x.seq > m.seq && (toOwner(x) || x.reply_to === m.seq))) return { state: 'answered' };
+  const later = chatMsgs.filter(x => x.kind === 'agent' && !x.via && sameName(x.sender, to) && x.seq > m.seq);
+  if (later.some(x => x.reply_to === m.seq)) return { state: 'answered' };   // a reply to THIS line (chat send --reply-to <n>)
+  if (later.some(x => toOwner(x))) return { state: 'wrote back' };            // a later line to you, not marked as a reply to this one: maybe an answer, maybe not
   const rk = nameKey(chatReceipts.read, to);
   if (rk && chatReceipts.read[rk] >= m.seq) return { state: 'seen' };
-  const dk = nameKey(chatReceipts.delivered, to), del = dk && chatReceipts.delivered[dk];
-  if (del && del.seq >= m.seq) {
+  const dk = nameKey(chatReceipts.delivered, to), del = dk && chatReceipts.delivered[dk], delivered = !!(del && del.seq >= m.seq);
+  const age = (Date.now() - new Date(String(m.at).replace(' ', 'T')).getTime()) / 1000;
+  const retired = chatRetired.some(r => sameName(r, to));
+  if (age >= RECEIPT_MAX_S || retired) return { state: delivered ? 'delivered' : 'sent', old: true, retired };   // history, or a retired agent: nothing to warn about
+  if (delivered) {
     const since = (Date.now() - new Date(String(del.at).replace(' ', 'T')).getTime()) / 1000;
     return { state: 'delivered', late: since >= RESHOW_S };
   }
-  const age = (Date.now() - new Date(String(m.at).replace(' ', 'T')).getTime()) / 1000;
   return { state: 'sent', late: age >= RECEIPT_WARN_S, listening: !!nameKey(chatReceipts.listening, to), orch: !!nameKey(chatReceipts.listening, 'ORCH') };
 }
 function receiptHtml(m) {
@@ -2154,7 +2159,8 @@ function receiptHtml(m) {
   if (!r) return '';
   const twins = sessionsChip(m.to);
   if (r.state === 'delivered' && r.late) return `<div class="cmsg-rcpt delivered late"><span class="st">delivered</span>${twins}<span class="warn">Not seen in 5 min: it comes again with the next inbox read.</span></div>`;
-  if (r.state !== 'sent' || !r.late) return `<div class="cmsg-rcpt ${r.state}"><span class="st">${r.state}</span>${twins}</div>`;
+  if (r.old) return `<div class="cmsg-rcpt ${r.state}"><span class="st">${r.state}</span>${r.retired ? '<span class="nudged">retired agent</span>' : ''}</div>`;
+  if (r.state !== 'sent' || !r.late) return `<div class="cmsg-rcpt ${r.state.replace(' ', '-')}"><span class="st">${r.state}</span>${twins}</div>`;
   const to = esc(m.to);
   let warn, act = '';
   const orch = isOrch(m.to);
@@ -2172,7 +2178,7 @@ document.addEventListener('click', async e => {   // the receipt sits in the ORC
   try { const d = await api('/api/chat-nudge', { seq: +b.dataset.nudge }); showError(d.message && !d.orch_listening ? 'Asked ORCH, but ORCH is not listening either: it reads the ask at its next turn' : ''); chatActKey = ''; loadChat(); }
   catch (err) { showError('Could not nudge: ' + err.message); b.disabled = false; }
 });
-setInterval(() => { if (chatMsgs.some(m => ['sent', 'delivered'].includes(receiptOf(m)?.state))) renderChat(); }, 15000);   // the minute (and the 5) pass without a poll noticing
+setInterval(() => { if (chatMsgs.some(m => { const r = receiptOf(m); return r && !r.old && ['sent', 'delivered'].includes(r.state); })) renderChat(); }, 15000);   // the minute (and the 5) pass without a poll noticing; a line a day old is left alone
 function renderChat() {
   if (chatTab === 'term') { renderThread(); return; }   // the drawer shows ORCH's terminal: its conversation waits
   const body = $('chat-body');

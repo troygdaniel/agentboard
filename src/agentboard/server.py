@@ -298,6 +298,7 @@ def make_handler(default_store, port):
                 after = int(after) if after and after.lstrip("-").isdigit() else None
                 self._send(200, {"messages": self.store.chat_list(after=after, limit=200), "agents": self.store.chat_agents(),
                                  "receipts": listeners.receipts(self.store.dir),   # who read what, who is listening: the panel's sent / delivered / seen / answered
+                                 "retired": sorted(hud.retired(_config(self.store))),   # [hud] retired: a line to one of these gets no warning and no Nudge
                                  "names": self.store.known_names()})               # who a line can reach: the composer's "goes to" line
             elif url.path == "/api/transcript":
                 # the session's transcript for one agent, read only, tailed from the file its session registered on claim/start

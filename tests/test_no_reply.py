@@ -321,11 +321,11 @@ class ThePanel(unittest.TestCase):
         self.assertIn("${receiptHtml(m)}</div>`;", body("chatBubble"))
         r = body("receiptOf")
         self.assertIn("if (m.kind !== 'user' || !m.to || m.to === 'all' || toOwner(m) || m.via) return null;", r)
-        self.assertIn("x.seq > m.seq && (toOwner(x) || x.reply_to === m.seq))) return { state: 'answered' };", r)
+        self.assertIn("if (later.some(x => x.reply_to === m.seq)) return { state: 'answered' };", r)   # answered means a reply to that line; a later line is "wrote back"
         self.assertIn("chatReceipts.read[rk] >= m.seq) return { state: 'seen' };", r)
         self.assertIn("return { state: 'delivered', late: since >= RESHOW_S };", r)   # printed, and for how long nothing confirmed it
         self.assertIn("state: 'sent', late: age >= RECEIPT_WARN_S", r)
-        self.assertIn("const RECEIPT_WARN_S = 60, RESHOW_S = 300;", HTML)
+        self.assertIn("const RECEIPT_WARN_S = 60, RESHOW_S = 300, RECEIPT_MAX_S = 86400;", HTML)
         self.assertIn('"receipts": listeners.receipts(self.store.dir)', Path(server.__file__).read_text())
         self.assertIn("chatReceipts = d.receipts || { read: {}, delivered: {}, listening: {} };", body("loadChat"))
 
@@ -338,7 +338,7 @@ class ThePanel(unittest.TestCase):
         self.assertIn("asked ORCH to message it", h)
         self.assertIn("its wait is not running, so its next scheduled check or a nudge is what reaches it", h)
         self.assertIn("api('/api/chat-nudge', { seq: +b.dataset.nudge })", HTML)
-        self.assertIn("['sent', 'delivered'].includes(receiptOf(m)?.state))) renderChat(); }, 15000);", HTML)
+        self.assertIn("return r && !r.old && ['sent', 'delivered'].includes(r.state); })) renderChat(); }, 15000);", HTML)   # a line a day old is left alone
         self.assertIn("Not seen in 5 min: it comes again with the next inbox read.", h)
         self.assertIn(".cmsg-rcpt { display: flex;", HTML)
         self.assertIn(".cmsg.user .cmsg-rcpt { justify-content: flex-end;", HTML)

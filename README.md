@@ -110,8 +110,8 @@ wait it left running in the background, `agentboard chat inbox --name AGENT-4 --
 exits when your line arrives. Every prompt says to keep one running between cards, the board lists who does
 (`.agentboard/chat-listeners.json`, by pid), and the second hook (Stop) tells a session that is about to go quiet with an unread line
 from you, or with no wait running, before it does; it never blocks twice in a row. In the ORCH drawer, an agent's thread and the card
-panel, each line you send one agent carries a receipt: **delivered** (in its inbox), **read** (its wait printed it), **answered** (it
-wrote back). After a minute unread the line says whether the agent is listening and, when it is not, offers **Nudge via ORCH**: the
+panel, each line you send one agent carries a receipt: **delivered** (in its inbox), **read** (its wait printed it), **answered** (it replied to that line with
+`--reply-to <n>`, which the prompts tell agents to do) or **wrote back** (a later line to you not marked as a reply to it). A line older than a day, or one to an agent listed under `[hud] retired`, shows plain sent or delivered: no warning, no Nudge. After a minute unread the line says whether the agent is listening and, when it is not, offers **Nudge via ORCH**: the
 board asks ORCH, in its own thread, to message that session (ORCH's SendMessage is the one thing on the machine that wakes an idle
 session). A line to ORCH itself cannot be nudged: if ORCH is not listening, type in its terminal or boot one with Copy prompt. ORCH listens the same way (`agentboard chat inbox --name ORCH --wait 3600`). Every posted line also moves `.agentboard/chat-wake.json` (a counter and a time, no words), so a wait watches that one file and wakes within a second, and an ORCH that runs on a schedule instead of a wait can tell in one stat whether anything was posted. A line that nobody is listening for says so in the chat panel after a minute, for ORCH and for any agent, with a Nudge: for an agent it asks ORCH to message that session; for ORCH it moves the wake file.
 
