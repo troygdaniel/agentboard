@@ -28,3 +28,4 @@ with their `.png` captures beside them).
 | [docs/security-signoff.md](security-signoff.md) | The two-page security sign-off: what was checked on the night of Nov 7-8, how, and what a reviewer can rerun. |
 
 The folder `docs/by-agent-lane-cue/` holds further documents; see its own README.
+| [docs/chat-qa.md](chat-qa.md) | Added on an overnight branch; see the first lines of the document. |
