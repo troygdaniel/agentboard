@@ -425,6 +425,10 @@ def make_handler(default_store, port):
                 self._send(404, {"error": "not found"})
             elif hit[0] == "asset":
                 self._send(200, hit[1][1].encode(), hit[1][0], {"X-Content-Type-Options": "nosniff"})
+            elif plugins.browser_route(method, m.group(1), m.group(2)) and (self.headers.get("Sec-Fetch-Site") or "").strip().lower() != "same-origin":
+                # a route the plugin keeps for the board's own page (add_route(..., browser=True)): a browser says "same-origin" for the page's own fetch; a bare curl,
+                # an agent's shell or a script says nothing and is refused before the plugin runs. A speed bump, not a wall: anything running as you can send the header
+                self._send(403, {"error": "this is for the board's own page in a browser: open the board at http://localhost:<port> and use it there"})
             elif method == "GET" and not self._same_site():
                 # a GET route is reachable blind from another site (an <img>, a no-cors fetch): the Host is the real one and a simple GET
                 # carries no Origin. A browser that says cross-site or same-site is refused before the plugin runs; curl and the CLI send nothing

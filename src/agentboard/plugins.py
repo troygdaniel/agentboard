@@ -18,6 +18,10 @@ A plugin is an entry point in the group "agentboard.plugins" whose value is a fu
         api.add_route("POST", "do", fn)                           # POST /api/x/mything/do; fn(store, body) -> dict (GET: body = the query)
                                                                   # a GET route must be READ-ONLY: anything that writes, runs or sends goes on a POST.
                                                                   # (the server also refuses a GET a browser marks cross-site, but that is a net, not the rule)
+        api.add_route("POST", "do", fn, browser=True)             # a route only the board's own page may call: the server answers 403 unless the request carries
+                                                                  # Sec-Fetch-Site: same-origin (a browser sets it; a bare curl does not). A speed bump against a naive or
+                                                                  # prompt-injected curl, NOT a wall: a program running as you can send that header. A plugin that must not run
+                                                                  # on a core without this flag checks `plugins.BROWSER_ROUTES` first (older cores raise TypeError on the keyword).
         api.add_state(fn)                                         # fn(store) -> dict | None, sent with every /api/tasks poll (page: AB.state.mything)
         api.add_thread(fn)                                        # fn(store) runs once in a daemon thread under `agentboard serve`
         api.set_page(script=js_text, style=css_text)              # one script, /api/x/mything/page.js, loaded by the page; the style rides in it
@@ -42,6 +46,7 @@ ENV = "AGENTBOARD_PLUGINS"
 LOCK_ENV = "AGENTBOARD_NO_PLUGINS"
 NAME_RE = re.compile(r"[a-z][a-z0-9_-]{0,30}")
 PATH_RE = re.compile(r"[a-z0-9][a-z0-9_/-]{0,63}")   # no dots, no "..", no leading slash
+BROWSER_ROUTES = True   # this core has add_route(..., browser=True): a plugin can ask `getattr(plugins, "BROWSER_ROUTES", False)` and fail closed on an older one
 RESERVED = ("page.js", "page.css")   # page.css stays reserved although there is no such file: the page's CSP allows inline styles, not stylesheet files
 _LOCK = threading.Lock()
 _LOADED = {}    # name -> Plugin, in load order
@@ -69,6 +74,7 @@ def enabled():
 class Plugin:
     def __init__(self, name):
         self.name, self.commands, self.routes, self.states, self.threads, self.sources, self.doctors = name, [], {}, [], [], [], []
+        self.browser = set()   # the (method, path) routes only the board's own page may call
         self.script = self.style = None
 
 
@@ -84,13 +90,15 @@ class Api:
             raise ValueError("bad command")
         self._p.commands.append((name, str(help or ""), setup, run))
 
-    def add_route(self, method, path, fn):
+    def add_route(self, method, path, fn, browser=False):
         if method not in ("GET", "POST") or not (isinstance(path, str) and PATH_RE.fullmatch(path)) or "//" in path or ".." in path \
-                or path in RESERVED or not callable(fn):
+                or path in RESERVED or not callable(fn) or not isinstance(browser, bool):
             raise ValueError("bad route")
         if (method, path) in self._p.routes:
             raise ValueError("route registered twice")
         self._p.routes[(method, path)] = fn
+        if browser:
+            self._p.browser.add((method, path))
 
     def add_state(self, fn):
         if not callable(fn):
@@ -179,6 +187,11 @@ def commands():
 def sources():
     """[(plugin name, source name, help, search function)] for `agentboard lookup`; empty while plugins are off."""
     return [(p.name, *s) for p in active() for s in p.sources]
+
+
+def browser_route(method, name, path):
+    """Whether this plugin route was registered browser=True: the server then requires Sec-Fetch-Site: same-origin before the plugin runs."""
+    return any(p.name == name and (method, path) in p.browser for p in active())
 
 
 def doctor_checks():
