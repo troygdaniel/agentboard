@@ -77,9 +77,12 @@ p = cli("chat", "inbox", "--name", "R2", "--wait", "30", name="R2", stdout=subpr
 time.sleep(1.2)
 m = owner_says("did you get this?", to="R2")
 p.wait(timeout=20)
-cur = cursors.get(BOARD, "R2")
+cur, left = cursors.get(BOARD, "R2"), cursors.pending(BOARD, "R2")
+from datetime import datetime, timedelta  # noqa: E402
+cursors.deliver(BOARD, "R2", m["seq"], now=datetime.now() - timedelta(seconds=cursors.RESHOW_S + 60))   # nothing confirmed it for 6 minutes
 code, again = run("chat", "inbox", "--name", "R2", name="R2")
-say("R2", f"line #{m['seq']} printed to a reader that was gone: cursor now {cur} (the board counts it READ); the next inbox says: {again!r} -> the line is lost for good")
+say("R2", f"line #{m['seq']} printed to a reader that was gone: seen cursor {cur}, delivered #{left['seq'] if left else None} (not seen); 6 min later the next inbox "
+          f"{'shows it AGAIN' if f'#{m[chr(115)+chr(101)+chr(113)]}' in again else 'says ' + repr(again)} (before chat-f3 the cursor moved on print and the line was lost for good)")
 
 # ---- R3: a stopped wait ------------------------------------------------------------------------------------------------------------------
 p = cli("chat", "inbox", "--name", "R3", "--wait", "600", name="R3")

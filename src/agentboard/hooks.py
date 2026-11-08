@@ -146,9 +146,15 @@ def stop_decision(store, payload):
         last = unread[-1]
         said = untrusted.one_line(last.get("text"), 160)
         more = f" and {len(unread) - 1} more" if len(unread) > 1 else ""
-        reason = (f"{owner} wrote to you on the board{more}, unread: “{said}”. Read it with `agentboard chat inbox --name {name}`, answer with "
-                  f"`agentboard chat send \"<one line>\" --name {name} --to {owner}`, then start `agentboard chat inbox --name {name} --wait 3600` "
-                  "as a background command so the next line wakes you.")
+        left = cursors.pending(store.dir, name)
+        if left and left["seq"] >= last["seq"]:   # printed by its wait (delivered), and the session has done nothing on the board since
+            reason = (f"{owner} wrote to you on the board{more}; your wait printed it but you have not acted on it: “{said}”. Answer with "
+                      f"`agentboard chat send \"<one line>\" --name {name} --to {owner}`, then start `agentboard chat inbox --name {name} --wait 3600` "
+                      "as a background command so the next line wakes you.")
+        else:
+            reason = (f"{owner} wrote to you on the board{more}, unread: “{said}”. Read it with `agentboard chat inbox --name {name}`, answer with "
+                      f"`agentboard chat send \"<one line>\" --name {name} --to {owner}`, then start `agentboard chat inbox --name {name} --wait 3600` "
+                      "as a background command so the next line wakes you.")
         return {"decision": "block", "reason": reason[:REASON_MAX + 200]}
     if not listeners.is_listening(store.dir, name):
         return {"decision": "block", "reason": (f"Nothing is listening for you on the board: a line {owner} types there would wait until you happen to look. "

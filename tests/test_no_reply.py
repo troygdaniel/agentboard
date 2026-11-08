@@ -99,7 +99,9 @@ class TheListenerList(Base):
         self.s.chat_send(self.s.owner, "hi", kind="user", to="AGENT-4")
         self.run_cli("chat", "inbox", "--name", "AGENT-4")
         (self.s.dir / "chat-cursors.json").write_text(json.dumps({"AGENT-4": 1, "agent-4": 3, "bad": "x", "worse": True}))
-        self.assertEqual(listeners.receipts(self.s.dir), {"read": {"agent-4": 3}, "listening": {}})   # keys lower-cased, the higher seq wins
+        r = listeners.receipts(self.s.dir)
+        self.assertEqual((r["read"], r["listening"]), ({"agent-4": 3}, {}))   # keys lower-cased, the higher seq wins
+        self.assertEqual(r["delivered"]["agent-4"]["seq"], 1)                # what the inbox read above printed, and when
 
 
 class TheNudge(Base):
@@ -199,8 +201,12 @@ class TheStopHook(Base):
     def test_a_read_line_a_line_to_others_or_a_second_stop_in_a_row_does_not_block(self):
         self.s.chat_send(self.s.owner, "hello?", kind="user", to="AGENT-4")
         self.assertTrue(hooks.stop_decision(self.s, dict(STOP, stop_hook_active=True)) is None)
-        self.run_cli("chat", "inbox", "--name", "AGENT-4")   # read
+        self.run_cli("chat", "inbox", "--name", "AGENT-4")   # delivered: printed, but the session has done nothing since
         listeners.register(self.s.dir, "AGENT-4", "inbox")
+        d = hooks.stop_decision(self.s, STOP)
+        self.assertEqual(d["decision"], "block")
+        self.assertIn("your wait printed it but you have not acted on it", d["reason"])
+        self.run_cli("chat", "send", "on it", "--name", "AGENT-4", "--to", self.s.owner)   # seen: the session acted as that name
         self.s.chat_send(self.s.owner, "everyone", kind="user", to="all")
         self.s.chat_send(self.s.owner, "for two", kind="user", to="AGENT-2")
         self.s.chat_send("AGENT-2", "a status line")
@@ -293,11 +299,12 @@ class ThePanel(unittest.TestCase):
         r = body("receiptOf")
         self.assertIn("if (m.kind !== 'user' || !m.to || m.to === 'all' || toOwner(m) || m.via) return null;", r)
         self.assertIn("x.seq > m.seq && (toOwner(x) || x.reply_to === m.seq))) return { state: 'answered' };", r)
-        self.assertIn("chatReceipts.read[rk] >= m.seq) return { state: 'read' };", r)
-        self.assertIn("late: age >= RECEIPT_WARN_S", r)
-        self.assertIn("const RECEIPT_WARN_S = 60;", HTML)
+        self.assertIn("chatReceipts.read[rk] >= m.seq) return { state: 'seen' };", r)
+        self.assertIn("return { state: 'delivered', late: since >= RESHOW_S };", r)   # printed, and for how long nothing confirmed it
+        self.assertIn("state: 'sent', late: age >= RECEIPT_WARN_S", r)
+        self.assertIn("const RECEIPT_WARN_S = 60, RESHOW_S = 300;", HTML)
         self.assertIn('"receipts": listeners.receipts(self.store.dir)', Path(server.__file__).read_text())
-        self.assertIn("chatReceipts = d.receipts || { read: {}, listening: {} };", body("loadChat"))
+        self.assertIn("chatReceipts = d.receipts || { read: {}, delivered: {}, listening: {} };", body("loadChat"))
 
     def test_after_a_minute_unread_it_says_whether_anything_wakes_the_agent_and_offers_the_nudge(self):
         h = body("receiptHtml")
@@ -308,7 +315,8 @@ class ThePanel(unittest.TestCase):
         self.assertIn("asked ORCH to message it", h)
         self.assertIn("ORCH is not listening: nothing on the board wakes it. Type in its terminal, or boot one with Copy prompt", h)
         self.assertIn("api('/api/chat-nudge', { seq: +b.dataset.nudge })", HTML)
-        self.assertIn("receiptOf(m)?.state === 'delivered')) renderChat(); }, 15000);", HTML)
+        self.assertIn("['sent', 'delivered'].includes(receiptOf(m)?.state))) renderChat(); }, 15000);", HTML)
+        self.assertIn("Not seen in 5 min: it comes again with the next inbox read.", h)
         self.assertIn(".cmsg-rcpt { display: flex;", HTML)
         self.assertIn(".cmsg.user .cmsg-rcpt { justify-content: flex-end;", HTML)
 

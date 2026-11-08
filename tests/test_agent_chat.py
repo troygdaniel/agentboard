@@ -372,7 +372,7 @@ class AutopilotTests(_FakeClaude):
         self.assertEqual(agentchat.autopilot_once(self.s, str(self.fake), ["AGENT-3"], live_min=0), [])   # drafted once: the board's own marker holds
         code, out = self.run_cli("chat", "inbox", "--name", "AGENT-3")                                  # the session reads it itself
         self.assertIn("are you free", out)
-        self.assertEqual(listeners.receipts(self.s.dir)["read"], {"agent-3": self.s.chat_list()[-1]["seq"]})   # now it is read
+        self.assertEqual(listeners.receipts(self.s.dir)["delivered"]["agent-3"]["seq"], self.s.chat_list()[-1]["seq"])   # now it is delivered
         page = (Path(agentchat.__file__).parent / "static" / "index.html").read_text()
         self.assertIn("x.kind === 'agent' && !x.via && sameName(x.sender, to)", page)                  # the panel: an auto line is not an answer
 

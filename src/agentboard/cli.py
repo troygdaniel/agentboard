@@ -464,6 +464,10 @@ def cmd_chat_inbox(a):
     per name in .agentboard/chat-cursors.json; --after overrides it, --all ignores it. --wait blocks for the next one."""
     name = _chat_name(a)
     s = _store()
+    if not a.keep and a.after is None and not a.all:   # two steps: what an earlier read printed is seen now that the session is back, unless it sat unconfirmed too long
+        left = cursors.pending(s.dir, name)
+        if left and cursors.confirm(s.dir, name, within=cursors.RESHOW_S) is None:
+            print(f"(printed to you {int(left['age_s'] // 60)} min ago and never confirmed: shown again)")
     after = None if a.all else (a.after if a.after is not None else cursors.get(s.dir, name))
     deadline = time.time() + (a.wait or 0)
     with (listeners.listening_as(s.dir, name, "inbox") if a.wait else contextlib.nullcontext()):   # the board sees who will wake
@@ -476,7 +480,7 @@ def cmd_chat_inbox(a):
     for m in msgs:
         print(_chat_line(m))
     if msgs and not a.keep:
-        cursors.advance(s.dir, name, msgs[-1]["seq"])
+        cursors.deliver(s.dir, name, msgs[-1]["seq"])   # DELIVERED: printed. SEEN when this name next does anything on the board (cursors.confirm)
     if more:
         print(f"({len(more)} more unread, from #{more[0]['seq']}: run `agentboard chat inbox --name {name}` again" + ("" if a.keep else ", or --limit 0 for all") + ")")
     if not msgs:
@@ -1348,6 +1352,8 @@ def cmd_answer(a):
                 r = s.answer(a.id)
                 if name is None:
                     name = Store.get(s.load(), a.id).get("agent") or ""
+                    if name:
+                        cursors.confirm(s.dir, name, within=cursors.RESHOW_S)   # back as this name: what an earlier wait printed is seen (unless it sat too long)
                     if a.wait and name:
                         listener = (name, listeners.register(s.dir, name, f"answer {a.id}"))
             except BoardError:
@@ -1366,7 +1372,7 @@ def cmd_answer(a):
                 for m in msgs:
                     print(f"({_message_when(m)})", file=sys.stderr)
                     print(m["text"])
-                cursors.advance(s.dir, name, msgs[-1]["seq"])   # read, the same way `chat inbox` records what it printed
+                cursors.deliver(s.dir, name, msgs[-1]["seq"])   # delivered, the same way `chat inbox` records what it printed; seen when the session next acts
                 print(f"(not a card reply: answer on the board with `agentboard chat send \"<one line>\" --name {name} --to {s.owner}`, then keep waiting)", file=sys.stderr)
                 return
             if not a.wait or time.time() >= deadline:
@@ -1713,10 +1719,26 @@ def main(argv=None):
         p.error("give a task id or --all")
     if a.cmd == "rm" and not (a.demo or a.id):
         p.error("give a task id or --demo")
+    _seen_step(a)
     try:
         a.fn(a)
     except BoardError as e:
         sys.exit(f"agentboard: {e}")
+
+
+def _seen_step(a):
+    """The second step of a receipt (cursors.py): a session that runs any board command as a name has seen what its wait printed.
+    Not for `chat inbox` (it applies the 5-minute rule itself), the hooks (they run beside the session, not as its act), or
+    `serve`/`tail`/`run` (the owner's, not an agent's turn)."""
+    if a.cmd in ("hook", "hooks", "serve", "tail", "run", "init", "board", "plugins") or a.fn is cmd_chat_inbox:
+        return
+    name = getattr(a, "name", None) or os.environ.get("AGENTBOARD_NAME")
+    if not name:
+        return
+    try:
+        cursors.confirm(find_dir(), name)
+    except (BoardError, OSError):
+        pass
 
 
 if __name__ == "__main__":
