@@ -107,6 +107,13 @@
   .filter::placeholder { color: var(--muted); }
   .summary { font-size: var(--fs-md); color: var(--muted); }
   header .btn { white-space: nowrap; }   /* "Later (1)" must not wrap onto two lines when the header gets tight */
+  /* phone (7 Nov): the header took four rows, 185px at 390 wide, before the first card: logo and tabs, Later alone, the counts, the icons
+     alone. Now three, 152px: logo and tabs, Later with the icons on the right, the counts on their own last line (the one visual move:
+     the counts' two links come before the icons in tab order, which only a keyboard on a phone would notice) */
+  @media (max-width: 600px) {
+    header { gap: 8px 10px; margin-bottom: 14px; padding-bottom: 12px; }
+    #summary, #filter-summary { order: 1; flex: 1 0 100%; }
+  }
   /* unlike #summary (whose chips are clickable filters and must stay reachable, not ellipsized away),
      #filter-summary is plain text — safe to cap and truncate so a long agent name can't push the
      HUD/sound/theme buttons out of the header at narrow widths */

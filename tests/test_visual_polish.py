@@ -56,5 +56,21 @@ class TheAudit(unittest.TestCase):
         self.assertNotIn(".mix-row.lv > span:first-child { width", HTML)
 
 
+class ThePhoneHeader(unittest.TestCase):
+    def test_it_is_three_rows_not_four(self):
+        # at 390 wide the header was logo + tabs, Later alone, the counts, the icons alone: 185px. Later now shares a row with the icons
+        # (the spacer between them pushes the icons right), and the counts take their own last line
+        m = re.search(r"@media \(max-width: 600px\) \{\s*header \{([^}]*)\}\s*#summary, #filter-summary \{([^}]*)\}\s*\}", HTML)
+        self.assertIsNotNone(m, "the phone header block")
+        self.assertIn("order: 1", m.group(2))
+        self.assertIn("flex: 1 0 100%", m.group(2))
+
+    def test_the_wide_header_is_untouched(self):
+        # above 900px the header never wraps and nothing in it moves on a poll (4 Nov): the phone rule must not leak up
+        self.assertIn("@media (min-width: 901px) { header { flex-wrap: nowrap; } }", HTML)
+        block = re.search(r"@media \(max-width: 600px\) \{\s*header \{[^}]*\}\s*#summary[^}]*\}\s*\}", HTML).group(0)
+        self.assertNotIn("min-width", block)
+
+
 if __name__ == "__main__":
     unittest.main()
