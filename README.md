@@ -560,4 +560,6 @@ What to expect when you clone this onto a managed machine (the full audit and ch
     python -m venv .venv && .venv/bin/pip install -e .
     .venv/bin/python -m unittest discover -s tests
 
+The suite runs with a network guard (`tests/netguard.py`): a test that opens a connection to anything but loopback fails with the guard's name in the message. `AGENTBOARD_TEST_NET=1` turns it off for one run. The security sign-off for a reviewer is [`docs/security-signoff.md`](docs/security-signoff.md).
+
 MIT licensed.

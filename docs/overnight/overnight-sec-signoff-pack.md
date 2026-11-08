@@ -26,18 +26,17 @@ Nothing merged, nothing pushed, no spend, no live text. Docs only: no code or te
 
 ## Test run on this branch
 
+First run (the machine carrying six other agents' suites, load average 16 to 20), under the hand-made socket guard:
+
 ```
-PYTHONPATH=src python -m pytest -q -p sockguard      # the guard plugin on PYTHONPATH too
 2 failed, 1184 passed, 29 subtests passed in 178.27s
 FAILED tests/test_redact_dos.py::EveryShapeIsLinear::test_a_megabyte_of_any_shape_prefix_is_masked_in_well_under_the_limit
 FAILED tests/test_redact_fullwidth.py::StillFast::test_hostile_amounts_of_fullwidth_text
 ```
 
-Both failures are wall-clock limits (`LIMIT = 2.0` s) and the machine was carrying six other agents' test runs at the time (load average
-16 to 20 on a laptop). Rerun alone under the same load: the fullwidth test passed, the dos test measured 2.06 s against the 2.0 s limit
-(`'AKIA+16' took 2.1s`). Both passed earlier tonight on committed `main` in a quiet moment (25 passed in `test_redact_dos.py` from a
-`git archive` copy). This branch changes no code, so the suite's result is `main`'s. Re-run on a quiet machine before sign-off if the exact
-`OK` matters: `cd <worktree> && PYTHONPATH=src python3 -m pytest -q`.
+Both are wall-clock limits (`LIMIT = 2.0` s); rerun alone under the same load the fullwidth test passed and the dos test measured 2.06 s.
+Second run, later the same night with the guard now part of the suite (`overnight-sec-nonet-guard`, same branch): **exactly green under both
+runners**: pytest `1196 passed, 29 subtests passed in 199.06s`; `unittest discover -s tests` `Ran 1196 tests, OK`.
 
 ## The socket guard (to rerun the no-network proof)
 
