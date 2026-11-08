@@ -770,7 +770,7 @@
   dl { display: grid; grid-template-columns: 90px 1fr; gap: 8px 12px; font-size: var(--fs-base); }
   dt { color: var(--muted); } dd { margin: 0; overflow-wrap: anywhere; }
   code { font: var(--fs-md) ui-monospace, Menlo, monospace; background: var(--chip); border-radius: 4px; padding: 1px 6px; }
-  details summary { cursor: pointer; color: var(--muted); font-size: var(--fs-md); font-weight: 500; }
+  details summary { cursor: pointer; color: var(--muted); font-size: var(--fs-md); font-weight: 500; line-height: 24px; }   /* the panel's Prompt row was 21px: a 24px target */
   details pre { margin-top: 8px; padding: 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface);
     font: var(--fs-md)/1.6 ui-monospace, Menlo, monospace; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 320px; overflow: auto; }
   .p-actions { display: flex; gap: 8px; margin-top: 18px; flex-wrap: wrap; }
@@ -1030,6 +1030,8 @@
   .th-line .st { font-weight: 600; } .th-line .st.ask { color: var(--err); } .th-line .st.rev { color: var(--ok); }
   .th-card { background: none; border: 0; padding: 0; font: inherit; color: var(--info); cursor: pointer; }
   .th-card:hover { text-decoration: underline; text-underline-offset: 2px; }
+  .th-on { display: flex; gap: 0 .35em; min-width: 0; }   /* "on <card> · state": the title shrinks with its own ellipsis; as a plain inline box a long one was dropped whole and left "on ..." at phone width */
+  .th-on .th-card { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; }
   #thread-body { padding: 16px 20px; display: flex; flex-direction: column; gap: 14px; }
   #thread-body .cmsg { max-width: 94%; }
   .th-ask { border: 1px solid var(--err); border-radius: 12px; padding: 12px 14px; background: var(--surface); box-shadow: 0 0 0 3px color-mix(in srgb, var(--err) 8%, transparent); }
@@ -1040,7 +1042,7 @@
   /* the pill at the top of an open card is the way into its agent's thread; the lane's name on By agent too */
   .p-who .agent-pill[data-thread] { background: none; border: 0; padding: 0; cursor: pointer; border-radius: 999px; }
   .p-who .agent-pill[data-thread]:hover .name { text-decoration: underline; text-underline-offset: 2px; }
-  .col.acol h2 .nm[data-thread] { background: none; border: 0; padding: 0; font: inherit; color: inherit; cursor: pointer; text-align: left; }
+  .col.acol h2 .nm[data-thread] { background: none; border: 0; padding: 0; font: inherit; color: inherit; cursor: pointer; text-align: left; min-height: 24px; }   /* a 24px target: it was 20px */
   .col.acol h2 .nm[data-thread]:hover { text-decoration: underline; text-underline-offset: 2px; }
   /* the Terminal tab (Nov 6): the same panel, the raw session read as it scrolls. Read only in this version */
   #thread .p-head, #chat .p-head { flex-wrap: wrap; }
@@ -1089,7 +1091,7 @@
     background: var(--surface); border: 1px solid color-mix(in srgb, var(--warn) 45%, var(--line)); box-shadow: var(--shadow-hover); }
   #error.on { display: flex; }
   #error span { min-width: 0; overflow-wrap: anywhere; }
-  #error button { background: none; border: 0; color: var(--muted); font: inherit; font-size: var(--fs-lg); line-height: 1; cursor: pointer; padding: 2px 6px; border-radius: 6px; }
+  #error button { background: none; border: 0; color: var(--muted); font: inherit; font-size: var(--fs-lg); line-height: 1; cursor: pointer; padding: 2px 6px; border-radius: 6px; min-width: 24px; min-height: 24px; }   /* a 24px target: it was 21x19 */
   #error button:hover { color: var(--text); background: var(--chip); }
   /* quick replies: the options in the question as one-tap chips (red ring = an option the agent named), then the three
      that fit any ask; the typed box stays beside them. Same chips on the card and the panel. */
@@ -1100,8 +1102,8 @@
   .qr-ch:hover { border-color: var(--neutral); background: var(--surface); }
   .qr-ch.opt { border-color: color-mix(in srgb, var(--err) 45%, var(--line)); color: var(--err); }
   .qr-ch.opt::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--err); opacity: .8; flex: none; }
-  .qr-ch.ok { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 45%, var(--line)); }
-  .qr-ch.hold { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 45%, var(--line)); }
+  .qr-ch.ok { color: color-mix(in srgb, var(--ok) 78%, var(--text)); border-color: color-mix(in srgb, var(--ok) 45%, var(--line)); }   /* mixed toward the text: 4.41 and 4.42:1 on the chip in light, now over 4.5 */
+  .qr-ch.hold { color: color-mix(in srgb, var(--warn) 78%, var(--text)); border-color: color-mix(in srgb, var(--warn) 45%, var(--line)); }
   .qr-ch:disabled { opacity: .6; cursor: default; }
   .qr form { flex: 1; min-width: 150px; display: flex; gap: 6px; margin: 0; }
   .qr form input { flex: 1; min-width: 0; min-height: 28px; border: 1px solid var(--line); border-radius: 8px; padding: 3px 10px; font: inherit; font-size: var(--fs-sm); background: var(--surface); color: var(--text); }
@@ -2290,7 +2292,7 @@ function threadHeadHtml(name) {
   const cur = cards.find(t => t.needs_input) || cards.find(t => t.review) || cards[0];
   const line1 = `${STATE_WORD2[st] || st}${last ? ` · last update ${ago(last).text}` : ''}${cards.length > 1 ? ` · ${cards.length} cards` : ''}`;
   const line2 = cur ? `on <button class="th-card" type="button" data-open="${esc(cur.id)}">${esc(cur.title)}</button>${cur.needs_input ? ' · <span class="st ask">waiting on you</span>' : cur.review ? ' · <span class="st rev">up for review</span>' : ''}` : 'no card in Doing';
-  return `<span class="av" style="--c:${agentColor(name)}" aria-hidden="true">${esc(nodeGlyph(name))}</span><div class="th-lines"><span class="th-name">${esc(name)}${sessionsChip(name)}</span><span class="th-line">${line1}</span><span class="th-line">${line2}</span></div>`;
+  return `<span class="av" style="--c:${agentColor(name)}" aria-hidden="true">${esc(nodeGlyph(name))}</span><div class="th-lines"><span class="th-name">${esc(name)}${sessionsChip(name)}</span><span class="th-line">${line1}</span><span class="th-line th-on">${line2}</span></div>`;
 }
 function threadBodyHtml(name) {
   const [recent, older] = recentOf(chatMsgs.filter(m => inThread(m, name)), name);
