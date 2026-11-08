@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### The masker's wall-clock tests measure the code, not the scheduler (Nov 7)
+- `test_redact_dos.py` and `test_redact_fullwidth.py` asserted a megabyte of hostile text is masked in under 2 s (3 s fullwidth); linear work takes 0.05 s and the quadratic bug took minutes, yet the pair failed four times on Nov 7 on green code whenever two test suites shared a laptop at load 15 to 20. `tests/timing.py` now scales each limit by a same-moment linear baseline (300 `str.translate` passes over a megabyte, 0.25 s idle), tries a slow run up to three times and keeps the best, and never stretches a limit past 30 s. Quadratic work still fails every try. Inputs, caps and content checks are unchanged; two full suites run at once at load 19 were both exactly green.
+
 ### Messages to agents get a reply: listeners, receipts, a Stop hook and a nudge through ORCH (Nov 7, 64e2bca)
 - A line typed to an agent used to sit in its inbox until something woke the session. Now every prompt tells a session to keep `agentboard chat inbox --name X --wait 3600` running between cards, the board lists who does (`.agentboard/chat-listeners.json`, by pid), and each line you send one agent carries a receipt in the ORCH drawer, the agent's thread and the card panel: **delivered** (in its inbox), **read** (its wait printed it), **answered** (it wrote back). After a minute unread the line says whether the agent is listening and, when it is not, offers **Nudge via ORCH**: the board asks ORCH, in its own thread, to message that session. `agentboard hooks install` now adds a second hook, Stop, that tells a session about to go quiet with an unread line from you (or no wait running) before it does, once.
 
