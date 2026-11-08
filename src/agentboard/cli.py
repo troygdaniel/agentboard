@@ -185,7 +185,8 @@ def _add_instructions(path, board_dir):
         with open(path, "rb") as f:
             f.seek(-1, os.SEEK_END)
             lead = "\n" if f.read(1) == b"\n" else "\n\n"   # one blank line between what was there and our block
-    with open(path, "a") as f:
+    fd = os.open(path, os.O_WRONLY | os.O_APPEND | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_CLOEXEC", 0), 0o666)   # O_NOFOLLOW: a link is an error, never a path out of the project (a platform without it relies on the check before)
+    with os.fdopen(fd, "a") as f:
         f.write(lead + block)
     return "added"
 
@@ -239,12 +240,16 @@ def _offer_instructions(a, here, board_dir, existed, interactive):
         return False
     if getattr(a, "add_instructions", False):
         path = path or here / "AGENTS.md"
+        if path.is_symlink():   # CLAUDE.md and AGENTS.md can both be links (to a shared folder, say): writing through one would change a file outside this project
+            print(f"{path.name} here is a link, and agentboard never writes through a link: `agentboard instructions` prints the lines to paste")
+            return False
     elif path is None or existed or not interactive or _has_instructions(path):
         return path is not None and _has_instructions(path)
     elif not _ask_yes(f"Add agentboard's instructions to {path.name} so your agents report to the board? (a block you can delete; nothing else in the file changes)"):
         return False
     try:
-        did = _add_instructions(path, board_dir)
+        with private.as_user():   # CLAUDE.md / AGENTS.md is for teammates and CI, like .gitignore: the board folder is private, this file is not
+            did = _add_instructions(path, board_dir)
     except OSError as e:
         print(f"could not write {path.name}: {e.strerror or e}; `agentboard instructions` prints the lines to paste")
         return False

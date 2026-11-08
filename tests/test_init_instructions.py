@@ -4,6 +4,9 @@ lines; it never rewrites what is there, never follows a link, never creates a fi
 import contextlib
 import io
 import os
+import stat
+import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -130,6 +133,118 @@ class TheFlag(Base):
         (self.here / "CLAUDE.md").write_text("x\n")
         self.init("--instructions", "--no-instructions", "--no-demo")
         self.assertEqual(self.read(), "x\n")
+
+
+class TheLinks(Base):
+    """Cross-review xr-init-instructions-symlink: with CLAUDE.md and AGENTS.md both links, --instructions wrote through AGENTS.md into another folder."""
+
+    def setUp(self):
+        super().setUp()
+        self.shared = self.here.parent / "shared"
+        self.shared.mkdir()
+        self.targets = {}
+        for name in ("CLAUDE.md", "AGENTS.md"):
+            (self.shared / name).write_text(f"{name} of the whole team\n")
+            self.targets[name] = (self.shared / name).read_bytes()
+
+    def untouched(self):
+        for name, data in self.targets.items():
+            self.assertEqual((self.shared / name).read_bytes(), data, f"{name} in the shared folder was written through")
+        self.assertEqual(sorted(p.name for p in self.shared.iterdir()), ["AGENTS.md", "CLAUDE.md"])
+
+    def test_both_files_links_writes_nothing_anywhere_and_says_why(self):
+        for name in self.targets:
+            os.symlink(self.shared / name, self.here / name)
+        out = self.init("--instructions", "--no-demo")
+        self.untouched()
+        self.assertIn("AGENTS.md here is a link, and agentboard never writes through a link", out)
+        self.assertIn("agentboard instructions", out.split("next:")[1])               # nothing was added, so the paste step stays on the list
+        self.assertTrue((self.here / ".agentboard" / "tasks.json").exists())          # the board itself is still set up
+        self.assertTrue((self.here / "AGENTS.md").is_symlink())                        # and the link is still a link
+
+    def test_only_agents_md_a_link_and_no_claude_md(self):
+        os.symlink(self.shared / "AGENTS.md", self.here / "AGENTS.md")
+        out = self.init("--instructions", "--no-demo")
+        self.untouched()
+        self.assertIn("is a link", out)
+
+    def test_a_link_to_nothing_is_not_created_through(self):
+        os.symlink(self.shared / "gone.md", self.here / "AGENTS.md")
+        self.init("--instructions", "--no-demo")
+        self.assertFalse((self.shared / "gone.md").exists())
+
+    def test_a_claude_md_link_with_a_real_agents_md_writes_the_real_one_only(self):
+        os.symlink(self.shared / "CLAUDE.md", self.here / "CLAUDE.md")
+        (self.here / "AGENTS.md").write_text("mine\n")
+        self.init("--instructions", "--no-demo")
+        self.untouched()
+        self.assertIn(cli.INSTR_START, self.read("AGENTS.md"))
+
+    def test_the_append_itself_refuses_a_link_even_when_the_check_before_it_was_skipped(self):
+        link = self.here / "AGENTS.md"
+        os.symlink(self.shared / "AGENTS.md", link)
+        with self.assertRaises(OSError):
+            cli._add_instructions(link, self.here / ".agentboard")
+        self.untouched()
+        os.unlink(link)
+        os.symlink(self.shared / "later.md", link)                                    # a link to nothing: O_CREAT must not create the target
+        with self.assertRaises(OSError):
+            cli._add_instructions(link, self.here / ".agentboard")
+        self.assertFalse((self.shared / "later.md").exists())
+
+
+class TheFileMode(unittest.TestCase):
+    """Cross-review xr-init-instructions-agents-md-mode: the real CLI runs under umask 077, and the file `init --instructions` created came out 0600,
+    unreadable to a teammate or CI. The in-process tests never tighten the umask, so this one runs the real command in a subprocess under umask 022."""
+
+    def run_init(self, folder, *extra, umask=0o022):
+        env = {k: v for k, v in os.environ.items() if not k.startswith("AGENTBOARD_")}
+        env["PYTHONPATH"] = os.pathsep.join(p for p in sys.path if p)
+        env["HOME"] = str(folder / "home")
+        (folder / "home").mkdir(exist_ok=True)
+        got = subprocess.run([sys.executable, "-m", "agentboard", "init", "--no-demo", *extra], cwd=folder / "proj", env=env, capture_output=True, text=True,
+                             preexec_fn=lambda: os.umask(umask), timeout=60)
+        self.assertEqual(got.returncode, 0, got.stderr)
+        return got.stdout
+
+    def mode(self, path):
+        return stat.S_IMODE(path.stat().st_mode)
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.folder = Path(self.tmp.name).resolve()
+        (self.folder / "proj").mkdir()
+
+    def test_a_new_agents_md_is_readable_like_gitignore_while_the_board_stays_private(self):
+        self.run_init(self.folder, "--instructions")
+        proj = self.folder / "proj"
+        self.assertEqual(self.mode(proj / "AGENTS.md"), 0o644)
+        self.assertEqual(self.mode(proj / ".gitignore"), 0o644)                       # the file the same command already wrote for others
+        self.assertEqual(self.mode(proj / ".agentboard"), 0o700)                      # task data is still private
+        self.assertEqual(self.mode(proj / ".agentboard" / "tasks.json") & 0o077, 0)
+
+    def test_it_follows_the_users_umask_not_a_fixed_mode(self):
+        self.run_init(self.folder, "--instructions", umask=0o002)
+        self.assertEqual(self.mode(self.folder / "proj" / "AGENTS.md"), 0o664)
+
+    def test_an_existing_file_keeps_its_mode(self):
+        claude = self.folder / "proj" / "CLAUDE.md"
+        claude.write_text("# notes\n")
+        os.chmod(claude, 0o640)
+        self.run_init(self.folder, "--instructions")
+        self.assertEqual(self.mode(claude), 0o640)
+        self.assertIn(cli.INSTR_START, claude.read_text())
+
+    def test_agentboard_umask_still_wins_when_the_user_set_it(self):
+        env_umask = {"AGENTBOARD_UMASK": "077"}
+        env = {k: v for k, v in os.environ.items() if not k.startswith("AGENTBOARD_")}
+        env.update(env_umask, PYTHONPATH=os.pathsep.join(p for p in sys.path if p), HOME=str(self.folder / "home"))
+        (self.folder / "home").mkdir(exist_ok=True)
+        got = subprocess.run([sys.executable, "-m", "agentboard", "init", "--no-demo", "--instructions"], cwd=self.folder / "proj", env=env,
+                             capture_output=True, text=True, preexec_fn=lambda: os.umask(0o022), timeout=60)
+        self.assertEqual(got.returncode, 0, got.stderr)
+        self.assertTrue((self.folder / "proj" / "AGENTS.md").exists())
 
 
 class TheQuestion(Base):
