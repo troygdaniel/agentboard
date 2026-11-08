@@ -394,11 +394,32 @@ class AutopilotTests(_FakeClaude):
         posted = agentchat.autopilot_once(self.s, str(self.fake), self.roster)
         self.assertEqual([(m["sender"], m["via"], m["to"]) for m in posted], [("AGENT-3", "idle", "AGENT-2")])   # AGENT-2 asked, so it is not news to it; AGENT-1 is busy
         self.assertEqual(posted[0]["reply_to"], 3)            # the line to all (seq 1, the switch's own notice, is never answered by a ghost)
-        self.assertEqual(agentchat.read_cursors(self.s)["agent-3"], posted[0]["seq"] - 1)   # the cursor stops before its own auto line, so its real session reads it
+        self.assertNotIn("agent-3", agentchat.read_cursors(self.s))                  # the session's cursor is not the board's to move: the line stays unread for AGENT-3
+        self.assertEqual(agentchat.autopilot_seen(self.s, "AGENT-3"), posted[0]["seq"] - 1)   # the board's own marker stops before its auto line, so its real session reads it
+        self.assertEqual([m["seq"] for m in self.s.chat_inbox("AGENT-3", after=agentchat.read_cursors(self.s).get("agent-3"))][:1], [1])   # its inbox still starts at the top
         again = agentchat.autopilot_once(self.s, str(self.fake), self.roster)
         self.assertEqual(again, [])                           # AGENT-2's only news is an auto line: the board never answers itself
         line = agentchat.chat_line(posted[0])
         self.assertIn("(re #3; auto)", line)
+
+    def test_an_auto_reply_leaves_the_owners_line_unread_for_the_real_session(self):
+        """rev1107-autopilot-marks-read: the board drafting for an idle agent used to move that agent's cursor and post with reply_to,
+        so the panel said read/answered and the Stop hook saw nothing unread, for a line the session never saw."""
+        from agentboard import hooks, listeners
+        q = self.s.chat_send("you", "@AGENT-3 are you free?", kind="user", to="AGENT-3")
+        posted = agentchat.autopilot_once(self.s, str(self.fake), ["AGENT-3"], live_min=0)
+        self.assertEqual([(m["sender"], m["via"], m["reply_to"]) for m in posted], [("AGENT-3", "idle", q["seq"])])
+        self.assertEqual(listeners.receipts(self.s.dir)["read"], {})                                   # not read: no cursor moved
+        with mock.patch.dict(os.environ, {"AGENTBOARD_NAME": "AGENT-3"}):
+            d = hooks.stop_decision(self.s, {"session_id": "s", "stop_hook_active": False})
+        self.assertEqual(d["decision"], "block")                                                        # the real session is still told
+        self.assertIn("are you free", d["reason"])
+        self.assertEqual(agentchat.autopilot_once(self.s, str(self.fake), ["AGENT-3"], live_min=0), [])   # drafted once: the board's own marker holds
+        code, out = self.run_cli("chat", "inbox", "--name", "AGENT-3")                                  # the session reads it itself
+        self.assertIn("are you free", out)
+        self.assertEqual(listeners.receipts(self.s.dir)["read"], {"agent-3": self.s.chat_list()[-1]["seq"]})   # now it is read
+        page = (Path(agentchat.__file__).parent / "static" / "index.html").read_text()
+        self.assertIn("x.kind === 'agent' && !x.via && sameName(x.sender, to)", page)                  # the panel: an auto line is not an answer
 
     def test_the_agents_own_session_sees_what_was_said_for_it(self):
         posted = agentchat.autopilot_once(self.s, str(self.fake), self.roster)

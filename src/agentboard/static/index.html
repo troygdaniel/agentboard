@@ -2111,7 +2111,8 @@ function chatBubble(m) {
     + `<div class="cmsg-txt ${long && !open ? 'clamp' : ''} ${spoken ? 'spoken' : ''}">${esc(body)}</div>${toggle}${meta}${detail}${act}${receiptHtml(m)}</div>`;
 }
 // Receipts (Nov 7): a line you send one agent says what became of it. "delivered" is only the inbox; "read" means its session printed
-// it (chat inbox or answer --wait moved its cursor past it); "answered" means it wrote back to you after. A session that has gone
+// it (chat inbox or answer --wait moved its cursor past it); "answered" means it wrote back to you after. A line the board drafted
+// for an idle agent (via idle, shown as auto) is neither: its session has not seen yours, and the autopilot never moves its cursor. A session that has gone
 // quiet reads nothing until something wakes it, so after a minute unread the line says whether anything will: a wait of its own
 // running ("listening"), or not, with one click that asks ORCH to message its session (the board itself cannot reach a session).
 const RECEIPT_WARN_S = 60;
@@ -2119,7 +2120,7 @@ const nameKey = (obj, name) => Object.keys(obj || {}).find(k => sameName(k, name
 function receiptOf(m) {
   if (m.kind !== 'user' || !m.to || m.to === 'all' || toOwner(m) || m.via) return null;
   const to = m.to;
-  if (chatMsgs.some(x => x.kind === 'agent' && sameName(x.sender, to) && x.seq > m.seq && (toOwner(x) || x.reply_to === m.seq))) return { state: 'answered' };
+  if (chatMsgs.some(x => x.kind === 'agent' && !x.via && sameName(x.sender, to) && x.seq > m.seq && (toOwner(x) || x.reply_to === m.seq))) return { state: 'answered' };
   const rk = nameKey(chatReceipts.read, to);
   if (rk && chatReceipts.read[rk] >= m.seq) return { state: 'read' };
   const age = (Date.now() - new Date(String(m.at).replace(' ', 'T')).getTime()) / 1000;
