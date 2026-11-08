@@ -6,10 +6,10 @@ import json
 import os
 import re
 import time
-import tomllib
 from pathlib import Path
 
 from . import backup
+from . import tomlread
 from . import chatwake
 from . import listeners
 from . import redact
@@ -39,7 +39,7 @@ class BoardError(Exception):
 def owner_name(board_dir):
     """The human's name on this board: [board] owner in config.toml, else "you". Read fresh each time, so an edit shows up without a restart."""
     try:
-        conf = tomllib.loads((Path(board_dir) / "config.toml").read_text())
+        conf = tomlread.loads((Path(board_dir) / "config.toml").read_text())
     except (OSError, ValueError):
         return DEFAULT_OWNER
     board = conf.get("board")
@@ -1043,8 +1043,8 @@ def _split_long_line(text, detail):
 def _roster(board_dir):
     """The names in [orch] agents = [{name="AGENT-1"}, ...] of the board's config.toml: peers ORCH hands work to are known before they speak."""
     try:
-        conf = tomllib.loads((Path(board_dir) / "config.toml").read_text())
-    except (OSError, ValueError, tomllib.TOMLDecodeError):
+        conf = tomlread.loads((Path(board_dir) / "config.toml").read_text())
+    except (OSError, ValueError, tomlread.TOMLDecodeError):
         return []
     spec = (conf.get("orch") or {}).get("agents") if isinstance(conf.get("orch"), dict) else None
     if not isinstance(spec, list):
