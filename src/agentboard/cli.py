@@ -17,6 +17,7 @@ from . import hooks as hookslib
 from . import chatwake, cursors, listeners
 from . import backup as backuplib
 from . import hud as hudlib
+from . import lifecycle
 from . import lockdown
 from . import plugins
 from . import private
@@ -1648,7 +1649,29 @@ def cmd_redact(a):
 def cmd_serve(a):
     if not 1 <= a.port <= 65535:
         raise BoardError(f"--port must be a number from 1 to 65535 (the default is {DEFAULT_PORT}), got {a.port}")
+    if a.background:   # detached, output to .agentboard/server.log, one line once /api/health answers
+        pid, line = lifecycle.start_background(_store().dir, a.port)
+        print(line)
+        sys.exit(0 if pid else 1)
     serve(_store(), a.port, not a.no_open)
+
+
+def cmd_status(a):
+    lines, live = lifecycle.status(_store().dir)
+    print("\n".join(lines))
+    sys.exit(0 if live else 1)
+
+
+def cmd_stop(a):
+    ok, line = lifecycle.stop(_store().dir, a.timeout)
+    print(line)
+    sys.exit(0 if ok else 1)
+
+
+def cmd_restart(a):
+    ok, line = lifecycle.restart(_store().dir, a.port)
+    print(line)
+    sys.exit(0 if ok else 1)
 
 
 WELCOME = """agentboard {version}: a live board for the AI coding agents you run in parallel. Local only: no account, nothing leaves this machine.
@@ -1908,6 +1931,12 @@ def main(argv=None):
     sp = add("serve", cmd_serve, "run the board at http://localhost:8765")
     sp.add_argument("--port", type=int, default=DEFAULT_PORT, help=f"the port to listen on (default {DEFAULT_PORT}); try another when it is busy")
     sp.add_argument("--no-open", action="store_true", help="do not open a browser window (the address is printed either way)")
+    sp.add_argument("--background", action="store_true", help="start detached (output to .agentboard/server.log) and print the pid once /api/health answers")
+    add("status", cmd_status, "is the board's server running: pid, port, since when, uptime, plugins loaded, lockdown (exit 1 when not running)")
+    sp = add("stop", cmd_stop, "stop the board's server: SIGTERM, then wait until it has finished what it was doing and is gone")
+    sp.add_argument("--timeout", type=float, default=lifecycle.STOP_WAIT_S, help="seconds to wait for it to end (default 10)")
+    sp = add("restart", cmd_restart, "stop the board's server and start it again on the same port with this shell's environment; one line with the old and new pid")
+    sp.add_argument("--port", type=int, help=f"the port for the new server (default: the running one's, else {DEFAULT_PORT})")
 
     sp = add("run", cmd_run, "run a card with a one-shot, non-interactive `claude -p`, then move it to review (or ask)")
     sp.add_argument("id")

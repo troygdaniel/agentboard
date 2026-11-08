@@ -272,6 +272,24 @@ def check_servers(board_dir, pids, shell_locked):
     return out, locked
 
 
+def check_server_files(board_dir):
+    """The board's server-<pid>.json files, from the files alone (no socket): a stale one (its pid gone: killed with -9, a crash) is a WARN with
+    the command that cleans it; a live one without a port is noted; nothing running is INFO with the command that starts it."""
+    from . import lifecycle
+    out = []
+    gone = lifecycle.stale(board_dir)
+    if gone:
+        out.append(_res(WARN, "server", f"stale server file{'s' if len(gone) != 1 else ''} for pid {', '.join(map(str, gone))} (not running): "
+                                        "`agentboard status` cleans them"))
+    live = lifecycle.running(board_dir)
+    for s in live:
+        if not s["port"]:
+            out.append(_res(WARN, "server", f"pid {s['pid']} recorded no port; restart it (`agentboard restart`)"))
+    if not live and not gone:
+        out.append(_res(INFO, "server", "no server running for this board (`agentboard serve`, or `agentboard serve --background`); `agentboard status` says so too"))
+    return out
+
+
 def check_files(board_dir):
     if not board_dir.is_dir():
         return [_res(INFO, "files", f"{_short(board_dir)} does not exist")]
@@ -635,6 +653,7 @@ def run(board_dir, project=None, env=None, runner=subprocess.run):
     results += check_listeners(runner, pids)
     server_lines, locked = check_servers(board_dir, pids or [], _env_on(env, lockdown.ENV))
     results += server_lines
+    results += check_server_files(board_dir)
     results += check_config(board_dir, locked=locked)
     results += check_redact(board_dir)
     results += check_knowledge(board_dir)
