@@ -19,6 +19,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 
+from . import backup
 from . import private
 from . import lockdown
 from . import prompt as promptlib
@@ -90,10 +91,7 @@ def read_run(run_dir):
 
 
 def write_run(run_dir, data):
-    p = Path(run_dir) / "run.json"
-    tmp = p.with_suffix(".tmp")
-    tmp.write_text(json.dumps(data, indent=2))
-    os.replace(tmp, p)
+    backup.write_atomic(Path(run_dir) / "run.json", json.dumps(data, indent=2), keep_previous=False)   # flushed, then renamed over
 
 
 def all_runs(board_dir, card=None):

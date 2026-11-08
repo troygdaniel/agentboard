@@ -13,6 +13,7 @@ from . import backup
 from . import chatwake
 from . import listeners
 from . import redact
+from . import statefile
 
 try:
     import fcntl
@@ -119,7 +120,7 @@ class Store:
         except FileNotFoundError:
             return {"tasks": [], "chat": [], "chat_seq": 0}
         except ValueError as e:
-            raise BoardError(f"{self.path} is not valid JSON ({e}); restore the last good copy with `agentboard restore latest` (or `agentboard restore previous` for the version before the last save)") from e
+            raise BoardError(f"{self.path} is not valid JSON ({e}). {recovery_hint(self.path)}") from e
         data.setdefault("tasks", [])
         _check_cards(data["tasks"], self.path)   # a hand edit, a bad merge or a copied file fails here with one readable line, not a KeyError somewhere later
         data.pop("projects", None)   # projects were removed on 4 Nov 2026: an old file's list is dropped on the next save
@@ -131,6 +132,7 @@ class Store:
     def _write(self, data):
         """Atomic and flushed to disk, the previous version kept as tasks.json.bak (backup.py); then an hourly snapshot if one is due."""
         backup.write_atomic(self.path, json.dumps(data, indent=2))
+        statefile.sweep_temps(self.dir)   # temp files a writer that died mid-save left behind (10 minutes old or more; a live write is never touched)
         backup.Backups(self.dir).tick()
 
     def _scrub(self, text, cap=None):
@@ -1097,6 +1099,23 @@ def _log(t, text, by=None):
         entry["by"] = by
     t.setdefault("log", []).append(entry)
     del t["log"][:-LOG_MAX]
+
+
+def recovery_hint(path):
+    """One line saying which copy is good when tasks.json is not: tasks.json.bak (`restore previous`), else the newest snapshot
+    (`restore latest`), else where to look."""
+    path = Path(path)
+    bak = Path(f"{path}.bak")
+    if bak.exists():
+        ok, _msg, n = backup.verify_file(bak)
+        if ok:
+            return f"tasks.json.bak (the version before the last save) is good, {n['tasks']} tasks: run `agentboard restore previous`"
+    snap = backup.Backups(path.parent).latest_auto()
+    if snap is not None:
+        ok, _msg, n = backup.verify_file(snap)
+        if ok:
+            return f"the newest snapshot {snap.name} is good, {n['tasks']} tasks: run `agentboard restore latest`"
+    return "no good copy was found beside it: run `agentboard restore <file>` with a snapshot from .agentboard/backups or the nightly copy folder"
 
 
 def _check_cards(tasks, path):
