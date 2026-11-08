@@ -391,6 +391,8 @@ def cmd_me(a):
 def cmd_hook(a):
     """Called by Claude Code: after a SendMessage (send-message) or as the session is about to go quiet (stop); the payload is on
     stdin. Always exits 0; send-message prints nothing, stop prints a decision only when the session should not stop yet."""
+    if a.dir:
+        os.environ["AGENTBOARD_DIR"] = a.dir   # baked in by hooks install: the hook finds its board from any folder a session starts in
     try:
         s = _store()
     except BoardError:
@@ -405,14 +407,15 @@ def cmd_hooks(a):
     """hooks install: the SendMessage mirror and the Stop check into this project's .claude/settings.json; hooks uninstall: take them
     out again; hooks status."""
     s = _store()
-    project = Path(a.project).expanduser() if a.project else s.dir.parent
+    project = Path.home() if a.user else (Path(a.project).expanduser() if a.project else s.dir.parent)
     if a.what == "install":
-        p, changed = hookslib.install(project)
+        p, changed = hookslib.install(project, s.dir)
         print(f"{'installed' if changed else 'already installed'}: {p}\ncommand: {hookslib.installed_command(project)}\n"
               f"and: {hookslib.installed_command(project, 'stop')}\n"
               "The first copies the text of every SendMessage call in this project's sessions into the board's chat files (.agentboard): "
               "do not send secrets in SendMessage. The second stops a session going quiet on an unread board line, or with no wait running. "
-              "Restart running sessions once.")
+              f"Both name the board folder ({s.dir}), so they work from any folder a session starts in"
+              + (" (the user's settings: every session on this Mac). " if a.user else ". ") + "Restart running sessions once.")
     elif a.what == "uninstall":
         p, changed = hookslib.uninstall(project)
         print(f"{'removed from' if changed else 'not installed in'}: {p}" + ("\nRestart running sessions once." if changed else ""))
@@ -1514,9 +1517,11 @@ def main(argv=None):
     sp.add_argument("--session", help="register this name for another session id (ORCH, when an agent reports its id)")
     sp = add("hook", cmd_hook, "for Claude Code hooks: send-message mirrors a SendMessage call to the chat; stop keeps a session from going quiet on an unread board line (payload on stdin)")
     sp.add_argument("event", choices=["send-message", "stop"])
+    sp.add_argument("--dir", help="the board folder (hooks install writes it into the command, so the hook finds the board from any folder)")
     sp = add("hooks", cmd_hooks, "install or uninstall the SendMessage mirror and Stop hooks in this project's .claude/settings.json (full path), or show their status")
     sp.add_argument("what", nargs="?", choices=["install", "uninstall", "status"], default="status")
     sp.add_argument("--project", help="the project folder (default: the one holding .agentboard)")
+    sp.add_argument("--user", action="store_true", help="install in ~/.claude/settings.json instead: every session on this Mac, whatever folder it starts in")
     sp = add("lookup", cmd_lookup, "read-only search of done and archived cards, reports and any source a plugin adds: the best few matches with date and a short snippet")
     sp.add_argument("query", nargs="?", help="a few words")
     sp.add_argument("--in", dest="source", metavar="SOURCE", help="search one source (see --list-sources)")

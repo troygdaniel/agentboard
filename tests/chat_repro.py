@@ -200,6 +200,8 @@ code, o3 = run("hook", "stop", input=payload, name="R11")                       
 listeners.register(BOARD, "R11b", "inbox", pid=os.getpid())
 code, o4 = run("hook", "stop", input=payload, name="R11b")                                     # listening, nothing unread
 say("R11", f"stop hook: no board in env -> {o1[:40]!r}; board but no name -> {o2[:40]!r}; name + unread owner line -> {'BLOCKS: ' + o3[:70] if o3 else 'nothing'}; name + listening + nothing unread -> {o4[:30]!r}")
-say("R11", "the hook only works where it is installed and where the session can find the board: check `agentboard hooks status --project <folder>` for each folder sessions start in")
+code, o5 = run("hook", "stop", "--dir", str(BOARD), input=payload, env={"AGENTBOARD_DIR": ""}, name="R11")   # the folder hooks install bakes in: no environment needed (chat-f6)
+say("R11", f"stop hook with --dir <board> (what hooks install writes now): no board in env -> {'BLOCKS: ' + o5[:70] if o5 else 'nothing'}")
+say("R11", "run `agentboard hooks install --user` once from the board's folder, then restart sessions: every session on this Mac gets the hooks, whatever folder it starts in; `agentboard doctor` shows the Stop hook line")
 
 print("\nDONE", TMP)

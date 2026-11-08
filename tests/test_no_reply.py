@@ -252,7 +252,7 @@ class TheInstall(Base):
         d = json.loads(p.read_text())
         self.assertEqual(d["hooks"]["PostToolUse"][0]["matcher"], "SendMessage")
         self.assertEqual(list(d["hooks"]["Stop"][0]), ["hooks"])   # no matcher on a Stop hook
-        self.assertTrue(d["hooks"]["Stop"][0]["hooks"][0]["command"].endswith("hook stop"))
+        self.assertIn(" hook stop --dir ", d["hooks"]["Stop"][0]["hooks"][0]["command"])   # the board folder rides along (chat-f6)
         self.assertIn("installed:", self.run_cli("hooks", "status")[1])
         del d["hooks"]["Stop"]   # an older install: only the mirror
         p.write_text(json.dumps(d))
