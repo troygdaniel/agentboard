@@ -319,7 +319,7 @@ def build_html(task, board_dir, run=None, git=None, extras="", now=None, base=""
         tiles.append(_tile(len(files), "files changed"))
     parts = [
         '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex">',
-        f"<title>{e(title)}: report</title><style>{CSS}{nav.CSS}</style></head><body data-card=\"{e(tid)}\">{nav.top_bar(base, "reports", "Report: " + title)}<main>",
+        f"<title>{e(title)}: report</title><style>{CSS}{nav.CSS}</style></head><body data-card=\"{e(tid)}\">{nav.top_bar(base, 'reports', 'Report: ' + title)}<main>",   # single quotes inside: the same quote in the braces needs Python 3.12 (PEP 701) and the floor is 3.11
         f'<h1>{e(title)}</h1><div class="chips">' + "".join(f'<span class="chip">{c}</span>' if "chip" not in c else c for c in chips) + "</div>",
         f'<div class="action {"ask" if asking else ""}"><small>{"Needs your answer" if asking else "For you"}</small>{e(sentence)}</div>',
     ]
