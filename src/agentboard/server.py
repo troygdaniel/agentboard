@@ -1,6 +1,8 @@
 """Local HTTP server: serves the board UI and a small JSON API. Localhost only."""
 import atexit
+import hashlib
 import json
+import os
 import re
 import secrets
 import threading
@@ -124,6 +126,35 @@ def make_handler(default_store, port):
 
     allowed_hosts = {f"localhost:{port}", f"127.0.0.1:{port}"}
 
+    # What /api/tasks, /api/hud and /api/chat derive from tasks.json, kept until the file changes (overnight-perf-scale). The page polls each
+    # once a second; on a 5,000-card board a poll used to parse 10 MB and rebuild the HUD (0.5 s) every second whether or not anything had
+    # changed. The key is the file's (mtime_ns, size, inode): every save is a rename to a new inode, so a stale hit is not possible. Per board.
+    derived, derived_lock = {}, threading.Lock()
+
+    def _file_key(store):
+        try:
+            st = os.stat(store.path)
+        except OSError:
+            return None
+        return (st.st_mtime_ns, st.st_size, st.st_ino)
+
+    def _derived(store, kind, key, build):
+        """build() once per `key`, then the same value until the key changes. A None key is never cached."""
+        name = (str(store.dir), kind)
+        if key is not None:
+            with derived_lock:
+                hit = derived.get(name)
+            if hit and hit[0] == key:
+                return hit[1]
+        value = build()
+        if key is not None:
+            with derived_lock:
+                derived[name] = (key, value)
+        return value
+
+    def _etag(body):
+        return '"' + hashlib.sha1(body).hexdigest()[:24] + '"'
+
     class Handler(BaseHTTPRequestHandler):
         server_version = "agentboard"
         timeout = 15   # a client that declares a body and never sends it, or stalls mid-request, is dropped: it cannot pin a thread for good
@@ -144,6 +175,21 @@ def make_handler(default_store, port):
                 self.send_header("X-Content-Type-Options", "nosniff")   # nothing this server sends is ever read as another type
             self.end_headers()
             self.wfile.write(raw)
+
+        def _send_cached(self, body, extra=None):
+            """200 with an ETag, or 304 and no body when the client's If-None-Match is that tag: a poll that finds nothing new costs a hash
+            and a header, not 2 MB. Cache-Control stays no-store: the browser keeps nothing; the page itself remembers the tag."""
+            tag = _etag(body)
+            if self.headers.get("If-None-Match") == tag:
+                self.send_response(304)
+                self.send_header("ETag", tag)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("X-Content-Type-Options", "nosniff")
+                self.send_header("Cache-Control", "no-store")
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+                return
+            self._send(200, body, extra={**(extra or {}), "ETag": tag})
 
         def _host_ok(self):
             # blocks DNS-rebinding: only our own localhost origin may talk to us
@@ -266,37 +312,51 @@ def make_handler(default_store, port):
             elif url.path == "/api/boards":
                 self._send(200, board_list(default_store, self.base))
             elif url.path == "/api/tasks":
-                # list view stays light; history, prompt and the rich body come from /api/task
-                everything = self.store.load()
-                counts = subtask_counts(everything)   # archived subtasks still count toward a parent's segments
-                lists = subtask_list(everything)      # ...and keep their slot, in creation order
-                slim = []
-                for t in everything:
-                    if t.get("archived"):
-                        continue
-                    d = {k: v for k, v in t.items() if k not in ("log", "prompt", "body_md")}
-                    if t.get("body_md") and (t.get("needs_input") or t.get("review") or t.get("status") == "doing"):
-                        d["details"] = t["body_md"][:4000]   # plain text behind the card's Details fold; the panel renders the full markdown
-                    if isinstance(d.get("run"), dict) and d["run"].get("status") == "running":
-                        d["run"] = {**d["run"], "alive": runs.pid_alive(d["run"].get("supervisor_pid"))}   # a crashed supervisor must not leave a badge up
-                    if t["id"] in counts:
-                        d["subs_total"], d["subs_done"] = counts[t["id"]]
-                        d["subs"] = lists[t["id"]]
-                    slim.append(d)
-                out = {"tasks": slim}
+                def slim_tasks():
+                    # list view stays light; history, prompt and the rich body come from /api/task
+                    everything = self.store.load()
+                    counts = subtask_counts(everything)   # archived subtasks still count toward a parent's segments
+                    lists = subtask_list(everything)      # ...and keep their slot, in creation order
+                    slim, cacheable = [], True
+                    for t in everything:
+                        if t.get("archived"):
+                            continue
+                        d = {k: v for k, v in t.items() if k not in ("log", "prompt", "body_md")}
+                        if t.get("body_md") and (t.get("needs_input") or t.get("review") or t.get("status") == "doing"):
+                            d["details"] = t["body_md"][:4000]   # plain text behind the card's Details fold; the panel renders the full markdown
+                        if isinstance(d.get("run"), dict) and d["run"].get("status") == "running":
+                            d["run"] = {**d["run"], "alive": runs.pid_alive(d["run"].get("supervisor_pid"))}   # a crashed supervisor must not leave a badge up
+                            cacheable = False   # alive can change without the file changing
+                        if t["id"] in counts:
+                            d["subs_total"], d["subs_done"] = counts[t["id"]]
+                            d["subs"] = lists[t["id"]]
+                        slim.append(d)
+                    return json.dumps(slim).encode(), cacheable
+                key = _file_key(self.store)
+                slim_bytes, cacheable = _derived(self.store, "tasks", key, slim_tasks)
+                if not cacheable:
+                    with derived_lock:
+                        derived.pop((str(self.store.dir), "tasks"), None)
                 dog = _watchdog_cached(self.store)   # the ways the board is stuck between agents (the Board's strip), at most once every few seconds
-                if dog:
-                    out["watchdog"] = dog
                 ps = plugins.state(self.store)   # what each allowed plugin reports for the page; no "plugins" key at all with none
-                if ps:
-                    out["plugins"] = ps
-                self._send(200, out)
+                body = (b'{"tasks": ' + slim_bytes + (b', "plugins": ' + json.dumps(ps).encode() if ps else b"")
+                        + (b', "watchdog": ' + json.dumps(dog).encode() if dog else b"") + b"}")
+                self._send_cached(body)
             elif url.path == "/api/hud":
-                conf = _config(self.store)
-                data = hud.build(self.store.load(), abandoned_min=hud.stale_minutes(conf), retired=hud.retired(conf), roster=hud.roster(conf), owner=self.store.owner)
-                data["backup"] = self.store.backups.status()   # {last_backup_min, snapshots, last_sync, sync_dir}: the HUD's "backup N min ago" chip
-                data["watchdog"] = watchdog.findings(self.store, stale_min=hud.stale_minutes(conf))   # the ways the board is stuck between agents, each with its fix
-                self._send(200, data)
+                def build_hud():
+                    conf = _config(self.store)
+                    data = hud.build(self.store.load(), abandoned_min=hud.stale_minutes(conf), retired=hud.retired(conf), roster=hud.roster(conf), owner=self.store.owner)
+                    data["backup"] = self.store.backups.status()   # {last_backup_min, snapshots, last_sync, sync_dir}: the HUD's "backup N min ago" chip
+                    data["watchdog"] = watchdog.findings(self.store, stale_min=hud.stale_minutes(conf))   # the ways the board is stuck between agents, each with its fix
+                    return json.dumps(data).encode()
+                fkey = _file_key(self.store)
+                try:
+                    ckey = os.stat(self.store.dir / "config.toml").st_mtime_ns
+                except OSError:
+                    ckey = None
+                # the HUD's "now", idle minutes and open lane ends move with the clock: rebuilt at most every 5 s while nothing else changed
+                key = (fkey, ckey, int(time.time() // 5)) if fkey else None
+                self._send_cached(_derived(self.store, "hud", key, build_hud))
             elif url.path == "/api/config":
                 conf = _config(self.store)
                 colors = conf.get("agent_colors")   # [agent_colors] AGENT-1 = "#2563eb": overrides the palette slot a name gets
@@ -321,10 +381,13 @@ def make_handler(default_store, port):
             elif url.path == "/api/chat":
                 after = q.get("after", [None])[0]
                 after = int(after) if after and after.lstrip("-").isdigit() else None
-                self._send(200, {"messages": self.store.chat_list(after=after, limit=200), "agents": self.store.chat_agents(),
-                                 "receipts": listeners.receipts(self.store.dir),   # who read what, who is listening: the panel's sent / delivered / seen / answered
-                                 "retired": sorted(hud.retired(_config(self.store))),   # [hud] retired: a line to one of these gets no warning and no Nudge
-                                 "names": self.store.known_names()})               # who a line can reach: the composer's "goes to" line
+                def chat_part():   # the last 200 lines and the switch: two reads of the whole board file, so kept until it changes
+                    return self.store.chat_list(after=after, limit=200), self.store.chat_agents(), self.store.known_names()
+                messages, agents, names = _derived(self.store, "chat", _file_key(self.store) if after is None else None, chat_part)
+                self._send_cached(json.dumps({"messages": messages, "agents": agents,
+                                              "receipts": listeners.receipts(self.store.dir),   # who read what, who is listening: the panel's sent / delivered / seen / answered
+                                              "retired": sorted(hud.retired(_config(self.store))),   # [hud] retired: a line to one of these gets no warning and no Nudge
+                                              "names": names}).encode())               # who a line can reach: the composer's goes-to line
             elif url.path == "/api/transcript":
                 # the session's transcript for one agent, read only, tailed from the file its session registered on claim/start
                 name = (q.get("agent") or [""])[0]

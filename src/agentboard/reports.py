@@ -399,10 +399,13 @@ def _base_of(store):
 
 
 def maybe_report(store, ids):
-    """After a card may have entered review or done: write its report once per (state, result). Never raises: a report problem must not undo a move."""
+    """After a card may have entered review or done: write its report once per (state, result). Never raises: a report problem must not undo a move.
+    It looks at the cards the store just committed (store.committed), not at a fresh read: the decision is about our own write, and a read of a
+    10 MB board cost every claim and update 50 ms for nothing."""
+    tasks = store.committed if store.committed is not None else store.load()
     for tid in ids:
         try:
-            t = store.get(store.load(), tid)
+            t = store.get(tasks, tid)
             if t.get("parent_id"):
                 continue
             state = "done" if t["status"] == "done" else "review" if (t["status"] == "doing" and t.get("review")) else None

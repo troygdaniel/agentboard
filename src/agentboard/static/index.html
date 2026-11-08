@@ -1557,9 +1557,9 @@ const LATER_EMPTY = 'Nothing parked. Ideas you are not ready to start live here,
 const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;   // HUD running in its own window
 const COLUMNS = [['backlog', 'Later'], ['todo', 'Todo'], ['doing', 'Doing'], ['done', 'Done']];
 const EMPTY = { backlog: '', todo: 'Nothing queued. Add a task (n), and an agent picks it up from here', doing: 'Nothing in progress. A card moves here when an agent starts it', done: 'Nothing finished yet. You move a card here once you have reviewed it' };
-const STALE_MIN = 10, DONE_SHOWN = 5;
+const STALE_MIN = 10, DONE_SHOWN = 5, TODO_SHOWN = 200;   // a queue past 200 cards draws its first 200 and a Show more button: 1,500 cards took 350 ms a redraw
 const DEFAULT_STALE_MIN = 120;   // fallback until /api/config's stale_minutes loads; keep in sync with hud.py's ABANDONED_MIN
-let raw = '', tasks = [], dragging = null, showAllDone = false, tick = 0;
+let raw = '', tasks = [], dragging = null, showAllDone = false, showAllTodo = false, tick = 0, tasksTag = '', hudTag = '', chatTag = '';
 let flagFilter = null;   // 'needs_input' | 'review' | null — set by clicking the header's attention counts
 const seen = new Set(), lastUpdated = new Map(), lastPct = new Map(), lastCounts = {};
 const revBefore = new Set(), lanesBefore = new Set(); let lanesKnown = false;   // Motion: the review cards and By agent lanes the last render drew
@@ -1792,8 +1792,13 @@ function todoColHtml(list, filtered) {
   // the ORCH button lives here (Nov 6): press it and the ORCH drawer slides out from the left over this column. The unread
   // count rides its corner. A class, not an id: Load draws its own Todo column while the board's is still in the page.
   const orch = `<button class="orch-btn" aria-controls="chat" aria-label="${chatUnread ? `Talk to ORCH, ${chatUnread} unread` : 'Talk to ORCH'}" title="Talk to ORCH, the coordinator session for this board" style="--c:${agentColor('ORCH')}"><span class="av" aria-hidden="true">O</span>ORCH<span class="chat-n">${chatUnread || ''}</span></button>`;
+  let shown = list, more = '';
+  if (list.length > TODO_SHOWN) {
+    if (showAllTodo) more = `<button class="more" id="more-todo">Show fewer</button>`;
+    else { more = `<button class="more" id="more-todo">Show ${list.length - TODO_SHOWN} more</button>`; shown = list.slice(0, TODO_SHOWN); }
+  }
   return `<section class="col todo" data-status="todo"><h2>Todo <span class="cnt">${list.length}</span>${orch}</h2>`
-    + `<div class="cards">${list.length ? list.map(card).join('') : `<div class="empty">${filtered ? 'No matches' : EMPTY.todo}</div>`}</div></section>`;
+    + `<div class="cards">${shown.length ? shown.map(card).join('') + more : `<div class="empty">${filtered ? 'No matches' : EMPTY.todo}</div>`}</div></section>`;
 }
 
 // --- By agent: the Todo column, then swimlane columns, one per agent with a card in Doing. No Queue and no Idle column, so the agents get the width.
@@ -2157,14 +2162,16 @@ function settle(c, glided) {   // the ring at once; a breath of scale once any g
 async function load() {
   if (dragging) return;
   try {
-    const r = await fetch('/api/tasks', { cache: 'no-store' });
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    const text = await r.text();
+    const r = await fetch('/api/tasks', { cache: 'no-store', headers: tasksTag ? { 'If-None-Match': tasksTag } : {} });
+    if (r.status !== 304 && !r.ok) throw new Error('HTTP ' + r.status);
+    const text = r.status === 304 ? raw : await r.text();   // 304: nothing changed since the tag we sent, so the server sent no body
+    const tag = r.status === 304 ? tasksTag : (r.headers.get('ETag') || '');
     const ae = document.activeElement;   // never re-render under something being typed (an empty add box is fine to redraw: focus is put back)
     const hold = ae?.id === 'p-reply-text' || ae?.closest?.('.card-reply, .qr-free, .ed-form') || ((ae?.id === 'p-sub-add' || ae?.id === 'p-block-add') && ae.value);
     const minute = Math.floor(Date.now() / 60000);
     if (!hold) {   // the redraw waits for the typing; the status pill, the asks, the open card and the chat below do not
       let changed = false;
+      tasksTag = tag;   // remembered ONLY here, with the body applied: a 200 that arrived while you were typing is dropped above and fetched again next poll (not turned into a 304 that keeps the old board)
       if (text !== raw) { raw = text; tick = minute; const j = JSON.parse(text); tasks = j.tasks; AB.state = j.plugins || {}; boardDog = j.watchdog || []; changed = true; }
       else if (minute !== tick && !selectionInside($('board'))) { tick = minute; changed = true; }   // the minute tick ("3 min ago") waits while you have text selected
       if (changed) render();
@@ -2184,8 +2191,10 @@ let chatMsgs = [], chatMaxSeq = 0, chatSeenSeq = 0, chatUnread = 0, chatFirstLoa
 const chatExpanded = new Set();   // seqs of unusually long messages a reader chose to expand
 async function loadChat() {
   try {
-    const r = await fetch('/api/chat', { cache: 'no-store' });
+    const r = await fetch('/api/chat', { cache: 'no-store', headers: chatTag ? { 'If-None-Match': chatTag } : {} });
+    if (r.status === 304 && !chatFirstLoad) return;   // nothing new, no body
     if (!r.ok) return;
+    chatTag = r.headers.get('ETag') || '';
     const d = await r.json();
     const msgs = d.messages || [];
     const maxSeq = msgs.length ? msgs[msgs.length - 1].seq : 0;
@@ -3826,8 +3835,10 @@ $('hud').addEventListener('click', e => { if (e.target.id === 'hud' && !$('hud')
 
 async function hudLoad() {
   try {
-    const res = await fetch('/api/hud', { cache: 'no-store' });
+    const res = await fetch('/api/hud', { cache: 'no-store', headers: hudTag ? { 'If-None-Match': hudTag } : {} });
+    if (res.status === 304) return;   // the server's copy has not changed (it rebuilds at most every 5 s while the board is still)
     if (!res.ok) throw new Error(res.status);
+    hudTag = res.headers.get('ETag') || '';
     const d = await res.json();
     // Open lane segments end at the server's "now" and waiting_s grows every second, so the raw payload
     // differed on every poll: the lanes were rebuilt once a second, restarting every glow/sheen
@@ -4489,6 +4500,7 @@ CARD_HOMES.forEach(h => h.addEventListener('click', async e => {
   const sr = e.target.closest('[data-sub-id]');
   if (sr) { openPanel(sr.dataset.subId); return; }
   if (e.target.id === 'more') { showAllDone = !showAllDone; render(); $('more')?.focus({ preventScroll: true }); return; }
+  if (e.target.id === 'more-todo') { showAllTodo = !showAllTodo; render(); $('more-todo')?.focus({ preventScroll: true }); return; }
   const rb = e.target.closest('[data-day]');
   if (rb) { const n = +rb.dataset.day; doneDay = doneDay === n ? null : n; render(); $('board').querySelector(`[data-day="${n}"]`)?.focus({ preventScroll: true }); return; }
   if (e.target.id === 'clear-done') {
