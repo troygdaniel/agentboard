@@ -6,7 +6,10 @@ on its own; together four pins stop being true. Every fixup checks that it appli
 3. tests/test_tomlread.py (install-quickstart) wants no `import tomllib` outside the reader: selfcheck.py (sec-workpc-profile) has one.
 4. tests/test_doctor.py pins the report at 20 lines; four branches each add a doctor line, so the combined report is 21. The cap moves to 24.
 5. docs/index.md (docs-architecture) pins every docs/*.md and every docs/ folder: the other branches add documents (security-signoff.md,
-   the overnight folder). Rows are added for what is missing."""
+   the overnight folder). Rows are added for what is missing.
+6. selfcheck.py (sec-workpc-profile) keeps a table of the modules allowed to start a program and a list of real payloads for every POST
+   route: main's repoguard.py (read-only git, like doctor's) and the routes /api/demo (first-run) and /api/watchdog-fix (watchdog) are
+   added to them."""
 import re
 import sys
 from pathlib import Path
@@ -94,4 +97,30 @@ def docs_index():
         p.write_text(s)
         print(f"docs/index.md: rows added for {', '.join(added)}")
 
-arch(); signoff_table(); selfcheck_tomllib(); doctor_cap(); docs_index()
+def selfcheck_tables():
+    p = ROOT / "src" / "agentboard" / "selfcheck.py"
+    if not p.exists():
+        return
+    s = p.read_text()
+    changed = []
+    if (ROOT / "src" / "agentboard" / "repoguard.py").exists() and '"repoguard.py"' not in s and '    "doctor.py": ' in s:
+        s = s.replace('    "doctor.py": ', '    "repoguard.py": "read-only git queries (ls-files) for the repo guard the doctor and the tests share; a command, never the server",\n    "doctor.py": ', 1)
+        changed.append("repoguard.py allowed to run read-only git")
+    anchor = '        go("/api/clear-done", {})\n'
+    if anchor in s:
+        add = ""
+        if "/api/demo" in (ROOT / "src" / "agentboard" / "server.py").read_text() and 'go("/api/demo"' not in s:
+            add += '        go("/api/demo", {})                                      # the empty board\'s sample cards (first-run)\n'
+        if "/api/watchdog-fix" in (ROOT / "src" / "agentboard" / "server.py").read_text() and 'go("/api/watchdog-fix"' not in s:
+            add += ('        with contextlib.suppress(Exception):                    # a twin card, the one fix the watchdog can do on a fresh board\n'
+                    '            S.start("Selfcheck twin", "AGENT-9", None)\n'
+                    '            S.start("Selfcheck twin", "AGENT-9", None, task_id="selfcheck-twin-2")\n'
+                    '        go("/api/watchdog-fix", {"action": "merge", "id": "selfcheck-twin-2"})\n')
+        if add:
+            s = s.replace(anchor, anchor + add, 1)
+            changed.append("real payloads for /api/demo and /api/watchdog-fix")
+    if changed:
+        p.write_text(s)
+        print("selfcheck.py: " + "; ".join(changed))
+
+arch(); signoff_table(); selfcheck_tomllib(); doctor_cap(); docs_index(); selfcheck_tables()
