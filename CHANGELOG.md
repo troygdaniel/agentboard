@@ -24,6 +24,11 @@
   releases a peer's claim itself). The tasks feed caches the findings for a few seconds between polls.
 - A claim refused because another agent holds the card now says what to do (ask ORCH, or `agentboard watchdog` if that agent is
   gone) instead of only "use --force". Card `overnight-rel-agent-protocol`; evidence in `docs/overnight/overnight-rel-agent-protocol.md`.
+- An `update`, `review` or `ask` from a session whose name is another agent's is refused with the same fix: the quiet form of two
+  agents on one card, where the second never claims and just writes on it. The name is the session's `AGENTBOARD_NAME` (the three
+  commands take no `--name`), so this is a guard against accidental cross-writes, not enforcement: a nameless caller, the holder, ORCH,
+  the owner and a card with no holder are let through, and two sessions under one name both pass. `agentboard instructions` and ORCH's
+  prompt say the rule. Card `overnight-rel-agent-protocol-3`; evidence in `docs/overnight/overnight-rel-agent-protocol-3.md`.
 
 ### The test suite itself refuses to leave the machine (Nov 7)
 - `tests/netguard.py` is loaded by both runners before any test runs (pytest through `tests/conftest.py`, `unittest discover` through `tests/test_net_guard.py`) and makes any `connect`, `connect_ex` or name lookup to a non-loopback target fail with an error that names the test, so a change that adds an outbound call fails the suite the same day. Loopback, the unspecified address, `localhost` and AF_UNIX paths pass; `AGENTBOARD_TEST_NET=1` switches it off for a run that must reach the network (nothing in the suite does). Ten tests cover the guard itself.
