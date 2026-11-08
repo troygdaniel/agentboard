@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+### The agent protocol heals itself: `agentboard watchdog`, a strip on the HUD, a doctor line (Nov 8)
+- A board gets stuck between agents in a handful of ways and each used to need a person to notice and know the fix: a card claimed
+  and never worked, a card whose holder vanished (no update, no wait running, no chat), two cards for one piece of work, a card held
+  by one agent with subtasks held by another, a subtask whose parent was deleted, a subtask in Doing while its parent is not, two
+  sessions answering to one name, an agent that never said who it is (so the Stop hook and the mirror cannot reach its session).
+  `agentboard watchdog` finds all of them in one pass, numbered, each with its one fix; `--fix N` (or `all`) does it and says what
+  moved: release to Todo (history kept, holder cleared, open subtasks along), release every card of a vanished agent, merge the
+  twin into its keeper (a named snapshot first), hand the subtasks to the card's holder, make an orphan a card of its own, a subtask
+  follows its parent's column. Every fix is one history line marked "the watchdog, for <owner>". The two with no board-side fix say
+  what to run. Nothing happens unasked.
+- The Load view shows the findings in a strip above the lanes, one row each with its button; `/api/hud` carries them and
+  `/api/watchdog-fix` does one. `agentboard doctor` gains a `watchdog` line: WARN with the counts, PASS when the board is clean.
+- A claim refused because another agent holds the card now says what to do (ask ORCH, or `agentboard watchdog` if that agent is
+  gone) instead of only "use --force". Card `overnight-rel-agent-protocol`; evidence in `docs/overnight/overnight-rel-agent-protocol.md`.
+
 ### The masker's wall-clock tests measure the code, not the scheduler (Nov 7)
 - `test_redact_dos.py` and `test_redact_fullwidth.py` asserted a megabyte of hostile text is masked in under 2 s (3 s fullwidth); linear work takes 0.05 s and the quadratic bug took minutes, yet the pair failed four times on Nov 7 on green code whenever two test suites shared a laptop at load 15 to 20. `tests/timing.py` now scales each limit by a same-moment linear baseline (300 `str.translate` passes over a megabyte, 0.25 s idle), tries a slow run up to three times and keeps the best, and never stretches a limit past 30 s. Quadratic work still fails every try. Inputs, caps and content checks are unchanged; two full suites run at once at load 19 were both exactly green.
 

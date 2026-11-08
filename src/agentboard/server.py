@@ -12,7 +12,7 @@ from urllib.parse import parse_qs, urlparse
 
 from . import boards, hud, private
 from . import hooks as hookslib
-from . import listeners
+from . import listeners, watchdog
 from . import transcript as transcriptlib
 from . import plugins, reports, runs, serverstate, summary, voice
 from . import markdown as mdlib
@@ -266,6 +266,7 @@ def make_handler(default_store, port):
                 conf = _config(self.store)
                 data = hud.build(self.store.load(), abandoned_min=hud.stale_minutes(conf), retired=hud.retired(conf), roster=hud.roster(conf), owner=self.store.owner)
                 data["backup"] = self.store.backups.status()   # {last_backup_min, snapshots, last_sync, sync_dir}: the HUD's "backup N min ago" chip
+                data["watchdog"] = watchdog.findings(self.store, stale_min=hud.stale_minutes(conf))   # the ways the board is stuck between agents, each with its fix
                 self._send(200, data)
             elif url.path == "/api/config":
                 conf = _config(self.store)
@@ -386,6 +387,8 @@ def make_handler(default_store, port):
                     self._send(200, {"ok": True})
                 elif path == "/api/send-back":
                     self._send(200, self.store.send_back(body["id"], body["text"]))
+                elif path == "/api/watchdog-fix":   # one click on the HUD: one named fix (watchdog.heal), one history line
+                    self._send(200, {"touched": watchdog.heal(self.store, str(body.get("action", "")), str(body.get("id", "")))})
                 elif path == "/api/run-kill":
                     self._send(200, {"result": runs.kill_run(self.store.dir, body["id"])})
                 elif path == "/api/delete":

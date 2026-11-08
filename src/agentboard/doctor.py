@@ -324,6 +324,22 @@ def check_files(board_dir):
     return [_res(PASS, "files", f"{total} entries in the board folder (mode {top:03o}) are private to you")]
 
 
+def check_watchdog(board_dir):
+    """The agent protocol's watchdog: WARN with the counts when the board is stuck somewhere between agents (a stale claim, a vanished
+    agent, twins, a split card, an orphan, two sessions under one name), PASS when it is not; INFO when there is no board."""
+    from . import watchdog
+    from .store import Store
+    if not Path(board_dir).is_dir():
+        return [_res(INFO, "watchdog", "no board here: nothing to watch")]
+    try:
+        items = watchdog.findings(Store(board_dir))
+    except Exception as e:   # a broken board is verify's business, not this line's
+        return [_res(WARN, "watchdog", f"could not read the board: {e.__class__.__name__}")]
+    if items:
+        return [_res(WARN, "watchdog", f"{watchdog.summary(items)}: run `agentboard watchdog` for the list and the fixes")]
+    return [_res(PASS, "watchdog", watchdog.summary(items))]
+
+
 def _installed_record():
     """The install record of the running copy, or None."""
     try:
@@ -579,6 +595,7 @@ def run(board_dir, project=None, env=None, runner=subprocess.run):
     results += check_config(board_dir, locked=locked)
     results += check_knowledge(board_dir)
     results += check_files(board_dir)
+    results += check_watchdog(board_dir)
     results += check_git(project, board_dir, runner)
     results += check_hooks(project)
     results += check_code()

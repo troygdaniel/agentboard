@@ -580,6 +580,16 @@
   #h-todo-wrap .col, .h-one { min-height: 0; }
   /* the Agents column (Nov 4): the telemetry as Board cards, in the Board's column panel and type. A card is the agent's pill, the age
      and its hour of load (the bar); the Queue is one more card with its chart. Nothing the Doing card beside it says is repeated. */
+  .h-dog { flex: none; display: flex; flex-direction: column; gap: 2px; margin: 0 0 12px; padding: 6px 12px; max-height: 28vh; overflow: auto; border: 1px solid color-mix(in srgb, var(--warn) 45%, var(--line)); border-radius: 10px; background: color-mix(in srgb, var(--warn) 7%, var(--surface)); font-size: var(--fs-sm); }   /* the watchdog's findings (overnight-rel-agent-protocol): its own row above the grid */
+  .h-dog[hidden] { display: none; }
+  .hud:has(.h-dog:not([hidden])) { grid-template-rows: auto minmax(0, 1fr); }   /* the strip takes a row of its own; the lanes keep the rest */
+  .h-dog .row { display: flex; align-items: center; gap: 10px; min-height: 28px; }
+  .h-dog .kind { flex: none; font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: var(--tr-tight); font-weight: 600; color: color-mix(in srgb, var(--warn) 78%, var(--text)); min-width: 7.5em; }
+  .h-dog .what { flex: 1; min-width: 0; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .h-dog .what b { font-weight: 600; }
+  .h-dog .btn { flex: none; min-height: 26px; padding: 1px 10px; font-size: var(--fs-xs); }
+  .h-dog .did { flex: none; font-size: var(--fs-xs); color: var(--ok); }
+  @media (max-width: 720px) { .h-dog .what { white-space: normal; } .h-dog .row { flex-wrap: wrap; } }
   .h-one > h2 .ln-wait { margin-left: auto; color: var(--warn); font-size: var(--fs-xs); letter-spacing: 0; text-transform: none; font-weight: 600; }
   .h-scroll { overflow-x: hidden; scrollbar-gutter: stable; }
   .h-row { cursor: default; } .h-row.attn[data-id] { cursor: pointer; }
@@ -1330,6 +1340,7 @@
 <div id="hud" role="dialog" aria-label="Load">
   <div class="hud" id="hud-inner" tabindex="-1">
     <button class="h-btn" id="h-full" aria-label="Toggle fullscreen (f)">Fullscreen</button>
+    <div class="h-dog" id="h-dog" hidden aria-label="Stuck between agents"></div>
     <div class="h-grid">
       <div id="h-todo-wrap"></div>
       <section class="col doing" id="h-cards" data-status="doing" aria-label="Doing"><h2>Doing <span class="cnt" id="h-cards-n">0</span></h2><div class="cards" id="h-cards-box"></div></section>
@@ -3612,11 +3623,37 @@ let teleKey = '';
 // Agents display alphabetically by name, consistently with the kanban board. Display only; data is untouched.
 const byName = (a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base', numeric: true });   // AGENT-2 before AGENT-10
 
+// The watchdog's strip (overnight-rel-agent-protocol): every way the board is stuck between agents, one row each, the one fix a click
+// away. The board itself never fixes anything unasked; a row with no button says what to run instead.
+let dogKey = '';
+function dogRender(items) {
+  const box = $('h-dog'); if (!box) return;
+  const key = JSON.stringify(items || []);
+  if (key === dogKey) return;
+  dogKey = key;
+  box.hidden = !(items || []).length;
+  box.innerHTML = (items || []).map(f => `<div class="row" data-kind="${hh(f.kind)}"><span class="kind">${hh(f.kind.replace('-', ' '))}</span>`
+    + `<span class="what" title="${hh(f.what)}">${f.id ? `<b>${hh(f.id)}</b> · ` : f.agent ? `<b>${hh(f.agent)}</b> · ` : ''}${hh(f.what)}</span>`
+    + (f.fix ? `<button class="btn" type="button" data-dog-action="${hh(f.fix.action)}" data-dog-id="${hh(f.fix.id)}">${hh(f.fix.label)}</button>` : '')
+    + `</div>`).join('');
+}
+document.addEventListener('click', async e => {
+  const b = e.target.closest('[data-dog-action]'); if (!b) return;
+  b.disabled = true;
+  try {
+    const d = await api('/api/watchdog-fix', { action: b.dataset.dogAction, id: b.dataset.dogId });
+    b.replaceWith(Object.assign(document.createElement('span'), { className: 'did', textContent: `done: ${(d.touched || []).join(', ')}` }));
+    showError('');
+  } catch (err) { showError('Could not fix: ' + err.message); b.disabled = false; }
+  dogKey = '';
+  hudLoad();
+});
 function hudRender(d) {
   d.agents = [...d.agents].sort(byName);
   lastHud = d;
   OWNER = d.owner || OWNER;
   hudSounds(d);
+  dogRender(d.watchdog);
   if (SOLO) {
     const t0 = d.totals, mine = (d.actions || []).filter(a => isOwner(a.who)).length;
     document.title = (mine ? `● ${mine} for you · ` : '') + (t0.abandoned ? `⚠ ${t0.abandoned} abandoned · ` : '') + (t0.waiting ? `⚠ ${t0.waiting} input · ` : '') + (t0.review ? `✓ ${t0.review} review · ` : '') + `Load · ${t0.working} working`;
