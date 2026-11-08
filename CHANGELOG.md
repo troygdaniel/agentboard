@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Developer docs: ARCHITECTURE.md, CONTRIBUTING.md and a documents index, checked by a test (Nov 8, overnight)
+- `docs/ARCHITECTURE.md`: the module map (every module, grouped by layer), the data files and who writes them, a request's path through the server (guards, headers, routes), the agent protocol in `store.py` terms, the plugin hook, the security model on one page, and how to run the tests. `CONTRIBUTING.md`: cards and worktrees, the gates before "ready", the changelog rule, commits, where things belong. `docs/index.md` lists every document with one line; the README links all three.
+- `tests/test_docs_architecture.py` holds the pages to the code: every module is in the map and every named module exists, every data file named is in the source, every API path is in `server.py`, every CLI command exists, the plugin API listed is `plugins.Api`, every link in the index resolves and every document is in it.
+
 ### The chat box says who reads the line, and a refused send keeps your text (Nov 8)
 - Under each chat box (the ORCH drawer, an agent's thread, a card's chat) one small line now says who the line goes to and whether
   anything wakes them: `Goes to ORCH · listening`, `Goes to AGENT-2 · not listening: it reads this when its session next runs` (amber),
