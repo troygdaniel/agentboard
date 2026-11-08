@@ -1,6 +1,6 @@
 # overnight-sec-workpc-profile: the work-PC profile and `agentboard selfcheck`
 
-Branch `overnight/overnight-sec-workpc-profile` (public repo, nothing merged, nothing pushed). Card `overnight-sec-workpc-profile`, AGENT-3.
+Branch `overnight/overnight-sec-workpc-profile` (public repo, nothing merged, nothing pushed). The three server bug fixes it found were split out at ORCH's request as branch `security-server-hardening` (d02208c, off main 8b07a0d) to merge tonight; this branch still contains them, so a merge of both is clean. Card `overnight-sec-workpc-profile`, AGENT-3.
 
 ## What changed
 
@@ -117,5 +117,5 @@ Full suite on the branch tip: **1222 tests, OK** (run in the foreground; 189 s o
 ## Next-best improvements (filed as cards)
 
 - `work-pc-run-agentboard-profile-work-and`: Troy runs `profile work`, `selfcheck` and `doctor` on the real work PC and pastes the output (the one proof this Mac cannot give: that PC's Python, OS and security software).
-- `selfcheck-live-audit-the-running-server`: `agentboard selfcheck --live`, read-only probes of the server that is actually running.
+- `selfcheck-live-audit-the-running-server`: **done on this branch** (commit 6d23126): `agentboard selfcheck --live [PORT]`, read-only probes of the server that is actually running (never a card, chat line, report or transcript; empty-body POSTs only), its recorded start state and doctor's listener check. First real run against the home board: all probes pass except `nosniff` (the installed server predates the fix) and it reports the lock OFF and plugins OPEN, as a WARN because this shell was not under the profile.
 - `decision-for-troy-should-a-fresh-install`: should a fresh install on a managed PC ship with the profile on (recommended: a separate `agentboard-work` entry point).

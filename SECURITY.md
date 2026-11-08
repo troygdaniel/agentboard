@@ -116,6 +116,8 @@ system's firewall is still the answer to a hostile process.
   traversal through every route that takes a name, a symlink out of the reports folder, a transcript path that is any file, unknown board names, and providers that
   try to reach a metadata address, run a command or read a file outside the project.
 
+`agentboard selfcheck --live [PORT]` does the same for the server that is already running (read-only: the page, one script, a missing path, the two prompt routes with a cross-site header, empty-body POSTs with a foreign Origin or the wrong type, bad Host forms, traversal URLs, framing; it never asks for a card, a chat line, a report or a transcript, and sends no body), plus what the server recorded about how it was started (`server-<pid>.json`: lock, plugins, work profile) and doctor's listener check. It reports a mismatch as a FAIL when this shell is under the work profile and the server is not, and as a WARN on a home board.
+
 The tests (`tests/test_workprofile.py`) check that the selfcheck passes on this tree and that it turns red for each planted violation (a network import, a program
 start, `shell=True`, `eval`, a third-party package, an address, a page that loads from outside, a dropped policy, a server that stops checking the Host or the origin, a route
 that reaches out or starts a program, a listener on all interfaces, a lock that does not lock).
