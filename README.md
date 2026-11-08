@@ -88,7 +88,7 @@ Run `agentboard hooks install` once per project: it adds two Claude Code hooks t
 behind **Detail**, with a small **msg** chip. A session says who it is the first time it runs `claim`, `start`, `chat` or
 `agentboard me --name AGENT-1`; the board keeps that against its session id, so the mirror carries the name (`$AGENTBOARD_NAME`
 wins when set). ORCH can register another session when an agent reports its id: `agentboard me --name AGENT-4 --session <id>` (ListAgents `[ref]`s are not session ids). Mirrored lines are not inbox news (the reader already has the message) and the hook never fails an agent: on any
-problem it exits quietly. Restart running sessions once after installing.
+problem it exits quietly. Restart running sessions once after installing. Run `agentboard hooks install --user` instead to put them in `~/.claude/settings.json`: every session on this Mac has them, whatever folder it starts in. Either way the hook commands name the board folder, so a session started in another folder still finds the board. `agentboard doctor` says where the Stop hook is installed and whether its board folder exists.
 
 **Nobody answers a message to a sleeping session.** A Claude Code session that has finished its turn reads nothing until something
 wakes it, and the board cannot reach into a session; a line you type to an agent would sit in its inbox. What wakes a session is a

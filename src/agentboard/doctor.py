@@ -448,6 +448,17 @@ def check_hooks(project):
     return out
 
 
+def check_stop_hook(project):
+    """One line on the Stop hook (the one that keeps a session from going quiet on an unread board line): where it is installed and
+    whether the board folder it names exists; WARN when it is nowhere or names no board."""
+    from . import hooks
+    found = hooks.stop_hook_state(project)
+    if not found:
+        return [_res(WARN, "Stop hook", "not installed: run agentboard hooks install --user once from the board's folder, then restart sessions "
+                                        "(without it a session that goes quiet on an unread board line is never nudged)")]
+    return [_res(PASS if ok else WARN, "Stop hook", f"{_short(p)}: {text}") for p, text, ok in found]
+
+
 def config_reads(conf, board_dir):
     """[(label, file name, inside the project?)] for each file config.toml has read into card prompts: markdown and file-tail providers
     and [prompt] template_file. Only file names, never the folder."""
@@ -581,6 +592,7 @@ def run(board_dir, project=None, env=None, runner=subprocess.run):
     results += check_files(board_dir)
     results += check_git(project, board_dir, runner)
     results += check_hooks(project)
+    results += check_stop_hook(project)
     results += check_code()
     return results
 
