@@ -182,7 +182,7 @@ class Store:
                     raise BoardError(f"a subtask follows its parent ({parent['status']}); drop --status")
                 status = parent["status"]
             status = status or "backlog"
-            tid = task_id or _unique_id(title, {t["id"] for t in tasks})
+            tid = task_id or _unique_id(title, {t["id"] for t in tasks}, prefix=parent["id"] if parent else None)   # a subtask's id starts with its parent's
             if any(t["id"] == tid for t in tasks):
                 raise BoardError(f"task id already exists: {tid}")
             if source and source.get("key") and any((t.get("source") or {}).get("key") == source["key"] for t in tasks):
@@ -246,7 +246,7 @@ class Store:
             if parent:
                 if not force:
                     _parent_must_be_doing(parent, {"id": "a new subtask"}, "start")
-            tid = task_id or _unique_id(title, {t["id"] for t in tasks})
+            tid = task_id or _unique_id(title, {t["id"] for t in tasks}, prefix=parent["id"] if parent else None)   # a subtask's id starts with its parent's
             existing = next((t for t in tasks if t["id"] == tid), None)
             if existing:  # same agent re-announcing the same work is a no-op
                 if existing.get("agent") == name and existing["status"] == "doing":
@@ -1376,8 +1376,13 @@ def _slug(title):
     return re.sub(r"[^a-z0-9]+", "-", str(title).lower())[:40].strip("-") or "task"
 
 
-def _unique_id(title, taken):
+def _unique_id(title, taken, prefix=None):
+    """A slug of the title that no card has. With `prefix` (a subtask: its parent's id) a slug some other card already has becomes
+    parent-id-step-one instead of step-one-2, so the id says which card the step belongs to (ux-subtask-ids-collide-across-agents); a
+    step whose name is free on the board keeps the short id, as before."""
     base = _slug(title)
+    if prefix and base in taken:
+        base = f"{prefix}-{base}"
     tid, n = base, 2
     while tid in taken:
         tid, n = f"{base}-{n}", n + 1
