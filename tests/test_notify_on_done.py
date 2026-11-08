@@ -234,8 +234,10 @@ class PromptTests(Base):
 
     def test_agentboard_instructions_say_the_same(self):
         out, _ = self.cli("instructions")
-        self.assertIn("After an `ask` or a `review`, do not sit idle", out)
-        self.assertIn('close it ("Done by the user: the card is closed")', out)
+        self.assertIn("After `review`, do not sit idle", out)
+        self.assertIn("After `ask`, wait the same way", out)
+        self.assertIn('closes it ("Done by the user")', out)
+        self.assertIn("free to go idle or take the next card", out)
 
 
 class QuietTests(Base):

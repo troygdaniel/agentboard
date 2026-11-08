@@ -38,6 +38,7 @@ is the developer's.
 | Module | What it is |
 |---|---|
 | `prompt.py` | Assembles a card's prompt from the template (built in, or `[prompt] template_file`) and the context providers a card lists with `--ctx`; `load_config` reads config.toml for everyone; the ORCH boot prompt. |
+| `rules.py` | The rules every agent-facing text repeats, written once: the wait length, the commands that carry it, the reporting rule, the finish-and-wait paragraph, the four working rules and the unattended-run ending. `agentboard instructions`, the card prompts, the run prompt, the ORCH prompt, the chat protocol, the board's announcement and the Stop hook are built from it; `tests/test_prompts_agree.py` fails when one drifts or contradicts another. |
 | `providers.py` | The four provider kinds, `markdown`, `file-tail`, `http`, `command`, each a function that returns one block of text; `inside_project` decides which files a provider may read under the lock. |
 
 **The server and its pages**

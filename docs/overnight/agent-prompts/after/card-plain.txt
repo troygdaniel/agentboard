@@ -1,0 +1,90 @@
+# Task: Write release notes
+
+Task ID: notes
+
+## Before you claim: ask if anything's unclear
+
+If this task is ambiguous, send your orchestrator/coordinating session (if you have one) one line
+— e.g. via SendMessage — and wait for its answer before claiming: it sees the whole board and can often
+answer without bothering the user. This is a one-time check, not a back-and-forth once work is underway.
+
+## Step 0: claim this task (do this first)
+
+Run this so the board knows you have it. Use your own session name:
+
+    agentboard claim notes --name "<your session name>"
+
+## Step 1: add subtasks as soon as you start
+
+Every card has subtasks, always. Read the work, then add the steps right away: at least two, even on
+a tiny card (do it, check it). Add more if you find more work as you go.
+
+    agentboard add "<step>" --parent notes
+
+## Progress reporting
+
+The percentage is what the board/HUD show at a glance, so keep it honest: your real % of the work
+done, not a fixed checklist. The card's % is the mean of its subtasks, so update the subtask you are on,
+not the card. Call `update` whenever the estimate changes, including when you find more work than
+expected (it can go down):
+
+    agentboard update <subtask id> 50 "<what you are doing>"
+    agentboard update <subtask id> 100 "<one-line result>"     # a subtask at 100% closes itself
+    agentboard review notes "<one-line result>"
+
+Finish with `review` — the user signs off and moves the card to done. After `review`, do not sit idle: start `agentboard answer notes --wait --timeout 3600` as a background command
+(in Claude Code, Bash with run_in_background) and end your turn. It wakes you, and prints what happened, when the user replies, sends the card
+back, closes it ("Done by the user"), moves it or removes it, or writes to you on the board (your thread, outside any card). A closed card
+means you are free to go idle or take the next card; a message gets an answer, `agentboard chat send "<one line>" --name "<your session name>" --to you`, and then you start the wait again.
+A tool that cannot run background commands runs it in the foreground instead. If it times out with no reply, say you are still waiting.
+NEVER mark your own task done: run `agentboard done notes` ONLY if the user explicitly tells you to.
+
+If you are blocked on the user mid-task, flag it (and keep going once they answer):
+
+    agentboard ask notes "<one-line question>"
+
+The user answers on the card, not through anyone else. After `ask`, wait the same way: start `agentboard answer notes --wait --timeout 3600` as a background command (in Claude Code, Bash with
+run_in_background) and end your turn. It prints the user's reply, and then you carry on.
+
+Between cards, and any other time you would go quiet with nothing running, keep yourself reachable the same way:
+`agentboard chat inbox --name "<your session name>" --wait 3600` as a background command. It prints the next line the user
+sends you and exits, and that wakes you. Nothing else does. When it ends, start it again. The board shows who is listening,
+and a Stop hook reminds a session that is about to go quiet without one.
+
+## Working rules
+
+- Take only the cards you are handed or have claimed by name. With an ORCH running, that is the cards it assigns: do not claim a card because it sits in Todo.
+- Other agents work in the same project. In a git project, work in your own worktree on your own branch (`git worktree add ../<project>-<card> -b <branch>`),
+  never edit the main checkout, never use `git stash` (every worktree shares one stash), and commit only your own changes.
+- A card with an unfinished blocker will not claim. Do not use `--force`: tell your orchestrator in one line, and take another card.
+- Never put a backtick or `$(` inside a double-quoted command argument: the shell runs it. Use single quotes, or put long text in a file and pass `--body-file`.
+
+These are not optional.
+
+## Task details
+
+v2 changelog.
+
+Ask for clarification if anything is unclear.
+
+## When you review
+
+Write the `--body` in this shape; the board lays it out on the finished card (keep what you have, skip the rest):
+
+    ## Changed
+    - up to four bullets: what is different now
+    ## Checked
+    - 675 tests pass · render-check wide and narrow
+    ## Next
+    - what the user must do, or: nothing
+    ```flow
+    You mark done -> Card gets a reply -> Agent wakes
+    ```
+
+A ```flow block is a small diagram: `A -> B -> C` draws boxes and arrows, `label: 12` draws a bar. A card without this
+still shows what the board knows (subtasks, tests it can find, commits).
+## Reporting to the user
+
+Report to the user in one sentence, one idea: the ACTION they must take first, then one fact. If nothing is needed from them, one line of
+status. If more is unavoidable, one sentence, then offer the detail. Put that sentence on the card (agentboard ask/review/update text)
+so the user answers you there, and in your terminal. Put detail in `--body` (it shows under Details on the card), never in the first line.

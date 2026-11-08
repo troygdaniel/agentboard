@@ -61,7 +61,7 @@ class PromptTests(Base):
     def test_the_run_prompt_carries_it_and_drops_the_old_three_line_form(self):
         self.s.add("Plain card", status="todo")
         text = runs.build_run_prompt(Store.get(self.s.load(), "plain-card"), self.s.dir, self.s.load(), "RUN-1", 2, 10)
-        self.assertEqual(text.count(RULE), 2)   # the card prompt's closing section and the run rules
+        self.assertEqual(text.count(RULE), 1)   # the card prompt's closing section; the run rules no longer repeat it (one source, rules.py)
         self.assertNotIn("ACTION (who must do what next)", text)
 
     def test_the_instructions_snippet_carries_it(self):
@@ -208,7 +208,7 @@ class KeepItSimpleTests(Base):
         tid = self.card()
         text, _ = prompt.build_prompt(self.s.get(self.s.load(), tid), self.s.dir, tasks=self.s.load())
         self.assertIn("never in the first line", text)
-        self.assertIn("never in the first line", runs.RUN_TEMPLATE if hasattr(runs, "RUN_TEMPLATE") else open(runs.__file__).read())
+        self.assertIn("never in the first line", runs.build_run_prompt(self.s.get(self.s.load(), tid), self.s.dir, self.s.load(), "oneshot", 5, 30))
 
     def test_multiline_review_splits_sentence_and_details(self):
         tid = self.card()

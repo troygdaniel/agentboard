@@ -1,0 +1,92 @@
+# Task: Write release notes
+
+Task ID: notes
+
+## Before you claim: ask if anything's unclear
+
+If this task is ambiguous, send your orchestrator/coordinating session (if you have one) one line
+— e.g. via SendMessage — and wait for its answer before claiming: it sees the whole board and can often
+answer without bothering the user. This is a one-time check, not a back-and-forth once work is underway.
+
+## Step 0: claim this task (do this first)
+
+Run this so the board knows you have it. Use your own session name:
+
+    agentboard claim notes --name "<your session name>"
+
+## Step 1: add subtasks as soon as you start
+
+Every card has subtasks, always. Read the work, then add the steps right away: at least two, even on
+a tiny card (do it, check it). Add more if you find more work as you go.
+
+    agentboard add "<step>" --parent notes
+
+## Progress reporting
+
+The percentage is what the board/HUD show at a glance, so keep it honest: your real % of the work
+done, not a fixed checklist. The card's % is the mean of its subtasks, so update the subtask you are on,
+not the card. Call `update` whenever the estimate changes, including when you find more work than
+expected (it can go down):
+
+    agentboard update <subtask id> 50 "<what you are doing>"
+    agentboard update <subtask id> 100 "<one-line result>"     # a subtask at 100% closes itself
+    agentboard review notes "<one-line result>"
+
+Finish with `review` — the user signs off and moves the card to done. This is an unattended one-shot run: after `review`, stop. The run ends when you do and nothing can wake you afterwards, so do not start a background wait.
+NEVER mark your own task done: run `agentboard done notes` ONLY if the user explicitly tells you to.
+
+If you are blocked on the user mid-task, flag it (and keep going once they answer):
+
+    agentboard ask notes "<one-line question>"
+
+The user answers on the card, not through anyone else. This is an unattended one-shot run: after `ask`, stop. The run ends when you do and nothing can wake you afterwards, so do not start a background wait.
+
+
+
+## Working rules
+
+- Take only the cards you are handed or have claimed by name. With an ORCH running, that is the cards it assigns: do not claim a card because it sits in Todo.
+- This run already has a folder of its own: stay in it, edit nothing outside it, and never use `git stash` (every worktree shares one stash).
+- A card with an unfinished blocker will not claim. Do not use `--force`: tell your orchestrator in one line, and take another card.
+- Never put a backtick or `$(` inside a double-quoted command argument: the shell runs it. Use single quotes, or put long text in a file and pass `--body-file`.
+
+These are not optional.
+
+## Task details
+
+v2 changelog.
+
+Ask for clarification if anything is unclear.
+
+## When you review
+
+Write the `--body` in this shape; the board lays it out on the finished card (keep what you have, skip the rest):
+
+    ## Changed
+    - up to four bullets: what is different now
+    ## Checked
+    - 675 tests pass · render-check wide and narrow
+    ## Next
+    - what the user must do, or: nothing
+    ```flow
+    You mark done -> Card gets a reply -> Agent wakes
+    ```
+
+A ```flow block is a small diagram: `A -> B -> C` draws boxes and arrows, `label: 12` draws a bar. A card without this
+still shows what the board knows (subtasks, tests it can find, commits).
+## Reporting to the user
+
+Report to the user in one sentence, one idea: the ACTION they must take first, then one fact. If nothing is needed from them, one line of
+status. If more is unavoidable, one sentence, then offer the detail. Put that sentence on the card (agentboard ask/review/update text)
+so the user answers you there, and in your terminal. Put detail in `--body` (it shows under Details on the card), never in the first line.
+
+## Rules for this run
+
+You are running unattended as `oneshot`: nobody is watching this terminal, and nobody can answer a permission prompt.
+Your work is judged from the card, so keep it current: `agentboard update notes <percent> "<one line>"` as you go.
+
+- Work only on this card, inside this folder. Read the repo's CLAUDE.md first and follow it, except where it says to wait after `review` or `ask`: this run does not wait.
+- Never place calls or send texts, emails or messages to anyone, never buy or subscribe to anything, never deploy, and never
+  touch production data or accounts. If the card needs one of those, ask instead.
+- Do not try to widen your own permissions or work around a refused tool: say so in your review or ask.
+- Hard limits: 30 minutes and $5. The run is stopped when either is reached.

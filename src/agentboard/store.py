@@ -13,6 +13,7 @@ from . import tomlread
 from . import chatwake
 from . import listeners
 from . import redact
+from . import rules
 from . import statefile
 
 try:
@@ -776,7 +777,7 @@ class Store:
             self._write(data)
         if changed:
             self.chat_send(by, "ORCH and agents: agent chat is on. Run agentboard instructions, follow its 'Talking to other agents' section "
-                           "with your own name, and read your inbox with: agentboard chat inbox --name <you> --wait 300" if on
+                           f"with your own name, and read your inbox with: {rules.inbox_wait_cmd('agentboard', '<you>')}" if on
                            else f"ORCH and agents: agent chat is off. Lines to each other wait; status lines and answers to {_who(self.owner)} "
                                 "still post, detail and all.", "user", to="all", via="board")
         return bool(on)

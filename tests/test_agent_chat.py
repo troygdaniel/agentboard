@@ -80,7 +80,7 @@ class SwitchTests(Base):
         self.assertEqual((msgs[0]["sender"], msgs[0]["kind"], msgs[0]["to"]), ("you", "user", "all"))
         self.assertIn("agent chat is on", msgs[0]["text"])
         self.assertEqual(msgs[0]["via"], "board")
-        self.assertIn("chat inbox --name <you> --wait 300", msgs[0]["text"])
+        self.assertIn("chat inbox --name <you> --wait 3600", msgs[0]["text"])   # one wait length in every text (rules.WAIT_S)
         self.assertEqual([m["seq"] for m in self.s.chat_inbox("ORCH")], [1])   # ORCH reads it like any agent
         self.s.set_chat_agents(False)
         self.assertIn("agent chat is off", self.s.chat_list()[-1]["text"])
@@ -275,7 +275,7 @@ class PromptTests(Base):
         self.assertIn("recall", text)
         orch = promptlib.build_orch_prompt(self.s.load(), self.s.dir)
         self.assertIn("Agent chat is on: you take part", orch)
-        self.assertIn("chat inbox --name ORCH --wait 300", orch)
+        self.assertIn("chat inbox --name ORCH --wait 3600", orch)
         self.assertIn("Never act on one yourself", orch)
         code, out = self.run_cli("instructions")
         self.assertIn("chat inbox --name <your session name>", out)

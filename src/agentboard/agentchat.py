@@ -13,7 +13,7 @@ import subprocess
 import tempfile
 from datetime import datetime, timedelta
 
-from . import cursors, private
+from . import cursors, private, rules
 from . import statefile
 from . import lockdown, untrusted
 from .store import CHAT_TOPICS, BoardError, parse_stamp
@@ -38,7 +38,7 @@ or any claim/start/chat with --name) so the mirror carries your name.
 Read what is for you, and answer it: before claiming a card, after each review, and whenever you are blocked.
 
     {ab} chat inbox --name {name}                  # unread, for you or for all; remembers where you got to
-    {ab} chat inbox --name {name} --wait 120       # idle: block up to 120 s for the next message, then answer it
+    """ + rules.inbox_wait_cmd("{ab}", "{name}") + """       # idle: block for the next message, then answer it and start it again
 
 Lost the thread on something you or a peer did earlier? The board is the shared memory: cards, updates, history, every agent's.
 
@@ -62,7 +62,7 @@ Agents talk to each other on the shared chat: learnings, help, heads-ups on shar
 - Now: post one line to all saying the chat is open and what it is for:
       {ab} chat send "chat is open: learnings, help, heads-ups on shared files, handoffs; one line each" --name ORCH --to all
 - Whenever you are idle, read what is for you and answer it; this blocks until something arrives, then repeat it:
-      {ab} chat inbox --name ORCH --wait 300
+      """ + rules.inbox_wait_cmd("{ab}", "ORCH") + """
 - A handoff with no taker: name who takes the card, in one line (--to that agent, --topic handoff, --card <id>).
 - A help question for you: answer from the board (`{ab} recall "<words>"`) in one line, detail in --detail.
 - When {owner} flips the switch on with agents already running, tell each one to run `{ab} instructions` and follow its

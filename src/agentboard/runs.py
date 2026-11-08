@@ -23,6 +23,7 @@ from . import backup
 from . import private
 from . import lockdown
 from . import prompt as promptlib
+from . import rules
 from .store import BoardError
 
 DEFAULT_BUDGET_USD = 5.0
@@ -37,15 +38,10 @@ RULES = """\
 You are running unattended as `{name}`: nobody is watching this terminal, and nobody can answer a permission prompt.
 Your work is judged from the card, so keep it current: `{ab} update {task_id} <percent> "<one line>"` as you go.
 
-- Work only on this card, inside this folder. Read the repo's CLAUDE.md first and follow it.
-- Finish with `{ab} review {task_id} "<one-line result>"` and stop. Never mark the card done: the user does.
-- Blocked on the user? `{ab} ask {task_id} "<one-line question>"` and stop; do not guess.
+- Work only on this card, inside this folder. Read the repo's CLAUDE.md first and follow it, except where it says to wait after `review` or `ask`: this run does not wait.
 - Never place calls or send texts, emails or messages to anyone, never buy or subscribe to anything, never deploy, and never
   touch production data or accounts. If the card needs one of those, ask instead.
 - Do not try to widen your own permissions or work around a refused tool: say so in your review or ask.
-- Report to {owner} in one sentence, one idea: the ACTION they must take first, then one fact. If nothing is needed from them, one line of status. If
-  more is unavoidable, one sentence, then offer the detail. Put that sentence on the card (ask/review/update text); they answer you there.
-  Put detail in `--body` (it shows under Details on the card), never in the first line.
 - Hard limits: {minutes:g} minutes and ${budget:g}. The run is stopped when either is reached.
 """
 
@@ -167,8 +163,8 @@ def cleanup_worktree(info):
 
 
 def build_run_prompt(task, board_dir, tasks, name, budget, minutes):
-    text, _warnings = promptlib.build_prompt(task, board_dir, public=False, tasks=tasks)
-    return text.rstrip() + "\n" + RULES.format(name=name, ab=promptlib.agentboard_cmd(board_dir), task_id=task["id"], budget=budget, minutes=minutes, owner=promptlib.owner_ref(board_dir))
+    text, _warnings = promptlib.build_prompt(task, board_dir, public=False, tasks=tasks, attended=False)
+    return text.rstrip() + "\n" + RULES.format(name=name, ab=promptlib.agentboard_cmd(board_dir), task_id=task["id"], budget=budget, minutes=minutes)
 
 
 def parse_result(stdout_text):
