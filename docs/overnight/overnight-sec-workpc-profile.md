@@ -100,6 +100,10 @@ PASS  runtime: listening only on loopback                                 the se
 RESULT: PASS
 ```
 
+## Tests
+
+Full suite on the branch tip: **1222 tests, OK** (run in the foreground; 189 s on a loaded machine). `tests/publiccheck.py`: 0 findings. Two existing tests were updated because they pinned things this branch changed on purpose: `test_file_modes` (the server is built by `server.new_server`, no longer by a direct `ThreadingHTTPServer` call) and `test_server_state` (the state file now also records `profile`). Note for whoever reruns it: start the suite in the foreground; a shell `&` makes the child processes ignore SIGINT and the two real-server tests in `test_server_state` then time out waiting for a server that cannot be interrupted.
+
 ## Decisions and risks
 
 - **Not the default for a fresh install.** A home user's board uses `claude -p` rounds, `run`, voice and plugins; turning the profile on by default would break them silently. The profile is one command (`agentboard profile work`), one environment variable or one line in a new board's config, and `agentboard selfcheck` says WARN when it is not on. Troy's call whether `pipx install` should ship it on.
