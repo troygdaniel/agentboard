@@ -15,7 +15,8 @@
 - The Load view shows the findings in a strip above the lanes, one row each with its button; `/api/hud` carries them and
   `/api/watchdog-fix` does one. `agentboard doctor` gains a `watchdog` line: WARN with the counts, PASS when the board is clean (so `doctor --strict` exits 1 while a claim is
   stale or an agent has vanished). `watchdog --fix all` reports a row an earlier fix in the same run already covered as "already done" and
-  goes on; `--fix abc` is refused with the accepted forms.
+  goes on; `--fix abc` is refused with the accepted forms. The Board page shows the same rows under the Doing header (`/api/tasks` carries `watchdog` when there
+  is something to show). ORCH's prompt and `agentboard instructions` name the command.
 - A claim refused because another agent holds the card now says what to do (ask ORCH, or `agentboard watchdog` if that agent is
   gone) instead of only "use --force". Card `overnight-rel-agent-protocol`; evidence in `docs/overnight/overnight-rel-agent-protocol.md`.
 

@@ -583,6 +583,8 @@
   .h-dog { flex: none; display: flex; flex-direction: column; gap: 2px; margin: 0 0 12px; padding: 6px 12px; max-height: 28vh; overflow: auto; border: 1px solid color-mix(in srgb, var(--warn) 45%, var(--line)); border-radius: 10px; background: color-mix(in srgb, var(--warn) 7%, var(--surface)); font-size: var(--fs-sm); }   /* the watchdog's findings (overnight-rel-agent-protocol): its own row above the grid */
   .h-dog[hidden] { display: none; }
   .hud:has(.h-dog:not([hidden])) { grid-template-rows: auto minmax(0, 1fr); }   /* the strip takes a row of its own; the lanes keep the rest */
+  .col .board-dog { margin: 0 0 8px; max-height: 22vh; font-size: var(--fs-xs); }   /* the Board page's copy, under the Doing header */
+  .col .board-dog .kind { min-width: 6.5em; }
   .h-dog .row { display: flex; flex: none; align-items: center; gap: 10px; min-height: 28px; }   /* flex: none, or wrapped rows shrink and overprint in a scrolling strip */
   .h-dog .kind { flex: none; font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: var(--tr-tight); font-weight: 600; color: color-mix(in srgb, var(--warn) 78%, var(--text)); min-width: 7.5em; }
   .h-dog .what { flex: 1; min-width: 0; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -1900,7 +1902,8 @@ function render() {
     }
     const clr = k === 'done' ? `<span class="done-acts"><a class="clear-done sum-link" href="${(window.AB_BASE || '')}/summary" target="_blank" rel="noopener" title="Summary of finished work, to read or share">Summary</a><a class="clear-done sum-link" href="${(window.AB_BASE || '')}/reports" target="_blank" rel="noopener" title="Card reports, newest first">Reports</a>` + (by.done.length ? `<button class="clear-done" id="clear-done" title="Archive all Done cards">Clear</button>` : '') + `</span>` : '';
     const p = k === 'doing' && pres ? `<b class="pres" aria-hidden="true">${pres}</b>` : '';
-    return `<section class="col ${k}" data-status="${k}"><h2>${label} <span class="cnt">${by[k].length}</span>${p}${clr}</h2>${ribbon}<div class="cards">${body}</div>${more}</section>`;
+    const dog = k === 'doing' && !BYAGENT ? dogHtml(boardDog) : '';   // the watchdog's rows under the Doing header (overnight-rel-agent-protocol-2)
+    return `<section class="col ${k}" data-status="${k}"><h2>${label} <span class="cnt">${by[k].length}</span>${p}${clr}</h2>${ribbon}${dog}<div class="cards">${body}</div>${more}</section>`;
   }).join('');
   $('board').querySelectorAll('.col').forEach(c => { const k = c.querySelector('.cards'); if (k) k.scrollTop = scrolls[c.dataset.status] || 0; });
   if (paneHtml != null) {   // Load: the same Todo and Doing cards, in the same order, dragged between the same two panes
@@ -2012,7 +2015,7 @@ async function load() {
     const minute = Math.floor(Date.now() / 60000);
     if (!hold) {   // the redraw waits for the typing; the status pill, the asks, the open card and the chat below do not
       let changed = false;
-      if (text !== raw) { raw = text; tick = minute; const j = JSON.parse(text); tasks = j.tasks; AB.state = j.plugins || {}; changed = true; }
+      if (text !== raw) { raw = text; tick = minute; const j = JSON.parse(text); tasks = j.tasks; AB.state = j.plugins || {}; boardDog = j.watchdog || []; changed = true; }
       else if (minute !== tick && !selectionInside($('board'))) { tick = minute; changed = true; }   // the minute tick ("3 min ago") waits while you have text selected
       if (changed) render();
       if (changed) AB.notify();   // plugins: after the board, on the same beats
@@ -3628,17 +3631,23 @@ const byName = (a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 
 
 // The watchdog's strip (overnight-rel-agent-protocol): every way the board is stuck between agents, one row each, the one fix a click
 // away. The board itself never fixes anything unasked; a row with no button says what to run instead.
-let dogKey = '';
+let dogKey = '', boardDog = [];   // boardDog: the findings the tasks feed carries, for the Board page's own strip
+function dogRowsHtml(items) {
+  return (items || []).map(f => `<div class="row" data-kind="${hh(f.kind)}"><span class="kind">${hh(f.kind.replace('-', ' '))}</span>`
+    + `<span class="what" title="${hh(f.what)}">${f.id ? `<b>${hh(f.id)}</b> · ` : f.agent ? `<b>${hh(f.agent)}</b> · ` : ''}${hh(f.what)}</span>`
+    + (f.fix ? `<button class="btn" type="button" data-dog-action="${hh(f.fix.action)}" data-dog-id="${hh(f.fix.id)}">${hh(f.fix.label)}</button>` : '')
+    + `</div>`).join('');
+}
+function dogHtml(items) {   // the Board page: the strip under the Doing header, nothing at all when the board is clean
+  return (items || []).length ? `<div class="h-dog board-dog" aria-label="Stuck between agents">${dogRowsHtml(items)}</div>` : '';
+}
 function dogRender(items) {
   const box = $('h-dog'); if (!box) return;
   const key = JSON.stringify(items || []);
   if (key === dogKey) return;
   dogKey = key;
   box.hidden = !(items || []).length;
-  box.innerHTML = (items || []).map(f => `<div class="row" data-kind="${hh(f.kind)}"><span class="kind">${hh(f.kind.replace('-', ' '))}</span>`
-    + `<span class="what" title="${hh(f.what)}">${f.id ? `<b>${hh(f.id)}</b> · ` : f.agent ? `<b>${hh(f.agent)}</b> · ` : ''}${hh(f.what)}</span>`
-    + (f.fix ? `<button class="btn" type="button" data-dog-action="${hh(f.fix.action)}" data-dog-id="${hh(f.fix.id)}">${hh(f.fix.label)}</button>` : '')
-    + `</div>`).join('');
+  box.innerHTML = dogRowsHtml(items);
 }
 document.addEventListener('click', async e => {
   const b = e.target.closest('[data-dog-action]'); if (!b) return;
@@ -3648,8 +3657,8 @@ document.addEventListener('click', async e => {
     b.replaceWith(Object.assign(document.createElement('span'), { className: 'did', textContent: `done: ${(d.touched || []).join(', ')}` }));
     showError('');
   } catch (err) { showError('Could not fix: ' + err.message); b.disabled = false; }
-  dogKey = '';
-  hudLoad();
+  dogKey = ''; raw = '';   // both strips redraw on their next poll
+  hudLoad(); load();
 });
 function hudRender(d) {
   d.agents = [...d.agents].sort(byName);

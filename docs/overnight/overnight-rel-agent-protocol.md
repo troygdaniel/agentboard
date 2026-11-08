@@ -73,7 +73,9 @@ In the headless-Chrome check the strip listed vanished, stuck, claimed-idle, spl
 ## Test runs
 
 - `tests/test_watchdog.py`: 13 tests OK (under a second).
-- Full public suite on this branch: see the line ORCH gets with the hash (the run is appended below when it finishes).
+- Full public suite on this branch: 1248 passed, 1 failed (01:15 on Nov 8): the one failure was `test_load_align`, which pins the
+  HUD's exact markup and did not know the strip; it is updated in the branch's second commit and passes alone and in the follow-up
+  branch's run.
 - `python3 tests/publiccheck.py`: 0 findings.
 
 ## Risks

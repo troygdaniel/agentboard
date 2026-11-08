@@ -399,6 +399,7 @@ Rename this session to ORCH (`/rename ORCH`). You are a fresh or /clear'ed Claud
     {ab} update <id> <percent> "<status line>"
     {ab} done <id>                                          # only when {owner} says so
     {ab} list                                               # all open cards (--status doing, --stale)
+    {ab} watchdog                                           # a card looks stuck? every way the board is stuck between agents, each with its fix (--fix N)
 
 ## Peers
 

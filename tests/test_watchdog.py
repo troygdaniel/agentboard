@@ -273,3 +273,38 @@ class OverHttp(_Http):
         self.assertEqual(self.s.get(self.s.load(), "queued")["status"], "todo")
         d = json.loads(self.get("/api/hud")[1])
         self.assertNotIn("claimed-idle", [f["kind"] for f in d["watchdog"]])
+
+
+class TheBoardPageAndThePrompts(Base):
+    """overnight-rel-agent-protocol-2: the same strip under the Board's Doing header, fed by /api/tasks; ORCH's prompt and the agent
+    instructions name the command."""
+
+    def test_the_board_page_builds_the_strip_from_the_tasks_feed(self):
+        page = (Path(server.__file__).parent / "static" / "index.html").read_text()
+        for needle in ("boardDog = j.watchdog || [];", "const dog = k === 'doing' && !BYAGENT ? dogHtml(boardDog) : '';", "function dogHtml(items)",
+                       '<div class="h-dog board-dog" aria-label="Stuck between agents">', ".col .board-dog {", "dogKey = ''; raw = '';"):
+            self.assertIn(needle, page)
+
+    def test_orch_and_the_instructions_name_the_watchdog(self):
+        from agentboard import prompt
+        self.assertIn("watchdog                                           # a card looks stuck?", prompt.ORCH_TEMPLATE)
+        self.assertIn("`agentboard watchdog` lists every such case with its one fix", cli.INSTRUCTIONS)
+        self.assertIn("Never `--force` past another agent's claim", cli.INSTRUCTIONS)
+        code, out, err = self.run_cli("instructions")
+        self.assertIn("agentboard watchdog", out)
+
+
+class TasksFeed(_Http):
+    def test_api_tasks_carries_the_findings_only_when_there_are_some(self):
+        d = json.loads(self.get("/api/tasks")[1])
+        self.assertNotIn("watchdog", d)
+        self.s.add("Queued work", task_id="queued")
+        self.s.claim("queued", "AGENT-2")
+        old = (datetime.now() - timedelta(hours=3)).strftime("%Y-%m-%dT%H:%M:%S")
+        with self.s.transaction() as tasks:
+            for t in tasks:
+                if t["id"] == "queued":
+                    t["updated"] = old
+                    t["log"][-1]["at"] = old
+        d = json.loads(self.get("/api/tasks")[1])
+        self.assertIn("claimed-idle", [f["kind"] for f in d["watchdog"]])

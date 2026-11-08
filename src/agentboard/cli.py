@@ -907,6 +907,10 @@ Declare a task is blocked by another so parallel agents don't collide on orderin
 
 The card shows a lock with a link to each unresolved blocker; it clears on its own once the blocker is marked done.
 
+A card that looks stuck (claimed and never worked, a holder that vanished, two cards for one piece of work, a subtask whose parent is
+gone)? `agentboard watchdog` lists every such case with its one fix, and `--fix N` does it. Never `--force` past another agent's claim
+to get moving: release it through the watchdog (or ask your orchestrator) so the history says what happened.
+
 ## Sync
 
 Block until another task reaches a point you need, instead of polling `list` or pinging chat:

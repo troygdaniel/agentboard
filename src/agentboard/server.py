@@ -258,6 +258,9 @@ def make_handler(default_store, port):
                         d["subs"] = lists[t["id"]]
                     slim.append(d)
                 out = {"tasks": slim}
+                dog = watchdog.findings(self.store, stale_min=hud.stale_minutes(_config(self.store)))   # the ways the board is stuck between agents (the Board's strip)
+                if dog:
+                    out["watchdog"] = dog
                 ps = plugins.state(self.store)   # what each allowed plugin reports for the page; no "plugins" key at all with none
                 if ps:
                     out["plugins"] = ps
