@@ -349,15 +349,19 @@ def uninstall(project_dir):
 
 def write_settings(p, text):
     """Write a Claude Code settings file the safe way: through a temp file in the same folder, flushed, then renamed over the target, so a
-    failure (disk full, a kill) leaves the old file whole, never a truncated one; the original is kept as <file>.bak; the file's mode is
-    kept (a new file is 0600); a symlinked settings.json (dotfiles) stays a symlink and its target is rewritten. The user's own
-    ~/.claude/settings.json holds permissions, env and other hooks, so this matters there most (the chat security review, Nov 8)."""
+    failure (disk full, a kill) leaves the old file whole, never a truncated one; the file as it was before agentboard ever touched it is
+    kept once as <file>.orig (never overwritten), and the version before the last write as <file>.bak; the file's mode is kept (a new
+    file is 0600); a symlinked settings.json (dotfiles) stays a symlink and its target is rewritten. The user's own ~/.claude/settings.json
+    holds permissions, env and other hooks, so this matters there most (the chat security review, Nov 8)."""
     import tempfile
     p = Path(p)
     target = p.resolve() if p.is_symlink() else p
     mode = None
     if target.exists():
         mode = os.stat(target).st_mode & 0o777
+        if not os.path.exists(f"{target}.orig"):   # the pristine file, once: a later install or uninstall never replaces it
+            with contextlib_suppress(OSError):
+                shutil.copy2(target, f"{target}.orig")
         with contextlib_suppress(OSError):
             shutil.copy2(target, f"{target}.bak")
     fd, tmp = tempfile.mkstemp(dir=target.parent, prefix=f".{target.name}-", suffix=".tmp")

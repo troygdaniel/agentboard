@@ -66,9 +66,16 @@ class TheSettingsFileIsWrittenSafely(Base):
         self.assertEqual(d["permissions"], {"allow": ["Bash(ls)"]})
         self.assertIn("Stop", d["hooks"])
         self.assertEqual([x.name for x in self.p.parent.iterdir() if x.name.endswith(".tmp")], [])
+        orig = self.p.parent / "settings.json.orig"
+        self.assertEqual(json.loads(orig.read_text()), {"permissions": {"allow": ["Bash(ls)"]}})   # the pristine file, kept once
         hooks.uninstall(self.proj)
         self.assertEqual(json.loads(self.p.read_text()), {"permissions": {"allow": ["Bash(ls)"]}})
         self.assertIn("Stop", (self.p.parent / "settings.json.bak").read_text())   # the .bak is the version before the last write
+        self.assertEqual(json.loads(orig.read_text()), {"permissions": {"allow": ["Bash(ls)"]}})   # the .orig is not
+        with mock.patch("agentboard.hooks.shutil.which", return_value="/opt/other/agentboard"):
+            hooks.install(self.proj, self.s.dir)   # a reinstall with a moved agentboard rewrites the commands
+        self.assertEqual(json.loads(orig.read_text()), {"permissions": {"allow": ["Bash(ls)"]}})   # still pristine after a second install
+        self.assertIn("/opt/other/agentboard", self.p.read_text())
 
     def test_a_new_file_is_private_and_a_failed_write_leaves_the_old_one_whole(self):
         with mock.patch("agentboard.hooks.shutil.which", return_value="/opt/ab/agentboard"):
