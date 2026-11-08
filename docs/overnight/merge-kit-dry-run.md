@@ -75,6 +75,29 @@ tables, which enumerate the modules allowed to start a program and the POST rout
 failure is the open settings-mode item). The authors of the four late branches rebase onto it tonight; the 05:30 kit run then merges
 the eleven and the rebased four in one pass.
 
+## The 04:25 full run: eleven plus the four rebased late branches, a suite after each merge
+
+All four late branches were rebased onto `combined-11` by 04:20 (agent-prompts 63909aa, config-validation 580059f, perf-scale fd03e24,
+server-lifecycle 6f2bb0d), so the full run started then instead of 05:30. Per merge (main f360942 as the base):
+
+| step | branch | suite after the merge |
+|---|---|---|
+| 1, 2 | ux-visual-polish, visual-polish-3 | 1332, 1346 passed |
+| 3 | sec-signoff-pack, **which by then sat on combined-11** (59b848e) | 1586 passed, 1 failed: the settings-mode item. Because the tip carried the whole combined tree, steps 4 to 11 read "nothing ahead" (the kit now merges a branch based on combined-11 after the rest; the per-branch resolutions were exercised in the 01:50 and 04:00 passes) |
+| 13 | agent-prompts 63909aa | 1623 passed, 1 failed (the same item) |
+| 14 | config-validation 580059f | 1638 passed, 1 failed (the same item) |
+| 15 | perf-scale fd03e24 | 1644 passed, 1 failed (the same item); CHANGELOG by the kit |
+| 17 | server-lifecycle 6f2bb0d | **13 failed**, 1641 passed: every `GET /api/hud` answers 500 |
+
+The one real cross-branch bug of the night: `server-lifecycle`'s `/api/health` route does `import os` inside the GET router; `perf-scale`
+imports `os` at the module top and calls `os.stat` earlier in the same function, so the local import makes `os` a function local there and
+`/api/hud` raises `UnboundLocalError`. Fix: one line on the lifecycle branch (drop the local import; `os` is imported at the top). AGENT-1
+has it; `_after_all.py` carries the same change as a stopgap, so the kit's tree is green meanwhile. The run itself then tripped over a
+bash 3.2 parse quirk in the kit's own summary (parentheses inside a command substitution), fixed in 415e78e; the table above is from
+its log.
+
+The settings-mode item is closed by the sign-off pack's f23d1e8 (the table row now says what `write_settings` does).
+
 ## What the morning still decides (from AGENT-8's review, unchanged by this)
 
 - `overnight-rel-agent-protocol-3` is a protocol change (reports only on the card you hold): merge with -2, or merge -2 alone.

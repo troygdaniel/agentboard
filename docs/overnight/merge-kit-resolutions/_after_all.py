@@ -123,4 +123,17 @@ def selfcheck_tables():
         p.write_text(s)
         print("selfcheck.py: " + "; ".join(changed))
 
-arch(); signoff_table(); selfcheck_tomllib(); doctor_cap(); docs_index(); selfcheck_tables()
+def server_os_import():
+    """server-lifecycle's /api/health does `import os` inside the GET router; perf-scale imports os at the module top and calls os.stat
+    earlier in the same function, so the local import makes `os` a function local and every /api/hud raises UnboundLocalError. The
+    module-level import is kept and the local one dropped (the author's one-line fix; this is the stopgap until it lands)."""
+    p = ROOT / "src" / "agentboard" / "server.py"
+    if not p.exists():
+        return
+    s = p.read_text()
+    if re.search(r"^import os$", s, re.M) and re.search(r"^\s+import os$", s, re.M):
+        s2 = re.sub(r"^\s+import os\n", "", s, flags=re.M)
+        p.write_text(s2)
+        print("server.py: a local `import os` inside the router dropped (os is imported at the top)")
+
+arch(); signoff_table(); selfcheck_tomllib(); doctor_cap(); docs_index(); selfcheck_tables(); server_os_import()
