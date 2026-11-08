@@ -2,6 +2,7 @@
 panes and a plugin's register through one call, a tab with nothing in it is not drawn, the last tab is remembered, #settings/<tab> opens it, the tab list
 is a real tablist. Nothing the old sheet held was removed or renamed: every id and heading is still there, in a pane. The page script is syntax-checked
 with Node when it is installed (a duplicate declaration once blanked the whole page)."""
+import json
 import re
 import shutil
 import subprocess
@@ -114,7 +115,7 @@ class TheMemoryTheLinkAndTheKeys(unittest.TestCase):
         a, b = HTML.index("else if (/^#settings(\\/|$)/.test(location.hash)) toggleMix(true"), HTML.index("else if (location.hash.length > 1) openPanel(")
         self.assertLess(a, b)
         self.assertIn("addEventListener('hashchange', () => { if (/^#settings(\\/|$)/.test(location.hash)) toggleMix(true, hashTab() || undefined); });", HTML)
-        self.assertIn("history.replaceState(null, '', location.pathname + location.search + '#settings/' + t.id);", HTML)   # no history entry per tab
+        self.assertIn("if (mixIsOpen() && !o.keepHash) history.replaceState(null, '', location.pathname + location.search + '#settings/' + t.id);", HTML)   # no history entry per tab
         self.assertIn("history.replaceState(null, '', location.pathname + location.search); $('cfg-btn').focus();", HTML)   # closing clears the hash
 
     def test_the_tab_list_is_a_real_tablist_with_arrows_home_and_end(self):
@@ -124,7 +125,8 @@ class TheMemoryTheLinkAndTheKeys(unittest.TestCase):
         self.assertIn("e.preventDefault(); e.stopPropagation(); selectSettingsTab(tabs[j].dataset.tab, { focus: true });", HTML)   # the board's arrow shortcuts must not also run
 
     def test_opening_focuses_the_selected_tab_and_closing_returns_to_the_gear(self):
-        self.assertIn("selectSettingsTab(tabId || hashTab() || rememberedSettingsTab() || 'general', { focus: true });", HTML)
+        self.assertIn("wantSettingsTab(tabId || hashTab(), { focus: true });", HTML)
+        self.assertIn("else selectSettingsTab(id || rememberedSettingsTab() || 'general', o);", HTML)
         self.assertIn("$('cfg-btn').focus();", HTML)
 
     def test_the_slash_is_the_search_box_while_the_sheet_is_open(self):
@@ -133,6 +135,23 @@ class TheMemoryTheLinkAndTheKeys(unittest.TestCase):
     def test_the_first_escape_clears_the_search_and_the_next_closes_the_sheet(self):
         self.assertIn("else if (e.key === 'Escape' && e.target.value) { e.preventDefault(); e.stopPropagation(); setSearch('');", HTML)
         self.assertIn("if (mixIsOpen()) { toggleMix(false); return; }", HTML)
+
+
+class ThePendingTab(unittest.TestCase):
+    """AGENT-6's render check: on a cold first load /#settings/texts opened on General and rewrote the hash, because the page read the hash (~30 ms) before the
+    home plugin's script registered the Texts tab (~130 ms). A tab asked for before it exists is now remembered and selected the moment it has something."""
+
+    def test_an_unknown_tab_is_remembered_and_the_hash_is_left_alone(self):
+        self.assertIn("let pendingSettingsTab = null;", HTML)
+        self.assertIn("if (id && !known) { pendingSettingsTab = id; selectSettingsTab(null, { ...o, keepHash: true }); }", HTML)
+        self.assertIn("if (!o.keepHash) pendingSettingsTab = null;", HTML)   # the person choosing a tab, or the tab arriving, ends the wait
+
+    def test_the_tab_is_selected_when_it_first_has_something_and_only_then_is_the_hash_written(self):
+        self.assertIn("if (pendingSettingsTab && vis.some(t => t.id === pendingSettingsTab)) selectSettingsTab(pendingSettingsTab);", HTML)
+        self.assertIn("else selectSettingsTab(vis.some(t => t.id === cur) ? cur : vis[0]?.id, { keepScroll: true, keepHash: !!pendingSettingsTab });", HTML)
+
+    def test_a_search_hit_puts_focus_on_the_setting(self):
+        self.assertIn("h.row.querySelector('input, button, select')?.focus({ preventScroll: true });", HTML)
 
 
 class TheSearch(unittest.TestCase):
@@ -151,6 +170,30 @@ class TheSearch(unittest.TestCase):
     def test_the_search_box_names_its_active_result_for_a_screen_reader(self):
         self.assertIn("box.setAttribute('aria-activedescendant', 'hit-0')", HTML)
         self.assertIn('role="option" id="hit-${i}"', HTML)
+
+
+class TheFocusStaysInTheSheet(unittest.TestCase):
+    """AGENT-6's render check: Tab from the last control landed on the page behind the dialog, and Shift+Tab from the close button on the toast's Undo."""
+
+    def test_the_sheet_wraps_tab_and_shift_tab(self):
+        self.assertIn("$('mix').addEventListener('keydown', e => {", HTML)
+        self.assertIn("if (e.key !== 'Tab') return;", HTML)
+        self.assertIn("const t = settingsTrapTarget(items, document.activeElement, e.shiftKey);", HTML)
+        self.assertIn("if (t) { e.preventDefault(); t.focus(); }", HTML)
+
+    @unittest.skipUnless(shutil.which("node"), "node is not installed: the wrap is checked as text only")
+    def test_the_wrap_logic_in_node(self):
+        fn = re.search(r"function settingsTrapTarget\(items, active, shift\) \{.*?\n\}\n", HTML, re.S).group(0)
+        script = fn + """
+const a = { n: 'close' }, b = { n: 'search' }, c = { n: 'last' }, out = x => x && x.n;
+const items = [a, b, c];
+console.log(JSON.stringify([out(settingsTrapTarget(items, c, false)), out(settingsTrapTarget(items, a, true)), out(settingsTrapTarget(items, b, false)), out(settingsTrapTarget(items, b, true)),
+  out(settingsTrapTarget(items, { n: 'behind' }, false)), out(settingsTrapTarget(items, { n: 'behind' }, true)), out(settingsTrapTarget([], a, false)), out(settingsTrapTarget([a], a, false)), out(settingsTrapTarget([a], a, true))]));
+"""
+        r = subprocess.run(["node", "-e", script], capture_output=True, text=True, timeout=30)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        # Tab from the last wraps to the first; Shift+Tab from the first to the last; inside the list it moves as usual (null); from outside it comes in
+        self.assertEqual(json.loads(r.stdout), ["close", "last", None, None, "close", "last", None, "close", "close"])
 
 
 class TheNewRows(unittest.TestCase):

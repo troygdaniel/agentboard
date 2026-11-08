@@ -51,7 +51,7 @@ class HeaderTests(unittest.TestCase):
         self.assertIn("#theme, #cfg-btn, #help-btn { width: 44px; height: 44px;", HTML)
         self.assertEqual(ICONS.count('id="cfg-btn"'), 1)
         self.assertIn("$('cfg-btn').onclick = () => toggleMix();", HTML)
-        self.assertIn("selectSettingsTab(tabId || hashTab() || rememberedSettingsTab() || 'general', { focus: true });", HTML)   # opening focuses the selected tab (Nov 8: Settings in tabs)
+        self.assertIn("wantSettingsTab(tabId || hashTab(), { focus: true });", HTML)   # opening focuses the selected tab (Nov 8: Settings in tabs)
         self.assertIn("$('cfg-btn').focus();", HTML)                                                                   # closing returns to the gear
 
 

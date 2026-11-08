@@ -34,5 +34,6 @@ The "before" is the old sheet's first screen; the rest of it scrolled.
 ## Try it
 
 `tools/tabs_live_check.py` drives a running board (default `http://127.0.0.1:8795/`, set `AB_URL`) through the checks above and prints one line each;
+`tools/tabs_focus_and_deeplink_check.py` checks that Tab and Shift+Tab never leave the sheet and that `/#settings/<tab>` waits for a tab a plugin registers late (AGENT-6's two findings);
 `tools/tabs_shots.py <prefix> <outdir> [url]` takes the screenshots (it registers the simulated Texts tab itself). Both need
 `pip3 install --target /tmp/qa_pylibs websocket-client` and a throwaway board (`AGENTBOARD_DIR` elsewhere, made-up cards).

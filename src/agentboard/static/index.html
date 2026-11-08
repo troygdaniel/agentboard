@@ -3818,7 +3818,7 @@ function toggleMix(on, tabId) {
   if (open !== mixIsOpen()) touch('slide', open);
   if (open) { renderMix(); renderSettingsPanes(); } else stopDemo();
   $('mix').classList.toggle('on', open);
-  if (open) { setSearch(''); selectSettingsTab(tabId || hashTab() || rememberedSettingsTab() || 'general', { focus: true }); }
+  if (open) { setSearch(''); wantSettingsTab(tabId || hashTab(), { focus: true }); }
   else { if (/^#settings(\/|$)/.test(location.hash)) history.replaceState(null, '', location.pathname + location.search); $('cfg-btn').focus(); }
 }
 // --- Settings in tabs (settings-ui-tabs, docs/settings-tabs-design.md). The core panes and a plugin's register through one call, settingsTab(),
@@ -3834,6 +3834,7 @@ const SET_ICON = {
   more: '<svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="3.5" cy="8" r="1.2" fill="currentColor"/><circle cx="8" cy="8" r="1.2" fill="currentColor"/><circle cx="12.5" cy="8" r="1.2" fill="currentColor"/></svg>',
 };
 let setTabsSig = '';
+let pendingSettingsTab = null;   // a tab asked for (a deep link, openSettings) before its plugin registered it: selected the moment it has something, the hash left alone until then
 function settingsTab(id, label, o = {}) {   // the pane for `id` (the same element every time); a plugin appends its rows to it
   let t = setTabs.find(x => x.id === id);
   if (!t) {
@@ -3855,9 +3856,17 @@ function syncSettingsTabs() {   // draw the tab list from the tabs that have som
   setTabsSig = sig;
   const cur = $('mix-tabs').querySelector('[aria-selected="true"]')?.dataset.tab;
   $('mix-tabs').innerHTML = vis.map(t => `<button class="tab" type="button" role="tab" id="stab-${esc(t.id)}" data-tab="${esc(t.id)}" aria-controls="pane-${esc(t.id)}" aria-selected="false" tabindex="-1">${t.icon}<span>${esc(t.label)}</span>${t.badge ? '<i class="dot" aria-hidden="true"></i><span class="sr"> needs a look</span>' : ''}</button>`).join('');
-  if (mixIsOpen()) selectSettingsTab(vis.some(t => t.id === cur) ? cur : vis[0]?.id, { keepScroll: true });
+  if (!mixIsOpen()) return;
+  if (pendingSettingsTab && vis.some(t => t.id === pendingSettingsTab)) selectSettingsTab(pendingSettingsTab);   // the tab asked for has arrived
+  else selectSettingsTab(vis.some(t => t.id === cur) ? cur : vis[0]?.id, { keepScroll: true, keepHash: !!pendingSettingsTab });
+}
+function wantSettingsTab(id, o = {}) {   // select `id` now if it exists; else remember it, show the remembered tab and leave the hash as it is
+  const known = !!id && setTabs.some(t => t.id === id && t.has());
+  if (id && !known) { pendingSettingsTab = id; selectSettingsTab(null, { ...o, keepHash: true }); }
+  else selectSettingsTab(id || rememberedSettingsTab() || 'general', o);
 }
 function selectSettingsTab(id, o = {}) {
+  if (!o.keepHash) pendingSettingsTab = null;   // the person chose a tab, or the tab asked for has arrived
   const vis = setTabs.filter(t => t.has());
   const t = vis.find(x => x.id === id) || vis.find(x => x.id === rememberedSettingsTab()) || vis[0];
   if (!t) return;
@@ -3872,10 +3881,24 @@ function selectSettingsTab(id, o = {}) {
   t.pane.querySelectorAll('.mix-about').forEach(a => { if (!a.title) a.title = a.textContent.trim(); });   // a clamped line keeps its whole text one hover away
   if (!o.keepScroll) $('mix-panes').scrollTop = 0;
   try { localStorage.setItem(SET_TAB_KEY, t.id); } catch (e) {}
-  if (mixIsOpen()) history.replaceState(null, '', location.pathname + location.search + '#settings/' + t.id);
+  if (mixIsOpen() && !o.keepHash) history.replaceState(null, '', location.pathname + location.search + '#settings/' + t.id);
 }
 const rememberedSettingsTab = () => { try { return localStorage.getItem(SET_TAB_KEY); } catch (e) { return null; } };
 const hashTab = () => { const m = /^#settings\/([\w-]+)$/.exec(location.hash); return m ? m[1] : null; };
+function settingsTrapTarget(items, active, shift) {   // pure: where Tab goes to stay inside the sheet, or null to let it move as usual
+  if (!items.length) return null;
+  const i = items.indexOf(active);
+  if (i < 0) return shift ? items[items.length - 1] : items[0];
+  if (shift && i === 0) return items[items.length - 1];
+  if (!shift && i === items.length - 1) return items[0];
+  return null;
+}
+$('mix').addEventListener('keydown', e => {   // a modal dialog keeps focus: Tab from the last control wraps to the close button, Shift+Tab from the close button to the last
+  if (e.key !== 'Tab') return;
+  const items = [...$('mix').querySelectorAll('button, input, select, textarea, a[href], [tabindex]')].filter(el => !el.disabled && el.tabIndex >= 0 && el.offsetParent !== null);
+  const t = settingsTrapTarget(items, document.activeElement, e.shiftKey);
+  if (t) { e.preventDefault(); t.focus(); }
+});
 $('mix-tabs').addEventListener('click', e => { const b = e.target.closest('[role="tab"]'); if (b) selectSettingsTab(b.dataset.tab); });
 $('mix-tabs').addEventListener('keydown', e => {   // a real tablist: one tab stop, the arrows move and select, Home and End go to the ends
   const tabs = [...$('mix-tabs').querySelectorAll('[role="tab"]')], i = tabs.indexOf(document.activeElement);
@@ -3947,6 +3970,7 @@ function openHit(i) {
   const h = searchHits[i]; if (!h) return;
   setSearch(''); selectSettingsTab(h.tab.id);
   h.row.scrollIntoView({ block: 'start' });
+  h.row.querySelector('input, button, select')?.focus({ preventScroll: true });   // focus lands on the setting itself
   h.row.classList.remove('flash'); void h.row.offsetWidth; h.row.classList.add('flash');
   setTimeout(() => h.row.classList.remove('flash'), 1400);
 }
