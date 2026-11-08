@@ -80,9 +80,9 @@ class MirrorTests(Base):
         m = hooks.mirror_send_message(self.s, dict(PAYLOAD, session_id="sid-orch"))
         self.assertEqual(m["sender"], "ORCH")
 
-    def test_unknown_session_gets_a_handle_and_agentboard_name_wins(self):
-        m = hooks.mirror_send_message(self.s, PAYLOAD)
-        self.assertEqual(m["sender"], "session-59fd15")
+    def test_an_unknown_session_is_not_mirrored_and_agentboard_name_wins(self):
+        self.assertIsNone(hooks.mirror_send_message(self.s, PAYLOAD))   # the board never heard of this session: nothing is posted (a user-level hook runs in every project)
+        self.assertEqual(hooks.resolve_sender(self.s.dir, PAYLOAD), "session-59fd15")   # the handle still exists for `me`
         os.environ["AGENTBOARD_NAME"] = "AGENT-4"
         self.assertEqual(hooks.mirror_send_message(self.s, PAYLOAD)["sender"], "AGENT-4")
 
@@ -96,11 +96,13 @@ class MirrorTests(Base):
 
     def test_mirrored_lines_are_not_inbox_news_and_show_in_the_terminal_as_mirrored(self):
         from agentboard import agentchat
+        os.environ["AGENTBOARD_NAME"] = "AGENT-4"   # a session the board knows (an unknown one is not mirrored)
         m = hooks.mirror_send_message(self.s, PAYLOAD)
         self.assertNotIn(m["seq"], [x["seq"] for x in self.s.chat_inbox("AGENT-2")])   # it already has the private message
         self.assertIn("(mirrored)", agentchat.chat_line(m))
 
     def test_the_hook_command_never_fails_the_agent(self):
+        os.environ["AGENTBOARD_NAME"] = "AGENT-4"
         code, out = self.run_cli("hook", "send-message", stdin=json.dumps(PAYLOAD))
         self.assertIsNone(code)
         self.assertEqual(out, "")
