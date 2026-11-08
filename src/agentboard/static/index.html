@@ -1033,7 +1033,7 @@
   /* the pill at the top of an open card is the way into its agent's thread; the lane's name on By agent too */
   .p-who .agent-pill[data-thread] { background: none; border: 0; padding: 0; cursor: pointer; border-radius: 999px; }
   .p-who .agent-pill[data-thread]:hover .name { text-decoration: underline; text-underline-offset: 2px; }
-  .col.acol h2 .nm[data-thread] { background: none; border: 0; padding: 0; font: inherit; color: inherit; cursor: pointer; text-align: left; }
+  .col.acol h2 .nm[data-thread] { background: none; border: 0; padding: 0; font: inherit; color: inherit; cursor: pointer; text-align: left; min-height: 24px; }   /* a 24px target: it was 20px */
   .col.acol h2 .nm[data-thread]:hover { text-decoration: underline; text-underline-offset: 2px; }
   /* the Terminal tab (Nov 6): the same panel, the raw session read as it scrolls. Read only in this version */
   #thread .p-head, #chat .p-head { flex-wrap: wrap; }
@@ -1082,7 +1082,7 @@
     background: var(--surface); border: 1px solid color-mix(in srgb, var(--warn) 45%, var(--line)); box-shadow: var(--shadow-hover); }
   #error.on { display: flex; }
   #error span { min-width: 0; overflow-wrap: anywhere; }
-  #error button { background: none; border: 0; color: var(--muted); font: inherit; font-size: var(--fs-lg); line-height: 1; cursor: pointer; padding: 2px 6px; border-radius: 6px; }
+  #error button { background: none; border: 0; color: var(--muted); font: inherit; font-size: var(--fs-lg); line-height: 1; cursor: pointer; padding: 2px 6px; border-radius: 6px; min-width: 24px; min-height: 24px; }   /* a 24px target: it was 21x19 */
   #error button:hover { color: var(--text); background: var(--chip); }
   /* quick replies: the options in the question as one-tap chips (red ring = an option the agent named), then the three
      that fit any ask; the typed box stays beside them. Same chips on the card and the panel. */
@@ -1093,8 +1093,8 @@
   .qr-ch:hover { border-color: var(--neutral); background: var(--surface); }
   .qr-ch.opt { border-color: color-mix(in srgb, var(--err) 45%, var(--line)); color: var(--err); }
   .qr-ch.opt::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--err); opacity: .8; flex: none; }
-  .qr-ch.ok { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 45%, var(--line)); }
-  .qr-ch.hold { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 45%, var(--line)); }
+  .qr-ch.ok { color: color-mix(in srgb, var(--ok) 78%, var(--text)); border-color: color-mix(in srgb, var(--ok) 45%, var(--line)); }   /* mixed toward the text: 4.41 and 4.42:1 on the chip in light, now over 4.5 */
+  .qr-ch.hold { color: color-mix(in srgb, var(--warn) 78%, var(--text)); border-color: color-mix(in srgb, var(--warn) 45%, var(--line)); }
   .qr-ch:disabled { opacity: .6; cursor: default; }
   .qr form { flex: 1; min-width: 150px; display: flex; gap: 6px; margin: 0; }
   .qr form input { flex: 1; min-width: 0; min-height: 28px; border: 1px solid var(--line); border-radius: 8px; padding: 3px 10px; font: inherit; font-size: var(--fs-sm); background: var(--surface); color: var(--text); }

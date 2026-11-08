@@ -17,7 +17,13 @@ _ALL = {
     "later": (BOARD, "document.getElementById('later-btn').click()", "document.getElementById('later-close')?.click()"),
     "settings": (BOARD, "document.getElementById('cfg-btn').click()", "document.getElementById('cfg-btn').click()"),
     "byagent": (BOARD + "agents", "", ""),
-    "load": (BOARD, "document.getElementById('hud-btn').click()", "location.hash=''"),
+    "load": (BOARD + "hud", "", ""),
+    "thread": (BOARD + "agents", "openThread('AGENT-1')", ""),
+    "summary": (BOARD + "summary", "", ""),
+    "reports": (BOARD + "reports", "", ""),
+    "report": (BOARD + "reports", "location.href = document.querySelector('a[href^=\"/reports/\"]').href", ""),
+    "shortcuts": (BOARD, "document.dispatchEvent(new KeyboardEvent('keydown', { key: '?', shiftKey: true, bubbles: true }))", ""),
+    "error": (BOARD, "showError('Could not send: the board did not answer')", ""),
 }
 VIEWS = {k: v for k, v in _ALL.items() if not ONLY or k in ONLY}
 prof = tempfile.mkdtemp(prefix="polish-chrome-")

@@ -13,7 +13,7 @@ LOGO = ('<svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden
 # left and 21px down to a 44px row, the brand takes a fixed 106px slot, so the tab row starts at 148px across and 24px down, the same size
 # and the same widths whichever tab is lit (the lit one changes colour and ring, never weight).
 CSS = (".ab-top{display:flex;align-items:center;gap:8px 14px;flex-wrap:wrap;padding:21px 28px 14px;min-height:44px;box-sizing:content-box;border-bottom:1px solid var(--line);background:var(--bg)}"
-       ".ab-brand{display:inline-flex;align-items:center;gap:9px;flex:0 0 106px;font-weight:600;font-size:15px;line-height:1.5;color:var(--fg);text-decoration:none;letter-spacing:-.015em}"
+       ".ab-brand{display:inline-flex;align-items:center;gap:9px;flex:0 0 106px;min-height:24px;font-weight:600;font-size:15px;line-height:1.5;color:var(--fg);text-decoration:none;letter-spacing:-.015em}"
        ".ab-tabs{display:inline-flex;gap:2px;margin:3px 0;padding:3px;border:1px solid var(--line);border-radius:10px;background:var(--card)}"
        ".ab-tabs .tab{display:inline-flex;align-items:center;min-height:30px;padding:0 12px;border-radius:7px;font-size:14px;font-weight:400;color:var(--mut);text-decoration:none;white-space:nowrap}"
        ".ab-tabs .tab:hover{color:var(--fg);background:var(--bg)}.ab-tabs .tab.on{color:var(--fg);background:var(--bg);box-shadow:inset 0 0 0 1px var(--line)}"

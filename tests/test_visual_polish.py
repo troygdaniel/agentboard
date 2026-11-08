@@ -56,6 +56,63 @@ class TheAudit(unittest.TestCase):
         self.assertNotIn(".mix-row.lv > span:first-child { width", HTML)
 
 
+def _luminance(color):
+    h = color.lstrip("#")
+    h = "".join(c * 2 for c in h) if len(h) == 3 else h
+    r, g, b = (int(h[i:i + 2], 16) / 255 for i in (0, 2, 4))
+    f = lambda v: v / 12.92 if v <= .03928 else ((v + .055) / 1.055) ** 2.4
+    return .2126 * f(r) + .7152 * f(g) + .0722 * f(b)
+
+
+def _ratio(a, b):
+    x, y = sorted((_luminance(a), _luminance(b)), reverse=True)
+    return (x + .05) / (y + .05)
+
+
+def _tokens(block):
+    return dict(re.findall(r"--([a-z-]+):(#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3})(?![0-9a-fA-F])", block))
+
+
+class TheReportPagesKeepTheirContrast(unittest.TestCase):
+    """The server-rendered pages (a card's report, the reports list, the summary) carry their own tokens. Mark done was white on mint, 2.22:1, in dark."""
+
+    def setUp(self):
+        from agentboard import reports
+        css = reports.CSS
+        self.light = _tokens(re.search(r"^:root\{color-scheme:light dark;([^}]*)\}", css, re.M).group(1))
+        self.dark = _tokens(re.search(r"prefers-color-scheme:dark\)\{:root:not\(\[data-theme=\"light\"\]\)\{([^}]*)\}", css).group(1))
+        self.dark_forced = _tokens(re.search(r"^:root\[data-theme=\"dark\"\]\{color-scheme:dark;([^}]*)\}", css, re.M).group(1))
+        self.css = css
+
+    def test_the_dark_theme_is_defined_the_same_way_twice(self):
+        self.assertEqual(self.dark, self.dark_forced)
+
+    def test_mark_done_text_clears_4_5_on_its_green_in_both_themes(self):
+        for name, t in (("light", self.light), ("dark", self.dark)):
+            self.assertGreaterEqual(_ratio(t["on-ok"], t["ok"]), 4.5, name)
+        self.assertIn("button.go{background:var(--ok);color:var(--on-ok)", self.css)
+
+    def test_links_muted_text_and_the_state_chip_clear_4_5_in_both_themes(self):
+        for name, t in (("light", self.light), ("dark", self.dark)):
+            for fg, bg in (("ac", "bg"), ("ac", "card"), ("mut", "bg"), ("mut", "card"), ("ok", "card"), ("err", "bg")):
+                self.assertGreaterEqual(_ratio(t[fg], t[bg]), 4.5, f"{name}: --{fg} on --{bg}")
+
+    def test_the_brand_link_is_a_24px_target(self):
+        from agentboard import nav
+        self.assertIn("min-height:24px", re.search(r"\.ab-brand\{([^}]*)\}", nav.CSS).group(1))
+
+
+class TheBoardKeepsSmallControlsReachable(unittest.TestCase):
+    def test_the_error_close_and_the_lane_names_are_24px_targets(self):
+        self.assertIn("min-height: 24px", rule("#error button"))
+        self.assertIn("min-width: 24px", rule("#error button"))
+        self.assertIn("min-height: 24px", rule(".col.acol h2 .nm[data-thread]"))
+
+    def test_the_go_ahead_and_hold_pills_mix_toward_the_text_for_contrast(self):
+        for sel, tok in ((".qr-ch.ok", "--ok"), (".qr-ch.hold", "--warn")):
+            self.assertIn(f"color: color-mix(in srgb, var({tok}) 78%, var(--text))", rule(sel))
+
+
 class ThePhoneHeader(unittest.TestCase):
     def test_it_is_three_rows_not_four(self):
         # at 390 wide the header was logo + tabs, Later alone, the counts, the icons alone: 185px. Later now shares a row with the icons
