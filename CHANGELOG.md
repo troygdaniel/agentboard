@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### `agentboard doctor` and the repo guard read one set of rules, so the doctor's standing FAIL on fixtures is gone (Nov 8)
+- The doctor's `tracked files` scan and `tests/publiccheck.py` carried two copies of the secret shapes and the allow rules, and they disagreed: the doctor showed a FAIL all day on seven fixture keys inside tests that the guard, rightly, allowed (plain words after `sk-`, the song's phone number, a key of one repeated letter). A standing FAIL trains people to ignore the doctor. Both now read `src/agentboard/repoguard.py`: the same shapes (keys, tokens, private keys, Authorization headers, assigned secrets, phone numbers, emails, home paths, the owner's private words) and the same allow rules. A real-looking key still FAILs wherever it sits, a test file included; a fixture the guard lets through is a PASS. The doctor's kind names are now the guard's (`aws-key`, `assigned-secret`, `phone number`); emails and home paths, which only the guard checked before, are WARN lines in the doctor too.
+
 ### Five small findings of the Nov 7 merge review (Nov 8)
 - One rule for a hard-off variable: `lockdown.env_on(name, env=None)`; doctor and the plugin gate use it instead of their own copies of
   the off-words. (`rev1107-doctor-dup-env`)

@@ -44,7 +44,7 @@ class TheRepoItself(unittest.TestCase):
 
 class TheScannerSeesEachKind(unittest.TestCase):
     def test_secret_shapes(self):
-        for text, kind in ((AWS, "aws-key"), (SK, "api-key (sk-)"), (GH, "github-token"), (SLACK, "slack-token"), (TWILIO, "twilio-id"),
+        for text, kind in ((AWS, "aws-key"), (SK, "api-key (sk-)"), (GH, "github-token"), (SLACK, "slack-token"), (TWILIO, "account-sid"),
                            (PKEY, "private-key"), (AUTH, "auth-header"), (ASSIGNED, "assigned-secret"), (HEX40, "key-word + 40 hex")):
             self.assertIn(kind, kinds(f"x = 1  # {text}  trailing"), kind)
 
