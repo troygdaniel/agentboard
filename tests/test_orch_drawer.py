@@ -33,7 +33,9 @@ class OwnerAddressingTests(unittest.TestCase):
         with self.assertRaises(BoardError):
             self.s.chat_send("ORCH", "take the HUD card", to="AGENT-2")
         with self.assertRaises(BoardError):
-            self.s.chat_send("ORCH", "with detail", to=self.s.owner, detail="the technical part")   # detail is still talk
+            self.s.chat_send("ORCH", "with detail", to="AGENT-2", detail="the technical part")   # detail to an agent is still talk
+        m = self.s.chat_send("ORCH", "with detail", to=self.s.owner, detail="the technical part")   # an answer to the owner never is
+        self.assertEqual(m["detail"], "the technical part")
 
     def test_the_owner_reaches_orch_and_orch_reads_it_from_its_inbox(self):
         self.s.chat_send(self.s.owner, "add a card for the HUD legend", kind="user", to="ORCH")
