@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### An offline install path for a locked-down PC (Nov 8)
+- The README's two install commands both reach PyPI for build tools the first time: pipx upgrades its own pip before it looks at the
+  package (so `pipx install agentboard.whl` fails offline too), and `pip install .` downloads setuptools for its isolated build. On a work
+  PC with no package index neither works. The README now has an "Offline" paragraph: build the pure-Python wheel once on any machine
+  (`python3 -m pip wheel --no-deps -w dist .`), then `python3 -m venv` + `pip install --no-index <wheel>` on the offline one. The wheel is to
+  be attached to every tagged release from here on (release checklist: `rm -rf build && python3 -m pip wheel --no-deps -w dist .`, upload
+  `dist/agentboard-<version>-py3-none-any.whl`). Found by the overnight clean room (`qa-offline-install-needs-index`).
+
 ### A line to a name nobody has is said so (Nov 7)
 - `chat send --to AGENT-33` (or `Agent 3`, or `agent3 ` with a stray space) was accepted without a word, and the sender thought it
   was sent (`tests/chat_repro.py` R6). Known names are ORCH, the owner, every card holder, every chat sender and every listener, any
