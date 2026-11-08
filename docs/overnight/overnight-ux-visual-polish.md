@@ -7,6 +7,11 @@ The board was already in good shape, so this round measured first and changed on
 (board, card panel, ORCH drawer, Later, Settings), and scores contrast (computed colours, alpha-composited), tap targets (counting `::after`
 hit areas), accessible names, horizontal overflow, header height, a keyboard Tab walk, reduced motion and layout shift.
 
+> **Correction (8 Nov).** The audit this page describes only looked inside the first screenful: its visibility test required an element to sit in the
+> viewport, so everything below the fold went unchecked, and the "before" counts below undercount. The cross-review `xr-polish3-summary-link-colour`
+> found one result of that (the Summary page; see `visual-polish-3-audit-and-fix-the-views.md`, which carries the fixed tool and a whole-page re-run of the
+> "after" state over 14 views: 0 contrast failures). The six fixes here stand; the claim that nothing else was wrong does not.
+
 ## What changed
 
 | # | Finding (measured) | Fix |
