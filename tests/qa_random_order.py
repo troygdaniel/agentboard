@@ -15,6 +15,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent / "src"))
 sys.path.insert(0, str(HERE))
+sys.path.insert(0, str(HERE.parent))   # some modules import `tests.x`: `python -m unittest` from the repo root has the root on the path; a script does not
 
 
 def flatten(suite):
@@ -35,7 +36,10 @@ def main(argv):
     bad = 0
     for i in range(runs):
         s = seed if seed is not None else random.SystemRandom().randrange(1_000_000)
-        tests = list(flatten(unittest.defaultTestLoader.discover(str(HERE))))
+        loader = unittest.TestLoader()
+        tests = list(flatten(loader.discover(str(HERE))))
+        for err in loader.errors:   # a module that did not import: say why, not just its name
+            print("  import error:", err.strip().splitlines()[-1][:200])
         random.Random(s).shuffle(tests)
         started = time.time()
         res = unittest.TextTestRunner(stream=open(os.devnull, "w"), verbosity=0).run(unittest.TestSuite(tests))
