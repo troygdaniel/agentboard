@@ -19,6 +19,7 @@ from datetime import datetime
 from pathlib import Path
 
 from . import backup
+from . import statefile
 
 try:
     import fcntl
@@ -33,11 +34,8 @@ def path(board_dir):
 
 
 def _read(board_dir):
-    try:
-        d = json.loads(path(board_dir).read_text())
-        return d if isinstance(d, dict) else {}
-    except (OSError, ValueError):
-        return {}
+    d = statefile.load(path(board_dir), {})
+    return d if isinstance(d, dict) else {}
 
 
 def _write(board_dir, d):

@@ -352,8 +352,14 @@ Everything is one file, `.agentboard/tasks.json`; the browser keeps only your th
 Every save is atomic and keeps the previous version as `tasks.json.bak`. Snapshots land in `.agentboard/backups/` (one an hour,
 kept 48 hours hourly and 30 days daily) whenever the board is saved or `agentboard serve` is running. Set `[backup] sync_dir` in
 `config.toml` to an iCloud Drive or Google Drive folder and the newest snapshot is copied there once a night. The HUD shows the age
-of the newest snapshot. Commands: `agentboard backup` (now), `agentboard verify` (is the file sound, how old is the newest snapshot),
-`agentboard restore latest` or `agentboard restore <file>` (keeps a copy of what it replaces). All local files, no network.
+of the newest snapshot. Commands: `agentboard backup` (now), `agentboard verify` (is the file sound, is `tasks.json.bak`, are the small
+state files beside it valid JSON, any temp file left by an interrupted write, how old is the newest snapshot, and a restore test: the
+newest snapshot put back into a scratch folder must load as a board; `--fix` also removes leftover temp files and sets a state file that
+is not JSON aside as `<name>.broken-<stamp>`), `agentboard restore latest` or `agentboard restore <file>` (keeps a copy of what it
+replaces). The small state files (chat cursors, listeners, sessions) are written the same atomic way and updated under
+a lock, so two agents at once lose nothing and a kill mid-write leaves the old file or the new one; a corrupt one is read as empty until
+the next write. A corrupt `tasks.json` is refused with one line that names the good copy (`.bak` or the newest snapshot, with its card
+count) and the command that restores it. All local files, no network.
 
 `agentboard watchdog` lists every way the board is stuck between agents (a claim nobody worked, a holder that vanished, twin cards, a card
 held by one agent with subtasks held by another, an orphan subtask, two sessions under one name), each with its one fix; `--fix N` (or
