@@ -2,12 +2,12 @@
 zero-width space + " Bearer <token>", passed through whole. It now matches on a copy without them and masks the original by span, so
 ordinary text that uses them (a ZWJ in an emoji, a ZWNJ in Persian, a soft hyphen) is never rewritten."""
 import json
-import time
 import unicodedata
 import unittest
 
 from agentboard import redact, transcript
 from agentboard.store import Store
+from timing import Mixin
 
 import tempfile
 from pathlib import Path
@@ -96,14 +96,11 @@ class SpansLandInTheRightPlace(unittest.TestCase):
         self.assertEqual(redact.scrub(text), "[redacted aws-key]")          # the invisible ones are dropped: this is not prose
 
 
-class StillFast(unittest.TestCase):
+class StillFast(Mixin, unittest.TestCase):
     def test_hostile_amounts_of_invisible_characters(self):
         for name, text in (("only zero-width", "\u200b" * 1_000_000), ("sk- and a zwsp", "sk-\u200b" * 250_000), ("key split by zwsp", ("ke\u200by=" + "a" * 19 + " ") * 25_000),
                            ("just under the limit", ("word " * 200_000)[:900_000] + "\u200b" * (redact.MAX_HIDDEN - 1) + SHAPES["aws"])):
-            t = time.perf_counter()
-            redact.scrub(text)
-            dt = time.perf_counter() - t
-            self.assertLess(dt, 3.0, f"{name}: {dt:.1f}s")
+            self.assertFast(redact.scrub, 3.0, text, msg=name)   # 3 s idle; tests/timing.py stretches it with the load and retries
 
     def test_the_bound_still_applies(self):
         out = redact.scrub("word " * 100 + "\u200b" * 10, bound=50)
@@ -113,10 +110,14 @@ class StillFast(unittest.TestCase):
 class TheSetIsSound(unittest.TestCase):
     def test_everything_it_treats_as_invisible_really_is(self):
         allowed = {"Cc", "Cf", "Co", "Cs", "Mn", "Lo", "So", "Ps"}          # control, format, private, surrogate, and the few invisible fillers and selectors
+        tables = tuple(int(x) for x in unicodedata.unidata_version.split("."))   # 3.11 ships Unicode 14, 3.12 15.0, 3.13 15.1, 3.14 16.0
         allchars = "".join(chr(i) for i in range(0x110000))
         for m in redact._INVISIBLE.finditer(allchars):
             ch = m.group(0)
-            self.assertIn(unicodedata.category(ch), allowed, hex(ord(ch)))
+            cat = unicodedata.category(ch)
+            if cat == "Cn" and tables < (16, 0, 0):   # unassigned to THIS interpreter's tables: a format control newer than them (U+13439 is Unicode 15), checked on 16.0
+                continue
+            self.assertIn(cat, allowed, hex(ord(ch)))
             self.assertNotIn(ch, "\t\n\r ")
 
     def test_the_well_known_ones_are_in(self):

@@ -3,13 +3,13 @@ fullwidth hyphen, passed through whole because the patterns want a plain "-". It
 one, so no position moves) and masks the original by span, so ordinary text that uses them ("pages 3-5" with an en dash) is never rewritten."""
 import json
 import tempfile
-import time
 import unicodedata
 import unittest
 from pathlib import Path
 
 from agentboard import redact, transcript
 from agentboard.store import Store
+from timing import Mixin
 
 # Fakes are assembled from pieces so this file never holds a whole one.
 R = "q3Z7k9M2p5R8t1V4w6Y0a2C4e6G8i0K2m4O6"
@@ -108,15 +108,12 @@ class TheSetIsSound(unittest.TestCase):
             self.assertNotIn(cp, redact._DASHES)
 
 
-class StillFast(unittest.TestCase):
+class StillFast(Mixin, unittest.TestCase):
     def test_hostile_amounts_of_dashes(self):
         en = "–"
         for name, text in (("only en dashes", en * 1_000_000), ("sk and an en dash", ("sk" + en) * 250_000), ("prose with dashes", ("word " + en + " word ") * 100_000),
                            ("key split by dashes", ("ke" + en + "y=" + "a" * 19 + " ") * 25_000)):
-            t = time.perf_counter()
-            redact.scrub(text)
-            dt = time.perf_counter() - t
-            self.assertLess(dt, 3.0, f"{name}: {dt:.1f}s")
+            self.assertFast(redact.scrub, 3.0, text, msg=name)   # 3 s idle; tests/timing.py stretches it with the load and retries
 
     def test_the_bound_still_applies(self):
         out = redact.scrub("word " * 100 + "–" * 10, bound=50)
