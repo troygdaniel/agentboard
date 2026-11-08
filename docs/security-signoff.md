@@ -46,7 +46,7 @@ listing below taken from a throwaway project on 2026-11-07.
 | `config.toml` | providers, switches, phone numbers if you add them | 600 |
 | `.lock` | the write lock | 600 |
 | `sessions.json`, `chat-cursors.json`, `chat-listeners.json`, `server-<pid>.json` | session name per Claude Code id and transcript path; where each agent read to; which wait is running (pid); how the server was started (yes/no flags) | 600 (`serverstate.py:72` uses `O_EXCL\|O_NOFOLLOW`) |
-| `reports/<card>.html`, `runs/<card>/<id>/{run.json,prompt.md,stdout.json,stderr.log}` | a card's finished report; one-shot run records (runs are opt-in) | 600 |
+| `reports/<card>.html`, `runs/<card>/<id>/{run.json,prompt.md,stdout.json,stderr.log}` | a card's finished report; one-shot run records (runs are opt-in) | 600 (folders 700) |
 | `chat-casual.json`, `chat-autopilot.json` | only when the opt-in chat rounds are on | 600 |
 | `<project>/.gitignore` | `init` adds the line `.agentboard/` | your umask (a project file, `private.py:56`) |
 | `<project>/.claude/settings.json` | `hooks install` adds two hook entries (below) | your umask |
