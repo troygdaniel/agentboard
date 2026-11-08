@@ -11,7 +11,7 @@ from pathlib import Path
 from unittest import mock
 
 from agentboard import cli, listeners
-from agentboard.store import Store, _closest_name
+from agentboard.store import BoardError, Store, _closest_name
 
 from tests.test_reports import HttpTests as _Http
 
@@ -31,6 +31,7 @@ class Base(unittest.TestCase):
         self.s.start("Harden webhook retries", "AGENT-3", None)      # a card holder
         self.s.set_chat_agents(True)
         self.s.chat_send("AGENT-1", "a status line")                 # a chat sender
+        self.s.chat_send("R6", "here")                               # the sender of the lines below is on the board too
         listeners.register(self.s.dir, "AGENT-2", "inbox", pid=1)    # a listener
 
     def run_cli(self, *argv):
@@ -44,11 +45,13 @@ class Base(unittest.TestCase):
 
 
 class UnknownNameTests(Base):
-    def test_typos_post_marked_with_the_closest_name_and_real_names_do_not(self):
+    def test_typos_are_refused_for_an_agent_and_marked_for_the_owner_and_real_names_pass(self):
         for typo, close in (("AGENT-33", "AGENT-3"), ("Agent 3", "AGENT-3"), ("agent3 ", "AGENT-3"), ("Bob", None)):
-            m = self.s.chat_send("R6", "hello?", to=typo)
-            self.assertTrue(m.get("to_unknown"), typo)
-            self.assertEqual(m.get("closest"), close, typo)
+            with self.assertRaises(BoardError) as cm:
+                self.s.chat_send("R6", "hello?", to=typo)
+            self.assertIn(f"Closest: {close}" if close else "Names on this board:", str(cm.exception), typo)
+            m = self.s.chat_send(self.s.owner, "hello?", kind="user", to=typo)   # the owner's own typo from the board: posted and marked (the page stops it first)
+            self.assertEqual((m.get("to_unknown"), m.get("closest")), (True, close), typo)
         for real in ("AGENT-3", "agent-3", "AGENT-1", "AGENT-2", "agent-2", "ORCH", "orch", self.s.owner, "the user", "all", "ALL"):
             m = self.s.chat_send("R6", "hello?", to=real)
             self.assertNotIn("to_unknown", m, real)
@@ -56,16 +59,16 @@ class UnknownNameTests(Base):
         self.assertEqual(_closest_name("AGENT-33", ["AGENT-1", "AGENT-3", "ORCH"]), "AGENT-3")
         self.assertIsNone(_closest_name("Zebra", ["AGENT-1", "AGENT-3", "ORCH"]))
 
-    def test_the_sender_is_told_in_the_terminal_and_the_line_still_posts(self):
+    def test_an_agents_line_to_an_unknown_name_is_not_sent_and_the_terminal_says_the_fix(self):
+        n = len(self.s.chat_list())
         code, out, err = self.run_cli("chat", "send", "hello?", "--name", "R6", "--to", "AGENT-33")
-        self.assertEqual(code, None)
-        self.assertIn("-> AGENT-33", out)
-        self.assertEqual(err.strip(), "(nobody named AGENT-33 has spoken or is listening; did you mean AGENT-3?)")
+        self.assertEqual(str(code), "agentboard: Not sent: no one named AGENT-33. Closest: AGENT-3. Send again with --to AGENT-3.")   # exit 1, nothing posted
         code, out, err = self.run_cli("chat", "send", "hello?", "--name", "R6", "--to", "Bob")
-        self.assertEqual(err.strip(), "(nobody named Bob has spoken or is listening)")
+        self.assertEqual(str(code), "agentboard: Not sent: no one named Bob. Names on this board: ORCH, AGENT-1, AGENT-2, AGENT-3, R6.")
+        self.assertEqual(len(self.s.chat_list()), n)
         code, out, err = self.run_cli("chat", "send", "hello?", "--name", "R6", "--to", "AGENT-3")
-        self.assertEqual(err, "")
-        self.assertTrue(self.s.chat_list()[-3]["to_unknown"] and "to_unknown" not in self.s.chat_list()[-1])
+        self.assertEqual((code, err), (None, ""))
+        self.assertNotIn("to_unknown", self.s.chat_list()[-1])
 
     def test_the_owners_own_typo_from_the_board_is_marked_too(self):
         m = self.s.chat_send(self.s.owner, "@AGENT-33 can you look?", kind="user", to="AGENT-33")

@@ -912,7 +912,7 @@
   .cmsg-rcpt.answered .st { color: var(--ok); } .cmsg-rcpt.seen .st { color: var(--info); }
   .cmsg-rcpt.late .st, .cmsg-rcpt .warn { color: color-mix(in srgb, var(--warn) 78%, var(--text)); }
   .cmsg-rcpt .btn { min-height: 24px; padding: 1px 10px; font-size: var(--fs-xs); border-color: color-mix(in srgb, var(--warn) 55%, var(--line)); }
-  .cmsg-rcpt .nudged { color: var(--muted); }
+  .cmsg-rcpt .nudged, .cmsg-rcpt .note { color: var(--muted); }
   .cmsg.enter { animation: enter .25s ease-out; }
   .sw { display: inline-flex; align-items: center; gap: 7px; font-size: var(--fs-sm); color: var(--muted); cursor: pointer; user-select: none; }
   .sw input { appearance: none; width: 30px; height: 18px; border-radius: 999px; background: var(--chip); box-shadow: inset 0 0 0 1px var(--line); position: relative; cursor: pointer; margin: 0; transition: background .15s; }
@@ -2158,12 +2158,11 @@ function receiptHtml(m) {
   const to = esc(m.to);
   let warn, act = '';
   const orch = isOrch(m.to);
-  if (r.listening) warn = `${to} is listening but has not read this yet: it is in the middle of something`;
-  else {   // nobody is listening as that name: the same words for ORCH and for any agent, with the one click that reaches it
-    warn = `nobody is listening as ${to}` + (orch ? `: its wait is not running, so its next scheduled check or a nudge is what reaches it` : `: nothing on the board wakes it`);
-    act = m.nudged ? `<span class="nudged">${orch ? 'nudged' : 'asked ORCH to message it'} ${esc(ago(m.nudged).text)}</span>`
-      : `<button class="btn" type="button" data-nudge="${m.seq}" title="${orch ? 'Moves the wake file: ORCH reads the board at its next check' : r.orch ? 'ORCH is listening: it messages the session' : 'ORCH is not listening either: the ask waits in its drawer'}">${orch ? 'Nudge' : 'Nudge via ORCH'}</button>`;
-  }
+  if (r.listening) return `<div class="cmsg-rcpt sent"><span class="st">sent</span>${twins}<span class="note">${to} is listening but busy: it reads this when its step ends.</span></div>`;   // muted, not amber: a busy listener is normal
+  // nobody is listening for that name, with the one click that reaches it
+  warn = orch ? `Nobody is listening for ORCH: it reads the board at its next check.` : `Nobody is listening for ${to}.`;
+  act = m.nudged ? `<span class="nudged">${orch ? 'nudged' : 'ORCH asked'} ${esc(ago(m.nudged).text)}${orch ? '' : ' to message it'}</span>`
+    : `<button class="btn" type="button" data-nudge="${m.seq}" title="${orch ? 'Moves the wake file: ORCH reads the board at its next check' : r.orch ? 'ORCH is listening: it messages the session' : 'ORCH is not listening either: the ask waits in its drawer'}">${orch ? 'Nudge' : 'Nudge via ORCH'}</button>`;
   return `<div class="cmsg-rcpt sent late"><span class="st">sent</span>${twins}<span class="warn">${warn}</span>${act}</div>`;
 }
 document.addEventListener('click', async e => {   // the receipt sits in the ORCH drawer, the agent thread and the card panel alike
@@ -2312,6 +2311,9 @@ document.addEventListener('click', e => {   // the ways in are redrawn with the 
 const NAME_CAP = 6;
 const normName = n => String(n || '').toLowerCase().replace(/[^a-z0-9]/g, '');
 function knownName(n) { return chatNames.find(k => sameName(k, n)) || (isOrch(n) ? 'ORCH' : null); }
+function boardNames() {   // for "On this board: …": ORCH first, then the agents, never the owner's own name
+  return ['ORCH', ...chatNames.filter(n => !isOrch(n) && !sameName(n, OWNER) && !['you', 'the user', 'user', 'owner'].includes(String(n).toLowerCase()))];
+}
 function closestName(typed) {
   const t = normName(typed); if (!t) return null;
   const scored = chatNames.map(n => { const k = normName(n); let p = 0; while (p < t.length && p < k.length && t[p] === k[p]) p++; return { n, p, inside: k.includes(t) || t.includes(k) }; });
@@ -2335,12 +2337,12 @@ function whoReads(text, defaultTo, where) {
       return { to: 'all', line: `Goes to everyone listening (${n}). No one owns the answer.`, warn: false, error: rest ? '' : 'Add what to tell everyone after the name.' };
     }
     const full = knownName(typed);
-    if (!full || !spaced) {   // still typing the name
+    if (!full) {   // still typing the name (an exact known name counts as complete, space or not)
       const cands = chatNames.filter(n => n.toUpperCase().startsWith(typed.toUpperCase()));
       if (cands.length) return { to: null, tab: cands[0], line: `Names: ${cands.slice(0, NAME_CAP).join(', ')} · Tab takes the first`, warn: false, error: `Finish the name: Tab takes ${cands[0]}.` };
-      const close = closestName(typed);
+      const close = closestName(typed), names = boardNames();
       const line = close ? `No one named ${typed}. Did you mean ${close}? Tab uses it.`
-        : `No one named ${typed}. On this board: ${chatNames.slice(0, NAME_CAP).join(', ')}${chatNames.length > NAME_CAP ? ` and ${chatNames.length - NAME_CAP} more` : ''}.`;
+        : `No one named ${typed}. On this board: ${names.slice(0, NAME_CAP).join(', ')}${names.length > NAME_CAP ? ` and ${names.length - NAME_CAP} more` : ''}.`;
       return { to: null, tab: close, line, warn: true, error: line };
     }
     const ls = listenState(full);

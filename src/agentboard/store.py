@@ -839,14 +839,18 @@ class Store:
                     raise BoardError(f"no chat message #{reply_to}")
                 if not to and parent.get("kind") != "user":   # an unaddressed reply to an agent's line is talking to that agent
                     talk = True
+            unknown = to and to != "all" and not to_owner and not self._known_name(data, to)   # a name nobody has
+            if unknown and kind == "agent" and via != "mirror":   # an agent's line to no one is not sent (docs/chat-words-design.md section 3); the name is checked before the switch. A mirror records a message already sent elsewhere: posted, marked
+                close = _closest_name(to, self._known_names(data))
+                raise BoardError(f"Not sent: no one named {to}. Closest: {close}. Send again with --to {close}." if close
+                                 else f"Not sent: no one named {to}. Names on this board: {', '.join(self._board_names(data))}.")
             if talk and kind == "agent" and not data.get("chat_agents"):
-                raise BoardError("agent chat is off for this board; its owner turns it on with `agentboard chat agents on` "
-                                 f"(a status line, and any answer to {_who(self.owner)}, still posts)")
+                raise BoardError(f"Not sent: agent chat is off, so agents post one-line status only. A line to {_who(self.owner)} still goes; "
+                                 "to reach another agent, the owner runs: agentboard chat agents on")
             if len(text) > CHAT_LINE_MAX:
                 if talk:
-                    raise BoardError(f"keep the line under {CHAT_LINE_MAX} characters; put the rest in --detail")
+                    raise BoardError(f"Not sent: {len(text)} characters, the limit is {CHAT_LINE_MAX}. Shorten it, or keep the rest in --detail.")
                 text, detail = _split_long_line(text, detail)   # an answer to the owner is kept whole: line plus detail
-            unknown = to and to != "all" and not to_owner and not self._known_name(data, to)   # a name nobody has (yet): posted, marked, said
             seq = data["chat_seq"] + 1
             data["chat_seq"] = seq
             msg = {"seq": seq, "at": _now(), "sender": sender, "text": text, "kind": kind}
@@ -869,8 +873,10 @@ class Store:
             return msg
 
     def _known_names(self, data):
-        """Who a line can reach: ORCH, the owner, every card holder, every chat sender, every listener. Spellings as the board has them."""
+        """Who a line can reach: ORCH, the owner, the roster ([orch] agents in config.toml), every card holder, every chat sender, every
+        listener. Spellings as the board has them."""
         names = {"ORCH", self.owner}
+        names.update(_roster(self.dir))
         names.update(t.get("agent") for t in data["tasks"] if t.get("agent"))
         names.update(m.get("sender") for m in data["chat"] if m.get("kind") == "agent" and m.get("sender"))
         names.update(listeners.listening(self.dir))
@@ -880,6 +886,12 @@ class Store:
         """Who a line can reach right now (for the board's composer): ORCH, the owner, card holders, chat senders, listeners."""
         with self._lock():
             return self._known_names(self._read())
+
+    def _board_names(self, data, cap=6):
+        """The names for a refusal or the composer: ORCH first, then the agents, never the owner's own name; at most `cap`, then "and N more"."""
+        names = ["ORCH"] + [n for n in self._known_names(data) if n != "ORCH" and n != self.owner]
+        shown = names[:cap]
+        return shown + ([f"and {len(names) - cap} more"] if len(names) > cap else [])
 
     def _known_name(self, data, to):
         t = str(to).strip().lower()
@@ -1012,6 +1024,18 @@ def _split_long_line(text, detail):
     head, rest = text[:cut].rstrip() + "\u2026", text[cut:].strip()
     detail = (rest + ("\n\n" + detail if detail else "")).strip()[:CHAT_DETAIL_MAX] or None
     return head, detail
+
+
+def _roster(board_dir):
+    """The names in [orch] agents = [{name="AGENT-1"}, ...] of the board's config.toml: peers ORCH hands work to are known before they speak."""
+    try:
+        conf = tomllib.loads((Path(board_dir) / "config.toml").read_text())
+    except (OSError, ValueError, tomllib.TOMLDecodeError):
+        return []
+    spec = (conf.get("orch") or {}).get("agents") if isinstance(conf.get("orch"), dict) else None
+    if not isinstance(spec, list):
+        return []
+    return [str(p["name"]).strip() for p in spec if isinstance(p, dict) and str(p.get("name") or "").strip()]
 
 
 def _closest_name(to, names):

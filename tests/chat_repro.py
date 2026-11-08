@@ -125,10 +125,10 @@ S.start("a card", "AGENT-3", None)   # a real name on the board
 for typo in ("AGENT-33", "Agent 3", "agent3 ", "AGENT-3"):
     try:
         m = S.chat_send("R6", "hello?", kind="agent", to=typo)
-        res = f"posted, marked unknown={m.get('to_unknown', False)}, closest={m.get('closest')}" if m.get("to_unknown") else "posted, a known name"
+        res = "posted, a known name"
     except BoardError as e:
-        res = f"refused: {str(e)[:60]}"
-    say("R6", f"line to {typo!r}: {res} (before chat-f5: accepted silently, nothing told the sender)")
+        res = f"refused: {str(e)[:80]}"
+    say("R6", f"line to {typo!r}: {res} (before chat-f5: accepted silently, nothing told the sender; since the f8 fixes an agent's line to no one is not sent)")
 S.set_chat_agents(False)
 
 # ---- R7: reads at the same instant -------------------------------------------------------------------------------------------------
