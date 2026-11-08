@@ -174,7 +174,8 @@ def cmd_init(a):
     question: whether to add sample cards. Run again in a folder that already has a board, it changes nothing and says so."""
     here = Path.cwd()
     d = here / DIR_NAME
-    existed = (d / "tasks.json").exists() and (d / "tasks.json").read_text().strip() not in ("", '{"tasks": []}')
+    had_board = (d / "tasks.json").exists()
+    existed = had_board and (d / "tasks.json").read_text().strip() not in ("", '{"tasks": []}')   # a board with work on it
     above = None if d.is_dir() else _board_above(here)
     d.mkdir(exist_ok=True)
     cfg = d / "config.toml"
@@ -186,7 +187,7 @@ def cmd_init(a):
     private.tighten_dir(d)
     with private.as_user():   # the project's own .gitignore is not board data
         ignored = _gitignore_board(here)
-    lines = [f"{'a board was already set up here, nothing was changed' if existed else 'set up a board'}: {d}"]
+    lines = [f"{'a board was already set up here, nothing was changed' if existed else 'a board is already set up here' if had_board else 'set up a board'}: {d}"]
     if ignored:
         lines.append(f"added {DIR_NAME}/ to .gitignore (task data can hold private context)")
     if above is not None:

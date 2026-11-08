@@ -170,6 +170,12 @@ class Init(Base):
         self.assertEqual(self.asked, [])                           # no question on a board that has work in it
         self.assertEqual([t["title"] for t in self.board().load()], ["Keep me"])
 
+    def test_an_empty_board_that_is_already_there_is_not_set_up_again(self):
+        self.run_cli("init", "--no-demo")
+        _c, out, _e = self.run_cli("init", "--no-demo")
+        self.assertIn("a board is already set up here:", out)
+        self.assertNotIn("set up a board:", out)
+
     def test_a_board_in_a_folder_above_is_mentioned(self):
         self.run_cli("init", "--no-demo")
         sub = self.here / "pkg"
