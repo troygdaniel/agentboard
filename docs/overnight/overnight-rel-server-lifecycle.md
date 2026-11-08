@@ -12,7 +12,7 @@ Branch `overnight/overnight-rel-server-lifecycle` (public repo, not merged; Troy
 - **A taken port says who holds it**: this board's own server (pid and since when, with `status`, `restart` and `stop` as the next step), another board's agentboard (pid, with `--port N+1`), or something else (the errno and `--port N+1`).
 - **`/api/health`** (loopback, the same Host guard as every route, no board data): `{ok, agentboard: version, pid, port, started, uptime_s, plugins, lockdown}`.
 - **`agentboard doctor`** gains a server-files line: a stale file is a WARN with the command that cleans it; nothing running is INFO with the command that starts it. Doctor still opens no socket.
-- `lifecycle.py` (new) holds all of it; `serverstate.py` (the per-pid state file) is unchanged.
+- `lifecycle.py` (new) holds all of it; `serverstate.py` (the per-pid state file) is unchanged. It is listed in `docs/ARCHITECTURE.md` (with `server.log` in the data-files table) and in the work profile's selfcheck tables (`urllib.request` for the loopback health GET, `subprocess` for `ps` and the detached serve), so the combined tree's pinning tests pass.
 - **`stop` signals only a real server** (cross-review card xr-lifecycle-stop-any-pid): a pid is taken as this board's server only when it is alive AND `ps` says its command line is an `agentboard serve` (doctor's own rule), checked once more right before the signal. A state file whose pid a crash left behind and that now belongs to another program of the user's is stale: `status` cleans it and says so, `stop` never signals it. Also from that review: `health()` never goes through an `http_proxy` from the environment; `server.log` is opened without following a link and rolled to `server.log.1` past 2 MB; the CHANGELOG has the entry; the README says Ctrl+C lets the requests in flight finish first.
 
 ## Before and after
@@ -49,6 +49,7 @@ PYTHONPATH=src:tests python3 -m unittest tests.test_lifecycle      # the subproc
 
 - `tests/test_lifecycle.py`: 8 tests, six with a real `agentboard serve` subprocess (health, status and stop, double start on the same port and from another board, kill -9 and the stale file, restart and `--background`, a request in flight across SIGTERM), plus the command-line rule and a planted state file for a `sleep` child that `stop` leaves alone.
 - Full public suite on this branch (main 33ecb3e): **1291 tests OK**; `python3 tests/publiccheck.py`: 0 findings.
+- Rebased onto `overnight/combined-11` (59b848e, the eleven reviewed branches): 1596 tests, 1 failure, `test_signoff_files` (`.claude/settings.json is 0o600`, the sign-off table says 0o644), which fails on the combined tip alone too and is not from this branch: `main`'s `hooks.write_settings` makes a new settings file 0600 while the sign-off's file table expects 0644; one of the two should change. `publiccheck`: 0 findings.
 
 ## Not done (candidates for a next card)
 
