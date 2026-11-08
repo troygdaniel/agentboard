@@ -42,26 +42,26 @@ Real output with the profile on (this branch, `AGENTBOARD_PROFILE=work`):
 
 ```
 agentboard selfcheck   (the work profile, proved: static scan of the code, then a live audit of a throwaway server)
-PASS  static: network-capable imports                                     only where the table allows (4 files): guards.py: socket, providers.py: urllib.request, selfcheck.py: http.client, selfcheck.p
-PASS  static: program-starting code                                       only in 9 files, each locked or a command: agentchat.py, cli.py, doctor.py, guards.py, providers.py, reports.py, runs.py, self
+PASS  static: network-capable imports                                     only where the table allows (4 files): guards.py: socket, providers.py: urllib.request, selfcheck.py: http.client, selfcheck.py: socket,
+PASS  static: program-starting code                                       only in 9 files, each locked or a command: agentchat.py, cli.py, doctor.py, guards.py, providers.py, reports.py, runs.py, selfcheck.py, 
 PASS  static: shell=True                                                  only in providers.py (the command provider, locked)
 PASS  static: eval, exec, pickle                                          none
 PASS  static: computed imports                                            none (every import is written out)
 PASS  static: third-party packages                                        none: standard library only
 PASS  static: declared dependencies                                       an empty list
-PASS  static: addresses in the code                                       no address but this machine's (and reserved example names) in any string
-PASS  static: the page loads nothing from outside                         2 page files scanned, no script, style, image, font, frame or request to another host; Content-Security-Policy default-src 'no
+PASS  static: addresses in the code                                       no URL, IPv4 address or host name with a common suffix (.com .net .org .io .dev ...) in any code string except this machine, the documen
+PASS  static: the page loads nothing from outside                         2 page files scanned, no script, style, image, font, frame or request to another host; Content-Security-Policy default-src 'none', conne
 PASS  profile: on in this shell                                           environment: $AGENTBOARD_PROFILE=work
 PASS  profile: master lock                                                AGENTBOARD_LOCKDOWN is on while the audit runs
 PASS  profile: plugins refused                                            plugins: locked: $AGENTBOARD_LOCKDOWN is set
-PASS  profile: claude rounds refused                                      BoardError: locked off
-PASS  profile: agentboard run refused                                     BoardError: locked off
-PASS  profile: spawn refused                                              BoardError: locked off
-PASS  profile: voice refused                                              BoardError: locked off
+PASS  profile: claude rounds refused                                      the lock raises 'locked off' for it (each feature's own code calls the lock first: that call is covered by the lock's tests, not exercis
+PASS  profile: agentboard run refused                                     the lock raises 'locked off' for it (each feature's own code calls the lock first: that call is covered by the lock's tests, not exercis
+PASS  profile: spawn refused                                              the lock raises 'locked off' for it (each feature's own code calls the lock first: that call is covered by the lock's tests, not exercis
+PASS  profile: voice refused                                              the lock raises 'locked off' for it (each feature's own code calls the lock first: that call is covered by the lock's tests, not exercis
 PASS  guards: the canaries are refused                                    8 of 8 tries refused before anything was sent
 PASS  guards: they record what was tried                                  6 network and 2 program attempts logged
-PASS  runtime: every route answers                                        19 GET and 25 POST routes and 2 prefixes requested, none a 5xx or a dropped connection
-PASS  runtime: a day of work through the handlers                         add, edit, move, finish (report and git line), chat, reply, delete, summary, hud, page: all answered
+PASS  runtime: every named route answers without a 5xx                    19 GET routes and 2 GET prefixes requested; 17 POST routes requested with an empty body (their validation path; see the next line for th
+PASS  runtime: real payloads through the handlers                         15 of 17 POST routes took a real payload the board accepted; the others answered only their validation path: /api/run-kill (a card with 
 PASS  red-team: a command provider                                        the command was not run (the lock refused it)
 PASS  red-team: an http provider (SSRF)                                   no connection and no lookup was even attempted for the metadata address
 PASS  red-team: a file provider outside the folder                        the file outside the project was not read into the prompt
@@ -79,7 +79,7 @@ PASS  http: no request smuggling                                          Conten
 PASS  http: no header injection                                           an encoded or bare CR in a request never reaches a response header
 PASS  http: over-long request line and headers refused                    70 KB line 414, 300 headers 431, one 70 KB header refused
 PASS  http: a stalled client is dropped                                   a body that never finishes was cut after 2.0 s (the handler timeout; 15 s in the real server)
-PASS  http: a flood of connections is capped                              158 idle connections held: the next is refused with 503 at once, and the server answers normally after they close
+PASS  http: a flood of connections is capped                              158 connections opened: 128 are held idle (the cap, 128), 30 more were refused with 503 at once, one more request got 503, and the serve
 PASS  http: a request with no version and no Host                         nothing of the board comes back (no Host to check, so it is refused)
 PASS  http: an absolute-form target with another Host is refused          403: the Host header decides, not the target
 PASS  http: nosniff on every kind of response                             JSON, report index and error pages all say nosniff
@@ -87,14 +87,14 @@ PASS  http: other verbs are not implemented                               PUT, D
 PASS  http: HEAD                                                          501
 PASS  http: no CORS headers                                               no response grants any other origin access
 PASS  http: the page cannot be framed, sniffed or made to load elsewhere  Content-Security-Policy default-src 'none', frame-ancestors 'none', X-Frame-Options DENY, nosniff
-PASS  red-team: path traversal                                            88 traversal URLs over every route that takes a name: nothing outside served, no 5xx
+PASS  red-team: path traversal                                            88 traversal URLs (11 spellings under 8 route prefixes): nothing outside the board served, no 5xx
 PASS  red-team: a report that is a symlink out of its folder              not served
 PASS  red-team: a transcript path that is any file                        an arbitrary registered file is not read back
 PASS  red-team: unknown board names                                       not found, and nothing loaded from a path built from the name
 PASS  http: the server is still serving after all of it                   yes
 PASS  files: private modes                                                the board folder is 0700 and what the server wrote is 0600
-PASS  runtime: nothing tried to leave this machine                        1140 connections and lookups were all loopback or this machine's own; no outside address was ever tried
-PASS  runtime: no program was started                                     the server and every route started nothing (1140 loopback sockets used)
+PASS  runtime: nothing tried to leave this machine                        1164 connections and lookups were all loopback or this machine's own; no outside address was ever tried
+PASS  runtime: no program was started                                     the server and every route started nothing (1164 loopback sockets used)
 PASS  runtime: listening only on loopback                                 the server's socket is bound to 127.0.0.1
 0 FAIL, 0 WARN, 54 PASS, 0 INFO
 RESULT: PASS
@@ -102,7 +102,17 @@ RESULT: PASS
 
 ## Tests
 
-Full suite on the rebased branch tip: **1316 tests, OK** (run in the foreground; 227 s on a loaded machine). `agentboard selfcheck` with the profile on: 54 PASS, 0 FAIL, three runs in a row. `tests/publiccheck.py`: 0 findings. One existing test was updated because it pinned something this branch changed on purpose: `test_server_state` (the state file now also records `profile`); the `test_file_modes` change went to main with the hardening branch. Note for whoever reruns it: start the suite in the foreground; a shell `&` makes the child processes ignore SIGINT and the two real-server tests in `test_server_state` then time out waiting for a server that cannot be interrupted.
+Full suite on the branch tip: **1335 tests, OK** (run in the foreground; 346 s on a loaded machine). `agentboard selfcheck` with the profile on: 54 PASS, 0 FAIL, three runs in a row. `tests/publiccheck.py`: 0 findings. One existing test was updated because it pinned something this branch changed on purpose: `test_server_state` (the state file now also records `profile`); the `test_file_modes` change went to main with the hardening branch. Note for whoever reruns it: start the suite in the foreground; a shell `&` makes the child processes ignore SIGINT and the two real-server tests in `test_server_state` then time out waiting for a server that cannot be interrupted.
+
+## The cross-review's three findings, fixed on this branch (AGENT-8, Nov 8)
+
+| Card | What was wrong | What it does now |
+|---|---|---|
+| `xr-workpc-selfcheck-overclaims` (MEDIUM) | "every route" and "25 POST routes" were counts of regex hits (the pattern also matched 8 GET routes) and most POSTs got an empty `{}` body; "no address in any string" only looked for `scheme://`; "158 idle connections held" counted 30 that got 503; `import os as o; o.system()` and `from os import system` passed the program scan | Routes are read from the handlers' own comparisons (`_route_get` for GET, `do_POST` for POST): **19 GET, 17 POST**. The sweep line says the 17 got an empty body (validation path only); a second line says **15 of 17 POST routes took a real payload the board accepted** and names the two that cannot here (`/api/run-kill`: no running one-shot, `run` is locked; `/api/transcribe`: voice is locked). The address scan reads bare IPv4 literals and host names with a common suffix as well as URLs, and says what it did not read (docstrings, addresses built at run time). Aliases of `os` (`import os as o`, `from os import system`, `getattr(os, "system")`) are resolved. The flood line says **158 opened: 128 held idle (the cap), 30 more refused with 503**. The lock lines say they check the lock, not the features' own call sites. The traversal count is computed. |
+| `xr-workpc-selfcheck-live-canaries` (MEDIUM) | The canaries dialled 93.184.216.34, a public resolver (8.8.8.8) and `example.com`: a guard that stopped working would have made the self-check contact them from the PC | Every canary target is a documentation address (192.0.2.x, 198.51.100.x) or a `.invalid` name; the metadata-address provider probe uses 198.51.100.45; even the non-loopback bind probe uses a documentation address. The static address scan now allows only this machine, the documentation ranges and reserved names, and a test fails if `selfcheck.py` or the profile tests name any other address. |
+| `xr-workpc-profile-off-message` (MEDIUM) | `apply()` writes `AGENTBOARD_PROFILE=work` into the environment for what it starts, so `agentboard profile off` and `selfcheck` called the machine file "the environment" and said the environment still said work in a shell that never set it | The shell's own word is noted before `apply()` overwrites it (only when it overwrites it), so sources are named truthfully: machine / environment / board. `profile off` lists exactly what still keeps it on. Tests run real subprocesses with only the machine file, only the environment, both, and only the board's config. |
+
+Also found while fixing: a flood check that failed when the audit server's short stalled-client timeout freed idle sockets early (now measured, not assumed), and the audit's chat probes used a literal owner name (now the board's own).
 
 ## The rebase
 

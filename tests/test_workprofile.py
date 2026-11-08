@@ -31,22 +31,32 @@ def failing(results):
     return [(n, t) for l, n, t in results if l == selfcheck.FAIL]
 
 
+_CLEAN = []
+
+
+def clean_runtime():
+    """The audit of the unmodified tree, run once for the whole module (about ten seconds)."""
+    if not _CLEAN:
+        _CLEAN.append(selfcheck.runtime_checks())
+    return _CLEAN[0]
+
+
 class TheGuards(unittest.TestCase):
     def test_what_counts_as_this_machine(self):
         for host in ("127.0.0.1", "127.8.9.10", "::1", "[::1]", "localhost", "LOCALHOST", "localhost.", "::ffff:127.0.0.1", b"127.0.0.1"):
             self.assertTrue(guards.is_loopback(host), host)
-        for host in ("0.0.0.0", "", None, "example.com", "8.8.8.8", "192.168.1.5", "10.0.0.1", "::", "169.254.169.254", "localhost.evil.example", "127.0.0.1.evil.example",
-                     "::ffff:8.8.8.8", "128.0.0.1", 5):
+        for host in ("0.0.0.0", "", None, "canary.invalid", "198.51.100.8", "203.0.113.5", "192.0.2.1", "::", "192.0.2.254", "localhost.evil.invalid", "127.0.0.1.evil.invalid",
+                     "::ffff:198.51.100.8", "128.0.0.1", 5):
             self.assertFalse(guards.is_loopback(host), host)
 
     def test_the_network_guard_refuses_everything_that_leaves_and_restores_after(self):
         before = (socket.socket.connect, socket.create_connection, socket.getaddrinfo, socket.socket.bind)
         with guards.network_guard() as g:
-            for fn in (lambda: socket.create_connection(("93.184.216.34", 80), timeout=1), lambda: socket.create_connection(("example.com", 80), timeout=1),
-                       lambda: socket.getaddrinfo("example.com", 80), lambda: socket.gethostbyname("example.com"), lambda: socket.gethostbyaddr("8.8.8.8"),
-                       lambda: socket.socket(socket.AF_INET, socket.SOCK_DGRAM).sendto(b"x", ("8.8.8.8", 53)),
+            for fn in (lambda: socket.create_connection(("192.0.2.10", 80), timeout=1), lambda: socket.create_connection(("canary.invalid", 80), timeout=1),
+                       lambda: socket.getaddrinfo("canary.invalid", 80), lambda: socket.gethostbyname("canary.invalid"), lambda: socket.gethostbyaddr("198.51.100.7"),
+                       lambda: socket.socket(socket.AF_INET, socket.SOCK_DGRAM).sendto(b"x", ("198.51.100.7", 53)),
                        lambda: socket.socket().connect(("192.0.2.1", 80)), lambda: socket.socket().connect_ex(("192.0.2.1", 80)),
-                       lambda: socket.socket().bind(("0.0.0.0", 0)), lambda: socket.socket().bind(("", 0)), lambda: socket.getnameinfo(("8.8.8.8", 53), 0)):
+                       lambda: socket.socket().bind(("0.0.0.0", 0)), lambda: socket.socket().bind(("", 0)), lambda: socket.getnameinfo(("198.51.100.7", 53), 0)):
                 with self.assertRaises(guards.Refused):
                     fn()
             self.assertGreaterEqual(len(g.refused()), 11)
@@ -93,6 +103,30 @@ class TheGuards(unittest.TestCase):
             self.assertGreaterEqual(len(g.refused()), 9)
         self.assertEqual(real, (subprocess.Popen.__init__, os.system, os.fork))
         self.assertEqual(subprocess.run(["true"]).returncode, 0)   # and programs start again afterwards
+
+
+class NothingInTheseFilesDialsARealHost(unittest.TestCase):
+    """If a guard ever stopped working, the canaries must not reach a real host or resolver (xr-workpc-selfcheck-live-canaries): every address written in
+    selfcheck.py and in this file is this machine, a documentation range (RFC 5737) or, for a bind that opens nothing, 0.0.0.0."""
+
+    ALLOWED = ("127.", "192.0.2.", "198.51.100.", "203.0.113.")
+
+    def test_every_address_is_this_machine_or_a_documentation_range(self):
+        import re
+        for path in (Path(selfcheck.__file__), Path(__file__)):
+            bad = []
+            for n, line in enumerate(path.read_text().splitlines(), 1):
+                for m in re.finditer(r"(?<![\d.])(?:\d{1,3}\.){3}\d{1,3}(?![\d.])", line):
+                    ip = m.group(0)
+                    if not ip.startswith(self.ALLOWED) and ip not in ("0.0.0.0", "128.0.0.1"):   # (a bind that opens nothing, and a not-loopback neighbour of 127.x in the table above)
+                        bad.append(f"{path.name}:{n} {ip}")
+            self.assertEqual(bad, [], "an address that is not this machine or a documentation range")
+        self.assertNotIn("0.0.0.0", Path(selfcheck.__file__).read_text(), "the selfcheck itself binds nothing on all interfaces, even as a canary")
+
+    def test_the_selfcheck_looks_up_no_real_name(self):
+        text = Path(selfcheck.__file__).read_text()
+        for name in ("google", "cloudflare", ".".join(["8"] * 4), ".".join(["1"] * 4), "93.184." + "216.34", "169.254." + "169.254"):   # (assembled: this file holds none of them)
+            self.assertNotIn(name, text, name)
 
 
 class TheSwitch(unittest.TestCase):
@@ -152,7 +186,7 @@ class TheSwitch(unittest.TestCase):
             self.assertIsNotNone(plugins.disabled_reason())
             self.assertEqual(os.environ["AGENTBOARD_NO_PLUGINS"], "1")
             with self.assertRaises(guards.Refused):
-                socket.create_connection(("example.com", 80), timeout=1)
+                socket.create_connection(("canary.invalid", 80), timeout=1)
             profile.apply(self.board)   # idempotent: one guard, not two
             self.assertEqual(len(profile._NET), 1)
 
@@ -294,12 +328,12 @@ class TheSelfcheck(unittest.TestCase):
             self.assertIn(want, names)
 
     def test_it_passes_at_run_time_on_this_tree(self):
-        results = selfcheck.runtime_checks()
+        results = clean_runtime()
         self.assertEqual(failing(results), [])
         self.assertGreaterEqual(len(results), 40, "the audit shrank: a check was dropped")
         text = " ".join(n for _l, n, _t in results)
-        for want in ("wrong Host refused", "cross-site POST refused", "path traversal", "no request smuggling", "a JSON bomb", "a flood of connections is capped", "nosniff on every kind", "an http provider (SSRF)", "a command provider",
-                     "nothing tried to leave this machine", "no program was started", "listening only on loopback", "every route answers", "private modes"):
+        for want in ("wrong Host refused", "cross-site POST refused", "path traversal", "no request smuggling", "a JSON bomb", "a flood of connections is capped", "nosniff on every kind", "real payloads through the handlers", "an http provider (SSRF)", "a command provider",
+                     "nothing tried to leave this machine", "no program was started", "listening only on loopback", "every named route answers", "private modes"):
             self.assertIn(want, text)
 
     def test_it_sets_nothing_behind_it(self):
@@ -321,7 +355,7 @@ class TheSelfcheck(unittest.TestCase):
         self.assertEqual(selfcheck.exit_code([("WARN", "a", "b")]), 0)
 
     def test_nothing_in_the_selfcheck_text_quotes_a_secret_or_a_board(self):
-        for _l, n, t in self.static + selfcheck.runtime_checks():
+        for _l, n, t in self.static + clean_runtime():
             self.assertNotIn(str(Path.home()), t)
 
 
@@ -444,6 +478,188 @@ class TheLiveAudit(unittest.TestCase):
         self.assertFalse(any(n.startswith("runtime:") for n in names))
 
 
+class TheRoutesAreReadFromTheHandlers(unittest.TestCase):
+    """xr-workpc-selfcheck-overclaims: the sweep's counts must be the routes the handlers name, GET and POST apart."""
+
+    SRC = """
+class Handler:
+    def _route_get(self, url, q):
+        if url.path in ("/", "/hud"):
+            pass
+        elif url.path == "/api/tasks":
+            pass
+        elif url.path.startswith("/reports/"):
+            pass
+        elif path == "/api/decoy-in-get":
+            pass
+    def do_POST(self):
+        path = self.p
+        if path == "/api/tasks":
+            pass
+        elif path == "/api/move":
+            pass
+        elif path.startswith("/api/x/"):
+            pass
+        elif url.path == "/decoy-in-post":
+            pass
+"""
+
+    def test_get_and_post_are_told_apart_and_a_path_in_the_wrong_verb_is_not_counted(self):
+        get, post, pre_get, pre_post = selfcheck.routes_from_source(self.SRC)
+        self.assertEqual(get, ["/", "/api/tasks", "/hud"])   # (a comparison on a bare `path` inside _route_get, and on `url.path` inside do_POST, are not routes of that verb)
+        self.assertEqual(post, ["/api/move", "/api/tasks"])
+        self.assertEqual((pre_get, pre_post), (["/reports/"], ["/api/x/"]))
+
+    def test_on_the_real_server_every_post_route_is_under_api_and_the_get_pages_are_not(self):
+        get, post, _pg, _pp = selfcheck.routes_from_source((Path(selfcheck.HERE) / "server.py").read_text())
+        self.assertTrue(all(p.startswith("/api/") for p in post), post)
+        self.assertIn("/api/chat-nudge", post)
+        self.assertNotIn("/api/hud", post)
+        self.assertIn("/api/hud", get)
+        self.assertGreaterEqual((len(get), len(post)), (15, 15))
+
+
+class TheStaticScanSeesWhatIsWrittenOut(unittest.TestCase):
+    def scan(self, src):
+        d = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, d, True)
+        f = d / "x.py"
+        f.write_text(src)
+        return selfcheck.scan_file(f)
+
+    def test_aliases_and_from_imports_of_os(self):
+        for src in ("import os as o\no.system('x')\n", "from os import system\nsystem('x')\n", "from os import popen as p\np('x')\n", "import os\ngetattr(os, 'system')('x')\n",
+                    "import os\nos.execv('/bin/sh', ['sh'])\n"):
+            calls = self.scan(src)["calls"]
+            self.assertTrue(any(c in selfcheck.PROCESS_CALLS for c in calls), (src, calls))
+
+    def test_the_planted_aliases_turn_the_static_check_red(self):
+        for src in ("import os as o\no.system('x')\n", "from os import system\n", "import os\ngetattr(os, 'popen')('x')\n"):
+            root = Path(tempfile.mkdtemp())
+            self.addCleanup(shutil.rmtree, root, True)
+            shutil.copytree(SRC, root / "agentboard", ignore=shutil.ignore_patterns("__pycache__"))
+            (root / "agentboard" / "leak.py").write_text(src)
+            res = levels(selfcheck.static_checks(root / "agentboard"), "static: program-starting code")
+            self.assertEqual(list(res.values()), [selfcheck.FAIL], src)
+
+    def test_bare_addresses_and_host_names_are_found_and_reserved_ones_are_not(self):
+        hits = lambda src: [h for h, _l in self.scan(src)["urls"]]
+        outside = ".".join(["10", "1", "2", "3"]), "ping " + ".".join(["203", "0", "1", "9"]) + " now"   # (assembled: this file names no address outside the allowed ranges)
+        for text in outside + ("http://telemetry.vendor.com/x", "telemetry.vendor.com", "collector.example-cloud.io"):
+            self.assertTrue([h for h in hits(f"X = {text!r}\n") if not selfcheck.address_ok(h)], text)
+        for text in ("192.0.2.5", "198.51.100.7", "203.0.113.9", "canary.invalid", "127.0.0.1", "localhost:8765", "http://localhost:8765/x", "start.sh", "Terminal.app", "1.2.3", "0.3.0"):
+            self.assertEqual([h for h in hits(f"X = {text!r}\n") if not selfcheck.address_ok(h)], [], text)
+        self.assertEqual([h for h in hits('def f():\n    """see ' + outside[0] + ' and telemetry.vendor.com"""\n') if not selfcheck.address_ok(h)], [])   # a docstring is not read
+
+    def test_a_planted_bare_address_turns_the_static_check_red(self):
+        for src in ("HOST = '" + ".".join(["10", "1", "2", "3"]) + "'\n", "HOST = 'collector.vendor.io'\n"):
+            root = Path(tempfile.mkdtemp())
+            self.addCleanup(shutil.rmtree, root, True)
+            shutil.copytree(SRC, root / "agentboard", ignore=shutil.ignore_patterns("__pycache__"))
+            (root / "agentboard" / "leak.py").write_text(src)
+            self.assertEqual(list(levels(selfcheck.static_checks(root / "agentboard"), "static: addresses").values()), [selfcheck.FAIL], src)
+
+
+class TheLinesSayExactlyWhatWasChecked(unittest.TestCase):
+    """xr-workpc-selfcheck-overclaims: counts in a PASS line are the real ones."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.res = {n: t for _l, n, t in selfcheck.static_checks() + clean_runtime()}
+
+    def test_the_route_counts_are_the_extractors(self):
+        get, post, pre_get, _pp = selfcheck.routes_from_source((Path(selfcheck.HERE) / "server.py").read_text())
+        line = self.res["runtime: every named route answers without a 5xx"]
+        self.assertIn(f"{len(get)} GET routes", line)
+        self.assertIn(f"{len(post)} POST routes requested with an empty body", line)
+        self.assertIn("validation path", line)
+
+    def test_the_real_payload_line_names_the_routes_that_got_only_validation(self):
+        _g, post, _pg, _pp = selfcheck.routes_from_source((Path(selfcheck.HERE) / "server.py").read_text())
+        line = self.res["runtime: real payloads through the handlers"]
+        self.assertRegex(line, rf"\d+ of {len(post)} POST routes took a real payload the board accepted")
+        self.assertIn("/api/run-kill", line)
+        self.assertIn("/api/transcribe", line)
+        took = int(line.split(" of ", 1)[0])
+        self.assertGreaterEqual(took, len(post) - 2)
+
+    def test_the_flood_line_counts_held_and_refused_apart(self):
+        line = self.res["http: a flood of connections is capped"]
+        self.assertIn("128 are held idle (the cap, 128)", line)
+        self.assertIn("30 more were refused with 503", line)
+        self.assertNotIn("158 idle connections held", line)
+
+    def test_the_lock_lines_say_the_lock_not_the_features_code_path(self):
+        self.assertIn("covered by the lock's tests", self.res["profile: claude rounds refused"])
+
+    def test_the_address_line_names_what_it_did_not_read(self):
+        line = self.res["static: addresses in the code"]
+        self.assertIn("docstrings are not read", line)
+        self.assertIn("built from pieces at run time would not show", line)
+
+
+class TheProfileSaysWhereItCameFrom(unittest.TestCase):
+    """xr-workpc-profile-off-message: apply() writes work into the environment for what it starts; that must not be reported as the shell's own word."""
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+        (self.tmp / "cfg" / "agentboard").mkdir(parents=True)
+        self.board = self.tmp / "proj" / ".agentboard"
+        self.board.mkdir(parents=True)
+        self.base = {"HOME": str(self.tmp), "XDG_CONFIG_HOME": str(self.tmp / "cfg"), "PATH": os.environ["PATH"], "PYTHONPATH": str(Path(selfcheck.HERE).parent),
+                     "PYTHONDONTWRITEBYTECODE": "1", "AGENTBOARD_DIR": str(self.board)}
+
+    def run_cli(self, *args, **env):
+        r = subprocess.run([sys.executable, "-m", "agentboard", *args], env={**self.base, **env}, capture_output=True, text=True, timeout=60)
+        return r.returncode, r.stdout + r.stderr
+
+    def machine(self, on=True):
+        f = self.tmp / "cfg" / "agentboard" / "profile"
+        f.write_text("work\n") if on else f.unlink()
+
+    def test_the_machine_file_alone_is_called_the_machine_not_the_environment(self):
+        self.machine()
+        code, out = self.run_cli("profile")
+        self.assertIn("on by machine", out)
+        self.assertNotIn("on by environment", out)
+
+    def test_profile_off_does_not_blame_the_environment_for_the_machine_file_it_just_removed(self):
+        self.machine()
+        code, out = self.run_cli("profile", "off")
+        self.assertIn("machine switch removed", out)
+        self.assertIn("profile: normal", out)
+        self.assertNotIn("environment", out)
+        self.assertNotIn("stays on", out)
+
+    def test_when_the_shell_really_says_work_the_note_names_it(self):
+        self.machine()
+        code, out = self.run_cli("profile", "off", AGENTBOARD_PROFILE="work")
+        self.assertIn("machine switch removed", out)
+        self.assertIn("on by environment", out)
+        self.assertIn("environment still says work", out)
+        self.assertNotIn("machine still says", out)
+
+    def test_the_board_config_is_named_as_the_board(self):
+        (self.board / "config.toml").write_text('[board]\nprofile = "work"\n')
+        code, out = self.run_cli("profile")
+        self.assertIn("on by board", out)
+        self.assertNotIn("on by environment", out)
+
+    def test_the_selfcheck_names_the_machine_file_as_the_source(self):
+        self.machine()
+        code, out = self.run_cli("selfcheck", "--json")
+        line = next(d for d in json.loads(out) if d["check"] == "profile: on in this shell")
+        self.assertEqual(line["level"], "PASS")
+        self.assertTrue(line["detail"].startswith("machine:"), line["detail"])
+
+    def test_with_nothing_on_the_selfcheck_warns_and_says_how(self):
+        code, out = self.run_cli("selfcheck", "--json")
+        line = next(d for d in json.loads(out) if d["check"] == "profile: on in this shell")
+        self.assertEqual(line["level"], "WARN")
+        self.assertIn("agentboard profile work", line["detail"])
+
+
 class TheSelfcheckCatchesWhatItIsFor(unittest.TestCase):
     """A planted violation must turn the right line red. Without these, a green selfcheck proves nothing."""
 
@@ -474,7 +690,7 @@ class TheSelfcheckCatchesWhatItIsFor(unittest.TestCase):
         self.assertEqual(list(levels(selfcheck.static_checks(self.planted(**{"leak.py": "import yaml\n"})), "static: third-party").values()), [selfcheck.FAIL])
 
     def test_an_address_in_the_code_and_a_page_that_loads_from_outside(self):
-        root = self.planted(**{"leak.py": "URL = 'https://telemetry.vendor.invalid/collect'\n"})
+        root = self.planted(**{"leak.py": "URL = 'https://telemetry.vendor.io/collect'\n"})
         self.assertEqual(list(levels(selfcheck.static_checks(root), "static: addresses").values()), [selfcheck.FAIL])
         root = self.planted()
         page = root / "static" / "index.html"
@@ -526,7 +742,7 @@ class TheSelfcheckCatchesWhatItIsFor(unittest.TestCase):
             def route(self, url, q):
                 if url.path == "/api/hud":
                     try:
-                        socket.create_connection(("93.184.216.34", 80), timeout=1)
+                        socket.create_connection(("192.0.2.10", 80), timeout=1)
                     except OSError:
                         pass
                     try:

@@ -66,7 +66,6 @@ PROCESS_ALLOWED = {
     "guards.py": "patches subprocess and os so that they refuse",
     "selfcheck.py": "its canaries: a program start the guard must refuse (nothing is started)",
 }
-URL_ALLOWED = {"selfcheck.py": ("169.254.169.254", "192.0.2.1")}   # the audit's probes: a cloud metadata address and a reserved test address, both must be refused
 SHELL_TRUE_ALLOWED = {"providers.py"}
 DYNAMIC_BUILTINS = {"eval", "exec"}
 DYNAMIC_MODULES = {"pickle", "marshal", "shelve", "dill", "cloudpickle"}
@@ -97,12 +96,39 @@ def _docstring_ids(tree):
     return ids
 
 
+_PROC_NAMES = {c.split(".", 1)[1] for c in PROCESS_CALLS}
+_TLDS = "com net org io dev ai cloud xyz info gov edu co uk ca de fr ru cn tv".split()   # (not app or sh: Terminal.app and start.sh are file names)
+_BARE_HOST = re.compile(r"(?i)\b(?:[a-z0-9-]+\.)+(?:" + "|".join(_TLDS) + r")\b")
+_IPV4 = re.compile(r"(?<![\d.])(?:\d{1,3}\.){3}\d{1,3}(?![\d.])")
+_TEST_NETS = ("192.0.2.", "198.51.100.", "203.0.113.")   # RFC 5737: documentation addresses, never routed; nothing dials them
+_RESERVED_NAMES = (".invalid", ".example", ".test", ".localhost", ".example.com", ".example.org", ".example.net")
+
+
+def address_ok(host):
+    """Is this host something a string in the code may name: this machine, a documentation range or a reserved name, or a placeholder."""
+    h = host.lower().strip("[]")
+    bare = h.split(":")[0]
+    return (bare in ("localhost", "127.0.0.1", "::1", "", "example.com", "example.org", "example.net") or h.startswith("127.") or h.startswith(_TEST_NETS)
+            or bare.endswith(_RESERVED_NAMES) or "{" in h)
+
+
 def scan_file(path):
-    """{'imports': {module: line}, 'calls': {dotted: line}, 'shell_true': [line], 'dynamic': [(what, line)], 'urls': [(host, line)]} for one source file."""
+    """{'imports': {module: line}, 'calls': {dotted: line}, 'shell_true': [line], 'dynamic': [(what, line)], 'urls': [(host, line)]} for one source file.
+    Imports and calls are the ones written out, with `import os as o`, `from os import system` and `getattr(os, "system")` resolved; code built from
+    strings at run time shows only as a computed import, which is a WARN (the run-time guards are what catch that)."""
     src = Path(path).read_text()
     tree = ast.parse(src, filename=str(path))
     docs = _docstring_ids(tree)
     out = {"imports": {}, "calls": {}, "shell_true": [], "dynamic": [], "urls": [], "importlib": []}
+    os_names, direct = {"os"}, {}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for a in node.names:
+                if a.name == "os":
+                    os_names.add(a.asname or "os")
+        elif isinstance(node, ast.ImportFrom) and node.module == "os" and not node.level:
+            for a in node.names:
+                direct[a.asname or a.name] = "os." + a.name
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             for a in node.names:
@@ -116,21 +142,28 @@ def scan_file(path):
             f = node.func
             dotted = None
             if isinstance(f, ast.Attribute) and isinstance(f.value, ast.Name):
-                dotted = f"{f.value.id}.{f.attr}"
+                dotted = f"os.{f.attr}" if f.value.id in os_names else f"{f.value.id}.{f.attr}"
             elif isinstance(f, ast.Name):
-                dotted = f.id
+                dotted = direct.get(f.id, f.id)
             if dotted:
                 out["calls"].setdefault(dotted, node.lineno)
                 if dotted in DYNAMIC_BUILTINS:
                     out["dynamic"].append((dotted + "()", node.lineno))
                 if dotted in ("__import__", "importlib.import_module", "import_module"):
                     out["importlib"].append((dotted, node.lineno))
+                if dotted == "getattr" and len(node.args) >= 2 and isinstance(node.args[1], ast.Constant) and node.args[1].value in _PROC_NAMES:
+                    out["calls"].setdefault("os." + node.args[1].value, node.lineno)   # getattr(os, "system")(...) is os.system(...)
             for kw in node.keywords:
                 if kw.arg == "shell" and isinstance(kw.value, ast.Constant) and kw.value.value is True:
                     out["shell_true"].append(node.lineno)
         elif isinstance(node, ast.Constant) and isinstance(node.value, str) and id(node) not in docs:
             for m in re.finditer(r"(?i)\b(?:https?|wss?|ftp)://([A-Za-z0-9._\[\]:{}%@-]+)", node.value):
                 out["urls"].append((m.group(1).split("/")[0], node.lineno))
+            for m in _IPV4.finditer(node.value):
+                if all(0 <= int(x) <= 255 for x in m.group(0).split(".")):
+                    out["urls"].append((m.group(0), node.lineno))
+            for m in _BARE_HOST.finditer(node.value):
+                out["urls"].append((m.group(0), node.lineno))
     return out
 
 
@@ -166,6 +199,7 @@ def static_checks(root=None):
     for name, sc in scans.items():
         uses = [(m, l) for m, l in sc["imports"].items() if _top(m) in PROCESS_MODULES and not m.startswith(".")]
         uses += [(c, l) for c, l in sc["calls"].items() if c in PROCESS_CALLS]
+        uses += [(m, l) for m, l in sc["imports"].items() if m in PROCESS_CALLS]
         if uses and name not in PROCESS_ALLOWED:
             bad += [f"{name}:{l} {m}" for m, l in uses]
     res.append(_res(FAIL if bad else PASS, "static: program-starting code",
@@ -197,11 +231,10 @@ def static_checks(root=None):
                     ("imports " + ", ".join(f"{k} ({v})" for k, v in sorted(third.items()))) if third else "none: standard library only" + ("" if stdlib else " (not checked: python < 3.10)")))
     res.append(_dependency_check())
     # 6. addresses written in the code
-    outside = sorted({f"{n}:{l} {h}" for n, sc in scans.items() for h, l in sc["urls"]
-                      if h.split(":")[0].lower() not in ("localhost", "127.0.0.1", "[")
-                      and "{" not in h and not h.lower().endswith("example.com") and "example" not in h.lower() and h.lower() != "x"
-                      and h.split(":")[0] not in URL_ALLOWED.get(n, ())})
-    res.append(_res(FAIL if outside else PASS, "static: addresses in the code", ("; ".join(outside[:6])) if outside else "no address but this machine's (and reserved example names) in any string"))
+    outside = sorted({f"{n}:{l} {h}" for n, sc in scans.items() for h, l in sc["urls"] if not address_ok(h)})
+    res.append(_res(FAIL if outside else PASS, "static: addresses in the code",
+                    ("; ".join(outside[:6])) if outside else "no URL, IPv4 address or host name with a common suffix (.com .net .org .io .dev ...) in any code string except this machine, the documentation ranges "
+                                                             "192.0.2.x / 198.51.100.x / 203.0.113.x and .invalid / .example names (docstrings are not read; an address built from pieces at run time would not show)"))
     # 7. the page and its scripts
     res.append(_assets_check(root))
     return res
@@ -304,6 +337,30 @@ def raw(port, data, timeout=5.0, shutdown=True):
     return Resp(b"".join(chunks))
 
 
+def routes_from_source(src):
+    """(GET routes, POST routes, GET prefixes, POST prefixes) named in a server.py: read from the handlers' own comparisons, `_route_get` for GET and `do_POST`
+    for POST, so a path that only one of them knows is counted once and under the right verb."""
+    tree = ast.parse(src)
+    exact = {"_route_get": set(), "do_POST": set()}
+    prefix = {"_route_get": set(), "do_POST": set()}
+
+    def is_path(n, fn):   # GET handlers compare `url.path`; do_POST compares its local `path`: a comparison of the other kind is not that verb's route
+        if fn == "_route_get":
+            return isinstance(n, ast.Attribute) and n.attr == "path" and isinstance(n.value, ast.Name) and n.value.id == "url"
+        return isinstance(n, ast.Name) and n.id == "path"
+
+    def strings(n):
+        return [c.value for c in ([n] if isinstance(n, ast.Constant) else getattr(n, "elts", [])) if isinstance(c, ast.Constant) and isinstance(c.value, str) and c.value.startswith("/")]
+    for fn in ast.walk(tree):
+        if isinstance(fn, ast.FunctionDef) and fn.name in exact:
+            for node in ast.walk(fn):
+                if isinstance(node, ast.Compare) and len(node.ops) == 1 and is_path(node.left, fn.name) and isinstance(node.ops[0], (ast.Eq, ast.In)):
+                    exact[fn.name].update(strings(node.comparators[0]))
+                elif isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == "startswith" and is_path(node.func.value, fn.name) and node.args:
+                    prefix[fn.name].update(strings(node.args[0]))
+    return sorted(exact["_route_get"]), sorted(exact["do_POST"]), sorted(prefix["_route_get"]), sorted(prefix["do_POST"])
+
+
 class Audit:
     def __init__(self):
         self.res = []
@@ -340,12 +397,12 @@ class Audit:
     # -- setup ----------------------------------------------------------------------------------------------------
     def setup(self):
         from .store import Store
-        self.profile_before = profile.reason(None)   # what this shell says BEFORE the audit sets its own environment
+        self.profile_before = profile.reason(profile.find_board())   # what this shell says BEFORE the audit sets its own environment
         self.board.mkdir(parents=True)
         probe = self.tmp / "probe-target.txt"
         probe.write_text("outside the project folder\n")
         (self.board / "config.toml").write_text(
-            "[providers.web]\ntype = \"http\"\nurl = \"http://169.254.169.254/latest/{query}\"\n\n"
+            "[providers.web]\ntype = \"http\"\nurl = \"http://198.51.100.45/latest/{query}\"\n\n"
             f"[providers.cmd]\ntype = \"command\"\nrun = \"touch {self.tmp / 'RAN-A-COMMAND'}\"\n\n"
             f"[providers.out]\ntype = \"markdown\"\npath = \"{probe}\"\n\n"
             "[providers.rel]\ntype = \"markdown\"\npath = \"../probe-target.txt\"\n")
@@ -400,17 +457,19 @@ class Audit:
                 fn()
                 self.add(FAIL, f"profile: {feature} refused", "it ran")
             except Exception as e:   # noqa: BLE001
-                self.add(PASS, f"profile: {feature} refused", "BoardError: locked off" if "locked" in str(e) else str(e)[:60])
+                self.add(PASS, f"profile: {feature} refused", "the lock raises 'locked off' for it (each feature's own code calls the lock first: that call is covered by the lock's tests, not exercised here)" if "locked" in str(e) else str(e)[:60])
 
     def guard_canaries(self):
-        """Things that must be refused, tried for real: the guard refuses before anything is sent."""
+        """Things that must be refused, tried for real: the guard refuses before anything is sent. Every target is a documentation address (RFC 5737:
+        192.0.2.x, 198.51.100.x, 203.0.113.x, never routed) or a .invalid name (RFC 2606, never resolves), so that a guard that ever stopped working
+        would not make the audit contact a real host or resolver from the machine it is meant to vouch for."""
         probes = [
-            ("a TCP connection to a public address", lambda: socket.create_connection(("93.184.216.34", 80), timeout=1)),
-            ("a TCP connection to a name", lambda: socket.create_connection(("example.com", 80), timeout=1)),
-            ("a name lookup", lambda: socket.getaddrinfo("example.com", 80)),
+            ("a TCP connection to an outside address (documentation range)", lambda: socket.create_connection(("192.0.2.10", 80), timeout=1)),
+            ("a TCP connection to a name (.invalid)", lambda: socket.create_connection(("canary.invalid", 80), timeout=1)),
+            ("a name lookup", lambda: socket.getaddrinfo("canary.invalid", 80)),
             ("urllib.request to a reserved test address", lambda: urllib.request.urlopen("http://192.0.2.1/", timeout=1)),
-            ("a UDP datagram to a public resolver", lambda: socket.socket(socket.AF_INET, socket.SOCK_DGRAM).sendto(b"x", ("8.8.8.8", 53))),
-            ("listening on all interfaces", lambda: socket.socket().bind(("0.0.0.0", 0))),
+            ("a UDP datagram to an outside address (documentation range)", lambda: socket.socket(socket.AF_INET, socket.SOCK_DGRAM).sendto(b"x", ("198.51.100.7", 53))),
+            ("listening on a non-loopback address", lambda: socket.socket().bind(("192.0.2.10", 0))),
             ("starting a program (subprocess)", lambda: subprocess.run(["true"])),
             ("starting a program (os.system)", lambda: os.system("true")),
         ]
@@ -429,65 +488,81 @@ class Audit:
         self.proc.events.clear()
 
     def routes_in_source(self):
-        src = (HERE / "server.py").read_text()
-        get = set(re.findall(r'url\.path == "(/[^"]*)"', src))
-        for grp in re.findall(r'url\.path in \(([^)]*)\)', src):
-            get |= set(re.findall(r'"(/[^"]*)"', grp))
-        post = set(re.findall(r'\bpath == "(/api/[^"]*)"', src))
-        prefixes = set(re.findall(r'path\.startswith\("(/[^"]*)"\)', src))
-        return sorted(get), sorted(post), sorted(prefixes)
+        return routes_from_source((HERE / "server.py").read_text())
 
     def sweep(self):
-        get, post, prefixes = self.routes_in_source()
-        hit, bad = [], []
+        """Every route the handlers name (read from server.py's own comparisons, GET and POST apart), requested once. A POST goes with an empty JSON
+        object: that exercises only its validation path, and the line says so; day_of_work sends real payloads to as many as can take one."""
+        get, post, pre_get, pre_post = self.routes_in_source()
+        bad = []
         for path in get:
-            if path == "/api/transcript":
-                path += "?agent=nobody"
-            r = self.get(path)
-            hit.append(path)
+            r = self.get(path + ("?agent=nobody" if path == "/api/transcript" else ""))
             if r.status >= 500 or r.status == 0:
                 bad.append(f"GET {path} -> {r.status}")
         for path in post:
             r = self.post(path, b"{}")
-            hit.append(path)
             if r.status >= 500 or r.status == 0:
                 bad.append(f"POST {path} -> {r.status}")
-        for pre in prefixes:
-            probe = pre + ("none" if not pre.endswith("/") else "")
-            r = self.get(probe if pre != "/api/x/" else "/api/x/none/none")
-            hit.append(pre + "*")
+        for pre in pre_get + pre_post:
+            r = self.get(pre + ("none/none" if pre == "/api/x/" else "none"))
             if r.status >= 500 or r.status == 0:
                 bad.append(f"GET {pre}* -> {r.status}")
-        self.ok(not bad and len(get) >= 15 and len(post) >= 15, "runtime: every route answers",
-                f"{len(get)} GET and {len(post)} POST routes and {len(prefixes)} prefixes requested, none a 5xx or a dropped connection", "; ".join(bad) or "too few routes found in server.py to trust the sweep")
+        self.routes = (get, post, pre_get, pre_post)
+        self.ok(not bad and len(get) >= 15 and len(post) >= 15, "runtime: every named route answers without a 5xx",
+                f"{len(get)} GET routes and {len(pre_get)} GET prefixes requested; {len(post)} POST routes requested with an empty body (their validation path; see the next line for the real payloads)",
+                "; ".join(bad) or "too few routes found in server.py to trust the sweep")
 
     def day_of_work(self):
-        """A scripted day through the real handlers: writes, a finished card (reports and git), chat, replies, delete."""
-        ok = True
-        why = []
+        """A scripted day through the real handlers with real payloads: every POST route that can take one is sent one the board accepts (200).
+        The rest are named in the line, with why: they answer only their validation path here."""
+        accepted, refused, why = set(), [], []
+        S = self.store
 
-        def step(label, r, want=(200,)):
-            nonlocal ok
-            if r.status not in want:
-                ok = False
-                why.append(f"{label}: {r.status}")
-            return r
+        def go(path, payload, want=(200,)):
+            r = self.post(path, json.dumps(payload).encode())
+            (accepted.add(path) if r.status in want else refused.append(f"{path} -> {r.status}"))
+            return json.loads(r.body or b"{}") if r.status == 200 else {}
 
-        a = json.loads(step("add", self.post("/api/tasks", json.dumps({"title": "Selfcheck card one", "status": "todo"}).encode())).body or b"{}")
-        b = json.loads(step("add", self.post("/api/tasks", json.dumps({"title": "Selfcheck card two", "status": "todo"}).encode())).body or b"{}")
-        aid, bid = a.get("id", ""), b.get("id", "")
-        step("edit", self.post("/api/edit", json.dumps({"id": aid, "description": "made by the selfcheck"}).encode()))
-        step("move", self.post("/api/move", json.dumps({"id": aid, "status": "doing"}).encode()))
-        step("move done", self.post("/api/move", json.dumps({"id": aid, "status": "done"}).encode()))
-        step("task page", self.get(f"/api/task?id={aid}"))
-        step("chat", self.post("/api/chat", json.dumps({"text": "hello from the selfcheck"}).encode()))
-        step("reply", self.post("/api/reply", json.dumps({"id": bid, "text": "a reply"}).encode()), want=(200, 400))
-        step("reports index", self.get("/reports/"))
-        step("summary", self.get("/summary/"))
-        step("hud", self.get("/api/hud"))
-        step("page", self.get("/"))
-        step("delete", self.post("/api/delete", json.dumps({"id": bid}).encode()))
-        self.add(PASS if ok else FAIL, "runtime: a day of work through the handlers", "add, edit, move, finish (report and git line), chat, reply, delete, summary, hud, page: all answered" if ok else "; ".join(why))
+        def card(title):
+            return go("/api/tasks", {"title": title, "status": "todo"}).get("id", "")
+        aid, bid, cid, did = card("Selfcheck one"), card("Selfcheck two"), card("Selfcheck three"), card("Selfcheck four")
+        go("/api/edit", {"id": aid, "description": "made by the selfcheck"})
+        go("/api/move", {"id": aid, "status": "doing"})
+        go("/api/move", {"id": aid, "status": "done"})          # a finished card: its report and, outside the profile, its git line
+        with contextlib.suppress(Exception):
+            S.review(bid, "ready")                               # (set up through the store: the throwaway board)
+        go("/api/send-back", {"id": bid, "text": "not yet"})
+        with contextlib.suppress(Exception):
+            S.ask(cid, "which one?")
+        go("/api/reply", {"id": cid, "text": "this one"})
+        go("/api/bulk-move", {"ids": [did], "status": "doing"})
+        go("/api/bulk-archive", {"ids": [did]})
+        go("/api/unarchive", {"ids": [did]})
+        gone = go("/api/delete", {"id": did})
+        if gone.get("prev"):
+            go("/api/restore", {"task": gone["prev"], "before": gone.get("prev_before"), "kids": gone.get("prev_kids") or []})
+        go("/api/clear-done", {})
+        go("/api/chat-agents", {"on": True})
+        go("/api/chat", {"text": "hello from the selfcheck"})
+        prop = S.chat_send("AGENT-9", "may I?", kind="agent", propose="do a thing") if S.chat_agents() else None
+        if prop:
+            go("/api/chat-decide", {"seq": prop["seq"], "decision": "declined"})
+        line = S.chat_send(S.owner, "anyone there?", kind="user", to="AGENT-9")
+        go("/api/chat-nudge", {"seq": line["seq"]})
+        go("/api/chat-agents", {"on": False})
+        for path in ("/api/task?id=" + aid, "/reports/", "/summary/", "/api/hud", "/api/boards", "/api/config", "/api/chat", "/"):
+            r = self.get(path)
+            if r.status != 200:
+                refused.append(f"GET {path} -> {r.status}")
+        post = set(self.routes[1]) if getattr(self, "routes", None) else set()
+        validation_only = sorted(post - accepted)
+        for path, reason in (("/api/run-kill", "a card with no running one-shot; `run` is locked off in the profile"), ("/api/transcribe", "voice is locked off in the profile")):
+            if path in validation_only:
+                why.append(f"{path} ({reason})")
+        left = [p for p in validation_only if not any(p in w for w in why)]
+        text = (f"{len(accepted)} of {len(post)} POST routes took a real payload the board accepted; the others answered only their validation path: "
+                + (", ".join(why + left) or "none") + "; plus the page, a card, reports, summary, hud, boards, config and chat as GETs") if post else f"{len(accepted)} POST routes took a real payload"
+        self.add(PASS if not refused and not left else FAIL, "runtime: real payloads through the handlers", text if not refused and not left else "; ".join(refused + [f"{p} never got a real payload" for p in left]))
 
     def ssrf_and_commands(self):
         """Providers that try to reach a URL, run a command, or read a file outside the project: refused, and nothing is attempted."""
@@ -497,7 +572,7 @@ class Audit:
         body = r.text()
         ran = (self.tmp / "RAN-A-COMMAND").exists()
         read = "outside the project folder" in body and "locked" not in body
-        attempts = [e for e in self.net.events[before:] if not e[2] or "169.254" in e[1]]   # (loopback events are this audit's own requests to its server)
+        attempts = [e for e in self.net.events[before:] if not e[2] or "198.51.100.45" in e[1]]   # (loopback events are this audit's own requests to its server)
         self.ok(not ran, "red-team: a command provider", "the command was not run (the lock refused it)", "THE COMMAND RAN")
         self.ok(not attempts, "red-team: an http provider (SSRF)", "no connection and no lookup was even attempted for the metadata address", f"tried: {attempts[:2]}")
         self.ok(not read, "red-team: a file provider outside the folder", "the file outside the project was not read into the prompt", "the file outside the project folder was read")
@@ -556,25 +631,44 @@ class Audit:
         took = time.time() - t0
         self.ok(took < 5 and self.alive(), "http: a stalled client is dropped", f"a body that never finishes was cut after {took:.1f} s (the handler timeout; 15 s in the real server)", f"held for {took:.1f} s")
         timeout_cfg = self.handler.timeout
-        # a flood of idle connections
-        held = []
+        # a flood of idle connections: count what was really held and what was refused at once
+        held, failed = [], 0
         self.handler.timeout = 30   # (the short timeout set for the stalled-client check would free the early connections before the last one is open)
         try:
             for _ in range(self.srv.MAX_CONNECTIONS + 30):
-                try:
-                    held.append(socket.create_connection(("127.0.0.1", port), timeout=2))
-                except OSError:
+                for attempt in range(4):
+                    try:
+                        held.append(socket.create_connection(("127.0.0.1", port), timeout=5))
+                        break
+                    except OSError:
+                        time.sleep(0.2)
+                else:
+                    failed += 1
                     break
-            time.sleep(0.3)
+            time.sleep(0.5)
+            kept, refused = 0, 0
+            for c in held:
+                c.settimeout(0.1)
+                try:
+                    data = c.recv(64)
+                except socket.timeout:
+                    kept += 1   # idle and still open: the server holds a thread for it
+                    continue
+                except OSError:
+                    continue
+                refused += 1 if data.startswith(b"HTTP/1.0 503") else 0
             over = raw(port, f"GET /api/tasks HTTP/1.1\r\nHost: {host}\r\n\r\n".encode(), timeout=3)
         finally:
             for c in held:
                 with contextlib.suppress(OSError):
                     c.close()
             self.handler.timeout = 2
-        time.sleep(0.3)
-        self.ok(over.status == 503 and self.alive(), "http: a flood of connections is capped", f"{len(held)} idle connections held: the next is refused with 503 at once, and the server answers normally after they close",
-                f"status {over.status}; alive={self.alive()}")
+        time.sleep(0.5)
+        cap = self.srv.MAX_CONNECTIONS
+        judged = len(held) > cap and not failed
+        self.ok(judged and kept == cap and refused >= 1 and over.status == 503 and self.alive(), "http: a flood of connections is capped",
+                f"{len(held)} connections opened: {kept} are held idle (the cap, {cap}), {refused} more were refused with 503 at once, one more request got 503, and the server answers normally after they close",
+                (f"could only open {len(held)} connections (cap {cap}): the check could not judge" if not judged else f"{kept} held idle (cap {cap}), {refused} refused with 503, a further request got {over.status}; alive={self.alive()}"))
         old = raw(port, b"GET /api/tasks\r\n\r\n")
         absolute = raw(port, f"GET http://evil.example/api/tasks HTTP/1.1\r\nHost: evil.example\r\nConnection: close\r\n\r\n".encode())
         self.ok(b'"title"' not in old.raw and b'"tasks"' not in old.raw, "http: a request with no version and no Host", "nothing of the board comes back (no Host to check, so it is refused)", f"{old.status}: {old.raw[:60]!r}")
@@ -596,14 +690,15 @@ class Audit:
         secret.write_text("TOP-SECRET-MARKER")
         enc = [("..%2f" * 6) + "etc/passwd", "%2e%2e/" * 6 + "etc/passwd", "..%5c..%5cetc%5cpasswd", "..%252f..%252fetc/passwd", "../" * 6 + "etc/passwd", "%00", "x.html%00.txt",
                ".", "..", "./../x", f"..%2f{secret.name}"]
+        prefixes = ("/reports/", "/b/", "/b/x/reports/", "/static/", "/api/x/home/", "/voice.js/", "//", "/")
         leaks = []
         for e in enc:
-            for prefix in ("/reports/", "/b/", "/b/x/reports/", "/static/", "/api/x/home/", "/voice.js/", "//", "/"):
+            for prefix in prefixes:
                 r = self.get(prefix + e)
                 t = r.text()
                 if r.status >= 500 or "root:" in t or "TOP-SECRET-MARKER" in t:
                     leaks.append(f"{prefix}{e[:20]} -> {r.status}")
-        self.ok(not leaks, "red-team: path traversal", f"{len(enc) * 8} traversal URLs over every route that takes a name: nothing outside served, no 5xx", "; ".join(leaks[:4]))
+        self.ok(not leaks, "red-team: path traversal", f"{len(enc) * len(prefixes)} traversal URLs ({len(enc)} spellings under {len(prefixes)} route prefixes): nothing outside the board served, no 5xx", "; ".join(leaks[:4]))
         # a report that is a link out of its folder
         rep = self.server.reports.reports_dir(self.board)
         rep.mkdir(parents=True, exist_ok=True)

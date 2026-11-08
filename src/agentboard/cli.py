@@ -1216,7 +1216,8 @@ def cmd_profile(a):
         print("                 export AGENTBOARD_PROFILE=work (this shell)")
         print("                 agentboard init --profile work (a new board's config.toml)")
     if a.what == "off" and srcs:
-        print("note: the environment or a board's config.toml still says work; the profile stays on until they are removed")
+        print("note: the profile stays on, because " + "; ".join(f"{where} still says work ({text})" for where, text in srcs)
+              + ("; remove that too" if len(srcs) == 1 else "; remove those too"))
 
 
 def cmd_selfcheck(a):

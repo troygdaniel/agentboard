@@ -28,6 +28,7 @@ WORK = "work"
 _OFF = ("", "0", "false", "no", "off", "home")
 _NET = []   # the network guard, once installed (a second apply does not stack a second one)
 _PROC = []
+_ENV0 = {"seen": False, "value": None}   # what the SHELL put in $AGENTBOARD_PROFILE, noted before apply() writes its own work into the environment
 
 
 def machine_file():
@@ -42,7 +43,7 @@ def _word_is_work(value):
 def sources(board_dir=None):
     """[(where, text)] for every source that says work, strongest first. Never raises."""
     out = []
-    v = os.environ.get(ENV)
+    v = _ENV0["value"] if _ENV0["seen"] else os.environ.get(ENV)   # (apply() sets the variable for what it starts; that is not the shell's word)
     if v is not None and _word_is_work(v):
         out.append(("environment", f"${ENV}={v.strip()[:20]}"))
     try:
@@ -85,6 +86,8 @@ def apply(board_dir=None):
     why = reason(board_dir if board_dir is not None else find_board())
     if why is None:
         return None
+    if not _ENV0["seen"]:   # note what the shell itself said before this process writes its own work into the variable (for what it starts)
+        _ENV0.update(seen=True, value=os.environ.get(ENV))
     os.environ[ENV] = WORK
     os.environ[lockdown.ENV] = "1"
     os.environ["AGENTBOARD_NO_PLUGINS"] = "1"
@@ -105,6 +108,7 @@ def reset():   # tests only: take the guards off again
         g.uninstall()
     _NET.clear()
     _PROC.clear()
+    _ENV0.update(seen=False, value=None)
 
 
 def set_machine(on):

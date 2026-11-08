@@ -129,7 +129,7 @@ def check_version(runner):
     return out
 
 
-def check_locks(env):
+def check_locks(env, board_dir=None):
     source = "\n".join(p.read_text(errors="ignore") for p in sorted(_HERE.glob("*.py")) if p.name != "doctor.py")
     names = sorted(set(re.findall(r"AGENTBOARD_NO_[A-Z]+", source)) | {lockdown.ENV})
 
@@ -143,7 +143,7 @@ def check_locks(env):
     others = [f"{n} {'on' if on(n) else 'off'}" for n in names if n != lockdown.ENV]
     if others:
         out.append(_res(INFO, "lock", "narrow locks: " + ", ".join(others)))
-    why = profilelib.reason(None)
+    why = profilelib.reason(board_dir)
     out.append(_res(PASS, "profile", f"the work profile is on ({why}); `agentboard selfcheck` proves it") if why
                  else _res(INFO, "profile", "the work profile is not on; `agentboard profile work` turns on the lock, loopback-only networking and no program starts (then `agentboard selfcheck`)"))
     return out
@@ -589,7 +589,7 @@ def run(board_dir, project=None, env=None, runner=subprocess.run):
     results = []
     results += check_version(runner)
     results += check_install()
-    results += check_locks(env)
+    results += check_locks(env, board_dir)
     results += check_plugins()
     results += check_plugin_load(board_dir)
     pids = _board_pids(runner)
