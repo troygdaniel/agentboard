@@ -592,4 +592,6 @@ What to expect when you clone this onto a managed machine (the full audit and ch
     python -m venv .venv && .venv/bin/pip install -e .
     .venv/bin/python -m unittest discover -s tests
 
+How it is built, file by file: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). How to work on it (cards, worktrees, the gates, the changelog rule): [`CONTRIBUTING.md`](CONTRIBUTING.md). Every document, one line each: [`docs/index.md`](docs/index.md).
+
 MIT licensed.
