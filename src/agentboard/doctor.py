@@ -568,6 +568,33 @@ def check_code():
 
 
 # -- the whole report -----------------------------------------------------------------------------------------------------------
+def check_agents(board_dir, project):
+    """Is anything connected to this board? Which agents have reported (names from the cards), and whether this project's CLAUDE.md or AGENTS.md
+    carries agentboard's lines. Read-only: it reads tasks.json and one text file, and never writes."""
+    import json
+    from . import agentfiles
+    out = []
+    names = None
+    try:
+        data = json.loads((Path(board_dir) / "tasks.json").read_text())
+        names = sorted({str(t["agent"]) for t in (data.get("tasks") if isinstance(data, dict) else []) or [] if isinstance(t, dict) and t.get("agent")})
+    except (OSError, ValueError):
+        pass   # an unreadable board is the files check's business, not this one's
+    if names is not None:
+        if names:
+            out.append(_res(PASS, "agents", f"{len(names)} agent{'s' if len(names) != 1 else ''} reported to this board: " + ", ".join(names[:6]) + (" ..." if len(names) > 6 else "")))
+        else:
+            out.append(_res(INFO, "agents", "no agent has reported to this board yet"))
+    found = agentfiles.agent_file(project)
+    if found is None:
+        out.append(_res(INFO, "agents", "no CLAUDE.md or AGENTS.md here: `agentboard instructions` prints the lines to give your agents; `agentboard init --instructions` makes AGENTS.md with them"))
+    elif agentfiles.has_instructions(found):
+        out.append(_res(PASS, "agents", f"{found.name} has agentboard's instructions"))
+    else:
+        out.append(_res(INFO, "agents", f"{found.name} does not have agentboard's instructions yet: `agentboard init --instructions` adds them (an agent reads them from there)"))
+    return out
+
+
 def run(board_dir, project=None, env=None, runner=subprocess.run):
     """[(level, name, text)] for the machine as it is now. Changes nothing."""
     board_dir = Path(board_dir)
@@ -590,6 +617,7 @@ def run(board_dir, project=None, env=None, runner=subprocess.run):
     results += check_git(project, board_dir, runner)
     results += check_hooks(project)
     results += check_stop_hook(project)
+    results += check_agents(board_dir, project)
     results += check_code()
     return results
 

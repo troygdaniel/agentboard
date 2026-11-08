@@ -124,7 +124,7 @@ class TouchSoundTests(unittest.TestCase):
         self.assertIn("function closeChat() { touch('slide', false);", PAGE)
         self.assertIn("if (open !== mixIsOpen()) touch('slide', open);", body("toggleMix"))
         self.assertIn("if (open !== $('keys').classList.contains('on')) touch('slide', open);", body("toggleKeys"))
-        self.assertEqual(PAGE.count("toggleKeys("), 4)   # the ? key, Escape, the backdrop click, and the function itself
+        self.assertEqual(PAGE.count("toggleKeys("), 6)   # the ? key, Escape, the backdrop click, the function itself, the header ? button and the tour closing the sheet
         self.assertIn("{ touch('slide', false); $('later').classList.remove('open'); }", PAGE)
         self.assertIn("{ touch('slide', false); $('chat').classList.remove('open'); }", PAGE)
         # toggles: two pitches, up for on, down for off (theme: light up, dark down, auto level)
