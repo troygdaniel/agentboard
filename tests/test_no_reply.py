@@ -17,7 +17,7 @@ from http.server import ThreadingHTTPServer
 from pathlib import Path
 from unittest import mock
 
-from agentboard import cli, hooks, listeners, nav, prompt, server
+from agentboard import chatwake, cli, hooks, listeners, nav, prompt, server
 from agentboard.store import BoardError, Store
 
 HTML = (Path(nav.__file__).parent / "static" / "index.html").read_text()
@@ -133,9 +133,14 @@ class TheNudge(Base):
             with self.assertRaises(BoardError):
                 self.s.chat_nudge(seq)
         orch = self.s.chat_send(self.s.owner, "hello?", kind="user", to="ORCH")
+        before = chatwake.count(self.s.dir)
+        self.assertIsNone(self.s.chat_nudge(orch["seq"]))   # nobody listening as ORCH: the nudge marks the line and moves the wake file, no ORCH line (chat-f7)
+        self.assertEqual(chatwake.count(self.s.dir), before + 1)
+        self.assertTrue(next(m for m in self.s.chat_list() if m["seq"] == orch["seq"]).get("nudged"))
+        listeners.register(self.s.dir, "ORCH", "inbox")
         with self.assertRaises(BoardError) as e:
-            self.s.chat_nudge(orch["seq"])
-        self.assertIn("ORCH is not listening", str(e.exception))
+            self.s.chat_nudge(self.s.chat_send(self.s.owner, "there?", kind="user", to="ORCH")["seq"])
+        self.assertIn("ORCH is listening", str(e.exception))
         with self.assertRaises(BoardError):
             self.s.chat_nudge(999)
 
@@ -309,11 +314,11 @@ class ThePanel(unittest.TestCase):
     def test_after_a_minute_unread_it_says_whether_anything_wakes_the_agent_and_offers_the_nudge(self):
         h = body("receiptHtml")
         self.assertIn("is listening but has not read this yet", h)
-        self.assertIn("is not listening: nothing on the board wakes it", h)
+        self.assertIn("nobody is listening as ${to}", h)
         self.assertIn('data-nudge="${m.seq}"', h)
         self.assertIn("Nudge via ORCH", h)
         self.assertIn("asked ORCH to message it", h)
-        self.assertIn("ORCH is not listening: nothing on the board wakes it. Type in its terminal, or boot one with Copy prompt", h)
+        self.assertIn("its wait is not running, so its next scheduled check or a nudge is what reaches it", h)
         self.assertIn("api('/api/chat-nudge', { seq: +b.dataset.nudge })", HTML)
         self.assertIn("['sent', 'delivered'].includes(receiptOf(m)?.state))) renderChat(); }, 15000);", HTML)
         self.assertIn("Not seen in 5 min: it comes again with the next inbox read.", h)

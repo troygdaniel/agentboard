@@ -424,7 +424,9 @@ background command, starting it again whenever it prints or times out:
 
 That wait is the only thing that makes you reachable: a session that has finished its turn reads nothing until something wakes it,
 and the board cannot reach into a session. Keep it running whenever you are idle, and expect the same of every agent (their prompts
-say `{ab} chat inbox --name <agent> --wait 3600` between cards). The board shows who is listening.
+say `{ab} chat inbox --name <agent> --wait 3600` between cards). The board shows who is listening. The wait watches one small file,
+`.agentboard/chat-wake.json`, which moves whenever a line is posted, so it wakes within a second of {owner}'s line. If you run on a
+schedule that cannot hold a wait, stat that file each time you fire: when its time moved, run `{ab} chat inbox --name ORCH`.
 
 A line from {owner} there is a request. "add a card …": `{ab} add` (one card per deliverable, the Keep it simple block in its
 description). "assign <card> to <agent>": tell that agent with SendMessage and let it claim. "move … to Later" (or to Todo): `{ab} move <id> backlog` (`todo`).
@@ -436,7 +438,8 @@ SendMessage. Answer on the board, one line, so it shows in the drawer; a plain l
 A line from the board itself, "<agent> has not read my line #N …", is {owner}'s nudge: that agent's session is not listening and
 nothing on the board wakes it, but your SendMessage does. Send it one line, "{owner} wrote to you on the board: run agentboard chat
 inbox --name <agent>, answer with chat send --to {owner}, then keep chat inbox --wait running", and tell {owner} in one line that you
-did. Never answer in the agent's place.
+did. Never answer in the agent's place. A line to you that nobody was listening for shows {owner} a Nudge too: it only moves the wake
+file, so read your inbox when you next run.
 
 A question, not a task ("when did we …", "what did … find", "where is …"): look it up before you answer, never from memory.
 `lookup` is read-only and searches what the board already knows (done and archived cards, reports; on the home Mac a plugin adds

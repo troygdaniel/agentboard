@@ -2147,19 +2147,19 @@ function receiptHtml(m) {
   if (r.state !== 'sent' || !r.late) return `<div class="cmsg-rcpt ${r.state}"><span class="st">${r.state}</span>${twins}</div>`;
   const to = esc(m.to);
   let warn, act = '';
-  if (isOrch(m.to)) warn = r.listening ? `ORCH is listening but has not read this yet: it is in the middle of something` : `ORCH is not listening: nothing on the board wakes it. Type in its terminal, or boot one with Copy prompt`;
-  else if (r.listening) warn = `${to} is listening but has not read this yet: it is in the middle of something`;
-  else {
-    warn = `${to} is not listening: nothing on the board wakes it`;
-    act = m.nudged ? `<span class="nudged">asked ORCH to message it ${esc(ago(m.nudged).text)}</span>`
-      : `<button class="btn" type="button" data-nudge="${m.seq}" title="${r.orch ? 'ORCH is listening: it messages the session' : 'ORCH is not listening either: the ask waits in its drawer'}">Nudge via ORCH</button>`;
+  const orch = isOrch(m.to);
+  if (r.listening) warn = `${to} is listening but has not read this yet: it is in the middle of something`;
+  else {   // nobody is listening as that name: the same words for ORCH and for any agent, with the one click that reaches it
+    warn = `nobody is listening as ${to}` + (orch ? `: its wait is not running, so its next scheduled check or a nudge is what reaches it` : `: nothing on the board wakes it`);
+    act = m.nudged ? `<span class="nudged">${orch ? 'nudged' : 'asked ORCH to message it'} ${esc(ago(m.nudged).text)}</span>`
+      : `<button class="btn" type="button" data-nudge="${m.seq}" title="${orch ? 'Moves the wake file: ORCH reads the board at its next check' : r.orch ? 'ORCH is listening: it messages the session' : 'ORCH is not listening either: the ask waits in its drawer'}">${orch ? 'Nudge' : 'Nudge via ORCH'}</button>`;
   }
   return `<div class="cmsg-rcpt sent late"><span class="st">sent</span>${twins}<span class="warn">${warn}</span>${act}</div>`;
 }
 document.addEventListener('click', async e => {   // the receipt sits in the ORCH drawer, the agent thread and the card panel alike
   const b = e.target.closest('[data-nudge]'); if (!b) return;
   b.disabled = true;
-  try { const d = await api('/api/chat-nudge', { seq: +b.dataset.nudge }); showError(d.orch_listening ? '' : 'Asked ORCH, but ORCH is not listening either: it reads the ask at its next turn'); chatActKey = ''; loadChat(); }
+  try { const d = await api('/api/chat-nudge', { seq: +b.dataset.nudge }); showError(d.message && !d.orch_listening ? 'Asked ORCH, but ORCH is not listening either: it reads the ask at its next turn' : ''); chatActKey = ''; loadChat(); }
   catch (err) { showError('Could not nudge: ' + err.message); b.disabled = false; }
 });
 setInterval(() => { if (chatMsgs.some(m => ['sent', 'delivered'].includes(receiptOf(m)?.state))) renderChat(); }, 15000);   // the minute (and the 5) pass without a poll noticing
