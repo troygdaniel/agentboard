@@ -57,7 +57,7 @@ class SwitchTests(Base):
                    {"topic": "heads-up", "files": ["a.py"]}, {"reply_to": peer["seq"]}, {"to": "AGENT-2", "propose": "deploy"}):
             with self.assertRaises(BoardError) as cm:
                 self.s.chat_send("AGENT-1", "hi", **kw)
-            self.assertIn("any answer to the user, still posts", str(cm.exception))
+            self.assertIn("Not sent: agent chat is off, so agents post one-line status only. A line to the user still goes", str(cm.exception))
         self.s.chat_send("you", "@AGENT-2 look at this", kind="user", to="AGENT-2")   # the owner is never gated
         self.assertTrue(self.s.set_chat_agents(True))
         m = self.s.chat_send("AGENT-1", "fcntl locks are per process, use flock on the fd", to="all", topic="learn", detail="see store.py _lock")
@@ -91,6 +91,10 @@ class MessageTests(Base):
     def setUp(self):
         super().setUp()
         self.s.set_chat_agents(True)
+        from agentboard import listeners
+        for n in ("AGENT-2", "AGENT-3"):   # a line to a name nobody has is not sent (f8 fixes): these two are listening
+            listeners.register(self.s.dir, n, "inbox", pid=1)
+            self.addCleanup(listeners.unregister, self.s.dir, n, 1)
 
     def test_a_multi_line_text_keeps_its_first_line_and_the_rest_is_detail(self):
         m = self.s.chat_send("AGENT-1", "heads up, touching index.html\nthe chat drawer CSS, lines 940-960\nback in 20 min", topic="heads-up", files=["src/agentboard/static/index.html"])

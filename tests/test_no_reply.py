@@ -331,12 +331,12 @@ class ThePanel(unittest.TestCase):
 
     def test_after_a_minute_unread_it_says_whether_anything_wakes_the_agent_and_offers_the_nudge(self):
         h = body("receiptHtml")
-        self.assertIn("is listening but has not read this yet", h)
-        self.assertIn("nobody is listening as ${to}", h)
+        self.assertIn("is listening but busy: it reads this when its step ends.", h)
+        self.assertIn("`Nobody is listening for ${to}.`", h)
         self.assertIn('data-nudge="${m.seq}"', h)
         self.assertIn("Nudge via ORCH", h)
-        self.assertIn("asked ORCH to message it", h)
-        self.assertIn("its wait is not running, so its next scheduled check or a nudge is what reaches it", h)
+        self.assertIn("'ORCH asked'", h)
+        self.assertIn("`Nobody is listening for ORCH: it reads the board at its next check.`", h)
         self.assertIn("api('/api/chat-nudge', { seq: +b.dataset.nudge })", HTML)
         self.assertIn("return r && !r.old && ['sent', 'delivered'].includes(r.state); })) renderChat(); }, 15000);", HTML)   # a line a day old is left alone
         self.assertIn("Not seen in 5 min: it comes again with the next inbox read.", h)

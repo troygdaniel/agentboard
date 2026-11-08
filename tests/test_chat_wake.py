@@ -87,9 +87,9 @@ class ThePromptAndThePage(unittest.TestCase):
 
     def test_the_panel_says_nobody_is_listening_for_orch_and_any_agent(self):
         html = (Path(SRC) / "agentboard" / "static" / "index.html").read_text()
-        self.assertIn("warn = `nobody is listening as ${to}`", html)
+        self.assertIn("warn = orch ? `Nobody is listening for ORCH: it reads the board at its next check.` : `Nobody is listening for ${to}.`;", html)
         self.assertIn("${orch ? 'Nudge' : 'Nudge via ORCH'}</button>", html)
-        self.assertIn("${orch ? 'nudged' : 'asked ORCH to message it'}", html)
+        self.assertIn("${orch ? 'nudged' : 'ORCH asked'}", html)
         self.assertNotIn("Type in its terminal, or boot one with Copy prompt", html)
         self.assertIn("d.message && !d.orch_listening", html)
 

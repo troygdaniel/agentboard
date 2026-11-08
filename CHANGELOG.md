@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+### Nine lines where the board and the terminal did not match the chat design (Nov 8)
+- `chat send --to` a name nobody has posts nothing and exits 1: `Not sent: no one named AGENT-33. Closest: AGENT-3. Send again with
+  --to AGENT-3.` (or `Names on this board: ORCH, AGENT-1, …`); the name is checked before the agent-chat switch; the roster in
+  `[orch] agents` counts as known names. The switch-off and over-the-limit refusals read as the design wrote them, and a long line to
+  the owner now says `Sent, cut at 300 characters: the rest is in the detail.` The owner's own typo from the board is still posted and
+  marked (the composer stops it first).
+- Receipts: `Nobody is listening for AGENT-4.` (`…for ORCH: it reads the board at its next check.`); a listening-but-busy agent is
+  muted, not amber: `AGENT-5 is listening but busy: it reads this when its step ends.`; after the Nudge, `ORCH asked 2m ago to message
+  it`. The composer's `On this board:` list puts ORCH first and leaves the owner's own name out, and an exact `@AGENT-2` with no space
+  counts as a complete name. Found by AGENT-2's check of chat-f8 against `docs/chat-words-design.md`.
+
 ### The chat box says who reads the line, and a refused send keeps your text (Nov 8)
 - Under each chat box (the ORCH drawer, an agent's thread, a card's chat) one small line now says who the line goes to and whether
   anything wakes them: `Goes to ORCH · listening`, `Goes to AGENT-2 · not listening: it reads this when its session next runs` (amber),
