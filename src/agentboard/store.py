@@ -372,7 +372,7 @@ class Store:
                 t["updated"] = _now()
             return t
 
-    def ask(self, task_id, question, body_md=None):
+    def ask(self, task_id, question, body_md=None, by=None):
         """Agent flags that it is blocked on the user. Cleared by the next update.
 
         body_md is an optional richer markdown body (a recap, a diff, a report) shown
@@ -383,6 +383,7 @@ class Store:
         question, body_md = split_report(question, body_md)
         with self.transaction() as tasks:
             t = self.get(tasks, task_id)
+            _must_hold(tasks, t, by, self.owner)
             _require_doing(t, "ask")
             t.pop("reply", None)   # a new question: the old answer no longer applies
             t["needs_input"] = True
@@ -404,7 +405,7 @@ class Store:
             return t
 
     @_reports_after()
-    def review(self, task_id, summary, body_md=None):
+    def review(self, task_id, summary, body_md=None, by=None):
         """Agent reports the work complete and hands it to the user for sign-off.
 
         body_md is an optional richer markdown body (a recap, a diff, a report); see
@@ -414,6 +415,7 @@ class Store:
         summary, body_md = split_report(summary, body_md)
         with self.transaction() as tasks:
             t = self.get(tasks, task_id)
+            _must_hold(tasks, t, by, self.owner)
             if t.get("parent_id"):
                 # subtasks have no review step: reporting one finished is just 100%, which completes it
                 return self._update(tasks, t, 100, summary, None)
@@ -556,11 +558,13 @@ class Store:
         return dict(r)
 
     @_reports_after()
-    def update(self, task_id, progress=None, text=None, status=None, body_md=None):
+    def update(self, task_id, progress=None, text=None, status=None, body_md=None, by=None):
         if text is not None:
             text, body_md = split_report(text, body_md)
         with self.transaction() as tasks:
-            return self._update(tasks, self.get(tasks, task_id), progress, text, status, body_md)
+            t = self.get(tasks, task_id)
+            _must_hold(tasks, t, by, self.owner)
+            return self._update(tasks, t, progress, text, status, body_md)
 
     def _update(self, tasks, t, progress, text, status, body_md=None):
         text, body_md = _cap(self._scrub(text, STATUS_MAX), STATUS_MAX), _cap(self._scrub(body_md, BODY_MAX), BODY_MAX)
@@ -1080,6 +1084,20 @@ def _parent_must_be_doing(parent, t, verb):
     Doing (claim the parent and its open subtasks come with it). Finished subtasks are exempt."""
     if parent and t.get("status") != "done" and parent["status"] != "doing":
         raise BoardError(f"cannot {verb} {t['id']}: its parent {parent['id']} is in {parent['status']}; claim the parent first")
+
+
+def _must_hold(tasks, t, by, owner):
+    """An agent reports only on the card it holds (overnight-rel-agent-protocol-3: two agents on one card). `by` is the session's
+    name, when the CLI knows it; the owner, ORCH, a session with no name and a card with no holder are all let through, and a
+    subtask with no holder of its own answers to its parent's. The refusal says the fix."""
+    if not by:
+        return
+    holder = t.get("agent") or ((_parent_of(tasks, t) or {}).get("agent") if t.get("parent_id") else None)
+    b = str(by).strip()
+    if not holder or b.lower() == str(holder).lower() or b.upper() == "ORCH" or _to_owner(b, owner):
+        return
+    raise BoardError(f"{t['id']} is held by {holder}, not {b}: claim it first (agentboard claim {t['id']} --name {b}; that is refused while "
+                     f"{holder} has it in Doing, so ask {holder} or ORCH), and if {holder} is gone, `agentboard watchdog` releases it")
 
 
 def _require_doing(t, verb):

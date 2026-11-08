@@ -1075,7 +1075,7 @@ def cmd_update(a):
     s = _store()
     kids = [k for k in s.load() if k.get("parent_id") == a.id]
     pct, text = _pct_and_text(a)
-    t = s.update(a.id, pct, text, body_md=_read_body(a))
+    t = s.update(a.id, pct, text, body_md=_read_body(a), by=os.environ.get("AGENTBOARD_NAME"))   # the session's name: it reports on its own card
     if kids:
         print(f"{t['id']}: Σ {t['progress']}% (a parent's % is computed from its subtasks; update those instead)")
     elif t["status"] == "done" and t.get("parent_id"):
@@ -1096,7 +1096,7 @@ def _read_body(a):
 
 def cmd_ask(a):
     s = _store()
-    t = s.ask(a.id, a.question, _read_body(a))
+    t = s.ask(a.id, a.question, _read_body(a), by=os.environ.get("AGENTBOARD_NAME"))
     _notify(s.dir, f"{t.get('agent') or 'An agent'} needs your input", t["title"], a.question)
     print(f"{t['id']}: waiting on user — {a.question}")
 
@@ -1106,7 +1106,7 @@ def cmd_review(a):
     if _lacks_subtasks(s.load(), a.id):   # a warning, not a refusal: a tiny card must still be able to finish
         print(f"warning: {a.id} has no subtasks. Every card gets them as soon as it starts; add them next time "
               f'(agentboard add "<step>" --parent {a.id}).', file=sys.stderr)
-    t = s.review(a.id, a.text, _read_body(a))
+    t = s.review(a.id, a.text, _read_body(a), by=os.environ.get("AGENTBOARD_NAME"))
     if t.get("parent_id"):
         print(f"{t['id']}: subtask finished (100%) — subtasks have no review step; review the parent, {t['parent_id']}, when the deliverable is ready")
         return
