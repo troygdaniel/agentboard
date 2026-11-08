@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### The chat repro script no longer reads the real board for one probe (Nov 7)
+- `tests/chat_repro.py` ran its R11 probe (`hook stop` with no board in the environment) with `AGENTBOARD_DIR` set to an empty string,
+  which `find_dir` treats as unset: run from the repo root as documented, the probe walked up to the repo's own `.agentboard/` and read
+  the real chat, cursors and listeners, against the script's promise and the analysis doc's "no board in env -> does nothing". Every
+  process the script starts now runs from the temp folder, the script refuses to start under a real board, and the doc says what R11
+  measures. Found by the Nov 7 merge review (`rev1107-repro-reads-live-board`).
+
 ### The autopilot no longer marks a line read or answered for a session that never saw it (Nov 7)
 - With `[chat] autopilot` on, the board drafting a reply for an idle agent moved that agent's chat cursor to the newest line and
   posted with `reply_to`, so the panel showed read and answered, and the Stop hook saw nothing unread, for a line the agent's
