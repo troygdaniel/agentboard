@@ -22,6 +22,8 @@ A plugin is an entry point in the group "agentboard.plugins" whose value is a fu
         api.add_thread(fn)                                        # fn(store) runs once in a daemon thread under `agentboard serve`
         api.set_page(script=js_text, style=css_text)              # one script, /api/x/mything/page.js, loaded by the page; the style rides in it
         api.add_source("things", "what it holds", search)           # agentboard lookup "q" --in things; search(store, words, limit) -> [{where, date, title, snippet, score}]
+        api.add_doctor(fn)                                         # fn(board_dir) -> [(level, name, text)] lines for `agentboard doctor` (PASS/WARN/FAIL/INFO);
+                                                                  # read-only, no socket, no program; doctor prefixes the name with the plugin's and masks the text
 
 A plugin is code you installed and switched on; it is trusted like any package. What this module guarantees is smaller: nothing loads
 unless the machine says so, a plugin can only add routes under its own /api/x/<name>/ and commands that do not shadow a core one, one
@@ -66,7 +68,7 @@ def enabled():
 # -- registration ---------------------------------------------------------------------------------------------------------------
 class Plugin:
     def __init__(self, name):
-        self.name, self.commands, self.routes, self.states, self.threads, self.sources = name, [], {}, [], [], []
+        self.name, self.commands, self.routes, self.states, self.threads, self.sources, self.doctors = name, [], {}, [], [], [], []
         self.script = self.style = None
 
 
@@ -106,6 +108,14 @@ class Api:
         if not (isinstance(name, str) and NAME_RE.fullmatch(name)) or not callable(search) or any(s[0] == name for s in self._p.sources):
             raise ValueError("bad source")
         self._p.sources.append((name, str(help or "")[:120], search))
+
+    def add_doctor(self, fn):
+        """A check for `agentboard doctor`: fn(board_dir) returns [(level, name, text)] with level one of PASS, WARN, FAIL, INFO. It must be
+        read-only (no socket, no program, no write), like every doctor line; doctor runs it only while plugins are on, names each line
+        <plugin>:<name>, masks secret-shaped text and turns an exception into one FAIL line with the class name."""
+        if not callable(fn):
+            raise ValueError("bad doctor")
+        self._p.doctors.append(fn)
 
     def set_page(self, script=None, style=None):
         if not all(x is None or isinstance(x, str) for x in (script, style)):
@@ -161,6 +171,11 @@ def commands():
 def sources():
     """[(plugin name, source name, help, search function)] for `agentboard lookup`; empty while plugins are off."""
     return [(p.name, *s) for p in active() for s in p.sources]
+
+
+def doctor_checks():
+    """[(plugin name, fn)] for `agentboard doctor`; empty while plugins are off."""
+    return [(p.name, fn) for p in active() for fn in p.doctors]
 
 
 def route(method, name, path):

@@ -89,7 +89,8 @@ add a source; with plugins off or locked there are none. Core code never opens a
 
 `agentboard doctor` is read-only and prints PASS / WARN / FAIL lines you can paste into a review: whether `AGENTBOARD_LOCKDOWN` is set (WARN if not) and which
 `config.toml` switches it would stop, the ports the board listens on (loopback only?), any open connection to another machine, whether the board folder is private
-(mode 700/600), the tracked files of the project (secrets, numbers, home paths), the Claude hooks installed, and which modules can connect or listen. By hand:
+(mode 700/600), the tracked files of the project (secrets, numbers, home paths), the Claude hooks installed, and which modules can connect or listen. With plugins
+on it also loads them as the server would (a failed load is a FAIL with the error class) and prints each plugin's own checks as `<plugin>:<check>` lines, masked; with plugins off or locked it imports none. By hand:
 
     agentboard plugins                                              # plugins: locked / off, and what is loaded; no network call
     lsof -nP -a -p $(pgrep -f "agentboard serve" | head -1) -i     # one line: 127.0.0.1:8765 (LISTEN), nothing else

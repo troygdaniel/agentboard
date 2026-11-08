@@ -19,6 +19,10 @@
   (`.agentboard/.listeners.lock`) and the file is replaced atomically, with no `.bak`. Found by the Nov 7 merge review
   (`rev1107-listeners-race`); tests run twenty threads and twelve processes at once.
 
+### `agentboard doctor` loads the plugins the server would, and lets each add its own checks (Nov 7)
+- On the home Mac a plugin crashed on load for hours (data files missing from the installed package) and every test passed, because nothing checked the installed copy the way the server uses it. With plugins ON, doctor now loads them exactly as `agentboard serve` does and prints `FAIL plugin <name> failed to load: <ErrorClass>` (the class only, never the message) or `PASS plugin <name> loads`. With plugins off or locked it still imports nothing.
+- A plugin can register read-only checks of its own setup: `api.add_doctor(fn)`, `fn(board_dir) -> [(level, name, text)]`. Doctor prints them as `<plugin>:<name>` lines; the text is made one visible line, secret-masked and cut, a bad shape or an exception becomes one FAIL naming the class, and at most 40 lines per plugin are shown. The home plugin uses it for its env file, data files, server keys and config sections.
+
 ### The audit page and SECURITY.md say what was decided (Nov 7)
 - The login fix (`sec-local-token`) is no longer "held": the owner decided not to merge it, so the board has no login and the docs now say that plainly (the branch is parked, not deleted). The page also stops listing the two secret-masking cards as open; both are done. Documentation only.
 
