@@ -109,12 +109,12 @@ class PromptTests(unittest.TestCase):
             with mock.patch.dict(os.environ, env, clear=True):
                 for tid in ("plain", "parent", "kid"):
                     text, _ = prompt.build_prompt(Store.get(s.load(), tid), s.dir, tasks=s.load())
-                    self.assertIn("sends you a message on the board", text, tid)
+                    self.assertIn("writes to you on the board", text, tid)
                     self.assertIn('chat send "<one line>" --name "<your session name>" --to', text, tid)
                 out = io.StringIO()
                 with contextlib.redirect_stdout(out):
                     cli.main(["instructions"])
-                self.assertIn("sends you a message on the board", out.getvalue())
+                self.assertIn("writes to you on the board", out.getvalue())
 
 
 class PanelMarkupTests(unittest.TestCase):

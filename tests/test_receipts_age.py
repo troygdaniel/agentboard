@@ -47,9 +47,11 @@ class ThePage(unittest.TestCase):
 
 class ThePromptsAndTheHookSayReplyTo(Base):
     def test_every_answer_instruction_carries_reply_to(self):
-        for t in (prompt.DEFAULT_TEMPLATE, prompt.ORCH_TEMPLATE):
+        from agentboard import cli, rules
+        for t in (rules.wake("{ab}", "{task_id}", "me", "review"), prompt.ORCH_TEMPLATE, cli.INSTRUCTIONS):   # the card prompts take their wait paragraph from rules.py
             self.assertIn("--reply-to", t)
         self.assertNotIn('--to {owner}`, then start the wait again', prompt.DEFAULT_TEMPLATE)
+        self.assertNotIn("--to {owner}", rules.wake("{ab}", "{task_id}", "me", "review"))   # the command word is {owner_cli}, the prose is {owner}
 
     def test_the_stop_hook_names_the_line_to_reply_to(self):
         m = self.s.chat_send(self.s.owner, "what do you need?", kind="user", to="AGENT-4")

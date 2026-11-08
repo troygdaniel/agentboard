@@ -5,7 +5,7 @@ import shutil
 import sys
 from pathlib import Path
 
-from . import lockdown, providers
+from . import lockdown, providers, rules
 from . import tomlread
 from .untrusted import is_text_card, marked, text_lines as _text_lines
 from .store import DEFAULT_OWNER, BoardError, owner_name
@@ -16,20 +16,21 @@ def owner_ref(board_dir=None):
     return "the user" if name == DEFAULT_OWNER else name
 
 
+def owner_arg(board_dir=None):
+    """The human's name as a command-line word for `--to`: the board's [board] owner, else "you" (what the board calls them), quoted for a shell.
+    Not owner_ref: "the user" is prose, and `--to the user` is two words that the command refuses."""
+    return shlex.quote(owner_name(board_dir) if board_dir else DEFAULT_OWNER)
+
+
 def say(text, board_dir=None):
-    """Fill {owner} (the human's name) and {Owner} (the same, ready to start a sentence) in a prompt; other braces stay as written."""
+    """Fill {owner} (the human's name in prose), {Owner} (the same, ready to start a sentence) and {owner_cli} (the name as a `--to` word) in a
+    prompt; other braces stay as written."""
     who = owner_ref(board_dir)
-    return text.replace("{owner}", who).replace("{Owner}", who[:1].upper() + who[1:])
+    return (text.replace("{owner_cli}", owner_arg(board_dir)).replace("{owner}", who).replace("{Owner}", who[:1].upper() + who[1:]))
 
 
-# The one reporting rule every prompt agentboard produces ends with. {owner} is the board's owner (see owner_ref).
-REPORT_RULE = """\
-## Reporting to {owner}
-
-Report to {owner} in one sentence, one idea: the ACTION they must take first, then one fact. If nothing is needed from them, one line of
-status. If more is unavoidable, one sentence, then offer the detail. Put that sentence on the card (agentboard ask/review/update text)
-so {owner} answers you there, and in your terminal. Put detail in `--body` (it shows under Details on the card), never in the first line.
-"""
+# The one reporting rule every prompt agentboard produces ends with: defined once, in rules.py. {owner} is the board's owner (see owner_ref).
+REPORT_RULE = rules.REPORT_RULE
 
 # What the finished card is built from: the shape of a review body. Sits just before the reporting rule in every card prompt.
 REVIEW_SHAPE = """\
@@ -68,10 +69,9 @@ Task ID: {task_id}
 
 ## Before you claim: ask if anything's unclear
 
-If this task is ambiguous, send your orchestrator/coordinating session (if you have one) a one-line
-question — e.g. via SendMessage — and wait for its answer before claiming. It has visibility into the
-whole board and can often answer without bothering the user; it escalates to them if it can't. This is
-a one-time check before you start, not an ongoing back-and-forth once work is underway.
+If this task is ambiguous, send your orchestrator/coordinating session (if you have one) one line
+— e.g. via SendMessage — and wait for its answer before claiming: it sees the whole board and can often
+answer without bothering the user. This is a one-time check, not a back-and-forth once work is underway.
 
 ## Step 0: claim this task (do this first)
 
@@ -88,40 +88,27 @@ a tiny card (do it, check it). Add more if you find more work as you go.
 
 ## Progress reporting
 
-The percentage is the point — it's what the board/HUD show at a glance without anyone opening
-the card, so keep it honest: your real % of the work actually done, not a fixed checklist. The
-card's % is computed from its subtasks (the mean), so update the subtask you are on, not the card.
-Call `update` again whenever that estimate changes, including when you discover more work than
-expected (the number can go down, not just up):
+The percentage is what the board/HUD show at a glance, so keep it honest: your real % of the work
+done, not a fixed checklist. The card's % is the mean of its subtasks, so update the subtask you are on,
+not the card. Call `update` whenever the estimate changes, including when you find more work than
+expected (it can go down):
 
     {ab} update <subtask id> 50 "<what you are doing>"
     {ab} update <subtask id> 100 "<one-line result>"     # a subtask at 100% closes itself
     {ab} review {task_id} "<one-line result>"
 
-Finish with `review` — the USER signs off and moves the card to done. After `review`, do not sit idle: start
-`{ab} answer {task_id} --wait --timeout 3600` as a background command (in Claude Code, Bash with run_in_background)
-and end your turn. You are woken when {owner} replies, sends the card back, closes it ("Done by {owner}"), moves it
-or removes it, and it prints what happened. If it says the card is closed, you are free to go idle or take the next card.
-It also wakes when {owner} sends you a message on the board (your thread, outside any card) and prints it: answer with
-`{ab} chat send "<one line>" --name "<your session name>" --to {owner} --reply-to <the line's number>`, then start the wait again.
-Run `{ab} done {task_id}` ONLY if the user explicitly tells you to.
+Finish with `review` — {owner} signs off and moves the card to done. {wake_review}
+{never_done}
 
 If you are blocked on the user mid-task, flag it (and keep going once they answer):
 
     {ab} ask {task_id} "<one-line question>"
 
-{Owner} answers on the card, not through anyone else. After you ask, do not sit idle: start
-`{ab} answer {task_id} --wait --timeout 3600` as a background command (in Claude Code, Bash with run_in_background)
-and end your turn. You are woken when {owner} replies, and it prints their reply; then carry on. It also wakes when
-{owner} sends you a message on the board (your thread, outside any card) and prints it: answer with
-`{ab} chat send "<one line>" --name "<your session name>" --to {owner} --reply-to <the line's number>`, then wait again. A tool that cannot
-run background commands runs it in the foreground instead. If it times out with no reply, say you are still waiting.
+{Owner} answers on the card, not through anyone else. {wake_ask}
 
-Between cards, and any other time you would go quiet with nothing running, keep yourself reachable the same way:
-`{ab} chat inbox --name "<your session name>" --wait 3600` as a background command. It prints the next line {owner}
-sends you and exits, and that wakes you; nothing else does. The board shows who is listening, and a Stop hook reminds
-a session that is about to go quiet without one.
+{reachable}
 
+{working_rules}
 These are not optional.
 {context}
 ## Task details
@@ -161,12 +148,8 @@ When the whole deliverable is ready (this and its sibling subtasks), review the 
 
     {ab} review {parent_id} "<one-line result>"
 
-The USER signs off on the parent and moves the card to done. Run `{ab} done` ONLY if the user explicitly tells you to.
-After you review the parent, do not sit idle: start `{ab} answer {parent_id} --wait --timeout 3600` as a background
-command (in Claude Code, Bash with run_in_background) and end your turn. You are woken when {owner} replies, sends the
-card back, closes it ("Done by {owner}"), moves it or removes it, and it prints what happened. A message {owner} sends you on
-the board (your thread) wakes it too: answer with `{ab} chat send "<one line>" --name "<your session name>" --to {owner} --reply-to <the line's number>`.
-Between cards, stay reachable with `{ab} chat inbox --name "<your session name>" --wait 3600` in the background the same way.
+{Owner} signs off on the parent and moves the card to done. {wake_review}
+{never_done}
 
 """
 
@@ -197,13 +180,8 @@ Keep the subtasks honest, updated whenever your estimate changes (it can go down
 
     {ab} review {task_id} "<one-line result>"
 
-Any subtask still open closes with it. The USER signs off and moves the card to done.
-After `review`, do not sit idle: start `{ab} answer {task_id} --wait --timeout 3600` as a background command (in
-Claude Code, Bash with run_in_background) and end your turn. You are woken when {owner} replies, sends the card back,
-closes it ("Done by {owner}"), moves it or removes it, and it prints what happened. A message {owner} sends you on the board
-(your thread) wakes it too: answer with `{ab} chat send "<one line>" --name "<your session name>" --to {owner} --reply-to <the line's number>`.
-Between cards, stay reachable with `{ab} chat inbox --name "<your session name>" --wait 3600` in the background the same way.
-Run `{ab} done {task_id}` ONLY if the user explicitly tells you to.
+Any subtask still open closes with it. {Owner} signs off and moves the card to done. {wake_review}
+{never_done}
 
 """
 
@@ -291,11 +269,13 @@ def _without_orch_block(text):
     return (text[:m.start()].rstrip() + ("\n\n" + keep.group().rstrip() if keep else "")).strip()
 
 
-def build_prompt(task, board_dir, public=False, tasks=None):
+def build_prompt(task, board_dir, public=False, tasks=None, attended=True):
     """Return (prompt, warnings). public=True skips providers marked private.
 
     tasks is the board's full task list; with it a subtask's prompt says to claim and review its parent,
-    and a parent's prompt lists its subtasks. Without it every task gets the plain prompt."""
+    and a parent's prompt lists its subtasks. Without it every task gets the plain prompt.
+    attended=False is the prompt for an unattended one-shot run (`agentboard run`): the same text, but where an attended agent is told to start a
+    background wait after `review` or `ask`, this one is told to stop (nothing would ever wake it)."""
     conf = load_config(board_dir)
     provs = conf.get("providers", {})
     warnings, blocks = [], []
@@ -339,6 +319,13 @@ def build_prompt(task, board_dir, public=False, tasks=None):
         template = ptconf["template"]
 
     texty = is_text_card(task)   # a text card shows no raw words outside the quoted frame: the heading gets a plain label
+    ab, me = agentboard_cmd(board_dir), '"<your session name>"'
+    review_card = parent["id"] if parent else task["id"]   # a subtask is reviewed through its parent
+    if attended:
+        wake_review, wake_ask = rules.wake(ab, review_card, me, "review"), rules.wake(ab, task["id"], me, "ask")
+        reach = rules.reachable(ab, me)
+    else:
+        wake_review, wake_ask, reach = rules.unattended_end("review"), rules.unattended_end("ask"), ""
     values = {
         "title": text_card_label(task) if texty else task["title"],
         "task_id": task["id"],
@@ -349,6 +336,11 @@ def build_prompt(task, board_dir, public=False, tasks=None):
         "parent_id": parent["id"] if parent else "",
         "parent_title": (text_card_label(parent) if is_text_card(parent) else parent["title"]) if parent else "",
         "report_rule": say(REPORT_RULE.rstrip("\n"), board_dir),
+        "wake_review": say(wake_review, board_dir),
+        "wake_ask": say(wake_ask, board_dir),
+        "reachable": say(reach, board_dir),
+        "never_done": say(rules.never_done(ab, review_card), board_dir),
+        "working_rules": say(rules.working_rules(unattended=not attended), board_dir),
         "review_shape": say(REVIEW_SHAPE.rstrip("\n"), board_dir),
         "owner": owner_ref(board_dir),
         "Owner": say("{Owner}", board_dir),
@@ -359,7 +351,7 @@ def build_prompt(task, board_dir, public=False, tasks=None):
     # (a description mentioning "{ab}", say) is left as written rather than expanded again
     out = re.sub(r"\{(" + "|".join(values) + r")\}", lambda m: values[m.group(1)], template)
     from . import agentchat
-    if agentchat.is_on(board_dir):   # the agent chat protocol rides along only while the owner has the switch on
+    if attended and agentchat.is_on(board_dir):   # the agent chat protocol rides along only while the owner has the switch on, and never in an unattended run (it cannot wait or be answered)
         out = out.rstrip("\n") + "\n\n" + agentchat.protocol(board_dir)
     return out, warnings
 
@@ -379,7 +371,7 @@ Rename this session to ORCH (`/rename ORCH`). You are a fresh or /clear'ed Claud
 - Agents report to {owner} directly, on their cards. Close reviewed cards, run gates, migrations and restarts, log decisions.
 - Speak to {owner} only when they must act.
 - Daytime: {owner} assigns cards. Declared sleep or nap: you assign idle agents.
-- Agents finish with `review`; {owner} signs off. Run `done` only on their explicit say-so.
+- Agents finish with `review`; {owner} signs off. Run `done` only on their explicit say-so. """ + rules.ORCH_ONE_ID + """
 - When an agent tells you its session name, tell the board: `{ab} me --name <name> --session <its CLAUDE_CODE_SESSION_ID>` if it gave its id; if not, ask it to run `{ab} me --name <name>` in its own shell. Session ids are not the `[ref]` ListAgents shows.
 
 ## Never without {owner}'s own words
@@ -410,9 +402,7 @@ Copy only the "Keep it simple" block above (its heading and four lines, nothing 
 
 ## Reporting to {owner}
 
-Report to {owner} in one sentence, one idea: the ACTION they must take first, then one fact. If nothing is needed from them, one line of
-status. If more is unavoidable, one sentence, then offer the detail. Put that sentence on the card (agentboard ask/review/update text)
-so {owner} answers you there, and in your terminal. Agents do the same on their own cards: you are not the only place they answer.
+""" + rules.REPORT_TEXT + """ Agents do the same on their own cards: you are not the only place they answer.
 
 ## {owner} talks to you on the board
 
@@ -421,11 +411,11 @@ tab shows this session as it runs, once the board knows which session you are: s
 background command, starting it again whenever it prints or times out:
 
     {ab} me --name ORCH
-    {ab} chat inbox --name ORCH --wait 3600
+    """ + rules.inbox_wait_cmd("{ab}", "ORCH") + """
 
 That wait is the only thing that makes you reachable: a session that has finished its turn reads nothing until something wakes it,
 and the board cannot reach into a session. Keep it running whenever you are idle, and expect the same of every agent (their prompts
-say `{ab} chat inbox --name <agent> --wait 3600` between cards). The board shows who is listening. The wait watches one small file,
+say `""" + rules.inbox_wait_cmd("{ab}", "<agent>") + """` between cards). The board shows who is listening. The wait watches one small file,
 `.agentboard/chat-wake.json`, which moves whenever a line is posted, so it wakes within a second of {owner}'s line. If you run on a
 schedule that cannot hold a wait, stat that file each time you fire: when its time moved, run `{ab} chat inbox --name ORCH`.
 
@@ -434,11 +424,11 @@ description). "assign <card> to <agent>": tell that agent with SendMessage and l
 "what is everyone doing": `{ab} list --status doing`, answered in one line. A message meant for an agent that is busy: forward it with
 SendMessage. Answer on the board, one line, so it shows in the drawer; a plain line from you shows there too:
 
-    {ab} chat send "<one line>" --name ORCH --to {owner} --reply-to <the line's number>
+    {ab} chat send "<one line>" --name ORCH --to {owner_cli} --reply-to <the line's number>
 
 A line from the board itself, "<agent> has not read my line #N …", is {owner}'s nudge: that agent's session is not listening and
 nothing on the board wakes it, but your SendMessage does. Send it one line, "{owner} wrote to you on the board: run agentboard chat
-inbox --name <agent>, answer with chat send --to {owner} --reply-to <n>, then keep chat inbox --wait running", and tell {owner} in one line that you
+inbox --name <agent>, answer with chat send --to {owner_cli} --reply-to <n>, then keep chat inbox --wait running", and tell {owner} in one line that you
 did. Never answer in the agent's place. A line to you that nobody was listening for shows {owner} a Nudge too: it only moves the wake
 file, so read your inbox when you next run.
 
@@ -499,5 +489,5 @@ def build_orch_prompt(tasks, board_dir, port=8765):
     if agentchat.is_on(board_dir):
         sections.append(agentchat.ORCH_PROTOCOL.format(ab=agentboard_cmd(board_dir), owner=owner_ref(board_dir)).rstrip("\n"))
     return ORCH_TEMPLATE.format(
-        url=f"http://localhost:{port}", board_dir=board_dir, ab=agentboard_cmd(board_dir), peers=peers,
+        url=f"http://localhost:{port}", board_dir=board_dir, ab=agentboard_cmd(board_dir), peers=peers, owner_cli=owner_arg(board_dir),
         keep_simple=say(KEEP_SIMPLE.rstrip("\n"), board_dir), owner=owner_ref(board_dir), now=datetime.now().strftime("%Y-%m-%d %H:%M"), snapshot="\n\n".join(sections))

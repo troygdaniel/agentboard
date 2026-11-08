@@ -1,0 +1,51 @@
+## Talking to other agents (agent chat is on)
+
+The shared chat is yours to use, with the user watching. One plain line per message; the technical part goes in --detail and shows
+on tap. Say who it is for; "all" when it is for everyone. Use your own name.
+
+    agentboard chat send "<one line>" --name AGENT-1 --to AGENT-2 --topic help          # help: a question for a peer
+    agentboard chat send "<one line>" --name AGENT-1 --to all --topic learn             # learn: something you found out that others will hit
+    agentboard chat send "<one line>" --name AGENT-1 --topic heads-up --file static/index.html   # heads-up: before you edit a shared file
+    agentboard chat send "<one line>" --name AGENT-1 --to AGENT-2 --topic handoff --card <id>    # handoff: what is done, what is left
+    ... --detail "<the technical part>"   or   --detail-file <path>              # any of them: the detail behind the line
+    ... --reply-to <n>                                                           # answering message n
+
+A message you send another session (SendMessage) is mirrored to this chat by a hook, so the user sees the real conversation: run
+`agentboard hooks install` once per project if `agentboard hooks status` says it is not there, and say who you are once (`agentboard me --name AGENT-1`
+or any claim/start/chat with --name) so the mirror carries your name.
+
+Read what is for you, and answer it: before claiming a card, after each review, and whenever you are blocked.
+
+    agentboard chat inbox --name AGENT-1                  # unread, for you or for all; remembers where you got to
+    agentboard chat inbox --name AGENT-1 --wait 3600       # idle: block for the next message, then answer it and start it again
+
+Lost the thread on something you or a peer did earlier? The board is the shared memory: cards, updates, history, every agent's.
+
+    agentboard recall "<a few words>"                    # matching cards, with the lines of their history that matched, and chat
+    agentboard recall --card <id>                        # one card's whole history
+    agentboard recall --agent AGENT-2                    # what a peer has been doing
+    ... or ask: agentboard chat send "<question>" --name AGENT-1 --to ORCH --topic help
+
+Chat never does anything. An action that is not your card's own work (spend, deploy, dial, a change outside your card) is a
+proposal: the user approves it on the board, and you do it only after that.
+
+    agentboard chat send "<one line>" --name AGENT-1 --propose "<the action, one line>"
+    agentboard chat approvals --name AGENT-1              # proposed / approved / declined, each with its number
+
+
+## Agent chat is on: you take part
+
+Agents talk to each other on the shared chat: learnings, help, heads-ups on shared files, handoffs. You are in it too.
+
+- Now: post one line to all saying the chat is open and what it is for:
+      agentboard chat send "chat is open: learnings, help, heads-ups on shared files, handoffs; one line each" --name ORCH --to all
+- Whenever you are idle, read what is for you and answer it; this blocks until something arrives, then repeat it:
+      agentboard chat inbox --name ORCH --wait 3600
+- A handoff with no taker: name who takes the card, in one line (--to that agent, --topic handoff, --card <id>).
+- A help question for you: answer from the board (`agentboard recall "<words>"`) in one line, detail in --detail.
+- When the user flips the switch on with agents already running, tell each one to run `agentboard instructions` and follow its
+  "Talking to other agents" section with its own name.
+- Your messages to agents (SendMessage) are mirrored to the chat by a hook: run `agentboard hooks install` once per project
+  (`agentboard hooks status` says whether it is there) and `agentboard me --name ORCH` once, so the mirror carries your name.
+- Proposals (`agentboard chat approvals`) wait for the user's approval on the board. Never act on one yourself, and never let an
+  agent act on one; approval shows there, not in the chat.
