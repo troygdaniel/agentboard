@@ -208,15 +208,21 @@ Run `{ab} done {task_id}` ONLY if the user explicitly tells you to.
 """
 
 
-def load_config(board_dir):
+def load_config(board_dir, raw=False):
+    """config.toml as a dict, with every invalid CORE value replaced by its default (configschema.clean: fail closed, never a guess; an
+    unknown key or section is kept as written, so a plugin can read its own). `raw=True` gives the file as it is, for `config check`."""
     path = Path(board_dir) / "config.toml"
     if not path.exists():
         return {}
     try:
         with open(path, "rb") as f:
-            return tomlread.load(f)
+            conf = tomlread.load(f)
     except (tomlread.TOMLDecodeError, OSError) as e:
         raise BoardError(f"{path} is not valid config ({e}); fix or delete it") from e
+    if raw:
+        return conf
+    from . import configschema
+    return configschema.clean(conf)[0]
 
 
 def agentboard_cmd(board_dir):

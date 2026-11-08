@@ -22,6 +22,7 @@ A plugin is an entry point in the group "agentboard.plugins" whose value is a fu
         api.add_thread(fn)                                        # fn(store) runs once in a daemon thread under `agentboard serve`
         api.set_page(script=js_text, style=css_text)              # one script, /api/x/mything/page.js, loaded by the page; the style rides in it
         api.add_source("things", "what it holds", search)           # agentboard lookup "q" --in things; search(store, words, limit) -> [{where, date, title, snippet, score}]
+        api.add_config("mything", {"on": configschema.Field("bool", False, "what it does")})   # the plugin's config.toml section, for config check/show/docs
         api.add_doctor(fn)                                         # fn(board_dir) -> [(level, name, text)] lines for `agentboard doctor` (PASS/WARN/FAIL/INFO);
                                                                   # read-only, no socket, no program; doctor prefixes the name with the plugin's and masks the text
 
@@ -115,6 +116,14 @@ class Api:
         if not callable(fn):
             raise ValueError("bad doctor")
         self._p.doctors.append(fn)
+
+    def add_config(self, section, fields):
+        """The plugin's own section of config.toml: {key: configschema.Field}. It joins the schema `agentboard config check|show|docs` and
+        doctor use while the plugin is loaded; a core section cannot be redefined."""
+        from . import configschema
+        if not (isinstance(section, str) and NAME_RE.fullmatch(section)):
+            raise ValueError("bad config section")
+        configschema.register(section, fields)   # raises ValueError on a core section or a bad field
 
     def set_page(self, script=None, style=None):
         if not all(x is None or isinstance(x, str) for x in (script, style)):

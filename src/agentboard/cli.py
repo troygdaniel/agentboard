@@ -1517,6 +1517,43 @@ def cmd_runs(a):
     print("\n".join(rows) if rows else "no runs yet")
 
 
+def cmd_config(a):
+    """config.toml you can trust: show (what applies, and where each value came from), check (typos, types, ranges, unsafe switches; exit 1 on an
+    invalid value), docs (the reference page, generated from the schema)."""
+    from . import configschema
+    if a.config_cmd == "docs":
+        sys.stdout.write(configschema.docs() + (("\n" + configschema.plugin_docs()) if configschema.plugin_docs() else ""))   # byte for byte docs/config.md
+        return
+    try:
+        board = _store().dir
+    except BoardError:
+        board = Path.cwd() / DIR_NAME
+    try:
+        raw = promptlib.load_config(board, raw=True)
+    except BoardError as e:
+        raise SystemExit(f"agentboard: {e}")
+    if a.config_cmd == "check":
+        findings = configschema.validate(raw)
+        if not findings:
+            print(f"config.toml: every key is one the board reads, with a value of the right shape ({len(configschema.SCHEMA)} core sections known)")
+            return
+        for f in findings:
+            print(f"{f.level:<4}  {f.where}  {f.text}" + (f"  ({f.fix})" if f.fix else ""))
+        n = sum(1 for f in findings if f.level == "FAIL")
+        print(f"{n} invalid value(s) (the default applies to each), {sum(1 for f in findings if f.level == 'WARN')} warning(s)")
+        if n:
+            raise SystemExit(1)
+        return
+    eff = configschema.effective(raw)
+    width = max((len(f"{s}.{k}") for s, rows in eff.items() for k in rows), default=20)
+    for sect, rows in eff.items():
+        for key, (value, source) in rows.items():
+            print(f"{(sect + '.' + key):<{width}}  {configschema.shown(sect, key, value):<30}  {source}")
+    print()
+    for k, (state, meaning) in configschema.env_state().items():
+        print(f"{k:<{width}}  {state:<30}  environment: {meaning}")
+
+
 def cmd_plugins(a):
     print("\n".join(plugins.status_lines()))
 
@@ -1790,6 +1827,11 @@ def main(argv=None):
     sp = add("restore", cmd_restore, "put a snapshot back as the board: a file, a name in .agentboard/backups, `latest`, or `previous` (the version before the last save)")
     sp.add_argument("which")
     sp.add_argument("--yes", action="store_true", help="do not ask (the board as it is now is kept first as a before-restore snapshot)")
+    sp = add("config", cmd_config, "config.toml you can trust: show what applies (and where each value came from), check for typos, wrong types and unsafe values, docs from the schema")
+    csub = sp.add_subparsers(dest="config_cmd", required=True)
+    csub.add_parser("show", help="every setting that applies to this board, with its source: default, file, or default because the file's value is invalid")
+    csub.add_parser("check", help="unknown keys (with the closest valid name), wrong types, out-of-range and unsafe values; exit 1 on an invalid value")
+    csub.add_parser("docs", help="the configuration reference, generated from the schema (docs/config.md)")
     sp = add("doctor", cmd_doctor, "read-only check of this machine: listeners, locks, file modes, git, hooks (PASS/FAIL lines to paste into a review; exit 1 on a FAIL)")
     sp.add_argument("--project", help="the project folder to scan for secrets and hooks (default: the one holding .agentboard)")
     sp.add_argument("--strict", action="store_true", help="exit 1 on a WARN as well")

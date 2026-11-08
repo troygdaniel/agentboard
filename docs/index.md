@@ -7,6 +7,7 @@ One line each. The first three are the ones most people need.
 | [README.md](../README.md) | Using the board: install, quick start, the agent lifecycle, chat, boards, backups, safety, configuration, commands, the work-laptop checklist, troubleshooting. |
 | [docs/ARCHITECTURE.md](ARCHITECTURE.md) | Changing the board: module map, data files and who writes them, a request's path through the server, the agent protocol in code, the plugin hook, the security model on one page, running the tests. |
 | [CONTRIBUTING.md](../CONTRIBUTING.md) | Working on it: cards and worktrees, the gates before "ready", the changelog rule, commits, where things belong. |
+| [docs/config.md](config.md) | Every `config.toml` key with its type, range, default and meaning, generated from the schema (`agentboard config docs`); a test pins it. |
 | [SECURITY.md](../SECURITY.md) | What the board does and does not do with your data and your network, what was audited, the known gaps, how to check a machine. |
 | [CHANGELOG.md](../CHANGELOG.md) | Every change a user could notice, newest first, with the cards it closes. |
 | [CLAUDE.md](../CLAUDE.md) | The prompt an AI agent working in this repository reads: the card protocol, subtasks, chat, the public-repo rules, how to verify UI changes. |
