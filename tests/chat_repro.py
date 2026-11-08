@@ -1,5 +1,8 @@
 """Offline repros of the board-chat loss paths (docs/conversation-reliability-analysis.md). A THROWAWAY board in a temp folder, real `agentboard`
-processes as the fake sessions, fake text only. Nothing touches a real board (AGENTBOARD_DIR points at the temp folder), nothing is sent anywhere.
+processes as the fake sessions, fake text only. Nothing touches a real board: every process runs with AGENTBOARD_DIR pointing at the temp
+folder and HOME set to it, from an empty folder beside it as its working directory (so the one probe that runs with no board in its environment,
+R11, finds none: `find_dir` treats an empty AGENTBOARD_DIR as unset and would otherwise walk up from the repo to the real board under it).
+Nothing is sent anywhere.
 
     python3 tests/chat_repro.py          # about a minute; prints one line per loss path (R1 to R11), the ids the analysis uses
 
@@ -20,8 +23,10 @@ from agentboard import cursors, hooks, listeners  # noqa: E402
 from agentboard.store import BoardError, Store  # noqa: E402
 
 TMP = Path(tempfile.mkdtemp())
-BOARD = TMP / ".agentboard"
-BOARD.mkdir()
+BOARD = TMP / "proj" / ".agentboard"   # the throwaway board
+BOARD.mkdir(parents=True)
+CWD = TMP / "empty"                     # where every probe runs: no board in it or above it
+CWD.mkdir()
 (BOARD / "config.toml").write_text('[board]\nowner = "Troy"\n')
 S = Store(BOARD)
 S.add("seed card")
@@ -38,15 +43,18 @@ def cli(*args, name=None, env=None, stdout=subprocess.PIPE, stdin=None):
     e = dict(ENV, **(env or {}))
     if name:
         e["AGENTBOARD_NAME"] = name
-    return subprocess.Popen([sys.executable, "-m", "agentboard", *args], env=e, stdout=stdout, stderr=subprocess.STDOUT, stdin=stdin, text=True)
+    return subprocess.Popen([sys.executable, "-m", "agentboard", *args], env=e, cwd=str(CWD), stdout=stdout, stderr=subprocess.STDOUT, stdin=stdin, text=True)
 
 
 def run(*args, name=None, env=None, input=None):
     e = dict(ENV, **(env or {}))
     if name:
         e["AGENTBOARD_NAME"] = name
-    r = subprocess.run([sys.executable, "-m", "agentboard", *args], env=e, capture_output=True, text=True, input=input, timeout=60)
+    r = subprocess.run([sys.executable, "-m", "agentboard", *args], env=e, cwd=str(CWD), capture_output=True, text=True, input=input, timeout=60)
     return r.returncode, (r.stdout + r.stderr).strip()
+
+
+assert not any((d / ".agentboard").is_dir() for d in (CWD, *CWD.parents)), f"a board sits above {CWD}: the no-board probe would read it"
 
 
 def owner_says(text, to=None):
@@ -129,7 +137,7 @@ for rnd in range(8):
     procs = []
     for n in names:
         e = dict(ENV, AGENTBOARD_NAME=n)
-        procs.append(subprocess.Popen([sys.executable, "-c", code], env=e, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
+        procs.append(subprocess.Popen([sys.executable, "-c", code], env=e, cwd=str(CWD), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL))
     for p in procs:
         p.wait(timeout=60)
     cur = cursors.read(BOARD)
@@ -182,7 +190,7 @@ S.set_chat_agents(False)
 # ---- R11: the Stop hook --------------------------------------------------------------------------------------------------------------------
 payload = json.dumps({"session_id": "abc", "stop_hook_active": False})
 owner_says("unread thread line", to="R11")
-code, o1 = run("hook", "stop", input=payload, env={"AGENTBOARD_DIR": ""}, name="R11")       # a home-folder session: no board in its environment
+code, o1 = run("hook", "stop", input=payload, env={"AGENTBOARD_DIR": ""}, name="R11")       # a home-folder session: no board in its environment, none above its cwd (TMP), none chosen
 code, o2 = run("hook", "stop", input=payload, name=None)                                       # board found, but the session never said who it is
 code, o3 = run("hook", "stop", input=payload, name="R11")                                      # board and name known, an unread owner line
 listeners.register(BOARD, "R11b", "inbox", pid=os.getpid())
