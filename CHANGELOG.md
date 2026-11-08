@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+### Boring start, stop, restart and status (Nov 8, branch overnight/overnight-rel-server-lifecycle)
+- New commands: `agentboard status` (running or not: pid, port, since, uptime, plugins, lockdown; stale server files cleaned; exit 1 when
+  nothing runs), `agentboard stop` (SIGTERM, then a wait until the server has finished what it was doing), `agentboard restart` (same port,
+  this shell's environment), and `agentboard serve --background` (detached, output to `.agentboard/server.log`, rolled at 2 MB).
+- `agentboard serve` ends cleanly on SIGTERM: in-flight requests finish, the state file is removed, "agentboard: stopped" is printed. A taken
+  port says who holds it (this board's server, another board's, or something else) and the next step.
+- New route `/api/health` (loopback, no board data) and a doctor line about stale server files. `stop` signals only a process whose command
+  line is an `agentboard serve`.
+
 ### The board at thousands of cards: a poll that finds nothing new costs nothing, the HUD builds ten times faster, budgets in a test (Nov 8, overnight)
 - Every open page polls `/api/tasks`, `/api/hud` and `/api/chat` once a second. On a 5,000-card board each poll parsed the 10 MB board file again and the HUD rebuilt in half a second, whether or not anything had changed. The server now keeps what each route derives from `tasks.json` until the file changes (its mtime, size and inode; every save is a new inode, so nothing can go stale), sends an `ETag`, and answers `304` with no body to a page that sends `If-None-Match`; the page does. A board that is still costs a hash per second; a change is seen on the very next poll.
 - `hud.build` parsed every timestamp with `strptime` (130,000 calls per poll at 5,000 cards); the one stamp parser (`store.parse_stamp`) now tries `fromisoformat` first, ten times faster, with the old parser as the fallback. A claim or update no longer re-reads the whole board after its commit to see whether a report is due (`maybe_report` looks at what the store just wrote).

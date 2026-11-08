@@ -12,7 +12,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-from . import boards, demo, hud, private
+from . import boards, demo, hud, lifecycle, private
 from . import profile as profilelib
 from . import hooks as hookslib
 from . import listeners, watchdog
@@ -285,6 +285,11 @@ def make_handler(default_store, port):
                 nonce = secrets.token_urlsafe(18)   # new for every response; only the page's own inline scripts get it
                 page = _INLINE_SCRIPT.sub(f'<script nonce="{nonce}">', html.replace("</head>", inject + "</head>", 1))
                 self._send(200, page.encode(), "text/html; charset=utf-8", {**FRAME_HEADERS, "Content-Security-Policy": PAGE_CSP.format(nonce=nonce)})
+            elif url.path == "/api/health":   # loopback only, no board data: is this agentboard, which pid, since when, what is loaded
+                from . import __version__, lockdown
+                self._send(200, {"ok": True, "agentboard": __version__, "pid": os.getpid(), "port": port, "started": _STARTED["iso"],
+                                 "uptime_s": int(time.time() - _STARTED["at"]) if _STARTED["at"] else 0,
+                                 "plugins": [p.name for p in plugins.active()], "lockdown": lockdown.locked()})
             elif url.path.startswith("/api/x/"):
                 self._plugin("GET", url.path, {k: v[0] for k, v in q.items()})   # a plugin's own routes and page files; 404 unless plugins are allowed
             elif url.path == "/voice.js":
@@ -563,6 +568,9 @@ def new_server(store, port, host="127.0.0.1"):
     return BoundedHTTPServer((host, port), make_handler(store, port))
 
 
+_STARTED = {"at": None, "iso": ""}   # when this process's server started, for /api/health
+
+
 def serve(store, port=8765, open_browser=True):
     private.tighten_dir(store.dir)   # whatever an earlier version left readable by others (private.py)
     profilelib.apply(store.dir)      # the work profile, when the board's own config says so (the machine and the environment were read at start)
@@ -572,8 +580,11 @@ def serve(store, port=8765, open_browser=True):
     try:
         srv = new_server(store, port)
     except OSError as e:
-        raise SystemExit(f"agentboard: cannot listen on port {port} ({e.strerror}); "
-                         f"is another board running? Try --port {port + 1}")
+        raise SystemExit(lifecycle.port_taken_message(store.dir, port, e))   # who holds the port and what to do, not a bare errno
+    from datetime import datetime
+    _STARTED["at"], _STARTED["iso"] = time.time(), datetime.now().isoformat(timespec="seconds")
+    srv.daemon_threads = False   # a request in flight finishes before the server closes (server_close joins the request threads)
+    srv.block_on_close = True
     url = f"http://localhost:{port}/"
     try:
         others = [n for n in boards.load()["boards"] if boards.name_for(store.dir) != n]
@@ -638,7 +649,22 @@ def serve(store, port=8765, open_browser=True):
         plugins.start_threads(store)
     serverstate.write(store.dir, port, loaded)   # what this server was started with (lock, plugins), for agentboard doctor; never raises
     atexit.register(serverstate.remove, store.dir)
+
+    def _term(signum, frame):   # SIGTERM (agentboard stop, launchd, a shutdown): leave the serve loop; the finally below finishes the requests in flight
+        threading.Thread(target=srv.shutdown, daemon=True).start()
+    try:
+        import signal
+        signal.signal(signal.SIGTERM, _term)
+    except (ValueError, OSError):
+        pass   # not the main thread (a test runs serve in a thread): Ctrl+C and shutdown() still work
     try:
         srv.serve_forever()
     except KeyboardInterrupt:
         pass
+    finally:
+        try:
+            srv.server_close()   # waits for the request threads (block_on_close), so a save under way is written whole
+        except Exception:   # noqa: BLE001
+            pass
+        serverstate.remove(store.dir)
+        print("agentboard: stopped")

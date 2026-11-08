@@ -48,6 +48,7 @@ NETWORK_ALLOWED = {
     "server.py": {"http.server": "the board's own listener: loopback only, Host-checked", "webbrowser": "opens the board in your browser; not in the work profile"},
     "providers.py": {"urllib.request": "the http provider (a URL you write in config.toml); locked off by AGENTBOARD_LOCKDOWN"},
     "guards.py": {"socket": "the network guard itself"},
+    "lifecycle.py": {"urllib.request": "`status`, `stop` and `restart` ask /api/health on 127.0.0.1 only, through an opener with no proxy; a command, never the server"},
     "selfcheck.py": {"socket": "this audit's probes of its own throwaway server", "http.client": "this audit's requests to its own throwaway server",
                      "http.server": "the throwaway server", "urllib.request": "a probe that must be refused by the guard"},
 }
@@ -60,6 +61,7 @@ PROCESS_ALLOWED = {
     "cli.py": "osascript windows for `spawn` (refuses under the lock) and git/osascript helpers run by the person at the command line",
     "repoguard.py": "read-only git queries (ls-files) for the repo guard the doctor and the tests share; a command, never the server",
     "doctor.py": "read-only git, pipx and lsof queries for `agentboard doctor` (a command, never the server)",
+    "lifecycle.py": "a read-only `ps -o command=` to check that a pid is an agentboard serve, and the detached `agentboard serve` that `restart` and `serve --background` start (a command, never the server)",
     "providers.py": "the command provider (a shell command you write in config.toml); locked off by AGENTBOARD_LOCKDOWN",
     "reports.py": "read-only git queries for a finished card's report; the server's process guard refuses them in the work profile",
     "runs.py": "`agentboard run` (claude -p); refuses under AGENTBOARD_LOCKDOWN",

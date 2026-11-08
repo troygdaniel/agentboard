@@ -75,6 +75,7 @@ is the developer's.
 | `chatwake.py` | The chat wake file `chat-wake.json`: a counter, a time and who a line was for (never its words), moved on every post, so a wait watches one small file and reads the board only when it moved. |
 | `hooks.py` | The two Claude Code hooks `agentboard hooks install` writes into `.claude/settings.json` (or `~/.claude/settings.json` with `--user`): PostToolUse on SendMessage mirrors a message's first line into the chat; Stop tells a session about to go quiet with an unread owner line. Session name to session id lives in `sessions.json`. |
 | `serverstate.py` | `server-<pid>.json`: what a running server was started with (lock on or off, plugins open, plugin names), so `doctor` can check the server rather than its own shell. |
+| `lifecycle.py` | `status`, `stop`, `restart` and `serve --background`: reads the `server-<pid>.json` files, checks with `ps` that a pid is really an `agentboard serve`, asks `/api/health` on the loopback, sends SIGTERM and waits; the port-taken message. |
 
 **Agents, search, extensions, checks**
 
@@ -109,6 +110,7 @@ Everything is a file. Nothing is a database, a daemon of its own or a cloud.
 | `.agentboard/chat-casual.json`, `chat-autopilot.json` | `agentchat.py` | the server's rounds | state of the optional claude rounds |
 | `.agentboard/sessions.json` | `hooks.py` (`me`, `claim`, `start`, `chat` record the name) | the hooks | session name per `CLAUDE_CODE_SESSION_ID` |
 | `.agentboard/server-<pid>.json` | `serverstate.py` at `serve` start | `doctor` | removed at exit; a dead pid's file is forgotten at the next start |
+| `.agentboard/server.log` | `lifecycle.start_background` (the detached server's output) | a person, after `serve --background` or `restart` | 0600, appended, rolled to `.1` past 2 MB |
 | `~/.agentboard/boards.toml` | `boards.py` | `find_dir`, the server's `/b/<name>/` boards | only if you use named boards |
 | `.claude/settings.json` (project or `~`), with `settings.json.orig` (the pristine file, written once) and `settings.json.bak` (the version before the last change) | `hooks install` / `uninstall` | Claude Code | two hook entries; the rest of the file is kept as it was |
 
