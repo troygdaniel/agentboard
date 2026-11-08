@@ -10,6 +10,7 @@ import tomllib
 from pathlib import Path
 
 from . import backup
+from . import chatwake
 from . import listeners
 from . import redact
 
@@ -864,6 +865,7 @@ class Store:
             data["chat"].append(msg)
             del data["chat"][:-CHAT_MAX]
             self._write(data)
+            chatwake.bump(self.dir, to)   # the wake file moves: a wait on it reads the board now, a schedule sees it in one stat (chat-f7)
             return msg
 
     def _known_names(self, data):
@@ -913,8 +915,8 @@ class Store:
     def chat_nudge(self, seq, now=None):
         """The owner's one click when a line to an agent has gone unread: the board asks ORCH, in ORCH's own thread, to message that
         agent's session (ORCH's SendMessage is the only thing on the machine that wakes an idle session). Recorded on the line as
-        `nudged`, once a minute at most. A line to ORCH itself cannot be nudged this way: nothing on the board reaches an ORCH that
-        is not listening. Returns the ORCH line."""
+        `nudged`, once a minute at most. A line to ORCH itself: refused while ORCH's wait is listening (it prints the line itself);
+        otherwise the nudge marks the line and moves the wake file an ORCH on a schedule checks, and returns None. Else the ORCH line."""
         with self._lock():
             data = self._read()
             m = next((m for m in data["chat"] if m["seq"] == int(seq)), None)
@@ -923,12 +925,18 @@ class Store:
             to = m.get("to") or ""
             if m.get("kind") != "user" or not to or to == "all" or _to_owner(to, self.owner):
                 raise BoardError("only a line you sent to one agent can be nudged")
-            if to.upper() == "ORCH":
-                raise BoardError("ORCH is not listening, and nothing on the board wakes it: type in its terminal, or boot one with Copy prompt")
             stamp = now or _now()
             last = m.get("nudged")
             if last and _seconds_between(last, stamp) < NUDGE_GAP_S:
                 raise BoardError(f"already nudged at {str(last)[11:16]}; give ORCH a minute")
+            if to.upper() == "ORCH":   # a line to ORCH itself: its wait prints it; without a wait, the nudge moves the wake file its schedule checks (chat-f7)
+                from . import listeners
+                if listeners.is_listening(self.dir, "ORCH"):
+                    raise BoardError("ORCH is listening: its wait prints your line within seconds, no nudge needed")
+                m["nudged"] = stamp
+                self._write(data)
+                chatwake.bump(self.dir, "ORCH")
+                return None
             m["nudged"] = stamp
             self._write(data)
         text = " ".join(str(m.get("text") or "").split())[:120]   # the owner's own words
