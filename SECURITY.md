@@ -125,7 +125,7 @@ Fixed and merged after the five audits: card text could break out of an HTML att
 Content-Security-Policy and cannot be framed; POSTs need exactly `application/json` and a same-site origin; a stalled client is dropped after 15 s and fields have size
 caps; building a prompt over GET no longer runs a provider for a cross-site request; the transcript route opens the path it checked and refuses NULs and pipes; secrets are
 masked where text enters the board and in the Terminal tab; board files are mode 0600/0700; `reports.git_info` validates run records from `tasks.json` (a base such as `--output=path`
-once made `git` write a file); `hooks install` writes agentboard's full path (and `hooks uninstall` exists); `claude -p` rounds run with no tools; and the master lock above.
+once made `git` write a file); `hooks install` writes agentboard's full path (and `hooks uninstall` exists), the SendMessage mirror posts only for a session that told the board its name (a user-level hook in another project's session posts nothing), and the settings file is written through a temp file with a .bak of the original; `claude -p` rounds run with no tools; and the master lock above.
 The text-message features left the repository. One finding is open by design: the no-login item under "Known gaps".
 
 ## What changed in v0.3.0 (re-check, Oct 24, 2026)

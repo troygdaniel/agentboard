@@ -82,7 +82,8 @@ def session_name(board_dir, session_id):
 
 
 def resolve_sender(board_dir, payload):
-    """$AGENTBOARD_NAME, else the name this session gave itself, else a short handle from the session id."""
+    """$AGENTBOARD_NAME, else the name this session gave itself, else a short handle from the session id. (The mirror no longer uses
+    the handle: an unknown session is not mirrored at all; kept for `agentboard me` and the tests.)"""
     name = os.environ.get("AGENTBOARD_NAME") or session_name(board_dir, payload.get("session_id"))
     if name:
         return name
@@ -98,7 +99,10 @@ def clean_to(to):
 
 def mirror_send_message(store, payload):
     """Post a SendMessage call to the chat. Returns the message, or None when there is nothing to mirror (not a SendMessage,
-    no text, sent to 'main', or agent chat off for this board)."""
+    no text, sent to 'main', agent chat off for this board, or a session the board does not know). Only a session that said who it
+    is on this board (AGENTBOARD_NAME in its shell, or `agentboard me --name X` once) is mirrored: with the hooks in the user's own
+    settings (`hooks install --user`), every Claude Code session on the Mac runs this hook, and the text of a session in another
+    project is not this board's business (the chat security review, Nov 8)."""
     if not isinstance(payload, dict) or payload.get("tool_name") != "SendMessage":
         return None
     inp = payload.get("tool_input") or {}
@@ -108,7 +112,9 @@ def mirror_send_message(store, payload):
         return None
     if not store.chat_agents():
         return None
-    sender = resolve_sender(store.dir, payload)
+    sender = known_name(store.dir, payload)
+    if sender is None:
+        return None
     text = store._scrub(text, 4300)   # masked BEFORE the first line is cut to 300: a key must not be cut in half and left behind
     first, _, rest = text.partition("\n")
     return store.chat_send(sender, first.strip()[:300], to=to, detail=rest.strip() or None, via="mirror")
@@ -306,7 +312,7 @@ def install(project_dir, board_dir=None):
     from . import private
     with private.as_user():   # the project's .claude/settings.json is shared with Claude Code and your team, not board data
         p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_text(json.dumps(data, indent=2) + "\n")
+        write_settings(p, json.dumps(data, indent=2) + "\n")
     return p, True
 
 
@@ -335,10 +341,42 @@ def uninstall(project_dir):
     if not hooks:
         del data["hooks"]
     if data:
-        p.write_text(json.dumps(data, indent=2) + "\n")
+        write_settings(p, json.dumps(data, indent=2) + "\n")
     else:
         p.unlink()   # the file held nothing but our hooks: leave no empty settings.json behind
     return p, True
+
+
+def write_settings(p, text):
+    """Write a Claude Code settings file the safe way: through a temp file in the same folder, flushed, then renamed over the target, so a
+    failure (disk full, a kill) leaves the old file whole, never a truncated one; the original is kept as <file>.bak; the file's mode is
+    kept (a new file is 0600); a symlinked settings.json (dotfiles) stays a symlink and its target is rewritten. The user's own
+    ~/.claude/settings.json holds permissions, env and other hooks, so this matters there most (the chat security review, Nov 8)."""
+    import tempfile
+    p = Path(p)
+    target = p.resolve() if p.is_symlink() else p
+    mode = None
+    if target.exists():
+        mode = os.stat(target).st_mode & 0o777
+        with contextlib_suppress(OSError):
+            shutil.copy2(target, f"{target}.bak")
+    fd, tmp = tempfile.mkstemp(dir=target.parent, prefix=f".{target.name}-", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w") as f:
+            f.write(text)
+            f.flush()
+            os.fsync(f.fileno())
+        os.chmod(tmp, mode if mode is not None else 0o600)
+        os.replace(tmp, target)
+    except BaseException:
+        with contextlib_suppress(OSError):
+            os.unlink(tmp)
+        raise
+
+
+def contextlib_suppress(*exc):
+    import contextlib
+    return contextlib.suppress(*exc)
 
 
 def installed_command(project_dir, event="send-message", data=None):
