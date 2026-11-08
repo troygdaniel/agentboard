@@ -112,4 +112,6 @@ RESULT: PASS
 
 ## Next-best improvements (filed as cards)
 
-See the cards `workpc-*` on the board.
+- `work-pc-run-agentboard-profile-work-and`: Troy runs `profile work`, `selfcheck` and `doctor` on the real work PC and pastes the output (the one proof this Mac cannot give: that PC's Python, OS and security software).
+- `selfcheck-live-audit-the-running-server`: `agentboard selfcheck --live`, read-only probes of the server that is actually running.
+- `decision-for-troy-should-a-fresh-install`: should a fresh install on a managed PC ship with the profile on (recommended: a separate `agentboard-work` entry point).
