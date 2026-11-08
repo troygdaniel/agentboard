@@ -468,14 +468,17 @@ def cmd_chat_inbox(a):
     deadline = time.time() + (a.wait or 0)
     with (listeners.listening_as(s.dir, name, "inbox") if a.wait else contextlib.nullcontext()):   # the board sees who will wake
         while True:
-            msgs = s.chat_inbox(name, after=after, limit=a.limit)
-            if msgs or not a.wait or time.time() >= deadline:
+            unread = s.chat_inbox(name, after=after, limit=None)
+            if unread or not a.wait or time.time() >= deadline:
                 break
             time.sleep(a.interval)
+    msgs, more = (unread, []) if a.limit <= 0 else (unread[:a.limit], unread[a.limit:])   # the oldest first; the cursor stops at the last line shown, so the rest come next time
     for m in msgs:
         print(_chat_line(m))
     if msgs and not a.keep:
         cursors.advance(s.dir, name, msgs[-1]["seq"])
+    if more:
+        print(f"({len(more)} more unread, from #{more[0]['seq']}: run `agentboard chat inbox --name {name}` again" + ("" if a.keep else ", or --limit 0 for all") + ")")
     if not msgs:
         print("(nothing new)" if not a.wait else "(nothing new; waited)")
         if a.wait:
@@ -517,7 +520,7 @@ def cmd_chat_idle(a):
     after = cursors.get(s.dir, name)
     deadline = time.time() + (a.wait or 0)
     while True:
-        inbox = s.chat_inbox(name, after=after)
+        inbox = s.chat_inbox(name, after=after, limit=None)
         if inbox or not a.wait or time.time() >= deadline:
             break
         time.sleep(a.interval)
@@ -1666,7 +1669,7 @@ def main(argv=None):
     csp.add_argument("--keep", action="store_true", help="do not move your cursor")
     csp.add_argument("--wait", type=float, metavar="SECONDS", help="block up to SECONDS for the next message (exit 1 if none)")
     csp.add_argument("--interval", type=float, default=2.0)
-    csp.add_argument("--limit", type=int, default=50)
+    csp.add_argument("--limit", type=int, default=50, help="how many to show, oldest first (default 50; 0: all); the rest wait for the next read")
     csp = cadd("approvals", cmd_chat_approvals, "proposed actions and what the owner decided (--name: only yours)")
     csp.add_argument("--name", help="only this agent's proposals (or $AGENTBOARD_NAME)")
     csp = cadd("approve", cmd_chat_decide, "approve a proposed action (the owner)")

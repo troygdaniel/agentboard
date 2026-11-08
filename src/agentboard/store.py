@@ -917,7 +917,8 @@ class Store:
 
     def chat_inbox(self, name, after=None, limit=50):
         """What `name` has not read yet: messages after seq `after` from someone else, addressed to them, to all, or to no one
-        in particular (a plain status line). The agent remembers the last seq it saw."""
+        in particular (a plain status line), OLDEST first, the first `limit` of them (None: all). The agent remembers the last seq
+        it saw; a caller that shows a page moves the cursor to the last line it showed, never past lines it cut."""
         with self._lock():
             msgs = self._read()["chat"]
         def mine(m):   # what the board said for this agent while it was idle is news to it, whoever it was sent to
@@ -925,7 +926,7 @@ class Store:
         out = [m for m in msgs if (after is None or m["seq"] > after) and m.get("via") != "mirror"   # a mirrored message already reached its reader
                and (mine(m) or (m["sender"] != name
                and (not m.get("to") or m["to"] == "all" or m["to"] == name or m["to"].lower() == name.lower())))]
-        return out[-limit:]
+        return out if limit is None else out[:limit]
 
     def chat_thread_new(self, name, after=None):
         """What the owner said to `name` on the board (the agent's thread) after seq `after`: a message there wakes

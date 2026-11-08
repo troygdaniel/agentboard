@@ -149,9 +149,10 @@ say("R7", f"{runs_total} sessions reading at the same instant (8 rounds of 20): 
 for i in range(60):
     owner_says(f"line {i}", to="R8")
 code, out = run("chat", "inbox", "--name", "R8", name="R8")
-shown = len([l for l in out.splitlines() if l.startswith("#")])
+shown = len([l for l in out.splitlines() if l.startswith("#") and "-> R8" in l])     # only the 60 to R8: lines to all from earlier probes are in this inbox too
 code2, out2 = run("chat", "inbox", "--name", "R8", name="R8")
-say("R8", f"60 unread lines: one read shows {shown} and moves the cursor past all 60; the next read says {out2!r} -> {60 - shown} lines lost silently (default --limit)")
+shown2 = len([l for l in out2.splitlines() if l.startswith("#") and "-> R8" in l])
+say("R8", f"60 unread lines: one read shows {shown} (oldest first) and the next shows {shown2} -> {60 - shown - shown2} lines lost (default --limit; before chat-f2 the first read showed the newest 50 and moved the cursor past all 60: 10 lost)")
 
 # ---- R9: the log keeps 500 ---------------------------------------------------------------------------------------------------------------
 for i in range(520):
