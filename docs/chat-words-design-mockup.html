@@ -1,0 +1,223 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Chat Words Mockup</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  /* Mockup, not the real board: every line and name is made up. The chat rules (.cmsg, .cmsg-rcpt, .chat-form, .av, .chip) are the board's own,
+     copied so each piece maps to one class in the build. ?theme=dark or ?theme=light forces a theme (the PNGs use it); otherwise it follows the system. */
+  :root {
+    --bg: #fafaf9; --surface: #ffffff; --line: #e7e5e4; --text: #1c1917; --muted: #6b6560; --accent: #1c1917;
+    --run: #c2570c; --warn: #b45309; --ok: #15803d; --err: #b42318; --neutral: #a8a29e; --info: #1d4ed8;
+    --chip: #f2f0ee; --shadow: 0 1px 2px rgba(28,25,23,.05), 0 1px 1px rgba(28,25,23,.03);
+    --glow1: rgba(99,102,241,.08); --dot: rgba(28,25,23,.07); --panel-hi: rgba(255,255,255,.95); --on-agent: #ffffff;
+    --a1: #2563eb; --a2: #7c3aed; --a3: #db2777; --a4: #0e7490;
+    --fs-xs: 11px; --fs-sm: 12px; --fs-md: 13px; --fs-base: 14px; --fs-lg: 15px; --tr-label: .16em; --tr-tight: .06em;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #070b12; --surface: #0f1722; --line: #1c2a3a; --text: #d6e9ff; --muted: #7f95ad; --accent: #d6e9ff;
+      --run: #ff9a3c; --warn: #ffc857; --ok: #5dffb0; --err: #ff6b6b; --neutral: #4b5f75; --info: #5ee7ff;
+      --chip: #15202e; --shadow: inset 0 1px 0 rgba(255,255,255,.03); --glow1: rgba(94,231,255,.12); --dot: rgba(110,190,255,.05);
+      --panel-hi: rgba(255,255,255,.045); --on-agent: #0b1220;
+      --a1: #60a5fa; --a2: #c084fc; --a3: #f472b6; --a4: #22d3ee; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #070b12; --surface: #0f1722; --line: #1c2a3a; --text: #d6e9ff; --muted: #7f95ad; --accent: #d6e9ff;
+    --run: #ff9a3c; --warn: #ffc857; --ok: #5dffb0; --err: #ff6b6b; --neutral: #4b5f75; --info: #5ee7ff;
+    --chip: #15202e; --shadow: inset 0 1px 0 rgba(255,255,255,.03); --glow1: rgba(94,231,255,.12); --dot: rgba(110,190,255,.05);
+    --panel-hi: rgba(255,255,255,.045); --on-agent: #0b1220;
+    --a1: #60a5fa; --a2: #c084fc; --a3: #f472b6; --a4: #22d3ee; color-scheme: dark;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body { background: radial-gradient(1000px 460px at 10% -8%, var(--glow1), transparent 70%) no-repeat, radial-gradient(var(--dot) 1px, transparent 1px) 0 0 / 22px 22px, var(--bg);
+    min-height: 100vh; color: var(--text); font: var(--fs-base)/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+  .wrap { width: min(100%, 1240px); margin: 0 auto; padding: 18px 16px 36px; }
+  header.top { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding-bottom: 14px; margin-bottom: 18px; border-bottom: 1px solid var(--line); }
+  h1 { font-size: var(--fs-lg); font-weight: 600; letter-spacing: -.015em; }
+  .mock, h2, .cell > h3 { font-size: var(--fs-xs); font-weight: 600; letter-spacing: var(--tr-label); text-transform: uppercase; color: var(--muted); }
+  section { margin-bottom: 30px; }
+  h2 { margin-bottom: 10px; }
+  .note { font-size: var(--fs-md); color: var(--muted); margin: 0 0 12px; max-width: 76ch; }
+  .note b { color: var(--text); font-weight: 600; }
+  .btn { font: inherit; font-size: var(--fs-sm); background: var(--surface); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 5px 12px; cursor: pointer; min-height: 30px; }
+  .btn:focus-visible { outline: 2px solid var(--run); outline-offset: 1px; }
+  .btn.primary { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+  .btn[disabled] { opacity: .5; cursor: not-allowed; }
+  .top .btn { margin-left: auto; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 14px; align-items: start; }
+  .cell > h3 { margin: 0 0 6px 2px; }
+  .frame { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); overflow: hidden; }
+
+  /* ---- the board's own chat rules ---- */
+  .av { width: 20px; height: 20px; border-radius: 50%; flex: none; display: grid; place-items: center; font-size: var(--fs-xs); font-weight: 600; color: var(--text);
+    background: color-mix(in srgb, var(--c, var(--neutral)) 16%, var(--chip)); box-shadow: inset 0 0 0 1.5px var(--c, var(--neutral)); }
+  .body { padding: 16px 20px; display: flex; flex-direction: column; gap: 14px; }
+  .cmsg { max-width: 94%; }
+  .cmsg-head { display: flex; align-items: baseline; gap: 8px; font-size: var(--fs-sm); color: var(--muted); margin-bottom: 3px; }
+  .cmsg-head b { color: var(--text); font-weight: 600; }
+  .cmsg-head .to { color: var(--muted); }
+  .cmsg-txt { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; font-size: var(--fs-base); line-height: 1.5; overflow-wrap: anywhere; }
+  .cmsg.user { align-self: flex-end; }
+  .cmsg.user .cmsg-head { flex-direction: row-reverse; }
+  .cmsg.user .cmsg-txt { background: color-mix(in srgb, var(--accent) 10%, var(--surface)); border-color: color-mix(in srgb, var(--accent) 30%, var(--line)); }
+  .cmsg.agent .cmsg-txt { border-left: 3px solid var(--c, var(--neutral)); }
+  .cmsg-rcpt { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-top: 3px; font-size: var(--fs-xs); color: var(--muted); }
+  .cmsg.user .cmsg-rcpt { justify-content: flex-end; text-align: right; }
+  .cmsg-rcpt .st { text-transform: uppercase; letter-spacing: var(--tr-tight); font-weight: 600; }
+  .cmsg-rcpt.answered .st { color: var(--ok); } .cmsg-rcpt.seen .st { color: var(--info); }
+  .cmsg-rcpt.late .st, .cmsg-rcpt .warn { color: color-mix(in srgb, var(--warn) 78%, var(--text)); }
+  .cmsg-rcpt .btn { min-height: 24px; padding: 1px 10px; font-size: var(--fs-xs); border-color: color-mix(in srgb, var(--warn) 55%, var(--line)); }
+  .cmsg-rcpt .nudged { color: var(--muted); }
+  .chat-form { display: flex; gap: 8px; padding: 14px 20px 0; border-top: 1px solid var(--line); flex: none; }
+  .chat-form input { flex: 1; min-width: 0; font: inherit; color: var(--text); background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 6px 12px; min-height: 32px; }
+  .chat-form input::placeholder { color: var(--muted); }
+  .chat-form input.bad { border-color: color-mix(in srgb, var(--warn) 70%, var(--line)); }
+  /* NEW: the line under the box (one per form), and the session chip */
+  .chat-to { padding: 5px 20px 12px; min-height: 28px; font-size: var(--fs-xs); line-height: 1.4; color: var(--muted); }
+  .chat-to b { color: var(--text); font-weight: 600; }
+  .chat-to .ok { color: var(--ok); } .chat-to .no, .chat-to.warn { color: color-mix(in srgb, var(--warn) 78%, var(--text)); }
+  .chat-to code { font: 11px ui-monospace, Menlo, monospace; background: var(--chip); border-radius: 4px; padding: 0 4px; }
+  .sess { display: inline-block; font-size: var(--fs-xs); font-weight: 600; line-height: 1.4; padding: 0 7px; border-radius: 999px; white-space: nowrap;
+    color: color-mix(in srgb, var(--warn) 78%, var(--text)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--warn) 55%, var(--line)); }
+  .th-head { display: flex; align-items: center; gap: 12px; padding: 14px 18px; border-bottom: 1px solid var(--line); }
+  .th-head .av { width: 32px; height: 32px; font-size: var(--fs-md); }
+  .th-lines { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .th-name { font-size: 16px; font-weight: 600; line-height: 22px; display: flex; align-items: center; gap: 8px; }
+  .th-line { font-size: var(--fs-sm); line-height: 16px; color: var(--muted); }
+  .lane { display: flex; align-items: center; gap: 8px; padding: 10px 14px; font-weight: 600; }
+  .lane .m { font-weight: 400; color: var(--muted); font-size: var(--fs-sm); }
+  .term { margin: 0; padding: 10px 14px; background: var(--chip); border-radius: 10px; font: 12px/1.5 ui-monospace, Menlo, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .term + .term { margin-top: 8px; }
+  .term .prompt { color: var(--muted); }
+  .term .out { color: color-mix(in srgb, var(--warn) 78%, var(--text)); }
+  .term .okout { color: var(--ok); }
+  .cell p.cap { font-size: var(--fs-sm); color: var(--muted); margin: 6px 2px 0; }
+  .stack { display: grid; gap: 14px; }
+  @media (max-width: 420px) { .grid { grid-template-columns: 1fr; } .body { padding: 14px 14px; } .chat-form { padding: 12px 14px 0; } .chat-to { padding: 5px 14px 10px; } }
+</style>
+<div class="wrap">
+  <header class="top"><h1>Chat: who reads a line, and what became of it</h1><span class="mock">Mockup, made-up lines</span><button class="btn" id="theme" type="button">Theme: system</button></header>
+
+  <section>
+    <h2>The ORCH drawer, as it reads</h2>
+    <p class="note">Four lines sent, one per outcome. Under each, the receipt; under the box, <b>who will read the next line</b>. The words are the same everywhere: sent, delivered, seen, answered, listening, not listening.</p>
+    <div class="grid" id="drawer"></div>
+  </section>
+
+  <section>
+    <h2>Every receipt state</h2>
+    <p class="note">Right-aligned under your bubble. Amber is kept for <b>nobody is listening</b> and <b>delivered but not seen in 5 minutes</b>; a busy listener is muted because it is normal.</p>
+    <div class="grid" id="rcpts"></div>
+  </section>
+
+  <section>
+    <h2>Under the box</h2>
+    <p class="note">One line, always there. It follows what is typed. A name the board does not know is <b>stopped</b>, never turned into a line to ORCH, and the text stays in the box.</p>
+    <div class="grid" id="boxes"></div>
+  </section>
+
+  <section>
+    <h2>In the terminal: a send that does not go</h2>
+    <p class="note">What an agent's <b>chat send</b> prints when nothing was posted (exit code 1): what happened, then what to type instead.</p>
+    <div class="grid" id="cli"></div>
+  </section>
+
+  <section>
+    <h2>Two sessions under one name</h2>
+    <p class="note">One amber chip after the name, wherever the name shows. No pid or id: the board only says there are two, and how to fix it.</p>
+    <div class="grid" id="two"></div>
+  </section>
+</div>
+<script>
+const COL = { ORCH: 'var(--a2)', 'AGENT-1': 'var(--a1)', 'AGENT-2': 'var(--a3)', 'AGENT-3': 'var(--a4)', 'AGENT-4': 'var(--a2)' };
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const SESS = n => `<span class="sess" title="Two sessions answer to this name. A line reaches both and both may answer. Rename one with /rename in that session.">${n} sessions</span>`;
+const NUDGE = `<button class="btn" type="button" title="ORCH is listening: it messages the session">Nudge via ORCH</button>`;
+
+// a receipt, by state (the build's receiptOf returns these)
+const R = {
+  sent:        () => `<span class="st">sent</span>`,
+  nobody:      n => `<span class="st">sent</span><span class="warn">Nobody is listening for ${n}.</span>${NUDGE}`,
+  nobodyOrch:  () => `<span class="st">sent</span><span class="warn">Nobody is listening for ORCH. Type in its terminal, or Copy prompt starts one.</span>`,
+  busy:        n => `<span class="st">sent</span><span>${n} is listening but busy: it reads this when its step ends.</span>`,
+  nudged:      n => `<span class="st">sent</span><span class="warn">Nobody is listening for ${n}.</span><span class="nudged">ORCH asked 2m ago to message it</span>`,
+  delivered:   () => `<span class="st">delivered</span>`,
+  unseen:      () => `<span class="st">delivered</span><span class="warn">Not seen in 5 min: it comes again with the next inbox read.</span>`,
+  seen:        () => `<span class="st">seen</span>`,
+  answered:    () => `<span class="st">answered</span>`,
+  two:         () => `<span class="st">delivered</span>${SESS(2)}`,
+};
+const cls = { sent: '', nobody: 'late', nobodyOrch: 'late', busy: '', nudged: 'late', delivered: '', unseen: 'late', seen: 'seen', answered: 'answered', two: '' };
+const user = (to, text, at, rc) => `<div class="cmsg user"><div class="cmsg-head"><b>You</b><span class="to">→ ${to}</span><span>${at}</span></div><div class="cmsg-txt">${esc(text)}</div><div class="cmsg-rcpt ${cls[rc[0]]}">${R[rc[0]](...rc.slice(1))}</div></div>`;
+const agent = (who, text, at) => `<div class="cmsg agent" style="--c:${COL[who]}"><div class="cmsg-head"><b>${who}</b><span class="to">→ you</span><span>${at}</span></div><div class="cmsg-txt">${esc(text)}</div></div>`;
+const form = (ph, val, line, o = {}) => `<form class="chat-form" onsubmit="return false"><input ${o.bad ? 'class="bad"' : ''} placeholder="${esc(ph)}" value="${esc(val || '')}" aria-label="Message"><button class="btn primary"${o.off ? ' disabled' : ''}>Send</button></form><div class="chat-to ${o.warn ? 'warn' : ''}">${line}</div>`;
+const L = (name, st) => `Goes to <b>${name}</b> · ${st}`;
+const lis = `<span class="ok">listening</span>`, nol = n => `<span class="no">not listening</span>`;
+const cell = (t, inner, cap) => `<div class="cell"><h3>${t}</h3><div class="frame">${inner}</div>${cap ? `<p class="cap">${cap}</p>` : ''}</div>`;
+const place = (id, html) => document.getElementById(id).innerHTML = html.join('');
+
+// A. the drawer
+place('drawer', [
+  cell('Drawer, a normal day', `<div class="body">
+    ${user('ORCH', 'Move the invoice card to Later', '4m', ['answered'])}
+    ${agent('ORCH', 'Done. It is in Later.', '3m')}
+    ${user('AGENT-2', 'Is the chat design ready?', '2m', ['seen'])}
+    ${user('AGENT-3', 'Can you re-run the render check?', '1m', ['unseen'])}
+    ${user('AGENT-4', 'Status?', '1m', ['nobody', 'AGENT-4'])}
+  </div>${form('Message ORCH, or @AGENT-2…', '', L('ORCH', lis))}`),
+  cell('Same drawer, ORCH not listening', `<div class="body">
+    ${user('ORCH', 'Add a card for the dentist', '2m', ['nobodyOrch'])}
+  </div>${form('Message ORCH, or @AGENT-2…', '', L('ORCH', nol()), { warn: true })}`, 'No Nudge: the Nudge goes through ORCH.'),
+]);
+
+// B. every receipt state
+const states = [['Just sent', ['sent']], ['60 s, agent not listening', ['nobody', 'AGENT-4']], ['60 s, ORCH not listening', ['nobodyOrch']], ['60 s, listening but busy', ['busy', 'AGENT-3']],
+  ['After the Nudge', ['nudged', 'AGENT-4']], ['Delivered', ['delivered']], ['Delivered, not seen in 5 min', ['unseen']], ['Seen', ['seen']], ['Answered', ['answered']], ['Two sessions', ['two']]];
+place('rcpts', states.map(([t, rc]) => cell(t, `<div class="body" style="padding-block:12px">${user(rc[0] === 'nobodyOrch' ? 'ORCH' : (rc[1] || 'AGENT-1'), 'Can you check the build?', '1m', rc)}</div>`)));
+
+// C. under the box
+const boxes = [
+  ['Nothing typed (drawer)', form('Message ORCH, or @AGENT-2…', '', L('ORCH', lis))],
+  ['Addressed, listening', form('Message ORCH, or @AGENT-2…', '@AGENT-2 can you review the row?', L('AGENT-2', lis))],
+  ['Addressed, not listening', form('Message ORCH, or @AGENT-2…', '@AGENT-4 status?', `Goes to <b>AGENT-4</b> · <span class="no">not listening</span>: it reads this when its session next runs`, { warn: true })],
+  ['Addressed, two sessions', form('Message ORCH, or @AGENT-2…', '@AGENT-1 are you on the build?', `Goes to <b>AGENT-1</b> ${SESS(2)} both may answer`)],
+  ['Typing the name', form('Message ORCH, or @AGENT-2…', '@AG', 'Names: AGENT-1, AGENT-2, AGENT-3 · Tab takes the first')],
+  ['To everyone', form('Message ORCH, or @AGENT-2…', '@all anyone free for a review?', 'Goes to everyone listening (4). No one owns the answer.')],
+  ['An agent’s thread', form('Say anything to AGENT-2…', '', L('AGENT-2', lis).replace('Goes to', 'Goes to').replace('</b> ·', '</b> only ·'))],
+  ['A card’s chat', form('Say anything to AGENT-2…', '', `Goes to <b>AGENT-2</b>, who holds this card · ${lis}`)],
+  ['Unknown name, one close', form('Message ORCH, or @AGENT-2…', '@AGENT-33 can you help?', 'No one named <b>AGENT-33</b>. Did you mean <b>AGENT-3</b>? Tab uses it.', { bad: true, warn: true, off: true })],
+  ['Unknown name, nothing close', form('Message ORCH, or @AGENT-2…', '@Bob can you help?', 'No one named <b>Bob</b>. On this board: ORCH, AGENT-1, AGENT-2, AGENT-3.', { bad: true, warn: true, off: true })],
+  ['Only a name', form('Message ORCH, or @AGENT-2…', '@AGENT-2', 'Add what to tell <b>AGENT-2</b> after the name.', { bad: true, warn: true, off: true })],
+  ['The board did not take it', form('Message ORCH, or @AGENT-2…', 'Move the invoice card to Later', 'Not sent: the board did not answer. Your text is still here; send again.', { bad: true, warn: true })],
+];
+place('boxes', boxes.map(([t, f]) => cell(t, f)));
+
+// D. the terminal
+const t = (cmd, out, ok) => `<pre class="term"><span class="prompt">$ ${esc(cmd)}</span>\n<span class="${ok ? 'okout' : 'out'}">${esc(out)}</span></pre>`;
+place('cli', [
+  cell('Unknown name', t('agentboard chat send "ready" --to AGENT-33', 'Not sent: no one named AGENT-33. Closest: AGENT-3. Send again with --to AGENT-3.')),
+  cell('Unknown, nothing close', t('agentboard chat send "ready" --to Bob', 'Not sent: no one named Bob. Names on this board: ORCH, AGENT-1, AGENT-2.')),
+  cell('Agent chat off, agent to agent', t('agentboard chat send "can you help?" --to AGENT-3', 'Not sent: agent chat is off, so agents post one-line status only. A line to the owner still goes; to reach another agent, the owner runs: agentboard chat agents on')),
+  cell('Over the limit, agent to agent', t('agentboard chat send "…412 characters…" --to AGENT-3', 'Not sent: 412 characters, the limit is 300. Shorten it, or keep the rest in --detail.')),
+  cell('Over the limit, to the owner (after F1)', t('agentboard chat send "…412 characters…" --to Owner', 'Sent, cut at 300 characters: the rest is in the detail.', true)),
+]);
+
+// E. two sessions
+place('two', [
+  cell('Agent thread head', `<div class="th-head"><span class="av" style="--c:${COL['AGENT-1']}">A1</span><div class="th-lines"><span class="th-name">AGENT-1 ${SESS(2)}</span><span class="th-line">working · last update 3m ago</span><span class="th-line">on Build the chat row</span></div></div>
+    <div class="body" style="padding-block:12px">${user('AGENT-1', 'Are you on the build?', '1m', ['two'])}</div>${form('Say anything to AGENT-1…', '', `Goes to <b>AGENT-1</b> only ${SESS(2)} both may answer`)}`,
+    'Hover or tap the chip: “Two sessions answer to AGENT-1. A line reaches both and both may answer. Rename one with /rename in that session.”'),
+  cell('By agent lane', `<div class="lane"><span class="av" style="--c:${COL['AGENT-1']}">A1</span>AGENT-1 ${SESS(2)}<span class="m">· working</span></div><div class="lane" style="border-top:1px solid var(--line)"><span class="av" style="--c:${COL['AGENT-2']}">A2</span>AGENT-2<span class="m">· listening</span></div>`,
+    '“Listening” is true while either session waits; “nobody is listening” appears only when both are gone. The chip clears when one ends.'),
+]);
+
+// theme button + ?theme=
+const root = document.documentElement, btn = document.getElementById('theme');
+const modes = ['system', 'light', 'dark'];
+const q = new URLSearchParams(location.search).get('theme');
+let mode = modes.includes(q) ? q : 'system';
+const apply = () => { if (mode === 'system') root.removeAttribute('data-theme'); else root.setAttribute('data-theme', mode); btn.textContent = 'Theme: ' + mode; };
+btn.onclick = () => { mode = modes[(modes.indexOf(mode) + 1) % 3]; apply(); };
+apply();
+</script>
