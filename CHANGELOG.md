@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+### Boring start, stop, restart and status (Nov 8, branch overnight/overnight-rel-server-lifecycle)
+- New commands: `agentboard status` (running or not: pid, port, since, uptime, plugins, lockdown; stale server files cleaned; exit 1 when
+  nothing runs), `agentboard stop` (SIGTERM, then a wait until the server has finished what it was doing), `agentboard restart` (same port,
+  this shell's environment), and `agentboard serve --background` (detached, output to `.agentboard/server.log`, rolled at 2 MB).
+- `agentboard serve` ends cleanly on SIGTERM: in-flight requests finish, the state file is removed, "agentboard: stopped" is printed. A taken
+  port says who holds it (this board's server, another board's, or something else) and the next step.
+- New route `/api/health` (loopback, no board data) and a doctor line about stale server files. `stop` signals only a process whose command
+  line is an `agentboard serve`.
+
 ### Python 3.9 to 3.14, a three-command install, upgrade and uninstall written down, doctor passes on the repo (Nov 7, overnight)
 - The floor drops from 3.11 to 3.9 (the Python a 2021 Mac or Ubuntu 22.04 already has): `tomlread.py` uses `tomllib` where it exists and a small built-in TOML reader before that (tables, arrays of tables, dotted and quoted keys, all string forms, numbers, dates, arrays, inline tables; checked against tomllib on the config `init` writes, the README's block and every snippet the tests write), the masker's possessive quantifiers become plain ones on 3.9 and 3.10 (same matches, slower worst case, bounded by the size caps), and one f-string that needed 3.12 is split. The suite runs on 3.9, 3.11, 3.12, 3.13 and 3.14.
 - README: install is three commands, then Upgrade and Uninstall sections (the whole footprint: pipx's venv, `.agentboard/` per project, `~/.agentboard` for named boards, `~/.config/agentboard` for private words, the hooks `hooks uninstall` removes; nowhere else), and a troubleshooting list written from the Nov 7 failures (a plugin crashing on load, keys lost on a restart, a stale `build/`, the doctor's tracked-files FAIL, first-run WARNs).

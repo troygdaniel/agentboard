@@ -150,7 +150,7 @@ class StatusStopRestart(Base):
         self.assertIn(f"stale server file for pid {pr.pid}", rows[0][2])
         code, out = self.run_cli("status")
         self.assertEqual(code, 1)
-        self.assertIn(f"cleaned 1 stale server file (pid {pr.pid} gone", out)
+        self.assertIn(f"cleaned 1 stale server file (pid {pr.pid}", out)
         self.assertFalse(serverstate.path_for(self.board, pr.pid).exists())
         self.assertEqual([r[0] for r in doctor.check_server_files(self.board)], ["INFO"])
 
@@ -198,6 +198,38 @@ class StatusStopRestart(Base):
         titles = [x["title"] for x in Store(self.board).load()]
         self.assertTrue(got.get("status") == 200 or "in flight" not in titles or got.get("error"), got)   # either it finished whole or it never started: never half
         self.assertTrue(json.loads((self.board / "tasks.json").read_text()))
+
+
+class StopSignalsOnlyARealServer(Base):
+    """xr-lifecycle-stop-any-pid: a state file whose pid now belongs to another program (pid reuse after a crash) is stale, never signalled."""
+
+    def test_the_command_line_rule(self):
+        def runner(cmd_line):
+            def run(argv, **kw):
+                return subprocess.CompletedProcess(argv, 0, cmd_line, "")
+            return run
+        me = os.getpid()
+        self.assertTrue(lifecycle.is_board_server(me, runner("/opt/pipx/venvs/agentboard/bin/python /opt/pipx/venvs/agentboard/bin/agentboard serve --port 8765")))
+        self.assertTrue(lifecycle.is_board_server(me, runner(f"{sys.executable} -m agentboard serve --port 8765 --no-open")))
+        for other in ("sleep 30", "/usr/bin/python3 -m agentboard doctor", "agentboard status", "vim serve.py", "node server.js serve"):
+            self.assertFalse(lifecycle.is_board_server(me, runner(other)), other)
+        self.assertFalse(lifecycle.is_board_server(999999, runner("agentboard serve")))   # not alive at all
+
+    def test_a_planted_state_file_for_another_process_is_cleaned_and_never_signalled(self):
+        sl = subprocess.Popen(["sleep", "30"])
+        self.pids.append(sl.pid)
+        serverstate.path_for(self.board, sl.pid).write_text(json.dumps({"pid": sl.pid, "port": 1, "started": "2026-11-08T00:00:00", "lockdown": False,
+                                                                        "plugins_open": False, "plugins_loaded": []}))
+        self.assertEqual(lifecycle.running(self.board), [])
+        self.assertEqual(lifecycle.stale(self.board), [sl.pid])
+        ok, line = lifecycle.stop(self.board)
+        self.assertEqual((ok, line), (True, "not running (nothing to stop)"))
+        self.assertIsNone(sl.poll())   # still asleep: nothing signalled it
+        self.assertFalse(serverstate.path_for(self.board, sl.pid).exists())   # the stale file is gone
+        code, out = self.run_cli("status")
+        self.assertEqual(code, 1)
+        self.assertIn("not running", out)
+        sl.kill()
 
 
 if __name__ == "__main__":

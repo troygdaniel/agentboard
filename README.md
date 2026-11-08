@@ -375,13 +375,13 @@ in its own `config.toml`; nightly copies are named after the board's folder, so 
 
 **Private by default.** The command line and `serve` run with umask 077, so everything the board writes (cards, chat, reports, run logs, config, session ids, snapshots, the `sync_dir` copy) is mode 0600 in folders 0700, and `serve` tightens what an older version left readable. A Mac home folder is not private (other accounts can read into it), so this matters even on one machine. Programs the board starts for you (`claude -p` runs, provider commands) and files meant for others (the project's `.gitignore`, `.claude/settings.json`, a `summary --html` page) keep your own umask. `AGENTBOARD_UMASK=022` turns it off for a folder you share on purpose.
 
-**Start, stop, restart, status.** `agentboard serve` runs the board in the terminal (Ctrl+C stops it); `agentboard serve --background`
+**Start, stop, restart, status.** `agentboard serve` runs the board in the terminal (Ctrl+C stops it, after the requests in flight finish); `agentboard serve --background`
 starts it detached, with its output in `.agentboard/server.log`, and prints the pid once `/api/health` answers. `agentboard status`
 says running or not, with the pid, the port, since when, the uptime, the plugins loaded and whether the lockdown is on (exit 1 when
 nothing runs); a server file left by a crash or a `kill -9` is cleaned and said. `agentboard stop` sends SIGTERM and waits until the
 server has finished the requests in flight and is gone; `agentboard restart` stops it and starts it again on the same port with this
 shell's environment, one line with the old and new pid. A taken port says who holds it (this board's own server, another board's, or
-something else) and what to do. `/api/health` answers on the loopback with no board data: `{ok, agentboard, pid, port, started, uptime_s,
+something else) and what to do. `stop` signals only a process that is really an `agentboard serve` (its command line says so), never a pid a crash left behind that another program now has. `/api/health` answers on the loopback with no board data: `{ok, agentboard, pid, port, started, uptime_s,
 plugins, lockdown}`. `agentboard doctor` warns about stale server files.
 
 Everything is one file, `.agentboard/tasks.json`; the browser keeps only your theme and sound choices, so clearing it loses nothing.

@@ -10,6 +10,7 @@ answers with no board data). A stale file (a server killed with -9) is recognise
 that names who holds it and what to do."""
 import json
 import os
+import re
 import signal
 import subprocess
 import sys
@@ -21,6 +22,11 @@ from pathlib import Path
 from . import serverstate
 
 LOG_FILE = "server.log"
+LOG_MAX_BYTES = 2_000_000   # server.log is rolled to server.log.1 when a background start finds it larger
+_SERVE_CMD = re.compile(r"(?:^|[\s/])agentboard(?:\s|$)|-m agentboard\b")   # doctor's own rule for "an agentboard process"
+_SERVE_WORD = re.compile(r"\bserve\b")
+_NOT_SERVE = re.compile(r"\b(?:doctor|ps|lsof|grep|pgrep|status|stop|restart)\b")
+_OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))   # the loopback, never through an http_proxy from the environment
 STOP_WAIT_S = 10.0
 START_WAIT_S = 15.0
 DEFAULT_PORT = 8765
@@ -47,6 +53,26 @@ def _alive(pid):
     return serverstate.pid_alive(int(pid))
 
 
+def command_of(pid, runner=subprocess.run):
+    """The command line of a running process from `ps`, or None when ps cannot say."""
+    try:
+        r = runner(["ps", "-o", "command=", "-p", str(int(pid))], capture_output=True, text=True, timeout=5)
+    except (OSError, subprocess.SubprocessError, ValueError):
+        return None
+    out = (r.stdout or "").strip() if getattr(r, "returncode", 1) == 0 else ""
+    return out or None
+
+
+def is_board_server(pid, runner=subprocess.run):
+    """Whether the process really is an `agentboard serve`: alive, and its command line says so by doctor's own rule. A pid that a crash or a
+    kill -9 left in a state file and that now belongs to another of the user's programs is not, so `stop` never signals it
+    (xr-lifecycle-stop-any-pid)."""
+    if not _alive(pid):
+        return False
+    cmd = command_of(pid, runner)
+    return bool(cmd and _SERVE_CMD.search(cmd) and _SERVE_WORD.search(cmd) and not _NOT_SERVE.search(cmd))
+
+
 def _files(board_dir):
     """[(pid, path)] for every server-<pid>.json in the board folder."""
     out = []
@@ -61,7 +87,7 @@ def running(board_dir):
     """The servers of this board that are alive, from their state files: [{pid, port, started, lockdown, plugins_open, plugins_loaded}]."""
     out = []
     for pid, _p in _files(board_dir):
-        if _alive(pid):
+        if is_board_server(pid):
             s = serverstate.read(board_dir, pid)
             if s:
                 out.append(s)
@@ -69,15 +95,27 @@ def running(board_dir):
 
 
 def stale(board_dir):
-    """The state files of servers that are gone (killed with -9, a crash): [pid]."""
-    return [pid for pid, _p in _files(board_dir) if not _alive(pid)]
+    """The state files that name no running agentboard server: the pid is gone (killed with -9, a crash), or it now belongs to some other
+    program of the user's (pid reuse): [pid]."""
+    return [pid for pid, _p in _files(board_dir) if not is_board_server(pid)]
+
+
+def clean(board_dir):
+    """Delete the stale state files (see stale()). Returns the pids cleaned."""
+    gone = stale(board_dir)
+    for pid in gone:
+        try:
+            serverstate.path_for(board_dir, pid).unlink()
+        except OSError:
+            pass
+    return gone
 
 
 def health(port, timeout=2.0):
     """GET /api/health on the loopback: the dict, or None when nothing answers there or what answers is not an agentboard server."""
     try:
         req = urllib.request.Request(f"http://127.0.0.1:{int(port)}/api/health", headers={"Host": f"localhost:{int(port)}"})
-        with urllib.request.urlopen(req, timeout=timeout) as r:
+        with _OPENER.open(req, timeout=timeout) as r:
             d = json.loads(r.read(4096).decode("utf-8", "replace"))
     except (urllib.error.URLError, OSError, ValueError, TypeError):
         return None
@@ -86,9 +124,7 @@ def health(port, timeout=2.0):
 
 def status(board_dir):
     """([lines], [running servers]). Stale files are cleaned and said. Exit code is the caller's: 0 when something runs."""
-    gone = stale(board_dir)
-    if gone:
-        serverstate.forget_dead(board_dir)
+    gone = clean(board_dir)
     live = running(board_dir)
     lines = []
     for s in live:
@@ -102,7 +138,7 @@ def status(board_dir):
             lines.append(f"recorded: pid {s['pid']} on port {s['port'] or '?'} since {since}, but /api/health does not answer: it is starting, hung, "
                          f"or something else holds the port. Try again in a moment; then `agentboard stop` and `agentboard serve`")
     if gone:
-        lines.append(f"cleaned {len(gone)} stale server file{'s' if len(gone) != 1 else ''} (pid {', '.join(map(str, gone))} gone: killed or crashed)")
+        lines.append(f"cleaned {len(gone)} stale server file{'s' if len(gone) != 1 else ''} (pid {', '.join(map(str, gone))}: not an agentboard serve any more, killed or crashed)")
     if not live:
         lines.append("not running: `agentboard serve` (or `agentboard serve --background` to leave it running without a terminal)")
     return lines, live
@@ -125,11 +161,13 @@ def port_taken_message(board_dir, port, err):
 def stop(board_dir, timeout=STOP_WAIT_S, wait=time.sleep, clock=time.monotonic):
     """SIGTERM every live server of this board and wait until each is gone (the server finishes the requests in flight, closes, removes its
     file). Returns (ok, one line)."""
-    live = running(board_dir)
+    live = running(board_dir)   # only pids whose state file, liveness AND command line say "agentboard serve"
     if not live:
-        serverstate.forget_dead(board_dir)
+        clean(board_dir)
         return True, "not running (nothing to stop)"
     for s in live:
+        if not is_board_server(s["pid"]):   # checked again right before the signal
+            continue
         try:
             os.kill(s["pid"], signal.SIGTERM)
         except ProcessLookupError:
@@ -140,7 +178,7 @@ def stop(board_dir, timeout=STOP_WAIT_S, wait=time.sleep, clock=time.monotonic):
     while clock() - start < timeout and any(_alive(s["pid"]) for s in live):
         wait(0.1)
     left = [s["pid"] for s in live if _alive(s["pid"])]
-    serverstate.forget_dead(board_dir)
+    clean(board_dir)
     pids = ", ".join(str(s["pid"]) for s in live)
     ports = ", ".join(str(s["port"]) for s in live if s["port"])
     if left:
@@ -154,7 +192,12 @@ def start_background(board_dir, port=DEFAULT_PORT, env=None, timeout=START_WAIT_
     shell's environment and the given port, and wait until /api/health answers from that pid. Returns (pid or None, one line)."""
     board_dir = Path(board_dir)
     log_path = board_dir / LOG_FILE
-    fd = os.open(log_path, os.O_WRONLY | os.O_APPEND | os.O_CREAT, 0o600)
+    try:
+        if log_path.is_file() and not log_path.is_symlink() and log_path.stat().st_size > LOG_MAX_BYTES:
+            os.replace(log_path, f"{log_path}.1")   # one roll: the log never grows without end
+    except OSError:
+        pass
+    fd = os.open(log_path, os.O_WRONLY | os.O_APPEND | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0), 0o600)   # never written through a planted link
     env = dict(os.environ if env is None else env)
     env["AGENTBOARD_DIR"] = str(board_dir)
     argv = [sys.executable, "-m", "agentboard", "serve", "--port", str(int(port)), "--no-open"]
