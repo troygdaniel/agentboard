@@ -54,7 +54,7 @@ def inside_project(path, base_dir):
     try:
         root = Path(base_dir).resolve().parent
         p = Path(path).resolve()
-    except (OSError, RuntimeError):
+    except (OSError, RuntimeError, ValueError):   # ValueError: an embedded NUL in the path
         return False
     return p == root or root in p.parents
 

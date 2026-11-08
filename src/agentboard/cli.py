@@ -29,7 +29,7 @@ from . import runs as runslib
 from . import untrusted
 from .server import serve
 from . import boards as boardlib
-from .store import CHAT_LINE_MAX, CHAT_TOPICS, DIR_NAME, BoardError, Store, find_dir, subtask_counts
+from .store import CHAT_LINE_MAX, CHAT_TOPICS, DIR_NAME, BoardError, Store, find_dir, parse_stamp, subtask_counts
 
 SAMPLE_CONFIG = '''\
 # agentboard config. Providers add context to task prompts.
@@ -384,6 +384,7 @@ def _chat_name(a):
     name = a.name or os.environ.get("AGENTBOARD_NAME") or (_store().owner if getattr(a, "user", False) else None)
     if not name:
         raise BoardError("give --name (or set AGENTBOARD_NAME) so the board can show who's talking")
+    name = _store()._scrub(name)   # masked before it is written anywhere (sessions, listeners, cursors), as the store masks it on a card
     hookslib.remember_session(_store().dir, name)   # so the SendMessage hook can post as this session
     return name
 
@@ -391,6 +392,7 @@ def _chat_name(a):
 def cmd_me(a):
     """Tell the board who this session is, so mirrored messages carry the name."""
     s = _store()
+    a.name = s._scrub(a.name)   # masked before it is written anywhere
     sid = hookslib.remember_session(s.dir, a.name, session_id=a.session)
     who = f"session {a.session[:8]} is" if a.session else "this session is"
     print(f"{who} {a.name}" + ("" if sid else " (no CLAUDE_CODE_SESSION_ID in this shell; set AGENTBOARD_NAME or pass --session)"))
@@ -685,7 +687,7 @@ def _agent_name(a):
     name = a.name or os.environ.get("AGENTBOARD_NAME")
     if not name:
         raise BoardError("give --name (or set AGENTBOARD_NAME) so the board can show who is working")
-    return name
+    return _store()._scrub(name)   # masked before it is written anywhere (sessions, listeners, cursors), as the store masks it on a card
 
 
 # The agent palette, kept out of the status-color families (--warn/--hwarn amber ~25-50°, --ok/--hok green ~145-165°,
@@ -1335,7 +1337,7 @@ def add_plugin_commands(sub):
 def _reply_when(r):
     """'replied 2026-11-03 18:23 by Alex, 4 min ago': so an agent can tell a fresh reply from one it already acted on."""
     try:
-        mins = max(0, round((datetime.now() - datetime.strptime(r["at"], "%Y-%m-%dT%H:%M:%S")).total_seconds() / 60))
+        mins = max(0, round((datetime.now() - parse_stamp(r["at"])).total_seconds() / 60))
     except (KeyError, TypeError, ValueError):
         return "replied"
     ago = "just now" if mins < 1 else f"{mins} min ago" if mins < 120 else f"{mins // 60} h ago"
@@ -1348,7 +1350,7 @@ REMOVED_NOTE = "Removed: the card is no longer on the board, stop work on it and
 def _message_when(m):
     """'message from Alex on the board, 4 min ago': a line the owner typed to this agent in its thread, not on a card."""
     try:
-        mins = max(0, round((datetime.now() - datetime.strptime(m["at"], "%Y-%m-%dT%H:%M:%S")).total_seconds() / 60))
+        mins = max(0, round((datetime.now() - parse_stamp(m["at"])).total_seconds() / 60))
     except (KeyError, TypeError, ValueError):
         return f"message from {m.get('sender') or 'the user'} on the board"
     ago = "just now" if mins < 1 else f"{mins} min ago" if mins < 120 else f"{mins // 60} h ago"

@@ -15,7 +15,7 @@ from datetime import datetime, timedelta
 
 from . import cursors, private
 from . import lockdown, untrusted
-from .store import CHAT_TOPICS, BoardError
+from .store import CHAT_TOPICS, BoardError, parse_stamp
 
 PROTOCOL = """\
 ## Talking to other agents (agent chat is on)
@@ -415,10 +415,7 @@ def autopilot_seen(store, name):
 
 
 def _t(s):
-    try:
-        return datetime.strptime(s, "%Y-%m-%dT%H:%M:%S")
-    except (TypeError, ValueError):
-        return None
+    return parse_stamp(s)
 
 
 def idle_agents(tasks, roster):

@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+### Five small findings of the Nov 7 merge review (Nov 8)
+- One rule for a hard-off variable: `lockdown.env_on(name, env=None)`; doctor and the plugin gate use it instead of their own copies of
+  the off-words. (`rev1107-doctor-dup-env`)
+- A config path with an embedded NUL (`template_file`, a markdown or file-tail provider) made `prompt`, `/api/prompt` and `doctor`
+  crash under lockdown with a `ValueError`; it now reads as outside the project, as any unreadable path does. (`rev1107-lockdown-nul-crash`)
+- The masker treated a lower-case hex run with one dash or dot as a kebab-case word, so `token=<hex>-<hex>`, `key: <hex>.<hex>`,
+  `sk-live-<hex>` and a Mailgun-style `key-<32 hex>` passed. A segment with three or more digits is not a word now; identifiers
+  (`task-queue-implementation-notes`, `user_profile_cache_v2_final`) and dates in prose are untouched. (`rev1107-redact-wordy-hex`)
+- Three small masker gaps: a zero-length owner pattern no longer duplicates the invisible character around it; `agentboard redact` walks a
+  chat line's `files` and its proposed action too; a key-shaped session name is masked before it reaches `sessions.json`, the listener
+  file or the cursor file; a cut-off PEM with `Proc-Type`/`DEK-Info` header lines is masked through them. (`rev1107-redact-small-gaps`)
+- One stamp parser, `store.parse_stamp`, replaces four copies (hud, the chat, the cursors, the CLI); the Stop hook's `known_name` is
+  `resolve_sender` without the fallback; `REASON_MAX` is the cap it says it is (600, the same length as before). The cursor file itself
+  became one locked module earlier (`cursors.py`). (`rev1107-cursor-file-dup`)
+
 ### Nine lines where the board and the terminal did not match the chat design (Nov 8)
 - `chat send --to` a name nobody has posts nothing and exits 1: `Not sent: no one named AGENT-33. Closest: AGENT-3. Send again with
   --to AGENT-3.` (or `Names on this board: ORCH, AGENT-1, …`); the name is checked before the agent-chat switch; the roster in

@@ -1001,15 +1001,22 @@ CHAT_MAX = 500
 NUDGE_GAP_S = 60   # one nudge a minute per line
 
 
-def _seconds_between(earlier, later):
-    """Seconds from one board stamp (YYYY-MM-DDTHH:MM:SS) to another; a stamp that does not parse counts as long ago."""
+STAMP = "%Y-%m-%dT%H:%M:%S"   # every time the board writes: card updated/created, log lines, chat at, cursors, listeners
+
+
+def parse_stamp(s):
+    """A board stamp as a datetime, or None when it is not one (the one parser: hud, the chat, the cursors and the CLI all use it)."""
     from datetime import datetime
     try:
-        a = datetime.strptime(str(earlier)[:19], "%Y-%m-%dT%H:%M:%S")
-        b = datetime.strptime(str(later)[:19], "%Y-%m-%dT%H:%M:%S")
-    except ValueError:
-        return float("inf")
-    return (b - a).total_seconds()
+        return datetime.strptime(str(s)[:19], STAMP)
+    except (TypeError, ValueError):
+        return None
+
+
+def _seconds_between(earlier, later):
+    """Seconds from one board stamp to another; a stamp that does not parse counts as long ago."""
+    a, b = parse_stamp(earlier), parse_stamp(later)
+    return float("inf") if a is None or b is None else (b - a).total_seconds()
 
 
 OWNER_WORDS = ("you", "the user", "user", "owner")   # how a prompt names an unnamed owner: --to "the user" still reaches them

@@ -69,10 +69,9 @@ def _stamp(dt=None):
 
 
 def _age_s(stamp, now=None):
-    try:
-        return ((now or datetime.now()) - datetime.strptime(str(stamp), "%Y-%m-%dT%H:%M:%S")).total_seconds()
-    except (TypeError, ValueError):
-        return float("inf")
+    from .store import parse_stamp
+    at = parse_stamp(stamp)
+    return float("inf") if at is None else ((now or datetime.now()) - at).total_seconds()
 
 
 def read_delivered(board_dir):

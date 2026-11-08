@@ -30,7 +30,7 @@ HOOK_COMMAND = "agentboard hook send-message"
 EVENTS = {"send-message": ("PostToolUse", "SendMessage"), "stop": ("Stop", None)}   # hook event -> (settings list, matcher)
 SESSION_ENV = "CLAUDE_CODE_SESSION_ID"
 MAX_SESSIONS = 200
-REASON_MAX = 400
+REASON_MAX = 600   # the longest reason the Stop hook returns: the block text with the quoted line and the commands fits
 
 
 def sessions_path(board_dir):
@@ -81,12 +81,11 @@ def session_name(board_dir, session_id):
     return rec.get("name") if isinstance(rec, dict) else None
 
 
-def resolve_sender(board_dir, payload):
-    """$AGENTBOARD_NAME, else the name this session gave itself, else a short handle from the session id. (The mirror no longer uses
-    the handle: an unknown session is not mirrored at all; kept for `agentboard me` and the tests.)"""
+def resolve_sender(board_dir, payload, fallback=True):
+    """$AGENTBOARD_NAME, else the name this session gave itself, else (with fallback) a short handle from the session id, else None."""
     name = os.environ.get("AGENTBOARD_NAME") or session_name(board_dir, payload.get("session_id"))
-    if name:
-        return name
+    if name or not fallback:
+        return name or None
     sid = str(payload.get("session_id") or "")
     return f"session-{sid[:6]}" if sid else "a session"
 
@@ -133,7 +132,7 @@ def run_hook(store, stdin=None):
 # ---- the Stop hook: an unread line from the owner, or no wait running, is said before the session goes quiet -----------------
 def known_name(board_dir, payload):
     """The board name of the session the payload came from, or None when it never said (a session that is not an agent here)."""
-    name = os.environ.get("AGENTBOARD_NAME") or session_name(board_dir, payload.get("session_id"))
+    name = resolve_sender(board_dir, payload, fallback=False)
     return name if name and name != owner_name(board_dir) else None
 
 
@@ -163,7 +162,7 @@ def stop_decision(store, payload):
             reason = (f"{who[0].upper()}{who[1:]} wrote to you on the board{more}, unread: “{said}”. Read it with `agentboard chat inbox --name {name}`, answer with "
                       f"`agentboard chat send \"<one line>\" --name {name} --to {owner} --reply-to {seq}`, then start `agentboard chat inbox --name {name} --wait 3600` "
                       "as a background command so the next line wakes you.")
-        return {"decision": "block", "reason": reason[:REASON_MAX + 200]}
+        return {"decision": "block", "reason": reason[:REASON_MAX]}
     if not listeners.is_listening(store.dir, name):
         return {"decision": "block", "reason": (f"Nothing is listening for you on the board: a line {who} types there would wait until you happen to look. "
                                                 f"Start `agentboard chat inbox --name {name} --wait 3600` as a background command (Bash with run_in_background) "

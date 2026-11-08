@@ -3,7 +3,7 @@ import functools
 import re
 from datetime import datetime, timedelta
 
-from .store import DEFAULT_OWNER
+from .store import DEFAULT_OWNER, parse_stamp
 
 FMT = "%Y-%m-%dT%H:%M:%S"
 STALE_MIN = 10
@@ -38,10 +38,7 @@ def roster(conf):
 
 
 def _t(s):
-    try:
-        return datetime.strptime(s, FMT)
-    except (TypeError, ValueError):
-        return None
+    return parse_stamp(s)
 
 
 def _marked_at(t):

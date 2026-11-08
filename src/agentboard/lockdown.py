@@ -21,9 +21,15 @@ ENV = "AGENTBOARD_LOCKDOWN"
 _OFF = ("", "0", "false", "no")
 
 
+def env_on(name, env=None):
+    """Is a hard-off variable on: anything but unset, "", 0, false or no. The one rule for every lock here, the plugin gate and doctor
+    (`env` lets doctor judge another shell's environment)."""
+    return (os.environ if env is None else env).get(name, "").strip().lower() not in _OFF
+
+
 def locked(feature=None):
     """True when this machine is locked down. `feature` is for the caller's own readability; the answer does not depend on it."""
-    return os.environ.get(ENV, "").strip().lower() not in _OFF
+    return env_on(ENV)
 
 
 def refuse(feature):

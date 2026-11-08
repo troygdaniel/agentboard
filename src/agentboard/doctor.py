@@ -32,7 +32,6 @@ MAX_BYTES = 1_000_000     # a bigger file is skipped
 MAX_SHOWN = 5             # hits listed before "and N more"
 CORE_OUTBOUND = {"providers"}   # the modules of the core that may open an outbound connection (a URL you write in config.toml)
 
-_OFF = ("", "0", "false", "no")
 _HERE = Path(__file__).resolve().parent
 
 KEY_PATTERNS = [   # (kind, regex, level): the first three are never legitimate in a repo
@@ -85,8 +84,8 @@ def _host(name):
 
 
 def _env_on(env, name):
-    """Is a hard-off variable on in this environment: anything but unset, "", 0, false or no (the rule every lock here uses)."""
-    return env.get(name, "").strip().lower() not in _OFF
+    """Is a hard-off variable on in this environment (lockdown.env_on: the one rule every lock, the plugin gate and this report use)."""
+    return lockdown.env_on(name, env)
 
 
 def _short(path):
@@ -132,7 +131,7 @@ def check_locks(env):
     names = sorted(set(re.findall(r"AGENTBOARD_NO_[A-Z]+", source)) | {lockdown.ENV})
 
     def on(name):
-        return env.get(name, "").strip().lower() not in _OFF
+        return _env_on(env, name)
     out = []
     if on(lockdown.ENV):
         out.append(_res(PASS, "lock", f"{lockdown.ENV} is on in this shell: chat rounds, one-shot runs, command and http providers, the backup copy, voice and spawn are refused"))

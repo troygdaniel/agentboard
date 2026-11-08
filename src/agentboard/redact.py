@@ -120,17 +120,24 @@ _UUID = re.compile(r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}
 _WORDY = re.compile(r"[a-z0-9]+(?:[_.-][a-z0-9]+)+")    # snake_case and kebab-case names: identifiers, not keys
 
 
+def _wordy(v):
+    """A snake_case or kebab-case identifier (task-queue-implementation-notes, user_profile_cache_v2_final, risk-assessment-2026-plan):
+    lower-case segments joined by _ . or -. A segment that mixes letters with three or more digits (a1b2c3d4e5f6, the halves of
+    key-<32 hex>) is a token with a dash in it, not a word; a plain number (2026) is a word."""
+    return bool(_WORDY.fullmatch(v)) and not any(sum(c.isdigit() for c in seg) >= 3 and any(c.isalpha() for c in seg) for seg in re.split(r"[_.-]", v))
+
+
 def _api_key_like(v):
     """For sk-...: what follows the prefix looks generated, not like words (task-queue-implementation-notes)."""
     body = re.sub(r"^sk-(?:ant-|proj-)?", "", v)
-    return _has_letter_and_digit(body) and not _WORDY.fullmatch(body)
+    return _has_letter_and_digit(body) and not _wordy(body)
 
 
 def _random_like(v):
     """For a generic name (key, auth, token): long, a letter and a digit, and not a lower-case identifier like user_profile_cache_v2_final."""
     if _UUID.fullmatch(v):
         return True
-    return len(v) >= 20 and _has_letter_and_digit(v) and not _WORDY.fullmatch(v)
+    return len(v) >= 20 and _has_letter_and_digit(v) and not _wordy(v)
 
 
 _PASSWORD_WORDS = {"password", "pass", "passwd", "pwd", "secret", "user", "username", "token", "changeme", "yourpassword", "your-password", "mypassword"}
@@ -146,7 +153,7 @@ def _url_password(m):
 
 # (kind, pattern, replacement function). Order matters: a private-key block first, then headers, then the rest.
 SHAPES = [
-    ("private-key", re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----(?:(?:(?!-----(?:BEGIN|END) )[\s\S]){0,10000}?-----END [A-Z ]*PRIVATE KEY-----|(?:\s*+[A-Za-z0-9+/=]{16,}+)*+)"), lambda m: _mask("private-key")),   # to its END line, or (cut off) through the base64 lines: the sentences after it stay
+    ("private-key", re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----(?:(?:(?!-----(?:BEGIN|END) )[\s\S]){0,10000}?-----END [A-Z ]*PRIVATE KEY-----|(?:\s*+(?:[A-Za-z][A-Za-z-]{1,20}: [^\n]{0,120}|[A-Za-z0-9+/=]{16,}+))*+)"), lambda m: _mask("private-key")),   # to its END line, or (cut off) through its header lines (Proc-Type, DEK-Info) and base64 lines: the sentences after it stay
     ("auth-header", re.compile(r"(Authorization:\s*+(?:Token|Bearer|Basic)\s++)([A-Za-z0-9._=+/~-]{4,}+)", re.I), _auth_header),
     ("jwt", re.compile(r"(?<![A-Za-z0-9_-])eyJ[A-Za-z0-9_-]{10,}+\.[A-Za-z0-9_-]{10,}+\.[A-Za-z0-9_-]{10,}+"), _whole("jwt")),   # lookbehind + possessive: the text eyJeyJeyJ... was quadratic (44 s for 400 KB)
     ("aws-key", re.compile(r"AKIA[0-9A-Z]{16}"), _whole("aws-key")),
@@ -232,7 +239,8 @@ def _sub_visible(rx, repl, text):
         r = repl(m)
         if r == m.group(0):                        # left as it is: the original, invisible characters and dashes and all, stays
             continue
-        a, b = orig(m.start()), orig(m.end() - 1) + 1
+        a = orig(m.start())
+        b = a if m.end() == m.start() else orig(m.end() - 1) + 1   # a zero-length match (an owner pattern like z*) inserts, it never swallows the character after it
         out.append(text[last:a])
         out.append(r)
         last = b
@@ -309,7 +317,7 @@ def scrub_data(data, board_dir, apply=False, owner=None):
         return hits
 
     def one(where, d, key):
-        v = d.get(key)
+        v = d[key] if isinstance(d, list) else d.get(key)
         found = []
         new = scrub(v, conf=conf, found=found)
         for kind, head in found:
@@ -326,4 +334,12 @@ def scrub_data(data, board_dir, apply=False, owner=None):
         if isinstance(m, dict) and m.get("kind") != "user":
             for f in ("text", "detail"):
                 one(f"chat #{m.get('seq')} {f}", m, f)
+            files = m.get("files")
+            if isinstance(files, list):
+                for i in range(len(files)):
+                    if isinstance(files[i], str):
+                        one(f"chat #{m.get('seq')} file #{i + 1}", files, i)
+            act = m.get("action")
+            if isinstance(act, dict):
+                one(f"chat #{m.get('seq')} action", act, "text")
     return hits
