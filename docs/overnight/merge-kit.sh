@@ -55,7 +55,7 @@ DEFAULT_ORDER=(
   overnight/overnight-rel-agent-protocol-3
   overnight/overnight-install-quickstart
 )
-SKIP_RE='overnight/overnight-crossreview|overnight/overnight-morning-merge-kit'   # the review and this kit; a branch with nothing ahead of main is skipped anyway
+SKIP_RE='overnight/overnight-crossreview|overnight/overnight-morning-merge-kit|overnight/combined-11'   # the review, this kit, and the published combined tree itself; a branch with nothing ahead of main is skipped anyway
 ORDER=()
 if [ -n "$ORDER_FILE" ]; then
   while IFS= read -r line; do
@@ -155,7 +155,8 @@ for br in "${ORDER[@]}"; do
       git -C "$CLONE" add CHANGELOG.md && git -C "$CLONE" commit -q --no-edit && note="CHANGELOG conflict, auto-resolved (both sections kept)"
     elif [ -f "$fix" ] && { echo "$conflicts" | grep -qx CHANGELOG.md && resolve_changelog; true; } && "$PY" "$fix" "$CLONE" >"$LOG/$i-resolve.txt" 2>&1 \
          && ! grep -rl "^<<<<<<< \|^>>>>>>> " $(for f in $conflicts; do echo "$CLONE/$f"; done) >/dev/null 2>&1; then
-      git -C "$CLONE" add -A && git -C "$CLONE" commit -q --no-edit && note="conflict in $(echo "$conflicts" | tr '\n' ' ')resolved by $(basename "$fix") (the resolution that worked tonight)"
+      cl="$(echo "$conflicts" | tr '\n' ' ')"; fixname="$(basename "$fix")"
+      git -C "$CLONE" add -A && git -C "$CLONE" commit -q --no-edit && note="conflict in ${cl}resolved by ${fixname}, the resolution that worked tonight"
     else
       [ -f "$fix" ] && echo "   (the resolution script $fix did not clear every marker; its output is in $LOG/$i-resolve.txt)"
       echo "   CONFLICT in: $(echo "$conflicts" | tr '\n' ' ')"
@@ -164,7 +165,8 @@ for br in "${ORDER[@]}"; do
         awk '/^<<<<<<< /,/^>>>>>>> /' "$CLONE/$f" | head -60 | sed 's/^/   | /'
       done
       git -C "$CLONE" merge --abort
-      R_BRANCH+=("$br ($tip)"); R_MERGED+=("no"); R_TESTS+=("-"); R_NOTES+=("conflict: $(echo "$conflicts" | tr '\n' ' ')(aborted; see suggestions above)"); FAIL=1
+      cl="$(echo "$conflicts" | tr '\n' ' ')"
+      R_BRANCH+=("$br ($tip)"); R_MERGED+=("no"); R_TESTS+=("-"); R_NOTES+=("conflict: ${cl}- aborted, see the suggestions above"); FAIL=1
       continue
     fi
   fi
