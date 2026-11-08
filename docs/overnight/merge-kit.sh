@@ -87,6 +87,16 @@ for b in $(git -C "$CLONE" for-each-ref --format='%(refname:short)' 'refs/remote
   LATE+=("$b")
 done
 if [ ${#LATE[@]} -gt 0 ]; then echo "merge-kit: not in the order, appended last: ${LATE[*]}"; ORDER+=("${LATE[@]}"); fi
+# a branch rebased onto the published combined tree (overnight/combined-11) carries every other branch in its history: merged early it
+# would swallow the steps after it, so it goes after every branch that is not, keeping its relative place
+COMBINED="origin/overnight/combined-11"
+if git -C "$CLONE" rev-parse -q --verify "$COMBINED" >/dev/null; then
+  EARLY=(); ONTOP=()
+  for b in "${ORDER[@]}"; do
+    if git -C "$CLONE" rev-parse -q --verify "origin/$b" >/dev/null && git -C "$CLONE" merge-base --is-ancestor "$COMBINED" "origin/$b"; then ONTOP+=("$b"); else EARLY+=("$b"); fi
+  done
+  if [ ${#ONTOP[@]} -gt 0 ]; then echo "merge-kit: rebased onto overnight/combined-11, so merged after the rest: ${ONTOP[*]}"; ORDER=("${EARLY[@]}" "${ONTOP[@]}"); fi
+fi
 
 suggest() {   # a resolution for the conflicts the night has seen (AGENT-8's review and the authors' rebases)
   case "$1" in
