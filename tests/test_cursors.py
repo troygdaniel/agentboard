@@ -75,6 +75,65 @@ class CursorFileTests(Base):
         self.assertEqual(cursors.read(self.s.dir), {f"r-{i}": i + 1 for i in range(20)})
 
 
+class ReadingIsLossless(Base):
+    """chat-f2: more unread than one read shows (repro R8). Before, `chat inbox` showed the newest 50 and moved the cursor past all
+    of them: with 60 unread the 10 oldest were never shown."""
+
+    def test_sixty_unread_come_in_two_reads_oldest_first_and_none_are_lost(self):
+        for i in range(60):
+            self.s.chat_send(self.s.owner, f"line {i}", kind="user", to="R8")
+        code, out = self.run_cli("chat", "inbox", "--name", "R8")
+        shown = [l for l in out.splitlines() if l.startswith("#")]
+        self.assertEqual(len(shown), 50)
+        self.assertIn("line 0", shown[0])
+        self.assertIn("line 49", shown[-1])
+        self.assertIn("(10 more unread, from #", out)
+        self.assertEqual(cursors.get(self.s.dir, "R8"), self.s.chat_inbox("R8", limit=None)[49]["seq"])   # the cursor stops at the last line shown
+        code, out = self.run_cli("chat", "inbox", "--name", "R8")
+        shown = [l for l in out.splitlines() if l.startswith("#")]
+        self.assertEqual((len(shown), "line 50" in shown[0], "line 59" in shown[-1], "more unread" in out), (10, True, True, False))
+        code, out = self.run_cli("chat", "inbox", "--name", "R8")
+        self.assertIn("nothing new", out)
+
+    def test_limit_zero_shows_all_and_keep_moves_nothing(self):
+        for i in range(55):
+            self.s.chat_send(self.s.owner, f"line {i}", kind="user", to="R8")
+        code, out = self.run_cli("chat", "inbox", "--name", "R8", "--keep", "--limit", "5")
+        self.assertEqual(len([l for l in out.splitlines() if l.startswith("#")]), 5)
+        self.assertIn("(50 more unread", out)
+        self.assertIsNone(cursors.get(self.s.dir, "R8"))
+        code, out = self.run_cli("chat", "inbox", "--name", "R8", "--limit", "0")
+        self.assertEqual(len([l for l in out.splitlines() if l.startswith("#")]), 55)
+        self.assertNotIn("more unread", out)
+        self.assertEqual(cursors.get(self.s.dir, "R8"), self.s.chat_list()[-1]["seq"])
+
+    def test_a_wait_wakes_on_the_oldest_unread_and_the_store_pages_oldest_first(self):
+        for i in range(3):
+            self.s.chat_send(self.s.owner, f"line {i}", kind="user", to="R8")
+        page = self.s.chat_inbox("R8", limit=2)
+        self.assertEqual([m["text"] for m in page], ["line 0", "line 1"])
+        self.assertEqual([m["text"] for m in self.s.chat_inbox("R8", after=page[-1]["seq"], limit=2)], ["line 2"])
+
+    def test_twelve_processes_reading_the_same_line_at_once_all_keep_their_cursor(self):
+        import subprocess
+        import sys
+        import time
+        self.s.chat_send(self.s.owner, "to everyone", kind="user", to="all")
+        n, at = 12, time.time() + 2.5
+        code = ("import sys, time, os; from agentboard import cli; at = float(sys.argv[1]); time.sleep(max(0.0, at - time.time())); "
+                "cli.main(['chat', 'inbox', '--name', os.environ['AGENTBOARD_NAME']])")
+        src = str(Path(cursors.__file__).resolve().parents[1])
+        procs = []
+        for i in range(n):
+            env = {"PATH": os.environ["PATH"], "PYTHONPATH": src, "PYTHONDONTWRITEBYTECODE": "1", "HOME": self.tmp.name,
+                   "AGENTBOARD_DIR": str(self.s.dir), "AGENTBOARD_NAME": f"P-{i}"}
+            procs.append(subprocess.Popen([sys.executable, "-c", code, str(at)], env=env, cwd=self.tmp.name, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True))
+        outs = [p.communicate(timeout=60)[0] for p in procs]
+        self.assertTrue(all("to everyone" in o for o in outs), outs)
+        last = self.s.chat_list()[-1]["seq"]
+        self.assertEqual(cursors.read(self.s.dir), {f"p-{i}": last for i in range(n)})   # none of the twelve writes was lost
+
+
 class EveryPathUsesIt(Base):
     def test_inbox_answer_wait_and_receipts_agree_on_the_key(self):
         self.s.chat_send(self.s.owner, "hi", kind="user", to="AGENT-4")

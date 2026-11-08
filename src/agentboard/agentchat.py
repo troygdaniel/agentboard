@@ -462,7 +462,7 @@ def autopilot_once(store, claude, roster, model=None, budget=None, per_hour=None
         if awake(tasks, recent, name, now, live_min):   # its real session is talking or working: let it speak for itself
             continue
         after = max(cursors_now.get(cursors.key(name), 0), seen.get(cursors.key(name), 0)) or None   # past what its session read, and what the board already drafted for
-        inbox = [m for m in store.chat_inbox(name, after=after) if not m.get("via")]   # the board never answers itself (auto lines, its own notices)
+        inbox = [m for m in store.chat_inbox(name, after=after, limit=None) if not m.get("via")]   # the board never answers itself (auto lines, its own notices)
         sharing = not inbox
         mine = None
         if sharing:   # nothing to answer: offer one thing from its own work, once in a while, and only if it has a history

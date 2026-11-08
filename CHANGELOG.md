@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### `chat inbox` reads oldest-first and loses nothing (Nov 7)
+- `chat inbox` showed the newest 50 unread lines and moved the cursor past all of them: with 60 unread, the 10 oldest were never shown
+  (`tests/chat_repro.py` R8). It now shows the oldest `--limit` (default 50; `0` for all), moves the cursor only to the last line it
+  showed, and ends with "(N more unread, from #seq: run it again)". The idle drafter and the autopilot read everything unread as
+  before. Together with the locked, forward-only cursor write (`cursors.py`) this is fix F2 of `docs/conversation-reliability-analysis.md`:
+  R7 loses 0 of 160 concurrent cursor updates, R8 loses 0 of 60 lines; a test runs twelve real processes reading one line at once.
+
 ### The chat repro script no longer reads the real board for one probe (Nov 7)
 - `tests/chat_repro.py` ran its R11 probe (`hook stop` with no board in the environment) with `AGENTBOARD_DIR` set to an empty string,
   which `find_dir` treats as unset: run from the repo root as documented, the probe walked up to the repo's own `.agentboard/` and read
