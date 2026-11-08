@@ -98,6 +98,30 @@ its log.
 
 The settings-mode item is closed by the sign-off pack's f23d1e8 (the table row now says what `write_settings` does).
 
+## The 05:30 run on the final tips (main f360942; in progress at 06:33, the end is appended below)
+
+| step | branch (tip) | resolution | suite after the merge |
+|---|---|---|---|
+| 1 | ux-visual-polish 0fe00d3 | clean | 1332 passed |
+| 2 | visual-polish-3 0c6f531 | `index.html` by its script | 1345 passed, 1 failed (a pin, see below) |
+| 3 | qa-cleanroom e88422e | clean | 1346 passed |
+| 4 | ux-doctor-agents-line d9d463a (the UX stack) | `cli.py`, `doctor.py` by its script | 1428 passed |
+| 5 | sec-workpc-profile 3f1d46a | `cli.py`, `doctor.py`, `server.py` by its script | 1487 passed, 4 failed (pins) |
+| 6 | rel-agent-protocol-2 5537221 (carries -1) | CHANGELOG by the kit | 1520 passed, 4 failed |
+| 7 | rel-data-integrity b5b4d66 | `cli.py` by its script | 1535 passed, 4 failed |
+| 8 | docs-architecture a2687ad | CHANGELOG by the kit | 1545 passed, 6 failed |
+| 9 | rel-agent-protocol-3 9b2c907 | `cli.py` by its script | 1550 passed, 6 failed |
+| 10 | install-quickstart 7d15096 | CHANGELOG, `doctor.py`, `redact.py` by its script | 1560 passed, 7 failed |
+| 11 to 14 | rel-agent-protocol, ux-firstrun, ux-init-agent-instructions, ux-nav-and-panel-words | already in (their stacks' tips carried them) | |
+| 15 | sec-signoff-pack f23d1e8 (on combined-11: it carries the fixups) | CHANGELOG by the kit | **1588 passed, 0 failed** |
+| 16 | agent-prompts 63909aa | clean | **1625 passed, 0 failed** |
+| 17 to 19 | config-validation 580059f, perf-scale fd03e24, rel-server-lifecycle 4359186, then the fixups and the final suite | running | appended below |
+
+The mid-run failures (1 to 7) are the cross-branch pins of the earlier section (module map, documents index, sign-off file table, doctor
+line cap, selfcheck tables, the settings-mode row): each branch's own test is true alone and false once the others are in, and all of
+them are made true by `_after_all.py` and by the sign-off pack's new tip, which is why the count goes to 0 failed at step 15. A merge
+that stops after step 10 and runs the fixups is green too; the fixups are one commit either way.
+
 ## What the morning still decides (from AGENT-8's review, unchanged by this)
 
 - `overnight-rel-agent-protocol-3` is a protocol change (reports only on the card you hold): merge with -2, or merge -2 alone.
