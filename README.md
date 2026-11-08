@@ -546,6 +546,14 @@ Copy prompt button, the CLI and `agentboard prompt` are unaffected.
 
 ## On a work laptop
 
+**One switch, one proof.** `agentboard profile work` (this machine, every board; or `export AGENTBOARD_PROFILE=work`, or `agentboard init --profile work` for one board)
+turns the whole list below on at once and keeps it on: the master lock, plugins refused, no outbound connection and no name lookup of anything but this machine in
+any command, listening only on loopback, no program started by the server, no browser opened, private file modes. Then `agentboard selfcheck` proves it in a PASS/FAIL
+list: a static scan of every source file (what may use the network, start a program, run dynamic code or load a package, each against a short table with its reason),
+a live audit of a throwaway server (every route requested, a scripted day of work, with the run-time guards recording every attempt) and the red-team checks (wrong Host,
+cross-site POST, content types, oversized and malformed bodies, request smuggling, path traversal, symlinks, a JSON bomb, a stalled client, a flood of connections,
+providers that try to reach a URL or run a command). Exit code 1 on any FAIL. Details: [`SECURITY.md`](SECURITY.md#the-work-profile-and-agentboard-selfcheck).
+
 What to expect when you clone this onto a managed machine (the full audit and checklist: [`docs/security-audit-2026-11-07.md`](docs/security-audit-2026-11-07.md)):
 
 1. **Needs:** `git`, Python 3.11+ (`python3 --version`), and `pipx` (or a venv, see [Install](#install)). Nothing else; there are no dependencies.

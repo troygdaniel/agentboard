@@ -11,6 +11,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 from . import boards, demo, hud, private
+from . import profile as profilelib
 from . import hooks as hookslib
 from . import listeners
 from . import transcript as transcriptlib
@@ -45,6 +46,8 @@ def _git_summary(store, t):
     """{commits, files, groups} for a finished card, from the project's git (reports.git_info: the commits made while the card was
     open). Cached on the card's updated stamp, since git is slow and the panel polls; {} without a repo or on any error."""
     key = (str(store.dir), t["id"], t.get("updated"))
+    if profilelib.in_effect():   # the work profile: the server starts no program, git included
+        return {}
     if key not in _GIT_CACHE:
         try:
             g = reports.git_info(store.dir, t, t.get("run")) or {}
@@ -121,6 +124,8 @@ def make_handler(default_store, port):
                 self.send_header(k, v)
             self.send_header("Content-Length", str(len(raw)))
             self.send_header("Cache-Control", "no-store")
+            if not any(k.lower() == "x-content-type-options" for k in (extra or {})):
+                self.send_header("X-Content-Type-Options", "nosniff")   # nothing this server sends is ever read as another type
             self.end_headers()
             self.wfile.write(raw)
 
@@ -473,6 +478,10 @@ def new_server(store, port, host="127.0.0.1"):
 
 def serve(store, port=8765, open_browser=True):
     private.tighten_dir(store.dir)   # whatever an earlier version left readable by others (private.py)
+    profilelib.apply(store.dir)      # the work profile, when the board's own config says so (the machine and the environment were read at start)
+    work = profilelib.apply_server()   # ... and then no program may be started by this server at all
+    if work:
+        open_browser = False
     try:
         srv = new_server(store, port)
     except OSError as e:
@@ -533,7 +542,8 @@ def serve(store, port=8765, open_browser=True):
                 print(f"agentboard: chat rounds: {e}")
             time.sleep(tick)
 
-    threading.Thread(target=_autopilot, daemon=True).start()
+    if not work:   # the work profile: the chat rounds (a claude program) are never even scheduled
+        threading.Thread(target=_autopilot, daemon=True).start()
 
     loaded = plugins.load()   # [] unless this machine allows plugins (AGENTBOARD_PLUGINS=1, no lock)
     if loaded:

@@ -39,7 +39,7 @@ class TheFile(Base):
         serverstate.write(self.board, 8765, ["home"])
         p = serverstate.path_for(self.board, os.getpid())
         d = json.loads(p.read_text())
-        self.assertEqual(set(d), {"pid", "port", "started", "lockdown", "plugins_open", "plugins_loaded"})
+        self.assertEqual(set(d), {"pid", "port", "started", "lockdown", "plugins_open", "plugins_loaded", "profile"})
         self.assertEqual((d["pid"], d["port"], d["lockdown"], d["plugins_loaded"]), (os.getpid(), 8765, True, ["home"]))
         self.assertNotIn("must-not-appear", p.read_text())
         self.assertNotIn(str(self.root), p.read_text())
