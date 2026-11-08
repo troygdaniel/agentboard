@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### The test suite itself refuses to leave the machine (Nov 7)
+- `tests/netguard.py` is loaded by both runners before any test runs (pytest through `tests/conftest.py`, `unittest discover` through `tests/test_net_guard.py`) and makes any `connect`, `connect_ex` or name lookup to a non-loopback target fail with an error that names the test, so a change that adds an outbound call fails the suite the same day. Loopback, the unspecified address, `localhost` and AF_UNIX paths pass; `AGENTBOARD_TEST_NET=1` switches it off for a run that must reach the network (nothing in the suite does). Ten tests cover the guard itself.
+- `docs/security-signoff.md`: a two-page sign-off for a reviewer on a managed machine, every claim cited to a file and a test, with the known limits listed. Documentation; the audit page and `SECURITY.md` are unchanged.
+- The masker's wall-clock tests (`test_redact_dos.py`, `test_redact_fullwidth.py`) no longer fail on a busy laptop: `tests/timing.py` scales each limit by a same-moment linear baseline and tries a slow run up to three times (best time counts), under a 30 s ceiling. Quadratic work still fails every try; a scheduler hiccup no longer fails green code (it did four times on Nov 7 with two suites running at once).
+- `agentboard doctor` has a `masking` line: FAIL when `[redact] enabled = false` in config.toml has switched secret masking off (the fix line says what to delete), WARN when the default was changed (phone numbers added, or patterns of your own, counted and never printed), PASS otherwise. `config.toml` is writable by anything that runs as you, so the switch deserved a line a reviewer sees.
+- `tests/test_signoff_files.py` keeps the sign-off's file table true: a scripted day on a throwaway project and HOME, then every path the board wrote must be named in the table with the mode the table gives, and nothing may appear under HOME. A new state file fails the suite with its name until the table says what it holds.
+
 ### By agent no longer hides lanes past the edge: a fade and a "+4 more" chip (Nov 8)
 - With six or more agents the lanes scroll sideways under a scrollbar that overlay-scrollbar systems hide, so a lane past the right edge had no
   sign it was there, and an agent waiting on you could go unseen. Each edge that has more now fades, and a chip counts what is past it
