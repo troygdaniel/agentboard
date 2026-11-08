@@ -1,0 +1,218 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Settings Tabs Mockup</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  /* Mockup, not the real board: made-up values, the board's own tokens and the Settings sheet's own row classes (.mix-row, .seg, .mix-about).
+     ?theme=dark or ?theme=light forces a theme (the PNGs use it); otherwise it follows the system. */
+  :root {
+    --bg: #fafaf9; --surface: #ffffff; --line: #e7e5e4; --text: #1c1917; --muted: #6b6560; --accent: #1c1917;
+    --run: #c2570c; --warn: #b45309; --ok: #15803d; --err: #b42318; --neutral: #a8a29e; --info: #1d4ed8;
+    --chip: #f2f0ee; --shadow: 0 1px 2px rgba(28,25,23,.05), 0 1px 1px rgba(28,25,23,.03);
+    --glow1: rgba(99,102,241,.08); --dot: rgba(28,25,23,.07);
+    --fs-xs: 11px; --fs-sm: 12px; --fs-md: 13px; --fs-base: 14px; --fs-lg: 15px; --tr-label: .16em; --tr-tight: .06em;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #070b12; --surface: #0f1722; --line: #1c2a3a; --text: #d6e9ff; --muted: #7f95ad; --accent: #d6e9ff;
+      --run: #ff9a3c; --warn: #ffc857; --ok: #5dffb0; --err: #ff6b6b; --neutral: #4b5f75; --info: #5ee7ff;
+      --chip: #15202e; --shadow: inset 0 1px 0 rgba(255,255,255,.03); --glow1: rgba(94,231,255,.12); --dot: rgba(110,190,255,.05); color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #070b12; --surface: #0f1722; --line: #1c2a3a; --text: #d6e9ff; --muted: #7f95ad; --accent: #d6e9ff;
+    --run: #ff9a3c; --warn: #ffc857; --ok: #5dffb0; --err: #ff6b6b; --neutral: #4b5f75; --info: #5ee7ff;
+    --chip: #15202e; --shadow: inset 0 1px 0 rgba(255,255,255,.03); --glow1: rgba(94,231,255,.12); --dot: rgba(110,190,255,.05); color-scheme: dark;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body { background: radial-gradient(1000px 460px at 10% -8%, var(--glow1), transparent 70%) no-repeat, radial-gradient(var(--dot) 1px, transparent 1px) 0 0 / 22px 22px, var(--bg);
+    min-height: 100vh; color: var(--text); font: var(--fs-base)/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+  .wrap { width: min(100%, 1240px); margin: 0 auto; padding: 18px 16px 36px; }
+  header.top { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding-bottom: 14px; margin-bottom: 18px; border-bottom: 1px solid var(--line); }
+  h1 { font-size: var(--fs-lg); font-weight: 600; letter-spacing: -.015em; }
+  .mock, h2, .cell > h3 { font-size: var(--fs-xs); font-weight: 600; letter-spacing: var(--tr-label); text-transform: uppercase; color: var(--muted); }
+  section { margin-bottom: 30px; }
+  h2 { margin-bottom: 10px; }
+  .note { font-size: var(--fs-md); color: var(--muted); margin: 0 0 12px; max-width: 80ch; }
+  .note b { color: var(--text); font-weight: 600; }
+  .btn { font: inherit; font-size: var(--fs-sm); background: var(--surface); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 5px 12px; cursor: pointer; min-height: 30px; }
+  .btn:focus-visible { outline: 2px solid var(--run); outline-offset: 1px; }
+  .top .btn { margin-left: auto; }
+  .row { display: flex; gap: 18px; flex-wrap: wrap; align-items: flex-start; }
+  .cell > h3 { margin: 0 0 6px 2px; }
+  input[type=checkbox], input[type=range] { accent-color: var(--accent); }
+
+  /* ---- the sheet: the board's own, widened, with tabs ---- */
+  .sheet { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 20px 60px rgba(0,0,0,.25); display: flex; flex-direction: column; overflow: hidden; }
+  .sheet.wide { width: 720px; height: 660px; }
+  .sheet.narrow { width: 390px; height: 760px; border-radius: 0; }
+  .sh-head { display: flex; align-items: center; gap: 10px; padding: 14px 18px 10px; }
+  .sh-head h2 { font-size: var(--fs-lg); letter-spacing: 0; text-transform: none; color: var(--text); margin: 0; flex: none; }
+  .sh-search { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; border: 1px solid var(--line); border-radius: 8px; padding: 0 10px; min-height: 32px; background: var(--bg); color: var(--muted); font-size: var(--fs-md); }
+  .sh-search input { flex: 1; min-width: 0; border: 0; background: none; font: inherit; color: var(--text); outline: none; }
+  .sh-search kbd { font: var(--fs-xs) ui-monospace, Menlo, monospace; border: 1px solid var(--line); border-radius: 5px; padding: 0 5px; color: var(--muted); }
+  .x { width: 30px; height: 30px; display: grid; place-items: center; border: 0; background: none; color: var(--muted); border-radius: 8px; cursor: pointer; }
+  .sh-body { flex: 1; min-height: 0; display: flex; border-top: 1px solid var(--line); }
+  .narrow .sh-body { flex-direction: column; }
+  /* tabs: a vertical list on a wide sheet, a scrolling strip on a phone */
+  .tabs { flex: none; width: 170px; padding: 10px 8px; border-right: 1px solid var(--line); display: flex; flex-direction: column; gap: 2px; overflow-y: auto; }
+  .narrow .tabs { width: auto; flex-direction: row; border-right: 0; border-bottom: 1px solid var(--line); overflow-x: auto; padding: 8px 12px; gap: 6px; scroll-snap-type: x proximity; position: relative; }
+  .tab { display: flex; align-items: center; gap: 9px; min-height: 34px; padding: 4px 10px; border: 0; border-radius: 8px; background: none; color: var(--muted); font: inherit; font-size: var(--fs-md); font-weight: 500; text-align: left; cursor: pointer; white-space: nowrap; }
+  .narrow .tab { border: 1px solid var(--line); border-radius: 999px; padding: 2px 12px; min-height: 32px; scroll-snap-align: start; flex: none; }
+  .tab[aria-selected="true"] { color: var(--text); background: var(--chip); box-shadow: inset 0 0 0 1px var(--line); font-weight: 600; }
+  .tab svg { width: 15px; height: 15px; flex: none; opacity: .8; }
+  .tab .dot { margin-left: auto; width: 7px; height: 7px; border-radius: 50%; background: var(--warn); }
+  .tab .src { margin-left: auto; font-size: var(--fs-xs); color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 0 6px; }
+  .narrow .tab .src, .narrow .tab .dot { margin-left: 2px; }
+  .tabfade { position: absolute; right: 0; top: 0; bottom: 0; width: 28px; background: linear-gradient(to right, transparent, var(--surface)); pointer-events: none; }
+  .pane { flex: 1; min-width: 0; overflow-y: auto; padding: 4px 22px 18px; }
+  .narrow .pane { padding: 4px 16px 18px; }
+  .pane h3 { font-size: var(--fs-xs); letter-spacing: var(--tr-label); text-transform: uppercase; color: var(--muted); margin: 16px 0 4px; font-weight: 600; }
+  .pane h3:first-child { margin-top: 10px; }
+  .note2 { color: var(--muted); font-size: var(--fs-sm); margin: 4px 0 6px; }
+  /* the rows are the board's: a switch or a name, a control, one line of what it does */
+  .mix-row { display: grid; grid-template-columns: 18px 1fr auto; align-items: center; gap: 1px 10px; padding: 7px 0; border-top: 1px solid var(--line); }
+  .mix-row:first-of-type { border-top: 0; }
+  .mix-row > input[type=checkbox] { width: 16px; height: 16px; margin: 0; }
+  .mix-row label, .mix-row .nm { font-weight: 600; }
+  .mix-row .mix-about { grid-column: 2 / -1; color: var(--muted); font-size: var(--fs-sm); }
+  .mix-about.clamp, .mix-row .mix-about { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }   /* two lines; the whole line is the row's title and opens on a click */
+  .mix-row .ro { color: var(--muted); font-size: var(--fs-sm); text-align: right; }
+  .mix-row .ro b { color: var(--text); font-weight: 600; }
+  .mix-row.plain { grid-template-columns: 1fr auto; }
+  .mix-row.plain .mix-about { grid-column: 1 / -1; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; column-gap: 26px; }
+  .two .mix-row { border-top: 1px solid var(--line); }
+  .two .mix-row:nth-of-type(-n+2) { border-top: 0; }
+  .narrow .two { grid-template-columns: 1fr; }
+  .narrow .two .mix-row:nth-of-type(2) { border-top: 1px solid var(--line); }
+  .seg { display: inline-flex; gap: 2px; padding: 2px; border: 1px solid var(--line); border-radius: 8px; }
+  .seg .btn { min-height: 26px; padding: 2px 10px; border: 0; background: transparent; color: var(--muted); font-size: var(--fs-sm); }
+  .seg .btn[aria-pressed="true"] { background: var(--chip); color: var(--text); box-shadow: inset 0 0 0 1px var(--line); }
+  .mix-row input[type=range] { width: 84px; height: 24px; margin: 0; }
+  .hear { min-height: 26px; padding: 2px 10px; font-size: var(--fs-sm); }
+  .tx-line { grid-column: 1 / -1; font-size: var(--fs-sm); color: var(--text); }
+  .tx-line.amber { color: color-mix(in srgb, var(--warn) 78%, var(--text)); }
+  .chipw { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-sm); padding: 1px 9px; border-radius: 999px; background: var(--chip); color: var(--muted); }
+  .chipw.ok i { background: var(--ok); } .chipw i { width: 7px; height: 7px; border-radius: 50%; background: var(--neutral); }
+  .chipw.warn i { background: var(--warn); }
+  /* search results replace the pane while there is a query */
+  .res { padding: 6px 0; }
+  .res .hit { display: grid; grid-template-columns: 1fr auto; gap: 1px 10px; padding: 8px 10px; border-radius: 8px; cursor: pointer; }
+  .res .hit.on { background: var(--chip); box-shadow: inset 0 0 0 1px var(--line); }
+  .res .hit b { font-weight: 600; } .res .hit span { color: var(--muted); font-size: var(--fs-sm); }
+  .res .hit .where { color: var(--muted); font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: var(--tr-tight); align-self: center; }
+  mark { background: color-mix(in srgb, var(--warn) 30%, transparent); color: inherit; border-radius: 3px; }
+  .flash { animation: fl 1.2s ease-out; }
+  @keyframes fl { 0% { background: color-mix(in srgb, var(--warn) 30%, transparent); } 100% { background: transparent; } }
+  @media (prefers-reduced-motion: reduce) { .flash { animation: none; box-shadow: inset 3px 0 0 var(--warn); } }
+  .conf { margin: 8px 0 4px; padding: 10px 12px; border: 1px solid var(--warn); border-radius: 10px; background: color-mix(in srgb, var(--warn) 9%, var(--surface)); font-size: var(--fs-sm); }
+  .conf b { display: block; font-size: var(--fs-md); margin-bottom: 2px; } .conf .acts { display: flex; gap: 8px; margin-top: 8px; }
+  .conf .go { background: var(--warn); color: var(--surface); border-color: var(--warn); font-weight: 600; }
+  .legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: var(--fs-sm); color: var(--muted); margin: 0 0 12px; }
+  .legend b { color: var(--text); }
+</style>
+<div class="wrap">
+  <header class="top"><h1>Settings: tabs</h1><span class="mock">Mockup, made-up values</span><button class="btn" id="theme" type="button">Theme: system</button></header>
+
+  <section>
+    <h2>Wide: a vertical tab list, the pane scrolls inside the sheet</h2>
+    <p class="note">The sheet is 720 by 660 (it was 480 wide and as tall as the page; the build makes it min(680px, 100vh - 48px)). <b>General</b> and <b>Texts</b> fit whole; <b>Sound</b>, the old sheet's bulk, lays its layers out in two columns and fits with a short scroll. A tab with nothing in it is not drawn; the Texts tab and its amber dot come from the home plugin.</p>
+    <div class="row" id="wide"></div>
+  </section>
+
+  <section>
+    <h2>Narrow (390): a scrolling strip, one column, the sheet is the screen</h2>
+    <p class="note">The strip scrolls sideways with an edge fade, the selected tab scrolls itself into view, and the search box finds a setting on any tab, so no setting depends on seeing its tab. Below 620px the sheet fills the screen.</p>
+    <div class="row" id="narrow"></div>
+  </section>
+
+  <section>
+    <h2>Search, a deep link and the plugin tabs</h2>
+    <p class="note">Typing in the box replaces the pane with matches (name, one line of what it does, the tab it lives in). Enter or a click opens the tab, scrolls the setting to the top and marks it for a second (a left bar when motion is reduced). <b>/#settings/texts</b> opens the sheet on that tab; the last tab used is remembered per browser.</p>
+    <div class="row" id="more"></div>
+  </section>
+
+  <section>
+    <h2>What each tab holds</h2>
+    <div class="legend"><span><b>Here</b> a control you can change on this page</span><span><b>Status</b> read-only, with the key that changes it</span><span><b>Plugin</b> drawn by a plugin through the tab API</span></div>
+    <div class="row" id="map"></div>
+  </section>
+</div>
+<script>
+const I = { // one small icon per tab, 16px, the board's stroke style
+  general: '<svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="2.2" stroke="currentColor" stroke-width="1.4"/><path d="M8 1.8v2M8 12.2v2M1.8 8h2M12.2 8h2M3.6 3.6l1.4 1.4M11 11l1.4 1.4M12.4 3.6L11 5M5 11l-1.4 1.4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>',
+  sound: '<svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M2.5 6.2h2.3L8 3.4v9.2L4.8 9.8H2.5z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M10.4 5.6a3.2 3.2 0 0 1 0 4.8M12.2 3.8a5.6 5.6 0 0 1 0 8.4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>',
+  agents: '<svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M2.5 3.5h11v7h-5l-3 2.6v-2.6h-3z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>',
+  texts: '<svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="3.6" y="1.8" width="8.8" height="12.4" rx="2" stroke="currentColor" stroke-width="1.4"/><path d="M7 12h2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>',
+  facts: '<svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="2.5" y="3" width="11" height="10.5" rx="1.6" stroke="currentColor" stroke-width="1.4"/><path d="M2.5 6.4h11M5.6 1.8v2.4M10.4 1.8v2.4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>',
+  security: '<svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 1.8l5 1.8v4c0 3-2.2 5-5 6.4-2.8-1.4-5-3.4-5-6.4v-4z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>',
+  backup: '<svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><ellipse cx="8" cy="4" rx="5" ry="2" stroke="currentColor" stroke-width="1.4"/><path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4M3 8c0 1.1 2.2 2 5 2s5-.9 5-2" stroke="currentColor" stroke-width="1.4"/></svg>',
+};
+const TABS = [['general', 'General'], ['sound', 'Sound'], ['agents', 'Agents and chat'], ['texts', 'Texts', 'plugin', 'warn'], ['facts', 'Facts', 'plugin'], ['security', 'Security'], ['backup', 'Backup and data']];
+const sw = (id, name, about, on) => `<div class="mix-row"><input type="checkbox" id="${id}"${on ? ' checked' : ''}><label for="${id}">${name}</label><span></span><span class="mix-about">${about}</span></div>`;
+const lv = (name, about, on) => `<div class="mix-row"><input type="checkbox" aria-label="${name}"${on ? ' checked' : ''}><span class="nm">${name}</span><span style="display:inline-flex;gap:6px;align-items:center"><input type="range" aria-label="${name} level" value="${on ? 70 : 100}"><button class="btn hear" type="button">Hear it</button></span><span class="mix-about">${about}</span></div>`;
+const ro = (name, val, about) => `<div class="mix-row plain"><span class="nm">${name}</span><span class="ro">${val}</span>${about ? `<span class="mix-about">${about}</span>` : ''}</div>`;
+const seg = (opts, on) => `<span class="seg" role="group">${opts.map((o, i) => `<button class="btn" type="button" aria-pressed="${i === on}">${o}</button>`).join('')}</span>`;
+const PANES = {
+  general: () => `<h3>Look</h3>
+    <div class="mix-row plain"><span class="nm">Theme</span>${seg(['Auto', 'Light', 'Dark'], 0)}<span class="mix-about clamp">Auto follows the system. The same switch as the half-moon in the header.</span></div>
+    ${sw('g1', 'Calm cards', 'a Doing card is a plain card: no orange fill, border or glow while it runs; an ask, review or abandoned card keeps its coloured edge', false)}
+    ${sw('g2', 'Lively', 'the small moments move: a card settles where you moved it, a count rolls to its new number, a finished subtask ticks itself in, the toast springs up', true)}
+    <div class="mix-row plain"><span class="nm">From the future</span>${seg(['Off', 'Subtle', 'Full'], 0)}<span class="mix-about clamp">a HUD from a game set some years on. Subtle: holographic panels with corner brackets, a faint scanline veil, monospace readouts for the column heads.</span></div>
+    ${lv('Motion', 'look and sound move together: a settle when an agent\'s card lands in a lane, the green edge drawing itself in at review, the check drawing itself at Done', true)}
+    <h3>This board</h3>
+    ${ro('Owner', '<b>Troy</b>', 'The name agents address in chat. Set <code>owner</code> in config.toml.')}
+    ${ro('Stale after', '<b>120</b> minutes', 'A card in Doing with no update this long is marked stale. Set <code>[board] stale_minutes</code>.')}`,
+  sound: () => `<h3>Sound</h3>
+    ${sw('s1', 'Sound', 'the cues, Touch and the layers; <kbd>s</kbd> flips it on any view', true)}${sw('s2', 'Ambient bed', 'the quiet bed under everything, on every view', true)}
+    <div class="mix-row"><span></span><label>Volume</label><span style="display:inline-flex;gap:8px;align-items:center"><input type="range" aria-label="Volume" value="40"><b>100%</b></span><span class="mix-about">100% is the usual level; above it the sound goes through a limiter.</span></div>
+    <h3>Touch and ambience</h3>
+    <div class="two">${lv('Touch', 'a tick on focus, a lift and a settle on a drag', true)}${lv('Rain', 'soft rain on the hull, the odd drop close by')}${lv('Wind', 'a slow gust that sweeps from side to side')}${lv('Pad', 'a soft held chord, far away')}${lv('Pulse', 'a low heartbeat that quickens as more agents work')}${lv('Deep space', 'a slow low drone with a distant shimmer')}${lv('Tide', 'a slow swell, in and out')}</div>
+    <h3>Effects</h3>
+    <div class="two">${lv('Echo', 'a short tail on every cue')}${lv('Duck the bed', 'the bed dips under a cue')}${lv('Signatures', 'each agent a pitch of its own')}${lv('All clear', 'a soft resolve when nothing is left asking')}${lv('Chimes', 'a soft chime on review')}${lv('Future sound', 'the HUD\'s own cues')}${lv('Hourly chime', 'one quiet note on the hour')}</div>`,
+  agents: () => `<h3>Agent chat</h3>
+    <div class="mix-row"><input type="checkbox" id="a1" checked><label for="a1">Agents may talk to each other</label><span></span><span class="mix-about">Off: agents post one-line status only. Any action an agent proposes still needs your approval. The same switch as <code>agentboard chat agents on</code>.</span></div>
+    <h3>Who is listening</h3>
+    ${ro('ORCH', '<span class="chipw ok"><i></i>listening</span>')}${ro('AGENT-1', '<span class="chipw ok"><i></i>listening</span>')}${ro('AGENT-3', '<span class="chipw warn"><i></i>2 sessions</span>')}${ro('AGENT-4', '<span class="chipw"><i></i>not listening</span>')}
+    <h3>Set in config.toml</h3>
+    ${ro('Idle replies', '<b>on</b> · cheaper model', '<code>[chat] idle</code>: the board drafts a reply for an agent that has gone quiet.')}${ro('Spoken versions', '<b>off</b>', '<code>[chat] casual</code>')}`,
+  texts: () => `<h3>Texts</h3>
+    <div class="mix-row"><input type="checkbox" id="t1" checked><label for="t1">Pull my texts every minute</label><span></span><span class="tx-line">Pulled 2m ago · 1 new.</span><span class="mix-about">Reads Twilio's log for texts from your own number and makes a Todo card from each. Nothing else.</span></div>
+    <div class="mix-row plain"><span class="nm">Text me back</span>${seg(['Off', 'Dry run', 'Send'], 1)}<span class="tx-line">Dry run: nothing is sent. Latest reply it would have sent, 2m ago:</span></div>
+    <div class="conf"><b>Turn on sending?</b>Each reply is a real text, billed by Twilio. At most 20 a day.<div class="acts"><button class="btn go" type="button">Turn on sending</button><button class="btn" type="button">Not now</button></div></div>
+    <div class="mix-row plain"><span class="nm">Remember Send across a restart</span>${seg(['No', '4 hours'], 0)}<span class="tx-line amber">The board restarted while Send was on: replies are off.</span></div>`,
+  facts: () => `<h3>Facts (this Mac only)</h3>
+    <div class="mix-row"><input type="checkbox" id="f1" checked><label for="f1">Keep a daily list of my events and to-dos</label><span class="hear btn" style="grid-column:3">Refresh now</span><span class="tx-line">Built 2026-11-08 06:00 · 3 events, 1 to-do</span><span class="mix-about">A small private file on this Mac, rebuilt each morning: titles, times and place names only.</span></div>`,
+  security: () => `<h3>Status</h3>
+    ${ro('Lockdown', '<span class="chipw"><i></i>off</span>', 'On a locked-down machine nothing here can reach the network or run a program. Set <code>AGENTBOARD_LOCKDOWN</code>.')}
+    ${ro('Redaction', '<span class="chipw ok"><i></i>on</span>', 'Keys, tokens and passwords are masked before they reach a card, a report or a log. <code>[redact] enabled</code>.')}
+    ${ro('Plugins', '<span class="chipw ok"><i></i>allowed</span>', 'Plugins may add a tab and a page script. <code>AGENTBOARD_PLUGINS</code>.')}
+    ${ro('Last self-check', '<b>passed</b> · 6h ago', 'Run <code>agentboard selfcheck</code> to run it again.')}`,
+  backup: () => `<h3>Status</h3>
+    ${ro('Last backup', '<b>2h ago</b> · 14 kept', 'The board copies its data before a risky change. <code>agentboard backup</code> makes one now.')}
+    ${ro('Data folder', '<b>this project</b> · private (mode 700)', 'Task data never leaves it. <code>agentboard doctor</code> checks it.')}`,
+};
+function sheet({ tab = 'general', narrow = false, q = '', plugin = true, hit = 0 }) {
+  const tabs = TABS.filter(t => plugin || t[2] !== 'plugin');
+  const tabsHtml = tabs.map(([id, label, kind, state]) => `<button class="tab" role="tab" aria-selected="${id === tab && !q}" type="button">${I[id]}${label}${state === 'warn' ? '<i class="dot" title="Send was on before a restart"></i>' : ''}${kind === 'plugin' && !narrow ? '<span class="src">home</span>' : ''}</button>`).join('');
+  let pane;
+  if (q) {
+    const items = [['Text me back', 'Off, Dry run or Send: a text becomes a card, then a reply', 'Texts'], ['Pull my texts every minute', 'Reads Twilio\'s log for texts from your own number', 'Texts'], ['Remember Send across a restart', 'Send comes back after a restart', 'Texts']];
+    pane = `<div class="res" role="listbox">${items.map(([n, a, w], i) => `<div class="hit ${i === hit ? 'on' : ''}" role="option" aria-selected="${i === hit}"><b>${n.replace(/(text)/i, '<mark>$1</mark>')}</b><span class="where">${w}</span><span>${a.replace(/(text)/i, '<mark>$1</mark>')}</span></div>`).join('')}</div>`;
+  } else pane = PANES[tab]();
+  return `<div class="sheet ${narrow ? 'narrow' : 'wide'}" role="dialog" aria-label="Settings">
+    <div class="sh-head"><h2>Settings</h2><label class="sh-search"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="7" cy="7" r="4.6" stroke="currentColor" stroke-width="1.5"/><path d="M10.6 10.6L14 14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg><input placeholder="Search settings" aria-label="Search settings" value="${q}">${q ? '' : '<kbd>/</kbd>'}</label><button class="x" type="button" aria-label="Close"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button></div>
+    <div class="sh-body"><div class="tabs" role="tablist" aria-label="Settings" aria-orientation="${narrow ? 'horizontal' : 'vertical'}">${tabsHtml}${narrow ? '<span class="tabfade"></span>' : ''}</div><div class="pane" role="tabpanel">${pane}</div></div></div>`;
+}
+const cell = (t, html) => `<div class="cell"><h3>${t}</h3>${html}</div>`;
+document.getElementById('wide').innerHTML = cell('General', sheet({ tab: 'general' })) + cell('Sound', sheet({ tab: 'sound' })) + cell('Texts (a plugin tab; the Send confirm stays inline)', sheet({ tab: 'texts' }));
+document.getElementById('narrow').innerHTML = cell('Sound', sheet({ tab: 'sound', narrow: true })) + cell('Texts', sheet({ tab: 'texts', narrow: true })) + cell('Search', sheet({ q: 'text', narrow: true }));
+document.getElementById('more').innerHTML = cell('Search, wide', sheet({ q: 'text', hit: 0 })) + cell('No plugins: the Texts and Facts tabs are not drawn', sheet({ tab: 'agents', plugin: false }));
+document.getElementById('map').innerHTML = cell('Security (status)', sheet({ tab: 'security' })) + cell('Backup and data (status)', sheet({ tab: 'backup' })) + cell('Facts (plugin)', sheet({ tab: 'facts' }));
+document.querySelectorAll('.narrow .tabs').forEach(t => { const s = t.querySelector('[aria-selected="true"]'); if (s) t.scrollLeft = Math.max(0, s.offsetLeft - 60); });   // the selected tab scrolls itself into view
+const root = document.documentElement, btn = document.getElementById('theme'), modes = ['system', 'light', 'dark'];
+const q = new URLSearchParams(location.search).get('theme'); let mode = modes.includes(q) ? q : 'system';
+const apply = () => { if (mode === 'system') root.removeAttribute('data-theme'); else root.setAttribute('data-theme', mode); btn.textContent = 'Theme: ' + mode; };
+btn.onclick = () => { mode = modes[(modes.indexOf(mode) + 1) % 3]; apply(); }; apply();
+</script>
