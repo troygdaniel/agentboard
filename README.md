@@ -87,6 +87,12 @@ from a fresh clone has no `build/` and needs nothing. `agentboard doctor` warns 
     agentboard init            # creates .agentboard/ (tasks.json, config.toml) and adds it to .gitignore
     agentboard serve           # board: http://localhost:8765   Load: http://localhost:8765/hud   (Ctrl+C stops)
 
+**A fresh install on a managed or shared PC starts safe.** When `agentboard init` finds no home setup on the machine (no home plugin installed, no `AGENTBOARD_PLUGINS`,
+texts, facts or Twilio variable, no `~/.config/agentboard/home.env`), the new board gets `[board] profile = "work"` in its `config.toml` and `init` says so: the board listens on
+loopback only, makes no outside request, starts no program and loads no plugin, and `agentboard selfcheck` proves it (details: [On a work laptop](#on-a-work-laptop)). At a
+terminal it asks first (Enter means yes). To use the `claude` rounds, `run`, voice and plugins instead, answer no, delete that line, or start with `agentboard init --profile home`
+(`$AGENTBOARD_INIT_PROFILE=home|work|auto` sets the default). A board that already exists, and any machine that shows a home setup, is never changed.
+
 `serve` runs in the foreground, prints the URL and data directory (in a terminal; output may be delayed if redirected to a file), and opens your default browser
 (`--no-open` to skip, `--port N` to change the port). Leave it running; agents use the CLI from other terminals
 **in the same project directory** (or anywhere with `AGENTBOARD_DIR=/path/to/project/.agentboard` set).
@@ -592,7 +598,7 @@ Copy prompt button, the CLI and `agentboard prompt` are unaffected.
 
 ## On a work laptop
 
-**One switch, one proof.** `agentboard profile work` (this machine, every board; or `export AGENTBOARD_PROFILE=work`, or `agentboard init --profile work` for one board)
+**One switch, one proof.** On a fresh install with no home setup, `agentboard init` turns it on for the new board by itself (see [Quick start](#quick-start)). Elsewhere: `agentboard profile work` (this machine, every board; or `export AGENTBOARD_PROFILE=work`, or `agentboard init --profile work` for one board)
 turns the whole list below on at once and keeps it on: the master lock, plugins refused, no outbound connection and no name lookup of anything but this machine in
 any command, listening only on loopback, no program started by the server, no browser opened, private file modes. Then `agentboard selfcheck` proves it in a PASS/FAIL
 list: a static scan of every source file (what may use the network, start a program, run dynamic code or load a package, each against a short table with its reason),
