@@ -5,10 +5,15 @@ with itself. Nothing is merged or pushed. Each has its own evidence file in this
 
 | # | Branch | What it does | Evidence |
 |---|---|---|---|
-| 1 | `overnight/overnight-ux-firstrun` (4f3bcba) | welcome for a bare `agentboard`, guided `init`, nearest-command hint, plain errors, **New task** and **?** buttons, sample cards button, 60-second tour, plain empty states | `overnight-ux-firstrun.md` (and `ux-firstrun/` screenshots) |
-| 2 | `overnight/overnight-ux-init-agent-instructions` (ffc8fa3) | `init` offers to add agentboard's instructions to CLAUDE.md or AGENTS.md (append-only, marked, idempotent) | `overnight-ux-init-agent-instructions.md` |
-| 3 | `overnight/overnight-ux-nav-and-panel-words` (f8cf575) | plain tooltips on the header tabs, Later, Copy prompt and the ORCH pill | `overnight-ux-nav-and-panel-words.md` |
+| 1 | `overnight/overnight-ux-firstrun` (13aede6) | welcome for a bare `agentboard`, guided `init`, nearest-command hint, plain errors, **New task** and **?** buttons, sample cards button, 60-second tour, plain empty states | `overnight-ux-firstrun.md` (and `ux-firstrun/` screenshots) |
+| 2 | `overnight/overnight-ux-init-agent-instructions` (fb05ed4) | `init` offers to add agentboard's instructions to CLAUDE.md or AGENTS.md (append-only, marked, idempotent) | `overnight-ux-init-agent-instructions.md` |
+| 3 | `overnight/overnight-ux-nav-and-panel-words` (b1ececa) | plain tooltips on the header tabs, Later, Copy prompt and the ORCH pill | `overnight-ux-nav-and-panel-words.md` |
 | 4 | `overnight/overnight-ux-doctor-agents-line` (tip of the stack) | `doctor` says which agents have reported and whether CLAUDE.md has the lines; shared helpers in `agentfiles.py` | `overnight-ux-doctor-agents-line.md` |
+
+## Cross-review fixes (AGENT-8, night of Nov 7-8)
+
+Three cards found by the overnight cross-review are fixed on these branches and merged up the stack: `init --demo` seeded the sample cards into the board `AGENTBOARD_DIR` named instead of the new one (HIGH, branch 1);
+`init --instructions` wrote through a symlinked AGENTS.md into another folder (branch 2); the file it created came out 0600 (branch 2). Each branch's evidence file has a section on its fix.
 
 ## The 30-second review
 

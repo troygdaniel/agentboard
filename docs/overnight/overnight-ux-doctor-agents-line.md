@@ -46,4 +46,4 @@ and once things are connected:
 
 `doctor` output grows by two lines. Anything that parses it by position would notice; the line format (`LEVEL  name  text`) and the summary are unchanged.
 
-- Full suite on this branch: **1251 tests, OK**; `python3 tests/publiccheck.py`: 0 findings.
+- Full suite on this branch: **1268 tests, OK** (after the cross-review fixes in the branches below it were merged in; 1251 before; the link refusal's `O_NOFOLLOW` append and the user's-umask write now live in `agentfiles.py` here); `python3 tests/publiccheck.py`: 0 findings.
