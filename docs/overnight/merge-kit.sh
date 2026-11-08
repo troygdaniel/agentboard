@@ -162,6 +162,25 @@ for br in "${ORDER[@]}"; do
   R_BRANCH+=("$br ($tip)"); R_MERGED+=("yes"); R_TESTS+=("$tests"); R_NOTES+=("$note")
 done
 
+# cross-branch fixups: pins that are true on each branch alone and false once all are together (a doctor line count, a module map, a
+# file table), applied after the last merge as one commit and tested once more; the script says what it changed.
+AFTER="$RES_DIR/_after_all.py"
+if [ -f "$AFTER" ] && [ "$FAIL" = "0" ]; then
+  echo
+  echo "== after all: cross-branch fixups ($AFTER)"
+  if "$PY" "$AFTER" "$CLONE" 2>&1 | sed 's/^/   /' && [ -n "$(git -C "$CLONE" status --porcelain)" ]; then
+    git -C "$CLONE" add -A && git -C "$CLONE" commit -q -m "merge-kit: cross-branch fixups (the pins each branch set alone)"
+    if [ "$QUICK" = "1" ]; then
+      "$PY" -m compileall -q "$CLONE/src/agentboard" >/dev/null 2>&1 && tests="py_compile ok" || { tests="py_compile FAILED"; FAIL=1; }
+    else
+      ( cd "$CLONE" && PYTHONPATH="$CLONE/src" "$PY" -m pytest -q -p no:cacheprovider tests >"$LOG/after-all-suite.txt" 2>&1 )
+      tests="$(tail -1 "$LOG/after-all-suite.txt" | sed 's/ in [0-9.]*s.*//')"
+      case "$tests" in *failed*|*error*) FAIL=1; tests="$tests (see $LOG/after-all-suite.txt)";; esac
+    fi
+    R_BRANCH+=("(cross-branch fixups)"); R_MERGED+=("yes"); R_TESTS+=("$tests; $(page_check 2>&1 | tail -1)"); R_NOTES+=("_after_all.py: the pins each branch set alone, made true for all of them")
+  fi
+fi
+
 echo
 echo "merge-kit result (trial branch in $CLONE, started from $MAIN = $BASE):"
 printf '%-62s %-8s %-48s %s\n' "branch (tip)" "merged" "tests" "notes"

@@ -11,4 +11,14 @@ def mains_shapes_with_the_shim(ours, theirs):
     return ours + theirs
 
 ok = resolve(sys.argv[1], "src/agentboard/redact.py", mains_shapes_with_the_shim)
+
+# The branch replaces `import tomllib` with its reader (`from . import tomlread`) in every module. Code main added since (store._roster,
+# anything else that says tomllib.) merges without a conflict and then fails at run time with NameError: swap those uses to the reader,
+# which has the same loads() and TOMLDecodeError. (This was the single cause of 60-odd failures in the night's combined tree.)
+from pathlib import Path   # noqa: E402
+for py in sorted((Path(sys.argv[1]) / "src" / "agentboard").glob("*.py")):
+    t = py.read_text()
+    if "tomllib." in t and "import tomllib" not in t and "from . import tomlread" in t:
+        py.write_text(t.replace("tomllib.", "tomlread."))
+        print(f"{py.name}: tomllib. -> tomlread. ({t.count('tomllib.')} use(s))")
 sys.exit(0 if ok else 1)

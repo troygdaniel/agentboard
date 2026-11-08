@@ -26,6 +26,24 @@ After every merge the page's script parsed and every module compiled (`--quick`)
 "Test runs". Each conflict above was first resolved by hand in the clone and the resolution written down as the script the kit now
 runs, so the morning's run is a rerun: `merge-kit.sh --repo ~/dev/agentboard --out docs/overnight/merge-kit-dry-run.md`.
 
+## The combined tree: what breaks only when the branches meet (02:30)
+
+Each branch's own suite is green; the first full suite on the finished trial tip ran **83 failed, 1469 passed**. Grouped:
+
+| failures | cause | fix, and where it lives now |
+|---|---|---|
+| 76 (every chat send, `/api/chat` 500s, the work profile's live selfcheck) | `install-quickstart` replaces `import tomllib` with its reader in every module; code main added since its base (`store._roster`, from the f8 fixes) still says `tomllib.loads` and raises `NameError` | `merge-kit-resolutions/overnight-install-quickstart.py` now sweeps `tomllib.` to `tomlread.` in any module that imports the reader (same `loads()`, same `TOMLDecodeError`) |
+| 2 | `docs-architecture` pins the module map against `src/`; seven other branches add modules (`agentfiles`, `demo`, `guards`, `profile`, `selfcheck`, `statefile`, `tomlread`, `watchdog`) | `_after_all.py`: one row each in `docs/ARCHITECTURE.md` |
+| 1 | the same branch pins `docs/index.md` against `docs/*.md`; the sign-off pack adds `security-signoff.md` | `_after_all.py`: a row in the index |
+| 2 | `sec-signoff-pack` pins its file table against what the board writes; main's chat-f7 added `chat-wake.json` | `_after_all.py`: the name joins the 600 state-file row |
+| 1 | `install-quickstart`'s test wants no `import tomllib` outside the reader; `sec-workpc-profile`'s `selfcheck.py` has one | `_after_all.py`: `from . import tomlread as tomllib` |
+| 1 | `test_doctor` caps the report at 20 lines; agents, watchdog, masking and profile each add one (21) | `_after_all.py`: the cap is 24 |
+| 1 | **open:** the sign-off table says `.claude/settings.json` follows the umask (644); in the combined tree `hooks install` writes it 0600 | not papered over: it is AGENT-8's `xr-reldata-settings-mode` (the data-integrity branch's `statefile` path vs main's `write_settings`); the morning picks the writer or the table |
+
+After the sweep and the fixups the combined suite is down to that one open item (the final count is in "Test runs"). The kit now runs
+`_after_all.py` after the last merge as one more commit, "cross-branch fixups", and tests once more, so the table's last row is that
+step.
+
 ## What the morning still decides (from AGENT-8's review, unchanged by this)
 
 - `overnight-rel-agent-protocol-3` is a protocol change (reports only on the card you hold): merge with -2, or merge -2 alone.
@@ -37,7 +55,7 @@ runs, so the morning's run is a rerun: `merge-kit.sh --repo ~/dev/agentboard --o
 ## Test runs
 
 - The kit, quick mode, 01:50: 11 of 11 merged, page script parses after each, every module compiles.
-- Full suite on the finished trial tip (626e242 in the hand-resolved clone, identical content to the kit's 316a284): appended below.
+- Full suite on the finished trial tip, before the sweep and the fixups: 83 failed, 1469 passed (02:10). After the `tomllib` sweep: 6 failed, 1546 passed (02:25). After `_after_all.py`: see the line appended below.
 
 ## How to run it in the morning
 
