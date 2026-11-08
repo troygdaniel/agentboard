@@ -442,6 +442,8 @@ def cmd_chat_send(a):
     m = _store().chat_send(name, a.text, kind="user" if a.user else "agent", to=a.to, topic=a.topic, detail=detail, card=a.card,
                            files=a.file or None, propose=a.propose, reply_to=a.reply_to)
     print(_chat_line(m))
+    if m.get("to_unknown"):   # posted all the same (a new session may not have spoken yet), but say so
+        print(f"(nobody named {m['to']} has spoken or is listening" + (f"; did you mean {m['closest']}?" if m.get("closest") else "") + ")", file=sys.stderr)
 
 
 def _for(m, name):

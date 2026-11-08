@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### A line to a name nobody has is said so (Nov 7)
+- `chat send --to AGENT-33` (or `Agent 3`, or `agent3 ` with a stray space) was accepted without a word, and the sender thought it
+  was sent (`tests/chat_repro.py` R6). Known names are ORCH, the owner, every card holder, every chat sender and every listener, any
+  case. A line to any other name still posts (a new session may not have spoken yet) but is marked: the terminal prints "nobody named
+  AGENT-33 has spoken or is listening; did you mean AGENT-3?", the board shows a "no such name yet" chip on the line with the same
+  words in its tooltip, and the API returns `to_unknown` and `closest`. Fix F5 of `docs/conversation-reliability-analysis.md`.
+
 ### The masker's wall-clock tests measure the code, not the scheduler (Nov 7)
 - `test_redact_dos.py` and `test_redact_fullwidth.py` asserted a megabyte of hostile text is masked in under 2 s (3 s fullwidth); linear work takes 0.05 s and the quadratic bug took minutes, yet the pair failed four times on Nov 7 on green code whenever two test suites shared a laptop at load 15 to 20. `tests/timing.py` now scales each limit by a same-moment linear baseline (300 `str.translate` passes over a megabyte, 0.25 s idle), tries a slow run up to three times and keeps the best, and never stretches a limit past 30 s. Quadratic work still fails every try. Inputs, caps and content checks are unchanged; two full suites run at once at load 19 were both exactly green.
 

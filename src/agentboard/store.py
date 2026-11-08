@@ -1,5 +1,6 @@
 """Task storage: one JSON file, locked and written atomically."""
 import contextlib
+import difflib
 import functools
 import json
 import os
@@ -9,6 +10,7 @@ import tomllib
 from pathlib import Path
 
 from . import backup
+from . import listeners
 from . import redact
 
 try:
@@ -843,9 +845,15 @@ class Store:
                 if talk:
                     raise BoardError(f"keep the line under {CHAT_LINE_MAX} characters; put the rest in --detail")
                 text, detail = _split_long_line(text, detail)   # an answer to the owner is kept whole: line plus detail
+            unknown = to and to != "all" and not to_owner and not self._known_name(data, to)   # a name nobody has (yet): posted, marked, said
             seq = data["chat_seq"] + 1
             data["chat_seq"] = seq
             msg = {"seq": seq, "at": _now(), "sender": sender, "text": text, "kind": kind}
+            if unknown:
+                msg["to_unknown"] = True
+                close = _closest_name(to, self._known_names(data))
+                if close:
+                    msg["closest"] = close
             if via not in (None, "idle", "board", "mirror"):   # idle: drafted for an idle agent; board: the board's own notice; mirror: a session's private message, mirrored
                 raise BoardError("via must be 'idle', 'board', 'mirror' or left out")
             for k, v in (("to", to), ("topic", topic), ("detail", detail), ("card", card), ("files", files), ("reply_to", reply_to), ("via", via)):
@@ -857,6 +865,18 @@ class Store:
             del data["chat"][:-CHAT_MAX]
             self._write(data)
             return msg
+
+    def _known_names(self, data):
+        """Who a line can reach: ORCH, the owner, every card holder, every chat sender, every listener. Spellings as the board has them."""
+        names = {"ORCH", self.owner}
+        names.update(t.get("agent") for t in data["tasks"] if t.get("agent"))
+        names.update(m.get("sender") for m in data["chat"] if m.get("kind") == "agent" and m.get("sender"))
+        names.update(listeners.listening(self.dir))
+        return sorted(n for n in names if n)
+
+    def _known_name(self, data, to):
+        t = str(to).strip().lower()
+        return any(t == n.lower() for n in self._known_names(data))
 
     def chat_set_said(self, seq, said):
         """Keep the casual rendering of a message (the same facts in a spoken tone); the original text is untouched.
@@ -979,6 +999,15 @@ def _split_long_line(text, detail):
     head, rest = text[:cut].rstrip() + "\u2026", text[cut:].strip()
     detail = (rest + ("\n\n" + detail if detail else "")).strip()[:CHAT_DETAIL_MAX] or None
     return head, detail
+
+
+def _closest_name(to, names):
+    """The known name closest to `to` (AGENT-33 -> AGENT-3, 'Agent 3' -> AGENT-3), or None when nothing is close."""
+    def norm(s):
+        return re.sub(r"[\s_-]+", "", str(s).strip().lower())
+    by = {norm(n): n for n in names}
+    hits = difflib.get_close_matches(norm(to), list(by), n=1, cutoff=0.6)
+    return by[hits[0]] if hits else None
 
 
 def _to_owner(to, owner):

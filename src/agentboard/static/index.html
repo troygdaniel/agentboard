@@ -836,6 +836,7 @@
   .te-text.clamp { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
   .chip.by { color: var(--err); }
   .chip.sessions { color: color-mix(in srgb, var(--warn) 78%, var(--text)); margin-left: 6px; font-size: var(--fs-xs); }   /* two sessions answer to one name (chat-f4) */
+  .chip.noname { color: color-mix(in srgb, var(--warn) 78%, var(--text)); }   /* a line to a name nobody has yet (chat-f5) */
   .srcrow { margin-top: 6px; }
   .chip.src { color: var(--info); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--info) 40%, var(--line)); }   /* a card made from outside the board (a plugin's chip: AB.chip) */
   .tl .fmt li { position: static; padding: 0; font-size: inherit; } .tl .fmt li::before, .tl .fmt li::after { content: none; }
@@ -2093,6 +2094,7 @@ function chatBubble(m) {
     ...(m.files || []).map(f => `<span class="chip file" title="${esc(f)}">${esc(f.split('/').pop())}</span>`),
     m.reply_to ? `<span class="chip">re #${m.reply_to}</span>` : '',
     m.via === 'idle' ? `<span class="chip auto" title="Drafted by the board for this agent while it was idle, on the cheaper model">auto</span>` : '',
+    m.to_unknown ? `<span class="chip noname" title="Nobody named ${esc(m.to)} has spoken or is listening on this board${m.closest ? `. Did you mean ${esc(m.closest)}?` : ''}">no such name yet</span>` : '',
     m.via === 'mirror' ? `<span class="chip mirror" title="A message this session sent another session, mirrored here">msg</span>` : ''].filter(Boolean);
   const meta = chips.length ? `<div class="cmsg-meta">${chips.join('')}</div>` : '';
   const dOpen = chatDetail.has(m.seq);
