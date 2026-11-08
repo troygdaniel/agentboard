@@ -135,9 +135,9 @@ step("tasks.json is valid JSON after the burst", valid_json(BOARD / "tasks.json"
 step("tasks.json.bak exists and is valid", valid_json(BOARD / "tasks.json.bak"))
 r = cli("chat", "tail", name="ORCH")
 step("chat tail shows the agents' lines", r.returncode == 0 and r.stdout.count("is on") >= N_AGENTS, f"{r.stdout.count('is on')} lines")
-cli("chat", "inbox", "--name", "AGENT-1")   # read what is there, so the wait below starts with nothing unread
+cli("chat", "inbox", "--name", "AGENT-1", "--limit", "0")   # read ALL of it (a plain read shows one page), so the wait below starts with nothing unread
 r = cli("chat", "inbox", "--name", "AGENT-1", "--wait", "3")
-step("chat inbox --wait with nothing unread exits 1 at the timeout", r.returncode == 1, f"exit {r.returncode}")
+step("chat inbox --wait with nothing unread exits 1 at the timeout", r.returncode == 1, f"exit {r.returncode}; printed: " + " | ".join(r.stdout.strip().splitlines()[-2:])[:200])
 
 
 def wake():

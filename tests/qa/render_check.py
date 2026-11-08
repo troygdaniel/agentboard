@@ -24,7 +24,7 @@ OUT = Path(sys.argv[2])
 OUT.mkdir(parents=True, exist_ok=True)
 DT = int(sys.argv[sys.argv.index("--devtools-port") + 1]) if "--devtools-port" in sys.argv else 9333
 CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
-PAGES = [("board", "/"), ("hud", "/hud"), ("byagent", "/?view=agents"), ("done-summary", "/#summary")]
+PAGES = [("board", "/"), ("hud", "/hud"), ("byagent", "/"), ("done-summary", "/")]   # the tabs are reached by clicking below (a #hash is a card deep link, so never that)
 WIDTHS = [("wide", 1440, 900), ("narrow", 390, 844)]
 SCHEMES = ["light", "dark"]
 AUDIT_JS = r"""

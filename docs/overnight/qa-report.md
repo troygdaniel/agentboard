@@ -1,6 +1,13 @@
 # Overnight QA: clean room, suite, soak, render (Nov 7-8, 2026)
 
 Card `overnight-qa-cleanroom`, branch `overnight/overnight-qa-cleanroom`, AGENT-6. Nothing here is merged; Troy reviews in the morning.
+
+**06:00 rerun against the morning's main (c4aca6a, merged into this branch as 350195a).** Clean room 25 of 31, the six misses all the
+known offline steps (the Python 3.11 venv now installs and runs: the f-string fix is in main). Suite: 1345 tests, full runs on 3.12 and
+3.13 OK, and six shuffled runs OK on 3.14 (three seeds), 3.13, 3.12 and 3.11 (seeds 276207, 241219, 309122, 165409, 334589, 304958), so
+3.11 is clean too (the redact test fixes are in main) and there is no order dependence. Soak 24 of 24 (400 cards, 12 agents, 10 restarts,
+hooks, chat; one check of mine first read a single page of the inbox before its timeout wait, since a plain `chat inbox` pages by design,
+so it reads with `--limit 0` now). Render 12 of 12 views clean at 1440 and 390 wide, light and dark. The night's table follows.
 Everything ran on throwaway folders, throwaway boards and spare ports; no live board, no network beyond localhost except where a step
 says "network allowed" (pip and pipx fetching build tools), no spend, no text.
 
@@ -22,15 +29,15 @@ on 3.12 to 3.14, the server took 400 cards, 12 agents at once and 10 restarts wi
 | Install | `serve`: `/`, `/hud` 200, log without Traceback, second serve on the same port says so politely | PASS | binds 127.0.0.1 only (`server.py:435`) |
 | Install | upgrade `rm -rf build && pipx install . --force`; `hooks install`; `pipx uninstall` removes the command | PASS | |
 | Install | README venv path, `python3.X -m venv` + `pip install .` on 3.12, 3.13, 3.14 | PASS | |
-| Install | README venv path on **3.11** | **FAIL** | installs, then `agentboard` dies: SyntaxError in reports.py line 322. Card `qa-python-3-11-syntaxerror`. Fixed on this branch and on `fix-python-3-11-fstring` |
+| Install | README venv path on **3.11** | **FAIL at 23:30, PASS at 06:00** | installed, then `agentboard` died: SyntaxError in reports.py line 322. Card `qa-python-3-11-syntaxerror`; fix merged into main overnight (`fix-python-3-11-fstring`) |
 | Install | **offline** `pipx install .` (PIP_NO_INDEX=1) | **FAIL** | pipx upgrades its shared pip to >=23.1 from the index first, even for a prebuilt wheel. Card `qa-offline-install-needs-index` |
 | Install | **offline** venv + `pip install .` on 3.11-3.14 | **FAIL** | the isolated build env wants setuptools>=68 from the index |
 | Install | offline venv + `pip install agentboard-0.3.1-py3-none-any.whl` | PASS | the wheel needs nothing; `--version` prints 0.3.1 |
 | Install | publiccheck on the clone | PASS | 0 findings |
 | Suite | full suite, Python 3.14, alone | PASS | 1201 tests OK in 188 s |
 | Suite | full suite, Python 3.11, after the f-string fix | 5 FAIL | 1201 tests; 4 redact timing tests and 1 Unicode-table test, see "Suite notes" |
-| Suite | full suite, Python 3.12 and 3.13 | see below | `tests/qa/suite_matrix.sh` |
-| Suite | shuffled order (`tests/qa_random_order.py`), several seeds and Pythons | see below | |
+| Suite | full suite, Python 3.12 and 3.13 | PASS | 06:00: 1345 OK each (one expected failure, by design); `tests/qa/suite_matrix.sh` |
+| Suite | shuffled order (`tests/qa_random_order.py`), several seeds and Pythons | PASS | 06:00: six seeds across 3.11 to 3.14, 1345 OK each |
 | Suite | three suites at once on one machine | 3 FAIL | load flakes in timing tests; the same suite alone is green |
 | Soak | seed 400 cards, `list` them | PASS | `tests/qa/soak.py` |
 | Soak | 12 agents x 6 cards through the CLI at once (claim, 3 updates, chat, ask or review) | PASS | 15 s, no CLI error, no lost update, tasks.json and .bak valid |
@@ -65,7 +72,7 @@ on 3.12 to 3.14, the server took 400 cards, 12 agents at once and 10 restarts wi
 | 3.14 | 1201 OK (alone); 3 timing flakes when three suites ran at once | 1201 OK, seed 146070 |
 | 3.13 | 1201 OK | not run |
 | 3.12 | 1200 OK, 1 timing flake under load | not run |
-| 3.11 | 1196 OK after the f-string fix; 4 timing, 1 Unicode-table (card) | same Unicode-table test |
+| 3.11 | 23:30: 1196 OK after the f-string fix; 4 timing, 1 Unicode-table (card, fixed on `fix-redact-tests-py311`, merged) | 06:00: 1345 OK, seed 304958 |
 
 ## Bugs filed (one card each)
 
@@ -91,7 +98,9 @@ on 3.12 to 3.14, the server took 400 cards, 12 agents at once and 10 restarts wi
 bash tests/qa/cleanroom.sh /tmp/agentboard-cleanroom          # 31 steps, about 3 minutes; needs pipx, python3.11-3.14, curl
 python3 tests/qa/soak.py /tmp/agentboard-soak src              # about 2 minutes; prints PASS/FAIL per check
 pip3 install --target tests/qa/pylibs websocket-client         # once, for the render check
-python3 tests/qa/render_check.py http://127.0.0.1:<port> /tmp/agentboard-render   # against a throwaway board you serve first
+python3 tests/qa/seed_render_board.py /tmp/agentboard-render-board src     # a throwaway board with mixed cards, agents and chat
+AGENTBOARD_DIR=/tmp/agentboard-render-board/proj/.agentboard python3 -m agentboard serve --no-open --port 8977 &
+python3 tests/qa/render_check.py http://127.0.0.1:8977 /tmp/agentboard-render   # 16 views, screenshots and a PASS/FAIL line each
 bash tests/qa/suite_matrix.sh /tmp/agentboard-matrix           # full runs per Python plus shuffled runs; about 25 minutes
 python3 tests/qa_random_order.py --seed 12345                  # one shuffled run, the same order again
 ```
