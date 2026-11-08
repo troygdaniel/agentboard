@@ -141,7 +141,7 @@ def stop_decision(store, payload):
     if not name:
         return None
     owner = store.owner
-    unread = store.chat_thread_new(name, after=cursors.get(store.dir, name))
+    unread = [m for m in store.chat_thread_new(name, after=cursors.get(store.dir, name)) if m.get("via") != "board"]   # the board's own notices need no answer
     if unread:
         last = unread[-1]
         said = untrusted.one_line(last.get("text"), 160)

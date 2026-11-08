@@ -372,6 +372,14 @@ def cmd_dictate(a):
 _chat_line = agentchat.chat_line
 
 
+def _twins_warning(s, name):
+    """A second live session is waiting under this name (chat-f4): one line to the terminal. The board's side is the "N sessions"
+    chip the listener count puts on the name (thread head and receipts), not a chat line: a line to the name would wake both waits."""
+    n = listeners.sessions(s.dir, name)
+    if n >= 2:
+        print(f"({n} sessions are listening as {name}: a line to {name} reaches all of them and each may answer; rename one with /rename in that session)", file=sys.stderr)
+
+
 def _chat_name(a):
     name = a.name or os.environ.get("AGENTBOARD_NAME") or (_store().owner if getattr(a, "user", False) else None)
     if not name:
@@ -471,6 +479,8 @@ def cmd_chat_inbox(a):
     after = None if a.all else (a.after if a.after is not None else cursors.get(s.dir, name))
     deadline = time.time() + (a.wait or 0)
     with (listeners.listening_as(s.dir, name, "inbox") if a.wait else contextlib.nullcontext()):   # the board sees who will wake
+        if a.wait:
+            _twins_warning(s, name)
         while True:
             unread = s.chat_inbox(name, after=after, limit=None)
             if unread or not a.wait or time.time() >= deadline:
@@ -1356,6 +1366,7 @@ def cmd_answer(a):
                         cursors.confirm(s.dir, name, within=cursors.RESHOW_S)   # back as this name: what an earlier wait printed is seen (unless it sat too long)
                     if a.wait and name:
                         listener = (name, listeners.register(s.dir, name, f"answer {a.id}"))
+                        _twins_warning(s, name)
             except BoardError:
                 if not seen:
                     raise BoardError(f"no such task: {a.id} (it is not on the board: removed, or the id is wrong)") from None
