@@ -14,7 +14,8 @@ class LoadAlignTests(unittest.TestCase):
     def test_the_live_bar_and_its_chips_are_gone(self):
         for gone in ("h-bar", "h-live", "h-alerts", "h-chip", "LIVE", "OFFLINE", "renderTiles", "setHudLive", "hblink"):
             self.assertNotIn(gone, HTML, gone)
-        self.assertIn('<div class="hud" id="hud-inner" tabindex="-1">\n    <button class="h-btn" id="h-full" aria-label="Toggle fullscreen (f)">Fullscreen</button>\n    <div class="h-grid">', HUD)
+        self.assertIn('<div class="hud" id="hud-inner" tabindex="-1">\n    <button class="h-btn" id="h-full" aria-label="Toggle fullscreen (f)">Fullscreen</button>\n'
+                      '    <div class="h-dog" id="h-dog" hidden aria-label="Stuck between agents"></div>\n    <div class="h-grid">', HUD)   # the watchdog strip sits between (hidden when clean)
         self.assertIn("#h-full { display: none; }", HTML)
 
     def test_the_overlay_takes_the_boards_padding_so_the_doing_column_lands_in_the_same_place(self):
