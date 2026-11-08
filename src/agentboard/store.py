@@ -1096,8 +1096,9 @@ def _must_hold(tasks, t, by, owner):
     b = str(by).strip()
     if not holder or b.lower() == str(holder).lower() or b.upper() == "ORCH" or _to_owner(b, owner):
         return
-    raise BoardError(f"{t['id']} is held by {holder}, not {b}: claim it first (agentboard claim {t['id']} --name {b}; that is refused while "
-                     f"{holder} has it in Doing, so ask {holder} or ORCH), and if {holder} is gone, `agentboard watchdog` releases it")
+    where = "in Doing" if t.get("status") == "doing" else f"in {str(t.get('status', '')).title()}"
+    raise BoardError(f"{t['id']} is held by {holder}, not {b}: claim it first (agentboard claim {t['id']} --name {b}; while {holder} holds it {where} "
+                     f"that is refused, so ask {holder} or ORCH), and if {holder} is gone, `agentboard watchdog` releases it")
 
 
 def _require_doing(t, verb):

@@ -48,6 +48,15 @@ AGENTBOARD_NAME=ORCH agentboard update <the same card> "a status line"          
   wants a softer rule, the check is one function, `_must_hold` in `store.py`, and the CLI's three `by=` arguments.
 - The server's own calls pass no name, so the board page behaves as before.
 
+## After the cross-review (AGENT-8, card xr-protocol3-env-only-undocumented)
+
+- The rule is now written where agents read: `agentboard instructions` says you may only update, ask or review the card you hold, that
+  the board reads the session's name from `AGENTBOARD_NAME` (so a session that only ran `agentboard me`, or a shell carrying a stale
+  name, is judged by that variable), that ORCH and the owner are the exceptions, and that two sessions under one name both pass. ORCH's
+  prompt carries the same sentence beside `update`. The CHANGELOG says the same and the bullet sits in its own place.
+- The refusal names the column the card is really in (`while AGENT-3 holds it in Done that is refused`) instead of always "in Doing".
+- Full public suite on the top of the stack after the four cross-review fixes (branches 1, 2 and 3 at 872b073, 5537221, eb43220): **1264 passed, 0 failed** (02:40 on Nov 8).
+
 ## Not done
 
 - `claim --force` by a second agent is still allowed (it is the documented override) and lands in the watchdog's `split-card` row.

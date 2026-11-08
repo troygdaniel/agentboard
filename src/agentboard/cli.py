@@ -847,6 +847,9 @@ with nothing running, stay reachable the same way: `agentboard chat inbox --name
 the background; it prints the next line {owner} sends you and exits, which wakes you. Nothing else does.
 
 If you are handed a task id instead, run `agentboard claim <id> --name "<your session name>"`.
+You may only update, ask or review the card you hold: the board reads your session's name from AGENTBOARD_NAME (set it once per
+session) and refuses a report on another agent's card; ORCH and the owner are the exceptions. Two sessions under one name both pass,
+so keep one name per session.
 Use your own session name so people can tell agents apart; the board gives each name its own colour.
 Create one task per deliverable, not per command. Keep titles short and status lines to one line.
 

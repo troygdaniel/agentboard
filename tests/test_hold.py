@@ -66,6 +66,20 @@ class HoldTests(unittest.TestCase):
         t = self.s.get(self.s.load(), "export-pipeline")
         self.assertEqual((t["status_text"], t.get("needs_input"), t.get("review")), ("Started by AGENT-3", None, None))   # nothing changed
 
+    def test_the_instructions_and_the_orch_prompt_say_the_rule_and_the_refusal_names_the_column(self):
+        from agentboard import prompt
+        self.assertIn("You may only update, ask or review the card you hold: the board reads your session's name from AGENTBOARD_NAME", cli.INSTRUCTIONS)
+        self.assertIn("ORCH and the owner are the exceptions", cli.INSTRUCTIONS)
+        self.assertIn("agents may only report on the card they hold; you and {owner} may on any", prompt.ORCH_TEMPLATE)
+        self.s.review("export-pipeline", "done", by="AGENT-3")
+        with self.assertRaises(BoardError) as cm:
+            self.s.update("export-pipeline", None, "a line", by="AGENT-9")
+        self.assertIn("while AGENT-3 holds it in Doing that is refused", str(cm.exception))   # a card in review is still in the Doing column
+        self.s.update("export-pipeline", None, "closing", status="done", by="AGENT-3")
+        with self.assertRaises(BoardError) as cm:
+            self.s.ask("export-pipeline", "which?", by="AGENT-9")
+        self.assertIn("while AGENT-3 holds it in Done that is refused", str(cm.exception))
+
     def test_a_card_with_no_holder_is_open_to_any_name(self):
         self.s.update("open", 30, "picked up", by="AGENT-9")
         self.assertEqual(self.s.get(self.s.load(), "open")["progress"], 30)

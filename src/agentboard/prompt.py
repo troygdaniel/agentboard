@@ -396,7 +396,7 @@ Rename this session to ORCH (`/rename ORCH`). You are a fresh or /clear'ed Claud
 
     {ab} add "<title>" -d "<description>" --status todo     # new card (--parent <id> splits a card)
     {ab} claim <id> --name "<session>"
-    {ab} update <id> <percent> "<status line>"
+    {ab} update <id> <percent> "<status line>"             # agents may only report on the card they hold; you and {owner} may on any
     {ab} done <id>                                          # only when {owner} says so
     {ab} list                                               # all open cards (--status doing, --stale)
     {ab} watchdog                                           # a card looks stuck? every way the board is stuck between agents, each with its fix (--fix N)
