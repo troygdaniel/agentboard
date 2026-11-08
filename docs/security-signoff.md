@@ -43,7 +43,8 @@ writes a file this table does not name, or with another mode.
 | `.listeners.lock`, `.cursors.lock` | empty lock files (`listeners.py:48-56`) | 600 |
 | `reports/<card>.html`, `runs/<card>/<id>/{run.json,prompt.md,stdout.json,stderr.log}` | a card's report; one-shot run records (opt-in) | 600 (folders 700) |
 | `chat-casual.json`, `chat-autopilot.json` | only with the opt-in chat rounds on | 600 |
-| `<project>/.gitignore`, `<project>/.claude/settings.json` | `init` adds `.agentboard/`; `hooks install` adds two entries (below) | your umask (project files, `private.py:56`) |
+| `<project>/.gitignore` | `init` adds the line `.agentboard/` | your umask (a project file, `private.py:56`) |
+| `<project>/.claude/{settings.json,settings.json.orig,settings.json.bak}` | `hooks install` adds two entries (below), through a temp file renamed over the target; the pristine file is kept once as `.orig` and the previous version as `.bak` | an existing file keeps its mode; a file agentboard creates is 0600 (`hooks.py:351-375`) |
 | `~/.agentboard/boards.toml` | only if you register named boards (`boards.py:21`); nothing else under HOME | 600 |
 | browser `localStorage` | 7 UI preferences | browser |
 
@@ -55,7 +56,7 @@ Nothing is synced unless you set `[backup] sync_dir`, and the lock refuses that 
 JWTs, private-key blocks, `Authorization:` values, URL passwords, `api_key = …`; invisible and look-alike characters are folded first.
 `tests/test_redact*.py` (9 files). It is a shape filter: see Known limits.
 
-**Hooks.** `agentboard hooks install` writes two entries into **this project's** `.claude/settings.json` only, never `~/.claude`, each the
+**Hooks.** `agentboard hooks install` writes two entries into **this project's** `.claude/settings.json` (or `~/.claude/settings.json` only with `--user`), each the
 absolute, shell-quoted path of the installed `agentboard` (`hooks.py:179-236`; `tests/test_hook_install.py`). No board text reaches a shell.
 `hook send-message` (PostToolUse on SendMessage) reads Claude Code's JSON payload from stdin and, only while agent chat is on, posts it to the
 board, masked (`hooks.py:99-125`). `hook stop` answers `{"decision":"block","reason":…}` once when the owner's unread line waits or no wait

@@ -93,11 +93,30 @@ class TheTableIsTrue(unittest.TestCase):
                 row = documented(p.removeprefix(".agentboard/")) if p != ".agentboard" else (".agentboard/", "700")
                 self.assertIn(oct(want)[2:], row[1], f"{p}: table says {row[1]!r}, disk is {oct(mode(path))}")
                 self.assertEqual(mode(path), want, f"{p} is {oct(mode(path))}")
-            else:   # .gitignore and .claude/settings.json follow the user's umask, 022 in the scripted session
+            elif p.startswith(".claude"):   # settings.json: agentboard creates it 0600, an existing file keeps its mode (hooks.write_settings)
+                row = documented(p)
+                self.assertIn("0600", row[1], f"{p}: the table should say a created file is 0600")
+                self.assertIn("keeps its mode", row[1], f"{p}: the table should say an existing file keeps its mode")
+                if path.is_file():
+                    self.assertEqual(mode(path), 0o600, f"{p} is {oct(mode(path))} (created by hooks install in this session)")
+            else:   # .gitignore follows the user's umask, 022 in the scripted session
                 row = documented(p)
                 self.assertIn("umask", row[1], f"{p}: the table should say it follows your umask")
                 if path.is_file():
                     self.assertEqual(mode(path), 0o644, f"{p} is {oct(mode(path))}")
+
+    def test_an_existing_settings_file_keeps_its_mode_and_its_copies_are_in_the_table(self):
+        s = Session()
+        self.addCleanup(s.close)
+        (s.work / ".claude").mkdir()
+        (s.work / ".claude" / "settings.json").write_text("{}\n")
+        os.chmod(s.work / ".claude" / "settings.json", 0o644)
+        s.run("init", "hooks install")
+        for name in ("settings.json", "settings.json.orig", "settings.json.bak"):
+            p = s.work / ".claude" / name
+            self.assertTrue(p.is_file(), name)
+            self.assertIsNotNone(documented(f".claude/{name}"), f".claude/{name} is not in the table")
+        self.assertEqual(mode(s.work / ".claude" / "settings.json"), 0o644)   # the team's file keeps the mode it had
 
     def test_nothing_is_written_under_home(self):
         made = [str(p.relative_to(self.s.home)) for p in self.s.home.rglob("*")]
@@ -115,6 +134,7 @@ class TheParser(unittest.TestCase):
         self.assertIn("tasks.json", [n for r in rows for n in r[0]])
 
     def test_placeholders_and_folders(self):
+        self.assertTrue(pattern_for("<project>/.claude/{settings.json,settings.json.orig,settings.json.bak}").match(".claude/settings.json.orig"))
         self.assertTrue(pattern_for("backups/tasks-<stamp>.json.gz").match("backups/tasks-20261107-2316.json.gz"))
         self.assertTrue(pattern_for("server-<pid>.json").match("server-4242.json"))
         self.assertTrue(pattern_for("runs/<card>/<id>/{run.json,prompt.md,stdout.json,stderr.log}").match("runs/a-card/r1/stderr.log"))
@@ -126,7 +146,7 @@ class TheParser(unittest.TestCase):
         self.assertIsNone(documented("chat-nobody.json"))
         self.assertIsNone(documented("reports/x.json"))
         self.assertEqual(documented("backups")[0], "backups/tasks-<stamp>.json.gz")
-        self.assertEqual(documented(".claude")[0], "<project>/.claude/settings.json")
+        self.assertEqual(documented(".claude")[0], "<project>/.claude/{settings.json,settings.json.orig,settings.json.bak}")
 
 
 if __name__ == "__main__":
