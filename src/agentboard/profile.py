@@ -111,6 +111,56 @@ def reset():   # tests only: take the guards off again
     _ENV0.update(seen=False, value=None)
 
 
+# -- is this a machine that looks like the owner's own (a home Mac), or a fresh install on a managed PC? ----------------------------------------------
+INIT_ENV = "AGENTBOARD_INIT_PROFILE"   # work | home | auto: what `agentboard init` writes when the command line does not say
+CORE_ENV = {"AGENTBOARD_PROFILE", INIT_ENV, "AGENTBOARD_ORIG_UMASK", "AGENTBOARD_TRANSCRIPT", "AGENTBOARD_RUN", "AGENTBOARD_MIC", "AGENTBOARD_COLOR", "AGENTBOARD_PRIVATE_WORDS"}   # plus configschema.ENV
+HOME_FILES = ("home.env", "facts-never.txt")   # in ~/.config/agentboard: the home setup's own files
+
+
+def core_env():
+    """The AGENTBOARD_ variables this program itself defines (configschema.ENV and the few below it): none of them says 'home setup'."""
+    from . import configschema
+    return set(configschema.ENV) | CORE_ENV
+
+
+def home_signals():
+    """What on this machine says 'home setup': the NAMES of things, never a value. A home plugin installed (read from package metadata; nothing is imported
+    or run), an AGENTBOARD_ variable set that this program does not define itself (AGENTBOARD_PLUGINS=1 or anything a plugin adds), or the home setup's own files in ~/.config/agentboard.
+    Empty on a fresh install on a managed PC."""
+    out = []
+    try:
+        from importlib.metadata import entry_points
+        from . import plugins
+        out += [f"plugin {ep.name} is installed" for ep in entry_points(group=plugins.GROUP)]
+    except Exception:   # noqa: BLE001  (metadata that cannot be read says nothing: the other signals still count)
+        pass
+    core = core_env()
+    for k, v in sorted(os.environ.items()):   # an AGENTBOARD_ variable this program does not define belongs to something added on top of it: a home setup
+        if k.startswith("AGENTBOARD_") and v.strip() and k not in core and not k.startswith("AGENTBOARD_NO_"):
+            out.append(f"${k} is set")
+        elif k == "AGENTBOARD_PLUGINS" and _word_is_work(v):
+            out.append(f"${k} is set")
+    for name in HOME_FILES:
+        try:
+            if (machine_file().parent / name).exists():
+                out.append(f"{machine_file().parent / name} exists")
+        except OSError:
+            pass
+    return out
+
+
+def init_choice(flag=None, real_cli=False):
+    """('work' | 'home' | 'auto', why) for `agentboard init`: the flag, else $AGENTBOARD_INIT_PROFILE, else 'auto' on the real command line and 'home' (the
+    plain board) when called from code such as a test. An unknown word is 'auto': a typo never switches the profile off for a managed PC."""
+    for src, v in (("--profile", flag), (f"${INIT_ENV}", os.environ.get(INIT_ENV))):
+        w = str(v or "").strip().lower()
+        if w in ("work", "home", "auto"):
+            return w, src
+        if w:
+            return "auto", f"{src} (unknown word {w[:20]!r})"
+    return ("auto", "default") if real_cli else ("home", "default for a call from code")
+
+
 def set_machine(on):
     """Write (or remove) the machine-wide switch. Returns the path."""
     p = machine_file()

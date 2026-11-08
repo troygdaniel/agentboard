@@ -119,6 +119,18 @@ def _store():
     return Store(find_dir())
 
 
+PROFILE_BLOCK = "[board]\nprofile = \"work\"            # the work-PC profile (agentboard profile): lock, no plugins, loopback only\n\n"
+
+
+def _ask_yes_default(question):
+    """Like _ask_yes, but Enter means yes (the safe answer is the default). A closed stdin or Ctrl-D keeps the default."""
+    try:
+        return input(question + " [Y/n] ").strip().lower() not in ("n", "no")
+    except (EOFError, KeyboardInterrupt):
+        print()
+        return True
+
+
 def _ask_yes(question):
     """A yes/no question to a person at a terminal. Anything but y/yes is no; a closed stdin or Ctrl-D is no too."""
     try:
@@ -167,10 +179,24 @@ def cmd_init(a):
     above = None if d.is_dir() else _board_above(here)
     d.mkdir(exist_ok=True)
     cfg = d / "config.toml"
+    interactive = sys.stdin.isatty() and sys.stdout.isatty()
+    choice, _src = profilelib.init_choice(getattr(a, "profile", None), real_cli=getattr(a, "_real_cli", False))
+    profile_note = None
     if not cfg.exists():
-        cfg.write_text(("[board]\nprofile = \"work\"            # the work-PC profile (agentboard profile): lock, no plugins, loopback only\n\n" if getattr(a, "profile", None) == "work" else "")
-                       + SAMPLE_CONFIG)
-    elif getattr(a, "profile", None) == "work":
+        work = choice == "work"
+        if choice == "auto" and not had_board:   # a fresh install on a machine that shows no home setup: the work profile, unless the person says no
+            signals = profilelib.home_signals()
+            if not signals:
+                work = True
+                profile_note = ("this machine has no home plugin and no home environment, so the new board uses the WORK PROFILE (loopback only, no plugins, no outside request, "
+                                "no program started by the server, private files). To use the claude rounds, run, voice and plugins instead: delete the [board] profile line in "
+                                f"{DIR_NAME}/config.toml, or start with `agentboard init --profile home`. Prove it: agentboard selfcheck")
+                if interactive and not _ask_yes_default("This looks like a managed or shared PC. Use the work profile for this board?"):
+                    work, profile_note = False, None
+        cfg.write_text((PROFILE_BLOCK if work else "") + SAMPLE_CONFIG)
+        if work and choice == "work":
+            profile_note = f"the new board uses the work profile ([board] profile = \"work\" in {DIR_NAME}/config.toml); prove it: agentboard selfcheck"
+    elif choice == "work" and getattr(a, "profile", None) == "work":
         print(f"{cfg} exists: add [board] profile = \"work\" to it by hand, or run `agentboard profile work` for the whole machine")
     (d / "tasks.json").touch()
     if not (d / "tasks.json").read_text().strip():
@@ -179,6 +205,8 @@ def cmd_init(a):
     with private.as_user():   # the project's own .gitignore is not board data
         ignored = _gitignore_board(here)
     lines = [f"{'a board was already set up here, nothing was changed' if existed else 'a board is already set up here' if had_board else 'set up a board'}: {d}"]
+    if profile_note:
+        lines.append("note: " + profile_note)
     if ignored:
         lines.append(f"added {DIR_NAME}/ to .gitignore (task data can hold private context)")
     if above is not None:
@@ -1796,7 +1824,8 @@ def main(argv=None):
     sp.add_argument("--instructions", dest="add_instructions", action="store_true",
                     help="add agentboard's agent instructions to CLAUDE.md or AGENTS.md here (AGENTS.md is created when neither exists); at a terminal init asks when one exists")
     sp.add_argument("--no-instructions", action="store_true", help="do not ask about the agent instructions")
-    sp.add_argument("--profile", choices=["work"], help="write [board] profile = \"work\" into the new config.toml (the work-PC profile)")
+    sp.add_argument("--profile", choices=["work", "home", "auto"], help="work: write [board] profile = \"work\" into the new config.toml (the work-PC profile); home: a plain board; "
+                    "auto (the default on the command line): work when this machine shows no home plugin or home environment, else a plain board; $AGENTBOARD_INIT_PROFILE sets the default")
     sp = add("profile", cmd_profile, "the work-PC profile: loopback only, no plugins, no outside request, no program started (agentboard profile work)")
     sp.add_argument("what", nargs="?", choices=["status", "work", "off"], default="status")
     sp = add("selfcheck", cmd_selfcheck, "prove the work profile: static scan of the code plus a live audit of a throwaway server (PASS/FAIL list; exit 1 on a FAIL)")
@@ -2090,6 +2119,7 @@ def main(argv=None):
     if a.cmd == "rm" and not (a.demo or a.id):
         p.error("give a task id or --demo")
     _seen_step(a)
+    a._real_cli = argv is None   # the real command line, not a call from code: `init` chooses its profile by looking at the machine only here
     try:
         a.fn(a)
     except BoardError as e:
