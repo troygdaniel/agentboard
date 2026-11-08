@@ -483,7 +483,7 @@ Findings below come from the audit in `SECURITY.md` in the repository root (v0.2
 
 ## Configuration (`.agentboard/config.toml`)
 
-`agentboard init` writes the file with every option commented out. All keys:
+`agentboard init` writes the file with every option commented out. Every key, with its type, range, default and meaning: [`docs/config.md`](docs/config.md), generated from the schema. `agentboard config check` flags a misspelt key (with the closest valid name), a wrong type or a value out of range (the default applies to it, never a guess) and an unsafe switch; `agentboard config show` prints what applies to this board and where each value came from. The short form:
 
     [board]
     owner = "you"                 # your name: replaces "the user" in every prompt and "you" on the board, the HUD and report pages

@@ -538,6 +538,25 @@ def check_redact(board_dir):
     return [_res(PASS, "masking", "secret masking is on with the default shapes ([redact] in config.toml is absent or unchanged)")]
 
 
+def check_config_schema(board_dir):
+    """config.toml against the schema (configschema): unknown keys with the closest name, wrong types and ranges (the default applies), unsafe
+    switches. One line per finding, FAIL for an invalid value because the board is not running with what the file says."""
+    from . import configschema
+    try:
+        raw = promptlib.load_config(board_dir, raw=True)
+    except BoardError:
+        return []   # check_config has already said the file does not parse
+    findings = configschema.validate(raw)
+    if not findings:
+        return [_res(PASS, "schema", f"every key in config.toml is one the board reads, with a value of the right shape ({len(configschema.SCHEMA)} core sections known)")]
+    out = []
+    for f in findings[:MAX_SHOWN * 2]:
+        out.append(_res(f.level if f.level in (PASS, WARN, FAIL, INFO) else WARN, "schema", f"{f.where} {f.text}" + (f" ({f.fix})" if f.fix else "")))
+    if len(findings) > MAX_SHOWN * 2:
+        out.append(_res(INFO, "schema", f"and {len(findings) - MAX_SHOWN * 2} more: run agentboard config check"))
+    return out
+
+
 def check_knowledge(board_dir):
     """The notes files a board lists in [knowledge] files = [...] (read only by a plugin's lookup source; empty by default). Only the file
     names are shown, never the folder: it can hold an account name, and this output gets pasted into reviews."""
@@ -637,6 +656,7 @@ def run(board_dir, project=None, env=None, runner=subprocess.run):
     results += server_lines
     results += check_config(board_dir, locked=locked)
     results += check_redact(board_dir)
+    results += check_config_schema(board_dir)
     results += check_knowledge(board_dir)
     results += check_files(board_dir)
     results += check_watchdog(board_dir)
