@@ -36,6 +36,20 @@ No pipx? From inside a checkout, with `python3` being 3.11+ (`python3 --version`
 
 To upgrade a checkout: `git pull && rm -rf build && pipx install . --force` (then restart `agentboard serve`). Releases are tagged (`v0.3.0`); see `CHANGELOG.md`.
 
+**Offline, or a locked-down PC (no package index, no admin rights).** Both commands above fetch build tools from PyPI the first time: pipx upgrades
+its own pip (it does this even for a prebuilt wheel, so pipx is a dead end offline), and a plain pip install of the checkout builds in an isolated environment that
+downloads setuptools. A wheel needs neither. On any machine with network, build it once and carry the one file over:
+
+    rm -rf build && python3 -m pip wheel --no-deps -w dist .     # makes dist/agentboard-0.3.1-py3-none-any.whl (pure Python, works on any OS)
+
+On the offline machine, with `python3` being 3.11+:
+
+    python3 -m venv ~/.agentboard-venv && ~/.agentboard-venv/bin/pip install --no-index dist/agentboard-0.3.1-py3-none-any.whl
+    export PATH="$HOME/.agentboard-venv/bin:$PATH"
+
+`--no-index` makes pip refuse the network instead of hanging on it. The same wheel is attached to each tagged release on GitHub, so a
+download from the Releases page is enough; nothing is compiled and nothing else is installed. The board itself never leaves localhost.
+
 **Always remove `build/` before installing from a checkout you have used before.** pip builds inside the checkout, and setuptools copies into `build/` without removing
 files that no longer exist in `src/`, so a module deleted from the source can come back into the installed copy (the removed text features did exactly that once). A first install
 from a fresh clone has no `build/` and needs nothing. `agentboard doctor` warns ("stale install") when the installed copy holds a file its source no longer has, and tells you the fix.
