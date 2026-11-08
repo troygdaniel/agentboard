@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### The autopilot no longer marks a line read or answered for a session that never saw it (Nov 7)
+- With `[chat] autopilot` on, the board drafting a reply for an idle agent moved that agent's chat cursor to the newest line and
+  posted with `reply_to`, so the panel showed read and answered, and the Stop hook saw nothing unread, for a line the agent's
+  session never saw. The board now keeps its own marker per agent (`seen` in `chat-autopilot.json`) and never touches the session's
+  cursor; the panel counts only a real line (not one marked auto) as an answer. Off by default; found by the Nov 7 merge review
+  (`rev1107-autopilot-marks-read`).
+
 ### One chat cursor per name, whatever the case, and the Stop hook reads it too (Nov 7)
 - `chat-cursors.json` (where each session got to in the chat) was read and written by four modules, each by the exact-case name
   and none under a lock. `agentboard me --name AGENT-4` plus `chat inbox --name agent-4` left the cursor under one spelling while
