@@ -23,7 +23,7 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-from . import listeners, untrusted
+from . import cursors, listeners, untrusted
 from .store import BoardError, owner_name
 
 HOOK_COMMAND = "agentboard hook send-message"
@@ -141,7 +141,7 @@ def stop_decision(store, payload):
     if not name:
         return None
     owner = store.owner
-    unread = store.chat_thread_new(name, after=listeners.read_cursors(store.dir).get(name))
+    unread = store.chat_thread_new(name, after=cursors.get(store.dir, name))
     if unread:
         last = unread[-1]
         said = untrusted.one_line(last.get("text"), 160)

@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+### One chat cursor per name, whatever the case, and the Stop hook reads it too (Nov 7)
+- `chat-cursors.json` (where each session got to in the chat) was read and written by four modules, each by the exact-case name
+  and none under a lock. `agentboard me --name AGENT-4` plus `chat inbox --name agent-4` left the cursor under one spelling while
+  the Stop hook looked it up by the other, so every owner line to that name in the 500-line log (lines to an earlier session with the
+  reused name included) blocked the stop at every turn end. Now `cursors.py` is the one place: the key is the name lower-cased, a
+  write takes a file lock and only moves forward, the file is replaced atomically, and an older mixed-case file reads as the highest
+  seq per name. The CLI (`chat inbox`, `chat idle`, `answer --wait`), the idle drafter, the receipts and the Stop hook all go through
+  it. Found by the Nov 7 merge review (`rev1107-stophook-case`); the repro's R7 (twenty readers waking on one line) loses no update.
+
 ### The listener file survives twenty waits waking at once (Nov 7)
 - `chat-listeners.json` (who has a `chat inbox --wait` or `answer --wait` running) was read, changed and written back with no lock
   and a plain write: a line to `all` woke every wait at the same instant, each exited and re-registered, and most registrations

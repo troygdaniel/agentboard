@@ -13,7 +13,7 @@ import subprocess
 import tempfile
 from datetime import datetime, timedelta
 
-from . import private
+from . import cursors, private
 from . import lockdown, untrusted
 from .store import CHAT_TOPICS, BoardError
 
@@ -384,25 +384,14 @@ DEFAULT_AUTOPILOT_EVERY = 180      # seconds between rounds
 DEFAULT_AUTOPILOT_PER_HOUR = 12    # drafts an hour, over every agent: the spend ceiling is this times idle_budget_usd
 
 
-def _cursors_path(store):
-    return store.dir / "chat-cursors.json"
-
-
 def read_cursors(store):
-    try:
-        d = json.loads(_cursors_path(store).read_text())
-        return d if isinstance(d, dict) else {}
-    except (OSError, ValueError):
-        return {}
+    """{name, lower-cased: last seq read} (cursors.py)."""
+    return cursors.read(store.dir)
 
 
 def write_cursor(store, name, seq):
-    cur = read_cursors(store)
-    cur[name] = max(int(seq), cur.get(name, 0) if isinstance(cur.get(name), int) else 0)
-    try:
-        _cursors_path(store).write_text(json.dumps(cur))
-    except OSError:
-        pass
+    """Move `name`'s cursor forward to `seq` (cursors.py: locked, lower-cased, never back)."""
+    return cursors.advance(store.dir, name, seq)
 
 
 def _hour_count(store, now):
@@ -453,7 +442,7 @@ def autopilot_once(store, claude, roster, model=None, budget=None, per_hour=None
     if not store.chat_agents():
         return []
     tasks = store.load()
-    cursors = read_cursors(store)
+    cursors_now = read_cursors(store)
     posted = []
     share_every_min = float(share_every_min if share_every_min is not None else conf.get("share_every_min", DEFAULT_SHARE_EVERY_MIN))
     live_min = float(live_min if live_min is not None else conf.get("live_min", DEFAULT_LIVE_MIN))
@@ -464,7 +453,7 @@ def autopilot_once(store, claude, roster, model=None, budget=None, per_hour=None
             break
         if awake(tasks, recent, name, now, live_min):   # its real session is talking or working: let it speak for itself
             continue
-        after = cursors.get(name)
+        after = cursors_now.get(cursors.key(name))
         inbox = [m for m in store.chat_inbox(name, after=after if isinstance(after, int) else None) if not m.get("via")]   # the board never answers itself (auto lines, its own notices)
         sharing = not inbox
         mine = None
