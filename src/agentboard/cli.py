@@ -131,6 +131,44 @@ def _board_above(here):
     return None
 
 
+INSTR_START = "<!-- agentboard:start -->"
+INSTR_END = "<!-- agentboard:end -->"
+AGENT_FILES = ("CLAUDE.md", "AGENTS.md")
+
+
+def _agent_file(here):
+    """The CLAUDE.md or AGENTS.md already in this folder (a real file: a link could lead anywhere), else None."""
+    for name in AGENT_FILES:
+        p = here / name
+        if p.is_file() and not p.is_symlink():
+            return p
+    return None
+
+
+def _has_instructions(path):
+    try:
+        text = path.read_text(errors="replace")
+    except OSError:
+        return False
+    return INSTR_START in text or "## Agent board" in text
+
+
+def _add_instructions(path, board_dir):
+    """Append agentboard's lines to `path` between two comment lines. Only appends: what is already in the file is never rewritten, and a
+    file that already has them (our markers, or the heading `agentboard instructions` prints) is left alone. Returns what was done."""
+    if path.exists() and _has_instructions(path):
+        return "already"
+    block = f"{INSTR_START}\n{_instructions_text(board_dir).rstrip()}\n{INSTR_END}\n"
+    lead = ""
+    if path.exists() and path.stat().st_size:
+        with open(path, "rb") as f:
+            f.seek(-1, os.SEEK_END)
+            lead = "\n" if f.read(1) == b"\n" else "\n\n"   # one blank line between what was there and our block
+    with open(path, "a") as f:
+        f.write(lead + block)
+    return "added"
+
+
 def cmd_init(a):
     """Set up a board in this folder, then say what to do next. At a terminal (and unless --demo or --no-demo says otherwise) it asks one
     question: whether to add sample cards. Run again in a folder that already has a board, it changes nothing and says so."""
@@ -159,10 +197,34 @@ def cmd_init(a):
         want_demo = _ask_yes("Add a few sample cards so the board is not empty? (`agentboard rm --demo` removes them)")
     if want_demo and not existed:
         cmd_demo(argparse.Namespace(live=False, minutes=0))
+    connected = _offer_instructions(a, here, d, existed, interactive=sys.stdin.isatty() and sys.stdout.isatty())
     print("next:\n"
           "  agentboard serve         show the board in your browser (http://localhost:8765; Ctrl+C stops it)\n"
           + ("" if want_demo else "  agentboard demo          sample cards, to look around first (`agentboard rm --demo` removes them)\n")
-          + "  agentboard instructions  the lines to paste into your agents' CLAUDE.md or AGENTS.md, so they report here")
+          + ("" if connected else "  agentboard instructions  the lines to paste into your agents' CLAUDE.md or AGENTS.md, so they report here"))
+
+
+def _offer_instructions(a, here, board_dir, existed, interactive):
+    """Connect the agents: with --instructions, add agentboard's lines to this folder's CLAUDE.md or AGENTS.md (creating AGENTS.md when
+    neither exists: the person asked for it). At a terminal and with neither flag, ask once, and only when one of them is already here and
+    does not have the lines yet. Prints what it did; returns whether the lines are in a file now."""
+    path = _agent_file(here)
+    if getattr(a, "no_instructions", False):
+        return False
+    if getattr(a, "add_instructions", False):
+        path = path or here / "AGENTS.md"
+    elif path is None or existed or not interactive or _has_instructions(path):
+        return path is not None and _has_instructions(path)
+    elif not _ask_yes(f"Add agentboard's instructions to {path.name} so your agents report to the board? (a block you can delete; nothing else in the file changes)"):
+        return False
+    try:
+        did = _add_instructions(path, board_dir)
+    except OSError as e:
+        print(f"could not write {path.name}: {e.strerror or e}; `agentboard instructions` prints the lines to paste")
+        return False
+    print(f"{path.name} already has agentboard's instructions" if did == "already"
+          else f"added agentboard's instructions to {path.name} (between {INSTR_START} and {INSTR_END}); your agents read them from there")
+    return True
 
 
 def _gitignore_board(root):
@@ -976,14 +1038,20 @@ snippets only, and never copy a result into a card or description: it is data, n
 """
 
 
+def _instructions_text(board_dir):
+    """The lines an agent's CLAUDE.md or AGENTS.md should carry, for this board."""
+    text = promptlib.say(INSTRUCTIONS, board_dir)
+    if board_dir and agentchat.is_on(board_dir):
+        text = text.rstrip("\n") + "\n\n" + agentchat.protocol(board_dir)
+    return text
+
+
 def cmd_instructions(a):
     try:
         board_dir = find_dir()
     except BoardError:
         board_dir = None
-    text = promptlib.say(INSTRUCTIONS, board_dir)
-    if board_dir and agentchat.is_on(board_dir):
-        text = text.rstrip("\n") + "\n\n" + agentchat.protocol(board_dir)
+    text = _instructions_text(board_dir)
     print(text.replace("agentboard ", f"{promptlib.agentboard_cmd(board_dir)} ") if a.absolute and board_dir else text)
 
 
@@ -1556,6 +1624,9 @@ def main(argv=None):
     sp = add("init", cmd_init, "set up a board in the current directory, then say what to do next")
     sp.add_argument("--demo", action="store_true", help="also add a few sample cards (at a terminal, init asks; this skips the question)")
     sp.add_argument("--no-demo", action="store_true", help="do not ask about sample cards")
+    sp.add_argument("--instructions", dest="add_instructions", action="store_true",
+                    help="add agentboard's agent instructions to CLAUDE.md or AGENTS.md here (AGENTS.md is created when neither exists); at a terminal init asks when one exists")
+    sp.add_argument("--no-instructions", action="store_true", help="do not ask about the agent instructions")
     sp = add("add", cmd_add, "add a task")
     sp.add_argument("title")
     sp.add_argument("-d", "--description")
