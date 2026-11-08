@@ -485,7 +485,7 @@ def check_config(board_dir, locked=None):
     run = conf.get("run") if isinstance(conf.get("run"), dict) else {}
     if run.get("claude"):
         switches.append("run.claude (a different claude program)")
-    known = {"chat", "providers", "backup", "run", "notify", "voice", "agent_colors", "owner", "reports", "hud", "prompt", "board", "knowledge"}
+    known = {"chat", "providers", "backup", "run", "notify", "voice", "agent_colors", "owner", "reports", "hud", "prompt", "board", "knowledge", "redact"}
     other = sorted(k for k in conf if k not in known)
     out = []
     if not switches:
@@ -508,6 +508,30 @@ def check_config(board_dir, locked=None):
     if other:
         out.append(_res(INFO, "config", "other sections, not checked here: " + ", ".join(other)))
     return out
+
+
+def check_redact(board_dir):
+    """Is secret masking still on, and still the default? `[redact]` in config.toml can switch the masker off or change it, and
+    config.toml is a file any process running as you (an agent included) can edit, so a reviewer wants doctor to say so.
+    FAIL when masking is off; WARN when the default was changed (phone numbers added, or the owner's own patterns, counted and never
+    shown); PASS when the section is absent or says nothing new. Nothing from a card or a pattern is printed."""
+    try:
+        from . import redact
+        conf = redact.settings(board_dir)
+    except Exception as e:   # a broken config is reported, never raised, like the other checks
+        return [_res(WARN, "masking", f"could not read [redact] from config.toml: {type(e).__name__}")]
+    if not conf.get("enabled", True):
+        return [_res(FAIL, "masking", "secret masking is OFF: [redact] enabled = false in config.toml, so keys and tokens agents write reach "
+                                       "tasks.json, the backups, the reports and the page as written; fix: delete that line (or set it to true)")]
+    changed = []
+    if conf.get("phones"):
+        changed.append("phone numbers are masked too (phones = true)")
+    extra = conf.get("extra") or []
+    if extra:
+        changed.append(f"{len(extra)} pattern(s) of your own are added (extra = [...])")
+    if changed:
+        return [_res(WARN, "masking", "secret masking is on with changes from the default: " + "; ".join(changed) + "; make sure they are yours")]
+    return [_res(PASS, "masking", "secret masking is on with the default shapes ([redact] in config.toml is absent or unchanged)")]
 
 
 def check_knowledge(board_dir):
@@ -577,6 +601,7 @@ def run(board_dir, project=None, env=None, runner=subprocess.run):
     server_lines, locked = check_servers(board_dir, pids or [], _env_on(env, lockdown.ENV))
     results += server_lines
     results += check_config(board_dir, locked=locked)
+    results += check_redact(board_dir)
     results += check_knowledge(board_dir)
     results += check_files(board_dir)
     results += check_git(project, board_dir, runner)

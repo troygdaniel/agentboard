@@ -100,8 +100,9 @@ Uninstall completely: `agentboard hooks uninstall` in each project, `pipx uninst
 1. **No login.** Any program running as your user, or a browser extension, can read and change the board on the local port. Websites cannot
    (Host, Origin and CSP checks). A key-cookie lock exists on a parked branch (`sec-web`) and is not merged (`SECURITY.md`, Known gaps).
 2. **The masker is a shape filter.** A short password (`hunter2`), a `Basic` header with a short value, or `redis://:password@host` (empty user) are
-   stored as written; `[redact] enabled = false` in the board's `config.toml`, which any local process can edit, turns it off (`redact.py:156-170`).
-   Cards `rev1107-redact-url-empty-user` and `rev1107-redact-short-basic` are filed.
+   stored as written; `[redact] enabled = false` in the board's `config.toml`, which any local process can edit, turns it off (`redact.py:156-170`);
+   `agentboard doctor` prints `FAIL masking` when it is off and `WARN masking` when the default was changed (`doctor.py` `check_redact`,
+   `tests/test_doctor.py`). Cards `rev1107-redact-url-empty-user` and `rev1107-redact-short-basic` are filed.
 3. **A plugin is trusted code.** Install none on a managed machine; both locks refuse them.
 4. **Hard links** out of the project are not detectable by the lockdown path check (symlinks are); writing one needs write access to the project.
 5. **Reliability, not security:** `chat-listeners.json` is written without a lock and loses entries under concurrent waits (card `rev1107-listeners-race`).
