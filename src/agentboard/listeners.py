@@ -5,12 +5,22 @@ arrives: `agentboard chat inbox --name X --wait` or `agentboard answer CARD --wa
 will wake it, and the Stop hook can tell a session that is about to go quiet with no wait running to start one.
 
 A pid that is gone is not listening, whatever the file says (a killed wait leaves its entry behind); the file is pruned on the
-next write and ignored on read."""
+next write and ignored on read.
+
+Every change is a read-modify-write under one file lock (`.listeners.lock`), written atomically: twenty waits woken by one line
+to "all" re-register at the same instant and all twenty survive, and a reader never sees half a file."""
 import contextlib
 import json
 import os
 from datetime import datetime
 from pathlib import Path
+
+from . import backup
+
+try:
+    import fcntl
+except ImportError:   # not POSIX: no lock, the writes stay atomic
+    fcntl = None
 
 FILE = "chat-listeners.json"
 
@@ -29,9 +39,25 @@ def _read(board_dir):
 
 def _write(board_dir, d):
     try:
-        path(board_dir).write_text(json.dumps(d, indent=1))
+        backup.write_atomic(path(board_dir), json.dumps(d, indent=1), keep_previous=False)
     except OSError:
         pass
+
+
+@contextlib.contextmanager
+def locked(board_dir, what="listeners"):
+    """One writer at a time for one of the board's small files: an exclusive lock on `.agentboard/.<what>.lock` for the block.
+    Reads outside it are fine (the writes are atomic); a read-modify-write belongs inside."""
+    d = Path(board_dir)
+    d.mkdir(parents=True, exist_ok=True)
+    with open(d / f".{what}.lock", "a") as lf:
+        if fcntl:
+            fcntl.flock(lf, fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            if fcntl:
+                fcntl.flock(lf, fcntl.LOCK_UN)
 
 
 def alive(pid):
@@ -52,20 +78,22 @@ def _live(d):
 def register(board_dir, name, what, pid=None):
     """Record that `name`'s session is waiting (`what`: 'inbox' or 'answer <card>'). Returns the pid written."""
     pid = pid or os.getpid()
-    d = _live(_read(board_dir))
-    d[str(name)] = {"pid": pid, "since": datetime.now().strftime("%Y-%m-%dT%H:%M:%S"), "what": str(what)[:80]}
-    _write(board_dir, d)
+    with locked(board_dir):
+        d = _live(_read(board_dir))
+        d[str(name)] = {"pid": pid, "since": datetime.now().strftime("%Y-%m-%dT%H:%M:%S"), "what": str(what)[:80]}
+        _write(board_dir, d)
     return pid
 
 
 def unregister(board_dir, name, pid=None):
     """Take `name`'s entry out, but only the one this pid wrote: two waits by the same name do not clear each other."""
     pid = pid or os.getpid()
-    d = _read(board_dir)
-    rec = d.get(str(name))
-    if isinstance(rec, dict) and rec.get("pid") == pid:
-        del d[str(name)]
-        _write(board_dir, _live(d))
+    with locked(board_dir):
+        d = _read(board_dir)
+        rec = d.get(str(name))
+        if isinstance(rec, dict) and rec.get("pid") == pid:
+            del d[str(name)]
+            _write(board_dir, _live(d))
 
 
 @contextlib.contextmanager

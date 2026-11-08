@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### The listener file survives twenty waits waking at once (Nov 7)
+- `chat-listeners.json` (who has a `chat inbox --wait` or `answer --wait` running) was read, changed and written back with no lock
+  and a plain write: a line to `all` woke every wait at the same instant, each exited and re-registered, and most registrations
+  vanished (20 threads registering at once left 0 of 20), so the panel said agents were not listening and offered Nudge for sessions
+  whose wait was running; a reader could also catch half a file. Register and unregister now run under one file lock
+  (`.agentboard/.listeners.lock`) and the file is replaced atomically, with no `.bak`. Found by the Nov 7 merge review
+  (`rev1107-listeners-race`); tests run twenty threads and twelve processes at once.
+
 ### The audit page and SECURITY.md say what was decided (Nov 7)
 - The login fix (`sec-local-token`) is no longer "held": the owner decided not to merge it, so the board has no login and the docs now say that plainly (the branch is parked, not deleted). The page also stops listing the two secret-masking cards as open; both are done. Documentation only.
 
