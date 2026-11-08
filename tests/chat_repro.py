@@ -101,16 +101,17 @@ a = cli("chat", "inbox", "--name", "R4", "--wait", "600", name="R4")
 time.sleep(1.2)
 b = cli("chat", "inbox", "--name", "R4", "--wait", "3", name="R4")   # a second AGENT-N row: same name, shorter wait
 time.sleep(1.2)
-entry = listeners.listening(BOARD).get("R4")
+entry = listeners.listening(BOARD).get("R4") or {}
 owner_says("one line, two sessions", to="R4")
 oa, ob = a.communicate(timeout=20)[0], b.communicate(timeout=20)[0]
 got = sum(1 for o in (oa, ob) if "one line, two sessions" in o)
-say("R4a", f"two sessions named R4 and one line to R4: {got} of 2 sessions got it (both will answer); the registry held {1 if entry else 0} entry for the pair while both ran")
+warned = sum(1 for o in (oa, ob) if "sessions are listening as R4" in o)
+say("R4a", f"two sessions named R4 and one line to R4: {got} of 2 sessions got it (both will answer); the board showed {entry.get('sessions', 0)} sessions for the name while both ran and {warned} of them was warned at registration (before chat-f4: 1 entry, no warning)")
 a = cli("chat", "inbox", "--name", "R4", "--wait", "600", name="R4")
 time.sleep(1.2)
 b = cli("chat", "inbox", "--name", "R4", "--wait", "2", name="R4")
 b.communicate(timeout=20)
-say("R4b", f"the second one's wait ends (timeout): the first is still running (pid alive={listeners.alive(a.pid)}) but the board says listening={listeners.is_listening(BOARD, 'R4')} -> a false 'nobody is listening' warning")
+say("R4b", f"the second one's wait ends (timeout): the first is still running (pid alive={listeners.alive(a.pid)}) and the board says listening={listeners.is_listening(BOARD, 'R4')}, {listeners.sessions(BOARD, 'R4')} session (before chat-f4: listening=False, a false 'nobody is listening' warning)")
 a.kill()
 a.wait()
 

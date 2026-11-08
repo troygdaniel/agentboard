@@ -20,6 +20,15 @@
 - Still behind the switch: a line to an agent, ORCH or `all`, a heads-up about files, and an unaddressed reply to another agent's line.
   A long line to an agent is still refused. The refusal, the switch-off notice, `chat agents status` and the README say so.
 
+### Two sessions under one name are two listeners, not one (Nov 7)
+- The listener file kept one entry per name, so two sessions named alike overwrote each other: one line to the name woke both and
+  both answered, and when the shorter-lived one ended the board said nobody was listening while the other still was, and offered a
+  Nudge for it (`tests/chat_repro.py` R4a, R4b). Now each process is its own entry under the name (an older file still reads), a
+  session removes only its own, "listening" holds while any is left, and the board shows an amber "N sessions" chip on the name in
+  the thread head and under your line's receipt. A second wait starting under a live name is told so in its terminal (not in the chat: a
+  line to the name would wake both waits). The Stop hook no longer counts one of the board's own notices as an unanswered owner line.
+  Fix F4 of `docs/conversation-reliability-analysis.md`.
+
 ### Receipts in two steps: delivered when printed, seen when the session acts (Nov 7)
 - `chat inbox --wait` advanced the agent's cursor the moment it printed, so a line printed to a session that had died, or never read
   its output, counted as read and never came back; the panel said "read" for a line no model saw (`tests/chat_repro.py` R2). Now

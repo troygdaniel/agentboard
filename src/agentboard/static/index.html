@@ -835,6 +835,7 @@
   .te-bar b { display: block; height: 100%; background: var(--neutral); }
   .te-text.clamp { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
   .chip.by { color: var(--err); }
+  .chip.sessions { color: color-mix(in srgb, var(--warn) 78%, var(--text)); margin-left: 6px; font-size: var(--fs-xs); }   /* two sessions answer to one name (chat-f4) */
   .srcrow { margin-top: 6px; }
   .chip.src { color: var(--info); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--info) 40%, var(--line)); }   /* a card made from outside the board (a plugin's chip: AB.chip) */
   .tl .fmt li { position: static; padding: 0; font-size: inherit; } .tl .fmt li::before, .tl .fmt li::after { content: none; }
@@ -2118,6 +2119,10 @@ function chatBubble(m) {
 // session (the board itself cannot reach a session). A line delivered but not seen in 5 minutes comes again with the next inbox read.
 const RECEIPT_WARN_S = 60, RESHOW_S = 300;
 const nameKey = (obj, name) => Object.keys(obj || {}).find(k => sameName(k, name));
+function sessionsChip(name) {   // "2 sessions": more than one live session answers to this name; a line reaches both and both may answer
+  const k = nameKey(chatReceipts.listening, name), n = k && chatReceipts.listening[k].sessions;
+  return n > 1 ? `<span class="chip sessions" title="${n} sessions answer to ${esc(name)}. A line reaches all of them and each may answer. Rename one with /rename in that session.">${n} sessions</span>` : '';
+}
 function receiptOf(m) {
   if (m.kind !== 'user' || !m.to || m.to === 'all' || toOwner(m) || m.via) return null;
   const to = m.to;
@@ -2135,8 +2140,9 @@ function receiptOf(m) {
 function receiptHtml(m) {
   const r = receiptOf(m);
   if (!r) return '';
-  if (r.state === 'delivered' && r.late) return `<div class="cmsg-rcpt delivered late"><span class="st">delivered</span><span class="warn">Not seen in 5 min: it comes again with the next inbox read.</span></div>`;
-  if (r.state !== 'sent' || !r.late) return `<div class="cmsg-rcpt ${r.state}"><span class="st">${r.state}</span></div>`;
+  const twins = sessionsChip(m.to);
+  if (r.state === 'delivered' && r.late) return `<div class="cmsg-rcpt delivered late"><span class="st">delivered</span>${twins}<span class="warn">Not seen in 5 min: it comes again with the next inbox read.</span></div>`;
+  if (r.state !== 'sent' || !r.late) return `<div class="cmsg-rcpt ${r.state}"><span class="st">${r.state}</span>${twins}</div>`;
   const to = esc(m.to);
   let warn, act = '';
   if (isOrch(m.to)) warn = r.listening ? `ORCH is listening but has not read this yet: it is in the middle of something` : `ORCH is not listening: nothing on the board wakes it. Type in its terminal, or boot one with Copy prompt`;
@@ -2146,7 +2152,7 @@ function receiptHtml(m) {
     act = m.nudged ? `<span class="nudged">asked ORCH to message it ${esc(ago(m.nudged).text)}</span>`
       : `<button class="btn" type="button" data-nudge="${m.seq}" title="${r.orch ? 'ORCH is listening: it messages the session' : 'ORCH is not listening either: the ask waits in its drawer'}">Nudge via ORCH</button>`;
   }
-  return `<div class="cmsg-rcpt sent late"><span class="st">sent</span><span class="warn">${warn}</span>${act}</div>`;
+  return `<div class="cmsg-rcpt sent late"><span class="st">sent</span>${twins}<span class="warn">${warn}</span>${act}</div>`;
 }
 document.addEventListener('click', async e => {   // the receipt sits in the ORCH drawer, the agent thread and the card panel alike
   const b = e.target.closest('[data-nudge]'); if (!b) return;
@@ -2183,7 +2189,7 @@ function threadHeadHtml(name) {
   const cur = cards.find(t => t.needs_input) || cards.find(t => t.review) || cards[0];
   const line1 = `${STATE_WORD2[st] || st}${last ? ` · last update ${ago(last).text}` : ''}${cards.length > 1 ? ` · ${cards.length} cards` : ''}`;
   const line2 = cur ? `on <button class="th-card" type="button" data-open="${esc(cur.id)}">${esc(cur.title)}</button>${cur.needs_input ? ' · <span class="st ask">waiting on you</span>' : cur.review ? ' · <span class="st rev">up for review</span>' : ''}` : 'no card in Doing';
-  return `<span class="av" style="--c:${agentColor(name)}" aria-hidden="true">${esc(nodeGlyph(name))}</span><div class="th-lines"><span class="th-name">${esc(name)}</span><span class="th-line">${line1}</span><span class="th-line">${line2}</span></div>`;
+  return `<span class="av" style="--c:${agentColor(name)}" aria-hidden="true">${esc(nodeGlyph(name))}</span><div class="th-lines"><span class="th-name">${esc(name)}${sessionsChip(name)}</span><span class="th-line">${line1}</span><span class="th-line">${line2}</span></div>`;
 }
 function threadBodyHtml(name) {
   const [recent, older] = recentOf(chatMsgs.filter(m => inThread(m, name)), name);
