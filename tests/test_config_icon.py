@@ -45,7 +45,7 @@ class HeaderTests(unittest.TestCase):
     def test_one_gear_in_the_icon_group_on_every_view(self):
         self.assertIn('id="cfg-btn" aria-label="Settings (m)" title="Settings" aria-controls="mix"', ICONS)
         self.assertNotIn('id="snd2"', HEADER)                            # sound on/off lives in Settings now
-        self.assertIn("#theme, #cfg-btn { width: 44px; height: 44px;", HTML)
+        self.assertIn("#theme, #cfg-btn, #help-btn { width: 44px; height: 44px;", HTML)
         self.assertEqual(ICONS.count('id="cfg-btn"'), 1)
         self.assertIn("$('cfg-btn').onclick = () => toggleMix();", HTML)
         self.assertIn("if (open) $('mix').querySelector('input').focus(); else $('cfg-btn').focus();", HTML)

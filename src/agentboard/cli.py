@@ -29,7 +29,10 @@ from . import runs as runslib
 from . import untrusted
 from .server import serve
 from . import boards as boardlib
+from . import demo as demolib
 from .store import CHAT_TOPICS, DIR_NAME, BoardError, Store, find_dir, subtask_counts
+
+DEFAULT_PORT = 8765
 
 SAMPLE_CONFIG = '''\
 # agentboard config. Providers add context to task prompts.
@@ -111,8 +114,30 @@ def _store():
     return Store(find_dir())
 
 
+def _ask_yes(question):
+    """A yes/no question to a person at a terminal. Anything but y/yes is no; a closed stdin or Ctrl-D is no too."""
+    try:
+        return input(question + " [y/N] ").strip().lower() in ("y", "yes")
+    except (EOFError, KeyboardInterrupt):
+        print()
+        return False
+
+
+def _board_above(here):
+    """The nearest .agentboard/ in a folder ABOVE `here`, or None: `init` here would start a second board next to it."""
+    for d in here.parents:
+        if (d / DIR_NAME).is_dir():
+            return d / DIR_NAME
+    return None
+
+
 def cmd_init(a):
-    d = Path.cwd() / DIR_NAME
+    """Set up a board in this folder, then say what to do next. At a terminal (and unless --demo or --no-demo says otherwise) it asks one
+    question: whether to add sample cards. Run again in a folder that already has a board, it changes nothing and says so."""
+    here = Path.cwd()
+    d = here / DIR_NAME
+    existed = (d / "tasks.json").exists() and (d / "tasks.json").read_text().strip() not in ("", '{"tasks": []}')
+    above = None if d.is_dir() else _board_above(here)
     d.mkdir(exist_ok=True)
     cfg = d / "config.toml"
     if not cfg.exists():
@@ -122,9 +147,22 @@ def cmd_init(a):
         (d / "tasks.json").write_text('{"tasks": []}')
     private.tighten_dir(d)
     with private.as_user():   # the project's own .gitignore is not board data
-        ignored = _gitignore_board(Path.cwd())
-    print(f"initialized {d}" + (f"\nadded {DIR_NAME}/ to .gitignore (task data can hold private context)" if ignored else "")
-          + "\nnext: agentboard add \"My first task\" --status todo && agentboard serve")
+        ignored = _gitignore_board(here)
+    lines = [f"{'a board was already set up here, nothing was changed' if existed else 'set up a board'}: {d}"]
+    if ignored:
+        lines.append(f"added {DIR_NAME}/ to .gitignore (task data can hold private context)")
+    if above is not None:
+        lines.append(f"note: {above} is a board in a folder above this one; agents run from here use this new board, not that one")
+    print("\n".join(lines))
+    want_demo = getattr(a, "demo", False)
+    if not existed and not want_demo and not getattr(a, "no_demo", False) and sys.stdin.isatty() and sys.stdout.isatty():
+        want_demo = _ask_yes("Add a few sample cards so the board is not empty? (`agentboard rm --demo` removes them)")
+    if want_demo and not existed:
+        cmd_demo(argparse.Namespace(live=False, minutes=0))
+    print("next:\n"
+          "  agentboard serve         show the board in your browser (http://localhost:8765; Ctrl+C stops it)\n"
+          + ("" if want_demo else "  agentboard demo          sample cards, to look around first (`agentboard rm --demo` removes them)\n")
+          + "  agentboard instructions  the lines to paste into your agents' CLAUDE.md or AGENTS.md, so they report here")
 
 
 def _gitignore_board(root):
@@ -144,7 +182,7 @@ def cmd_add(a):
     t = _store().add(a.title, a.description or "", a.status, a.ctx, a.id, blocked_by=a.blocked_by,
                      parent_id=a.parent)
     print(f"added {t['id']} ({t['status']})")
-    if not a.parent:   # stderr, so a script reading the line above is unaffected
+    if not a.parent and not sys.stderr.isatty():   # for an agent adding cards (stderr, so a script reading the line above is unaffected); a person at a terminal has no use for it
         print("reminder: every card gets subtasks. The agent adds them as soon as it starts; the card prompt says so, "
               "so there is no need to put it in the description.", file=sys.stderr)
 
@@ -197,10 +235,15 @@ def cmd_list(a):
     tasks = s.load()
     counts = subtask_counts(tasks)
     ids = {t["id"] for t in tasks}
+    if not tasks and sys.stdout.isatty():
+        print('nothing on the board yet. Add a task: agentboard add "My first task" --status todo   (or look around: agentboard demo)', file=sys.stderr)
     for t in _tree_order(tasks):
         if t.get("archived") and not a.all:
             continue
         if a.status and t["status"] != a.status:
+            continue
+        who = getattr(a, "agent", None)   # (a caller that builds its own arguments, as a test does, may not have the flag)
+        if who and (t.get("agent") or "").lower() != who.lower():
             continue
         idle = hudlib.minutes_idle(t)
         stale = idle is not None and idle >= threshold
@@ -947,23 +990,7 @@ def cmd_instructions(a):
 def cmd_demo(a):
     """Fill the board with sample work so the UI has something to show. Idempotent."""
     s = _store()
-
-    def seed(fn, *args, **kw):
-        try:
-            fn(*args, **kw)
-        except BoardError:
-            pass  # already seeded on an earlier run
-
-    seed(s.add,"Write release notes", "v2.4 changelog from merged PRs.", "todo", task_id="demo-release-notes")
-    seed(s.add, "Audit npm dependencies", "Flag anything unmaintained or with open CVEs.", "backlog", task_id="demo-audit")
-    seed(s.start, "Refactor billing module", "atlas", "#3b82f6", task_id="demo-billing")
-    for pct, text in ((20, "Mapped call sites (41 files)"), (45, "Extracted BillingService, tests green"),
-                      (70, "Updating call sites in invoices/")):
-        seed(s.update, "demo-billing", pct, text)
-    seed(s.start, "Draft API docs", "scribe", "#6366f1", task_id="demo-docs")
-    seed(s.update, "demo-docs", 30, "Reading route handlers")
-    seed(s.start, "Set up CI", "bolt", "#8b5cf6", task_id="demo-ci")
-    seed(s.update, "demo-ci", text="GitHub Actions: lint, test, deploy in 3 jobs", status="done")
+    demolib.seed(s)
     print("added sample tasks (ids start with demo-); remove with: agentboard rm --demo")
     if a.live:
         _demo_live(s, a.minutes)
@@ -1074,6 +1101,8 @@ def cmd_update(a):
     kids = [k for k in s.load() if k.get("parent_id") == a.id]
     pct, text = _pct_and_text(a)
     t = s.update(a.id, pct, text, body_md=_read_body(a))
+    if pct is not None and not 0 <= pct <= 100:
+        print(f"note: progress is 0 to 100; {pct} was taken as {t['progress']}", file=sys.stderr)
     if kids:
         print(f"{t['id']}: Σ {t['progress']}% (a parent's % is computed from its subtasks; update those instead)")
     elif t["status"] == "done" and t.get("parent_id"):
@@ -1435,7 +1464,64 @@ def cmd_redact(a):
 
 
 def cmd_serve(a):
+    if not 1 <= a.port <= 65535:
+        raise BoardError(f"--port must be a number from 1 to 65535 (the default is {DEFAULT_PORT}), got {a.port}")
     serve(_store(), a.port, not a.no_open)
+
+
+WELCOME = """agentboard {version}: a live board for the AI coding agents you run in parallel. Local only: no account, nothing leaves this machine.
+
+New here? In your project folder:
+  agentboard init           set up a board here
+  agentboard serve          show it in your browser (http://localhost:{port}; Ctrl+C stops it)
+  agentboard instructions   the lines to paste into your agents' CLAUDE.md or AGENTS.md, so they report to it
+
+Day to day:
+  agentboard list           what is on the board          agentboard add "Fix login" --status todo
+  agentboard demo           sample cards to look around   agentboard doctor    check this install
+
+Help for any command: agentboard <command> -h.   Every command: agentboard -h"""
+
+
+def _welcome():
+    """What a bare `agentboard` prints: what it is, the three first steps, and (when one is in reach) where this folder's board is."""
+    text = WELCOME.format(version=__version__, port=DEFAULT_PORT)
+    try:
+        d = find_dir()
+        n = sum(1 for t in Store(d).load() if not t.get("parent_id"))
+        text += f"\n\nThis folder's board: {d} ({n} task{'s' if n != 1 else ''}). `agentboard serve` shows it."
+    except BoardError:
+        pass
+    return text
+
+
+class _Parser(argparse.ArgumentParser):
+    """argparse, with two friendlier errors at the top level: no command at all prints the welcome (it is a first look, not a mistake), and
+    an unknown command names the closest real one instead of listing all of them."""
+
+    def error(self, message):
+        if "arguments are required: cmd" in message:
+            print(_welcome())
+            raise SystemExit(0)
+        m = re.match(r"argument cmd: invalid choice: '(.*)' \(choose from (.*)\)$", message, re.S)
+        if m:
+            import difflib
+            word, names = m.group(1), [x.strip().strip("'") for x in m.group(2).split(",")]
+            near = difflib.get_close_matches(word, names, n=3, cutoff=0.6)
+            print(f"agentboard: invalid choice: '{word}' (no such command)" + (f". Did you mean: {', '.join(near)}?" if near else "")
+                  + "\nRun `agentboard` with no arguments for the short guide, or `agentboard -h` for every command.", file=sys.stderr)
+            raise SystemExit(2)
+        super().error(message)
+
+
+def _plugin_installed():
+    """Whether any plugin package is installed, from package metadata only (nothing is imported or run): with none, the hint below would
+    only confuse a person who made a typo."""
+    try:
+        from importlib.metadata import entry_points
+        return any(True for _ in entry_points(group=plugins.GROUP))
+    except Exception:   # noqa: BLE001  (odd metadata is no hint, never a crash)
+        return False
 
 
 def _plugins_off_hint(argv, sub, code):
@@ -1448,7 +1534,7 @@ def _plugins_off_hint(argv, sub, code):
     while toks and toks[0].startswith("-"):
         toks = toks[2:] if toks[0] == "--board" else toks[1:]
     why = plugins.disabled_reason()
-    if toks and toks[0] not in sub.choices and why:
+    if toks and toks[0] not in sub.choices and why and _plugin_installed():
         print(f"agentboard: plugins are {why}: a command a plugin adds is not available here; run it from the board's shell, with its environment",
               file=sys.stderr)
 
@@ -1456,7 +1542,8 @@ def _plugins_off_hint(argv, sub, code):
 def main(argv=None):
     if argv is None:   # the real command line, not a test calling main([...]): private files from here on (private.py)
         private.tighten_process()
-    p = argparse.ArgumentParser(prog="agentboard", description="Kanban board for parallel CLI agents")
+    p = _Parser(prog="agentboard", description="Kanban board for parallel CLI agents",
+                epilog="New here? Run `agentboard` with no arguments for the short guide.")
     p.add_argument("--version", action="version", version=__version__)
     p.add_argument("--board", metavar="NAME", help="use this registered board from any folder (or $AGENTBOARD_BOARD); see `agentboard board list`")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -1466,7 +1553,9 @@ def main(argv=None):
         sp.set_defaults(fn=fn)
         return sp
 
-    add("init", cmd_init, "create .agentboard/ in the current directory")
+    sp = add("init", cmd_init, "set up a board in the current directory, then say what to do next")
+    sp.add_argument("--demo", action="store_true", help="also add a few sample cards (at a terminal, init asks; this skips the question)")
+    sp.add_argument("--no-demo", action="store_true", help="do not ask about sample cards")
     sp = add("add", cmd_add, "add a task")
     sp.add_argument("title")
     sp.add_argument("-d", "--description")
@@ -1491,7 +1580,8 @@ def main(argv=None):
     g.add_argument("--append", help="add this text under the existing description (the old text is kept)")
     g.add_argument("--append-file", help="add a file's text under the existing description")
     sp = add("list", cmd_list, "list tasks")
-    sp.add_argument("--status")
+    sp.add_argument("--status", choices=["backlog", "todo", "doing", "done"], help="only this column (backlog is Later)")
+    sp.add_argument("--agent", metavar="NAME", help="only this agent's tasks (any capitals)")
     sp.add_argument("--all", action="store_true", help="include archived tasks")
     sp.add_argument("--stale", action="store_true",
                      help="only show Doing tasks idle past the stale threshold (default "
@@ -1615,8 +1705,8 @@ def main(argv=None):
     sp = add("redact", cmd_redact, "show the secret-shaped text already on the board (--apply masks it, after a snapshot)")
     sp.add_argument("--apply", action="store_true")
     sp = add("serve", cmd_serve, "run the board at http://localhost:8765")
-    sp.add_argument("--port", type=int, default=8765)
-    sp.add_argument("--no-open", action="store_true")
+    sp.add_argument("--port", type=int, default=DEFAULT_PORT, help=f"the port to listen on (default {DEFAULT_PORT}); try another when it is busy")
+    sp.add_argument("--no-open", action="store_true", help="do not open a browser window (the address is printed either way)")
 
     sp = add("run", cmd_run, "run a card with a one-shot, non-interactive `claude -p`, then move it to review (or ask)")
     sp.add_argument("id")
@@ -1738,7 +1828,10 @@ def main(argv=None):
     try:
         a.fn(a)
     except BoardError as e:
-        sys.exit(f"agentboard: {e}")
+        msg = str(e)
+        if msg.startswith("no such task: ") and "agentboard list" not in msg:
+            msg += ("" if msg.endswith(")") else " (`agentboard list` shows the ids)")
+        sys.exit(f"agentboard: {msg}")
 
 
 if __name__ == "__main__":
