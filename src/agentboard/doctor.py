@@ -4,7 +4,9 @@ It changes nothing and opens no socket of its own: it reads files, and asks the 
 Every line is PASS, WARN, FAIL or INFO. FAIL means a claim the board makes is not true on this machine; WARN means something worth a look
 (often "a lock is not set"); INFO is just what is there. It never prints a secret: where it finds something key-shaped it says the kind,
 the file and the line, not the text. It names no feature of the board: lock variables and network-capable modules are found by reading
-the installed package, so it stays right when a feature moves out into a plugin.
+the installed package, so it stays right when a feature moves out into a plugin. With plugins ON (the machine's key, no lock) it also
+loads them exactly as `agentboard serve` would, says which failed (by error class), and prints each plugin's own checks as <plugin>:<name>
+lines (masked, one line each); with plugins off or locked, nothing is imported.
 
     agentboard doctor [--project DIR] [--strict]      exit 1 on any FAIL (with --strict, on any WARN too)
 """
@@ -17,10 +19,13 @@ from pathlib import Path
 
 from . import __version__, lockdown
 from . import prompt as promptlib
-from . import plugins, providers, serverstate
+from . import plugins, providers, redact, serverstate, untrusted
 from .store import BoardError
 
 PASS, WARN, FAIL, INFO = "PASS", "WARN", "FAIL", "INFO"
+LEVELS = (PASS, WARN, FAIL, INFO)
+PLUGIN_LINE_MAX = 400     # a plugin's doctor line is cut here (after masking)
+PLUGIN_LINES_MAX = 40     # lines one plugin may add
 TIMEOUT_S = 10
 MAX_FILES = 3000          # tracked files scanned for key-shaped strings
 MAX_BYTES = 1_000_000     # a bigger file is skipped
@@ -157,6 +162,50 @@ def check_plugins():
         return [_res(WARN, "plugins", f"plugins are ON (${plugins.ENV}=1, no lock): code from {named} runs inside agentboard, with the same access as the board")]
     tail = f"; installed but not loaded: {named}" if eps else ("; none are installed" if eps == [] else "")
     return [_res(PASS, "plugins", f"plugins are {why}: nothing is looked up, imported or run{tail}")]
+
+
+def check_plugin_load(board_dir):
+    """With plugins ON, load them the way `agentboard serve` does and say which loaded and which failed (by error class only), then run
+    each loaded plugin's own doctor checks (api.add_doctor). With plugins off or locked nothing is imported: check_plugins has said so.
+
+    A plugin's lines are its own claims about its own setup; the core only shapes them: the level must be one of ours, the name becomes
+    <plugin>:<name>, the text is one line with nothing invisible, secret-masked and cut, and a check that raises or returns the wrong
+    shape is one FAIL line naming the class. Loading a plugin runs its register() (code you installed and switched on), nothing more."""
+    if not plugins.enabled():
+        return []
+    out = []
+    try:
+        loaded = plugins.load()
+    except Exception as e:   # noqa: BLE001  (listing or loading must never crash the report)
+        return [_res(FAIL, "plugin", f"plugins could not be loaded: {e.__class__.__name__}")]
+    for name, cls in plugins.failed():
+        out.append(_res(FAIL, "plugin", f"plugin {name or '?'} failed to load: {cls} (the same load `agentboard serve` does; the board runs without it). "
+                                        f"Reinstall it, then: python3 -c 'from importlib.metadata import entry_points as e; [x.load() for x in e(group=\"{plugins.GROUP}\")]'"))
+    for name in loaded:
+        out.append(_res(PASS, "plugin", f"plugin {name} loads (the same load `agentboard serve` does)"))
+    conf = redact.settings(board_dir)
+    for pname, fn in plugins.doctor_checks():
+        try:
+            lines = list(fn(Path(board_dir)))
+        except Exception as e:   # noqa: BLE001  (a plugin's check must never stop the report; only its class name is kept)
+            out.append(_res(FAIL, pname, f"its doctor check raised {e.__class__.__name__}"))
+            continue
+        for item in lines[:PLUGIN_LINES_MAX]:
+            out.append(_plugin_line(pname, item, board_dir, conf))
+        if len(lines) > PLUGIN_LINES_MAX:
+            out.append(_res(INFO, pname, f"and {len(lines) - PLUGIN_LINES_MAX} more line(s) not shown"))
+    return out
+
+
+def _plugin_line(pname, item, board_dir, conf):
+    """One (level, name, text) from a plugin, shaped for the report: a bad shape is a FAIL that says so, never a crash."""
+    if not (isinstance(item, (tuple, list)) and len(item) == 3 and item[0] in LEVELS and isinstance(item[1], str) and isinstance(item[2], str)):
+        return _res(FAIL, pname, "its doctor check returned a line that is not (level, name, text)")
+    level, name, text = item
+    name = re.sub(r"[^a-z0-9_-]", "", name.lower())[:24] or "check"
+    text = " ".join(untrusted.text_lines(text)).strip()
+    text = redact.scrub(text, board_dir, conf=conf, bound=2 * PLUGIN_LINE_MAX)
+    return _res(level, f"{pname}:{name}", text[:PLUGIN_LINE_MAX] or "(no text)")
 
 
 def _board_pids(runner):
@@ -522,6 +571,7 @@ def run(board_dir, project=None, env=None, runner=subprocess.run):
     results += check_install()
     results += check_locks(env)
     results += check_plugins()
+    results += check_plugin_load(board_dir)
     pids = _board_pids(runner)
     results += check_listeners(runner, pids)
     server_lines, locked = check_servers(board_dir, pids or [], _env_on(env, lockdown.ENV))
