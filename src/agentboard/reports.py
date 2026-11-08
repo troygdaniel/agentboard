@@ -201,9 +201,9 @@ def extras_md(board_dir, card_id):
 
 # -- the page -----------------------------------------------------------------------------------------------------------------------
 CSS = """
-:root{color-scheme:light dark;--bg:#fafaf8;--fg:#17171a;--mut:#6b6b73;--line:#e2e2de;--card:#fff;--ok:#1d7a4a;--err:#b42318;--ac:#2f6fed}
-@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0e1116;--fg:#ececf1;--mut:#9aa0ad;--line:#262b36;--card:#151a22;--ok:#4cc38a;--err:#ff7a70;--ac:#7aa2ff}}
-:root[data-theme="dark"]{color-scheme:dark;--bg:#0e1116;--fg:#ececf1;--mut:#9aa0ad;--line:#262b36;--card:#151a22;--ok:#4cc38a;--err:#ff7a70;--ac:#7aa2ff}:root[data-theme="light"]{color-scheme:light}
+:root{color-scheme:light dark;--bg:#fafaf8;--fg:#17171a;--mut:#6b6b73;--line:#e2e2de;--card:#fff;--ok:#1d7a4a;--on-ok:#fff;--err:#b42318;--ac:#1d4ed8}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0e1116;--fg:#ececf1;--mut:#9aa0ad;--line:#262b36;--card:#151a22;--ok:#4cc38a;--on-ok:#06210f;--err:#ff7a70;--ac:#7aa2ff}}
+:root[data-theme="dark"]{color-scheme:dark;--bg:#0e1116;--fg:#ececf1;--mut:#9aa0ad;--line:#262b36;--card:#151a22;--ok:#4cc38a;--on-ok:#06210f;--err:#ff7a70;--ac:#7aa2ff}:root[data-theme="light"]{color-scheme:light}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
 main{max-width:46rem;margin:0 auto;padding:24px 16px 64px}h1{font-size:24px;margin:0 0 4px;line-height:1.25}h2{font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--mut);margin:28px 0 8px}
 .meta{color:var(--mut);font-size:14px;margin:0}.action{margin:18px 0 0;padding:14px 16px;border-radius:12px;border:1px solid var(--line);background:var(--card);border-left:6px solid var(--ok);font-size:20px;font-weight:600;line-height:1.35}
@@ -220,7 +220,8 @@ button,input{font:inherit;border-radius:10px;border:1px solid var(--line);paddin
 .tl time{color:var(--mut);font-size:12px;margin-right:6px}.cm{list-style:none;padding:0;margin:6px 0}.cm li{display:flex;gap:8px;align-items:baseline;margin:4px 0}.cm a,.cm code{flex:none}
 .steps{padding-left:22px}.steps li{margin:5px 0}.pills a{display:inline-block;margin:4px 6px 0 0;padding:4px 12px;border:1px solid var(--line);border-radius:99px;text-decoration:none;font-size:14px;background:var(--card)}
 .bars{display:grid;gap:5px;margin:6px 0}.bars div{display:grid;grid-template-columns:8rem 1fr 2.2rem;gap:8px;align-items:center;font-size:13px}.bars i{display:block;height:8px;border-radius:4px;background:var(--ac);opacity:.75}
-button.go{background:var(--ok);color:#fff;border-color:var(--ok);font-weight:600}input{flex:1;min-width:12rem}#msg{width:100%;margin:0;color:var(--mut)}
+button.go{background:var(--ok);color:var(--on-ok);border-color:var(--ok);font-weight:600}input{flex:1;min-width:12rem}#msg{width:100%;margin:0;color:var(--mut)}
+.rl{list-style:none;padding:0;margin:14px 0 0}.rl li{margin:0;padding:3px 0;border-bottom:1px solid var(--line)}.rl a{display:inline-block;min-height:24px;padding:3px 0;font-weight:500}.rl .meta{display:block;font-size:13px}
 """
 
 JS = """
@@ -422,10 +423,25 @@ def list_lines(board_dir):
     return rows
 
 
+def _title_of(board_dir, name):
+    """The card's title as the report page itself names it (`<title>Title: report</title>`), or "" when it cannot be read."""
+    try:
+        with open(reports_dir(board_dir) / name, encoding="utf-8", errors="replace") as f:
+            m = re.search(r"<title>(.*?): report</title>", f.read(4096), re.S)
+    except OSError:
+        return ""
+    return html.unescape(m.group(1)).strip() if m else ""
+
+
 def index_html(board_dir, base=""):
     e = html.escape
-    items = "".join(f'<li><a href="{e(base)}/reports/{e(r["file"])}">{e(r["card"])}</a> <span class="meta">{e(r["at"].strftime("%d %b %H:%M"))}</span></li>' for r in list_reports(board_dir))
+
+    def row(r):   # the title reads as the link (the card id is a slug cut mid-word); the id and the time sit under it
+        title = _title_of(board_dir, r["file"]) or r["card"]
+        who = "" if title == r["card"] else e(r["card"]) + " · "
+        return f'<li><a href="{e(base)}/reports/{e(r["file"])}">{e(title)}</a><span class="meta">{who}{e(r["at"].strftime("%d %b %H:%M"))}</span></li>'
+    items = "".join(row(r) for r in list_reports(board_dir))
     return (f'<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Reports</title>'
             f"<style>{CSS}{nav.CSS}</style></head><body>{nav.top_bar(base, 'reports')}<main><h1>Reports</h1><p class=\"meta\">Newest first. Older ones are removed after {keep_hours(board_dir):g} hours; the newest per card stays.</p>"
-            + (f"<ul>{items}</ul>" if items else '<p class="none">No reports yet. One is written when a card enters review or done.</p>') + "</main></body></html>")
+            + (f'<ul class="rl">{items}</ul>' if items else '<p class="none">No reports yet. One is written when a card enters review or done.</p>') + "</main></body></html>")
 

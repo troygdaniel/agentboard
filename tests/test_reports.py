@@ -3,6 +3,7 @@ import contextlib
 import io
 import json
 import os
+import re
 import socket
 import subprocess
 import tempfile
@@ -45,6 +46,31 @@ class Base(unittest.TestCase):
         cid = card or self.s.load()[-1]["id"]
         self.s.review(cid, sentence, body)
         return cid
+
+
+class TheIndexReadsAsTitles(Base):
+    """The list named each report by its card id, a slug cut mid-word ("make-the-backup-restore-safe-on-a-clean"). It now reads as the card's title,
+    with the id and the time under it, and every row is a 24px target."""
+
+    def test_a_row_is_the_title_with_the_id_and_time_under_it(self):
+        cid = self.review("Make the backup restore safe on a clean machine")
+        page = reports.index_html(self.s.dir)
+        self.assertIn('<ul class="rl">', page)
+        self.assertEqual(page.count("<li>"), 1)
+        self.assertRegex(page, r'<a href="/reports/[^"]+">Make the backup restore safe on a clean machine</a><span class="meta">' + re.escape(cid) + r' · \d\d \w{3} \d\d:\d\d</span>')
+
+    def test_a_title_is_escaped_in_the_list(self):
+        self.review("<b>bold</b> & more")
+        page = reports.index_html(self.s.dir)
+        self.assertIn("&lt;b&gt;bold&lt;/b&gt; &amp; more", page)
+        self.assertNotIn("<b>bold</b>", page)
+
+    def test_a_report_with_no_readable_title_falls_back_to_its_card_id(self):
+        cid = self.review("Trim bundle size")
+        (reports.reports_dir(self.s.dir) / self.files()[0]).write_text("not a report page")
+        page = reports.index_html(self.s.dir)
+        self.assertIn(f">{cid}</a>", page)
+        self.assertNotIn(f"{cid} · ", page)
 
 
 class WritingTests(Base):

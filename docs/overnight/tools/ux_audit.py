@@ -26,7 +26,9 @@ PAGE_JS = r"""
   const ratio = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + .05) / (Math.min(x, y) + .05); };
   const visible = e => { const cs = getComputedStyle(e); if (cs.visibility === 'hidden' || cs.display === 'none') return false; const r = e.getBoundingClientRect(); if (r.width < 1 || r.height < 1) return false;
     for (let n = e; n && n !== document.body; n = n.parentElement) { const c = getComputedStyle(n); if (c.visibility === 'hidden' || c.display === 'none' || +c.opacity === 0) return false; }
-    return r.right > 0 && r.bottom > 0 && r.left < innerWidth && r.top < innerHeight; };
+    // the whole page, not the first screenful (an earlier version of this audit only looked inside the viewport and missed everything below
+    // the fold: the Summary page's links and badges); a closed drawer is `visibility: hidden`, so it is still skipped above
+    return r.right > 0 && r.left < document.documentElement.scrollWidth; };
   const sel = e => { let s = e.tagName.toLowerCase(); if (e.id) s += '#' + e.id; const c = [...e.classList].slice(0, 2).join('.'); if (c) s += '.' + c; return s; };
   const backdrop = e => {
     let layers = [], grad = false;
@@ -88,21 +90,35 @@ try:
     def js(expr): return call("Runtime.evaluate", expression=expr, returnByValue=True, awaitPromise=True).get("result", {}).get("value")
     call("Page.enable"); call("Runtime.enable")
     res = {"views": {}, "focus": {}, "motion": {}, "shift": {}}
-    VIEWS = {
-        "board": "0",
-        "panel": "(document.querySelector('.card[data-id=\"build-the-receipts-row-for-the-chat\"]')||document.querySelector('.card')).click()",
-        "chat": "document.querySelector('.orch-btn')?.click()",
-        "later": "document.getElementById('later-btn')?.click() || [...document.querySelectorAll('button')].find(b => /^Later/.test(b.textContent.trim()) && b.closest('header,.top,.bar'))?.click()",
-        "settings": "[...document.querySelectorAll('button')].find(b => /settings/i.test(b.getAttribute('aria-label') || b.title || ''))?.click()",
+    # view -> (path under the board, what to run once it has loaded, seconds to wait after); "0" runs nothing
+    ALL_VIEWS = {
+        "board": ("", "0", 0),
+        "panel": ("", "([...document.querySelectorAll('.card')].find(c => c.textContent.includes('receipts row')) || document.querySelector('.card')).click()", .9),
+        "chat": ("", "document.querySelector('.orch-btn')?.click()", .9),
+        "later": ("", "document.getElementById('later-btn')?.click()", .9),
+        "settings": ("", "document.getElementById('cfg-btn')?.click()", .9),
+        # the views round 2 skipped
+        "byagent": ("agents", "0", 0),
+        "thread": ("agents", "openThread('AGENT-1')", 1.2),
+        "load": ("hud", "0", 3.0),
+        "summary": ("summary", "0", .5),
+        "reports": ("reports", "0", .5),
+        "report": ("reports", "location.href = document.querySelector('a[href^=\"/reports/\"]').href", 1.5),
+        "shortcuts": ("", "document.dispatchEvent(new KeyboardEvent('keydown', { key: '?', shiftKey: true, bubbles: true }))", .6),
+        "error": ("", "showError('Could not send: the board did not answer')", .6),
+        "panelconv": ("", "([...document.querySelectorAll('.card')].find(c => c.textContent.includes('receipts row')) || document.querySelector('.card')).click(); setTimeout(() => [...document.querySelectorAll('#panel [role=tab], #panel button')].find(t => /^Conversation/.test(t.textContent.trim()))?.click(), 500)", 1.4),
     }
+    ONLY = sys.argv[3].split(",") if len(sys.argv) > 3 else None   # a list of views: audit just those (no focus walk, motion or shift)
+    VIEWS = {k: v for k, v in ALL_VIEWS.items() if (k in ONLY if ONLY else k in ("board", "panel", "chat", "later", "settings"))}
     for scheme in ("light", "dark"):
         call("Emulation.setEmulatedMedia", features=[{"name": "prefers-color-scheme", "value": scheme}, {"name": "prefers-reduced-motion", "value": "no-preference"}])
         for size, (w, h) in (("wide", (1280, 860)), ("narrow", (390, 844))):
             call("Emulation.setDeviceMetricsOverride", width=w, height=h, deviceScaleFactor=1, mobile=(size == "narrow"))
-            for view, act in VIEWS.items():
-                call("Page.navigate", url=BOARD); time.sleep(1.6); js("localStorage.clear()")
-                if act != "0": js(act); time.sleep(.9)
+            for view, (path, act, wait) in VIEWS.items():
+                call("Page.navigate", url=BOARD.rstrip("/") + "/" + path); time.sleep(1.6); js("localStorage.clear()")
+                if act != "0": js(act); time.sleep(wait)
                 res["views"][f"{scheme}-{size}-{view}"] = json.loads(js(PAGE_JS))
+        if ONLY: continue
         # keyboard focus rings: Tab through the board at wide
         call("Emulation.setDeviceMetricsOverride", width=1280, height=860, deviceScaleFactor=1, mobile=False)
         call("Page.navigate", url=BOARD); time.sleep(1.6); js("document.body.focus()")
@@ -121,6 +137,7 @@ try:
             js("document.querySelector('.orch-btn')?.click()"); time.sleep(.2)
             res["motion"][f"{scheme}-{rm}"] = js("""JSON.stringify(document.getAnimations().map(a => ({ n: a.animationName || a.transitionProperty || '?', el: (a.effect && a.effect.target ? a.effect.target.tagName.toLowerCase() + '.' + [...a.effect.target.classList].slice(0,1).join('') : ''), dur: a.effect ? a.effect.getComputedTiming().duration : 0, iter: a.effect ? a.effect.getComputedTiming().iterations : 0 })).filter(a => a.dur > 1))""")
     # layout shift while the page loads, a drawer opens and one poll passes
+    if ONLY: ws.close(); print(json.dumps(res)); sys.exit(0)
     call("Emulation.setEmulatedMedia", features=[{"name": "prefers-color-scheme", "value": "light"}, {"name": "prefers-reduced-motion", "value": "no-preference"}])
     for size, (w, h) in (("wide", (1280, 860)), ("narrow", (390, 844))):
         call("Emulation.setDeviceMetricsOverride", width=w, height=h, deviceScaleFactor=1, mobile=(size == "narrow"))
