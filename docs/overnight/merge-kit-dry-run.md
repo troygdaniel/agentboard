@@ -123,6 +123,17 @@ The settings-mode item is closed by the sign-off pack's f23d1e8 (the table row n
 AGENT-7 moved two tips during this run (perf-scale 25112c6 and config-validation 67c562d, AGENT-8's two 06:00 HIGHs); a quick pass
 on those tips merged all fifteen branches with the same resolutions, and one full suite on that tree is the last line of this document.
 
+## Final (06:57): every overnight branch on its final tip, one tree, green
+
+Main c4aca6a plus all nineteen `overnight/*` branches (fifteen merged, four contained in their stacks' tips) with the resolutions and
+`_after_all.py`: **1678 passed, 0 failed, 1 skipped, 1 xfailed.** Published as the branch **`overnight/combined-19`** (tip df5fc24; a branch
+only, main untouched, nothing pushed) for Troy to inspect or take whole. The earlier `overnight/combined-11` (59b848e) is the eleven
+reviewed branches alone, the same minus the four late ones. The one doctor CLI test that failed on perf-scale's earlier tip passes on
+25112c6. Tips in this tree: ux-visual-polish 0fe00d3, visual-polish-3 0c6f531, qa-cleanroom 64569e7, ux-doctor-agents-line d9d463a,
+sec-workpc-profile 3f1d46a, rel-agent-protocol-2 5537221, rel-data-integrity b5b4d66, docs-architecture a2687ad, rel-agent-protocol-3
+9b2c907, install-quickstart 7d15096, sec-signoff-pack f23d1e8, agent-prompts 63909aa, config-validation 67c562d, perf-scale 25112c6,
+rel-server-lifecycle 4359186.
+
 The mid-run failures (1 to 7) are the cross-branch pins of the earlier section (module map, documents index, sign-off file table, doctor
 line cap, selfcheck tables, the settings-mode row): each branch's own test is true alone and false once the others are in, and all of
 them are made true by `_after_all.py` and by the sign-off pack's new tip, which is why the count goes to 0 failed at step 15. A merge
