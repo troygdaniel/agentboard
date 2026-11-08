@@ -8,7 +8,7 @@ with itself. Nothing is merged or pushed. Each has its own evidence file in this
 | 1 | `overnight/overnight-ux-firstrun` (4f3bcba) | welcome for a bare `agentboard`, guided `init`, nearest-command hint, plain errors, **New task** and **?** buttons, sample cards button, 60-second tour, plain empty states | `overnight-ux-firstrun.md` (and `ux-firstrun/` screenshots) |
 | 2 | `overnight/overnight-ux-init-agent-instructions` (ffc8fa3) | `init` offers to add agentboard's instructions to CLAUDE.md or AGENTS.md (append-only, marked, idempotent) | `overnight-ux-init-agent-instructions.md` |
 | 3 | `overnight/overnight-ux-nav-and-panel-words` (f8cf575) | plain tooltips on the header tabs, Later, Copy prompt and the ORCH pill | `overnight-ux-nav-and-panel-words.md` |
-| 4 | `overnight/overnight-ux-doctor-agents-line` (fb3cc6e) | `doctor` says which agents have reported and whether CLAUDE.md has the lines; shared helpers in `agentfiles.py` | `overnight-ux-doctor-agents-line.md` |
+| 4 | `overnight/overnight-ux-doctor-agents-line` (tip of the stack) | `doctor` says which agents have reported and whether CLAUDE.md has the lines; shared helpers in `agentfiles.py` | `overnight-ux-doctor-agents-line.md` |
 
 ## The 30-second review
 
