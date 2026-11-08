@@ -5,7 +5,7 @@ sys.path.insert(0, os.environ.get("QA_PYLIBS", "/tmp/qa_pylibs"))   # pip3 insta
 import websocket
 
 PREFIX, OUT = sys.argv[1], sys.argv[2]
-BOARD = "http://127.0.0.1:8791/"
+BOARD = os.environ.get("AB_BOARD", "http://127.0.0.1:8791/")   # AB_BOARD=http://127.0.0.1:8792/ to shoot another server
 PORT = int(sys.argv[3]) if len(sys.argv) > 3 else 9333
 CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
 os.makedirs(OUT, exist_ok=True)

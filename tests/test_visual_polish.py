@@ -102,11 +102,43 @@ class TheReportPagesKeepTheirContrast(unittest.TestCase):
         self.assertIn("min-height:24px", re.search(r"\.ab-brand\{([^}]*)\}", nav.CSS).group(1))
 
 
+class TheSummaryPageKeepsItsContrast(unittest.TestCase):
+    """The Summary page has its own copy of the tokens. Round 3 fixed the light link blue on the Reports page and said Summary was clean; it was not:
+    it kept #2f6fed (about 4.4:1) for every link, and its numbered badges were white on the light dark-theme blue (about 2.5:1)."""
+
+    def setUp(self):
+        from agentboard import summary
+        self.light = _tokens(re.search(r":root\{color-scheme:light dark;([^}]*)\}", summary.CSS).group(1))
+        self.dark = _tokens(summary.DARK)
+        self.css = summary.CSS
+
+    def test_links_and_the_muted_and_state_colours_clear_4_5_in_both_themes(self):
+        for name, t in (("light", self.light), ("dark", self.dark)):
+            for fg, bg in (("ac", "bg"), ("ac", "card"), ("mut", "bg"), ("mut", "card"), ("ok", "card")):
+                self.assertGreaterEqual(_ratio(t[fg], t[bg]), 4.5, f"{name}: --{fg} on --{bg}")
+
+    def test_the_numbered_badge_text_clears_4_5_on_its_blue_in_both_themes(self):
+        for name, t in (("light", self.light), ("dark", self.dark)):
+            self.assertGreaterEqual(_ratio(t["on-ac"], t["ac"]), 4.5, name)
+        self.assertIn(".chain li b{background:var(--ac);color:var(--on-ac);", self.css)
+
+    def test_the_links_under_a_summary_card_are_24px_targets(self):
+        # "Open on the board" and "Report" were 23px tall
+        self.assertIn(".links a{color:var(--ac);display:inline-flex;align-items:center;min-height:24px}", self.css)
+
+    def test_every_page_that_carries_its_own_tokens_agrees_on_the_link_colour(self):
+        from agentboard import reports
+        r = _tokens(re.search(r"^:root\{color-scheme:light dark;([^}]*)\}", reports.CSS, re.M).group(1))
+        self.assertEqual(self.light["ac"], r["ac"])
+        self.assertNotIn("2f6fed", self.css.lower())
+
+
 class TheBoardKeepsSmallControlsReachable(unittest.TestCase):
     def test_the_error_close_and_the_lane_names_are_24px_targets(self):
         self.assertIn("min-height: 24px", rule("#error button"))
         self.assertIn("min-width: 24px", rule("#error button"))
         self.assertIn("min-height: 24px", rule(".col.acol h2 .nm[data-thread]"))
+        self.assertIn("line-height: 24px", rule("details summary"))   # the panel's Prompt row was 21px
 
     def test_the_go_ahead_and_hold_pills_mix_toward_the_text_for_contrast(self):
         for sel, tok in ((".qr-ch.ok", "--ok"), (".qr-ch.hold", "--warn")):

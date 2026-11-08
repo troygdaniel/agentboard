@@ -378,10 +378,10 @@ def _slot_css(prefix, dark):
     return "".join(f"{prefix}.s{i}{{--c:{s[2] if dark else s[1]}}}" for i, s in enumerate(SLOTS))
 
 
-DARK = "--bg:#0e1116;--fg:#ececf1;--mut:#9aa0ad;--line:#262b36;--card:#151a22;--ok:#4cc38a;--ac:#7aa2ff;--dim:#3a414d;--gr:#6b7280"
+DARK = "--bg:#0e1116;--fg:#ececf1;--mut:#9aa0ad;--line:#262b36;--card:#151a22;--ok:#4cc38a;--ac:#7aa2ff;--on-ac:#0b1220;--dim:#3a414d;--gr:#6b7280"
 
 CSS = f"""
-:root{{color-scheme:light dark;--bg:#fafaf8;--fg:#17171a;--mut:#6b6b73;--line:#e2e2de;--card:#fff;--ok:#1d7a4a;--ac:#2f6fed;--dim:#d6d6d1;--gr:#8a8f9a}}
+:root{{color-scheme:light dark;--bg:#fafaf8;--fg:#17171a;--mut:#6b6b73;--line:#e2e2de;--card:#fff;--ok:#1d7a4a;--ac:#1d4ed8;--on-ac:#fff;--dim:#d6d6d1;--gr:#8a8f9a}}
 {_slot_css("", False)}.sg{{--c:var(--gr)}}
 @media(prefers-color-scheme:dark){{:root:not([data-theme="light"]){{{DARK}}}{_slot_css(':root:not([data-theme="light"]) ', True)}}}
 :root[data-theme="dark"]{{color-scheme:dark;{DARK}}}{_slot_css(':root[data-theme="dark"] ', True)}:root[data-theme="light"]{{color-scheme:light}}
@@ -429,7 +429,7 @@ summary::-webkit-details-marker{{display:none}}.cd summary:hover{{background:var
 .lines,.items{{margin:0 0 4px;padding:0 0 0 1.2rem}}.lines li,.items li{{margin:0 0 4px;padding-left:2px}}.lines{{list-style:disc}}.items{{list-style:none;padding-left:0;counter-reset:it}}
 .items li{{display:grid;grid-template-columns:1.5rem 1fr;gap:6px;align-items:baseline}}.items li::before{{counter-increment:it;content:counter(it);font-size:12px;font-weight:600;color:var(--ac);border:1px solid var(--ac);border-radius:99px;width:1.4rem;height:1.4rem;display:inline-flex;align-items:center;justify-content:center}}
 .chain{{list-style:none;margin:4px 0 10px;padding:0;display:flex;gap:4px 0;flex-wrap:wrap;align-items:stretch}}.chain li{{display:flex;gap:8px;align-items:center;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:6px 12px 6px 8px;font-size:13px;max-width:16rem;position:relative;margin-right:22px}}
-.chain li b{{background:var(--ac);color:#fff;border-radius:99px;width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center;font-size:12px;flex:none}}
+.chain li b{{background:var(--ac);color:var(--on-ac);border-radius:99px;width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center;font-size:12px;flex:none}}
 .chain li:not(:last-child)::after{{content:"";position:absolute;right:-16px;top:50%;width:10px;height:10px;border-top:2px solid var(--mut);border-right:2px solid var(--mut);transform:translateY(-50%) rotate(45deg)}}
 .bands{{display:grid;gap:4px;margin:0 0 4px}}.band{{display:grid;grid-template-columns:4.6rem 1fr;gap:8px;padding:6px 10px;border-radius:8px;background:var(--bg);border-left:4px solid var(--c, var(--line))}}
 .band>span{{font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--mut);padding-top:3px}}.band-action{{--c:var(--ac)}}.band-status{{--c:var(--ok)}}.band-why{{--c:var(--gr)}}
@@ -437,7 +437,7 @@ summary::-webkit-details-marker{{display:none}}.cd summary:hover{{background:var
 .jl{{display:flex;gap:4px 14px;flex-wrap:wrap;font-size:12px;color:var(--mut);margin:4px 0 0}}.jl i,.tl i{{display:inline-block;width:8px;height:8px;border-radius:2px;background:var(--c);margin-right:5px;vertical-align:baseline}}.jl .tot{{margin-left:auto;color:var(--fg)}}
 .tld{{margin:6px 0 0}}.tld summary{{cursor:pointer;color:var(--mut);font-size:13px;min-height:32px;display:flex;align-items:center;list-style:none}}.tld summary::before{{content:"▸ ";color:var(--mut)}}.tld[open] summary::before{{content:"▾ "}}
 .tl{{list-style:none;margin:2px 0 0;padding:0;border-left:2px solid var(--line)}}.tl li{{display:grid;grid-template-columns:5.2rem 6.4rem 1fr;gap:8px;padding:2px 0 2px 10px;font-size:13px;color:var(--mut);align-items:baseline}}
-.tl li b{{color:var(--fg);font-weight:500;font-variant-numeric:tabular-nums}}.tl li span{{overflow-wrap:anywhere}}.links{{margin:10px 0 0;display:flex;gap:14px;flex-wrap:wrap}}.links a{{color:var(--ac)}}
+.tl li b{{color:var(--fg);font-weight:500;font-variant-numeric:tabular-nums}}.tl li span{{overflow-wrap:anywhere}}.links{{margin:10px 0 0;display:flex;gap:14px;flex-wrap:wrap}}.links a{{color:var(--ac);display:inline-flex;align-items:center;min-height:24px}}
 @media(max-width:600px){{.tl li{{grid-template-columns:1fr;gap:0}}.band{{grid-template-columns:1fr}}}}
 details.more summary{{cursor:pointer;color:var(--mut);font-size:14px;min-height:36px;display:flex;align-items:center;list-style:none}}
 .none{{color:var(--mut)}}#msg{{color:var(--mut);font-size:14px;margin:8px 0 0}}[hidden]{{display:none!important}}

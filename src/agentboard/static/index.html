@@ -770,7 +770,7 @@
   dl { display: grid; grid-template-columns: 90px 1fr; gap: 8px 12px; font-size: var(--fs-base); }
   dt { color: var(--muted); } dd { margin: 0; overflow-wrap: anywhere; }
   code { font: var(--fs-md) ui-monospace, Menlo, monospace; background: var(--chip); border-radius: 4px; padding: 1px 6px; }
-  details summary { cursor: pointer; color: var(--muted); font-size: var(--fs-md); font-weight: 500; }
+  details summary { cursor: pointer; color: var(--muted); font-size: var(--fs-md); font-weight: 500; line-height: 24px; }   /* the panel's Prompt row was 21px: a 24px target */
   details pre { margin-top: 8px; padding: 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface);
     font: var(--fs-md)/1.6 ui-monospace, Menlo, monospace; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 320px; overflow: auto; }
   .p-actions { display: flex; gap: 8px; margin-top: 18px; flex-wrap: wrap; }

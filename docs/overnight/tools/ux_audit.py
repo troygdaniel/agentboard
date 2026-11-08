@@ -26,7 +26,9 @@ PAGE_JS = r"""
   const ratio = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + .05) / (Math.min(x, y) + .05); };
   const visible = e => { const cs = getComputedStyle(e); if (cs.visibility === 'hidden' || cs.display === 'none') return false; const r = e.getBoundingClientRect(); if (r.width < 1 || r.height < 1) return false;
     for (let n = e; n && n !== document.body; n = n.parentElement) { const c = getComputedStyle(n); if (c.visibility === 'hidden' || c.display === 'none' || +c.opacity === 0) return false; }
-    return r.right > 0 && r.bottom > 0 && r.left < innerWidth && r.top < innerHeight; };
+    // the whole page, not the first screenful (an earlier version of this audit only looked inside the viewport and missed everything below
+    // the fold: the Summary page's links and badges); a closed drawer is `visibility: hidden`, so it is still skipped above
+    return r.right > 0 && r.left < document.documentElement.scrollWidth; };
   const sel = e => { let s = e.tagName.toLowerCase(); if (e.id) s += '#' + e.id; const c = [...e.classList].slice(0, 2).join('.'); if (c) s += '.' + c; return s; };
   const backdrop = e => {
     let layers = [], grad = false;
