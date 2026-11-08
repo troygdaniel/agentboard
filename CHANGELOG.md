@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Messages to agents get a reply: listeners, receipts, a Stop hook and a nudge through ORCH (Nov 7, 64e2bca)
+- A line typed to an agent used to sit in its inbox until something woke the session. Now every prompt tells a session to keep `agentboard chat inbox --name X --wait 3600` running between cards, the board lists who does (`.agentboard/chat-listeners.json`, by pid), and each line you send one agent carries a receipt in the ORCH drawer, the agent's thread and the card panel: **delivered** (in its inbox), **read** (its wait printed it), **answered** (it wrote back). After a minute unread the line says whether the agent is listening and, when it is not, offers **Nudge via ORCH**: the board asks ORCH, in its own thread, to message that session. `agentboard hooks install` now adds a second hook, Stop, that tells a session about to go quiet with an unread line from you (or no wait running) before it does, once.
+
+### An unknown command gets one line saying a plugin's command is not available here (Nov 7, 63dbf9b)
+- `agentboard texts-pending` from a plain shell said only "invalid choice". When the word is no core command and plugins are off or locked, the CLI adds one line to stderr: plugins are off (and why), so a command a plugin adds is not available here; run it from the board's shell, with its environment.
+
 ### An answer to the owner is never refused by the agent-chat switch (Nov 7)
 - With agent chat off, `chat send` refused a threaded reply (`--reply-to`), a `--topic help` line, a `--detail`, a two-line answer and a
   proposal even when the line was for the owner, and a line over 300 characters was refused with "put the rest in --detail", which was

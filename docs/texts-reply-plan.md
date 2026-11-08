@@ -1,10 +1,10 @@
 # Texts reply: the plan
 
-**Status: plan only, nothing built.** It settles the rules so `texts-reply-design` (wording, Settings switch) and `texts-reply-build` (the code) can start, and `texts-reply-security` has something to attack. Three points need a yes from you: see **Open points** at the end. All code goes in the home plugin (`agentboard-home`, kept outside this repo). Nothing here touches agentboard itself: its test still fails if "twilio", "sms" or "pull-texts" ever appears under `src/agentboard`.
+**Status: built (Nov 7, 2026) in the home plugin, `agentboard-home/src/agentboard_home/reply.py`; that repo's README is the source of truth for what runs. This plan is kept as the record of the rules and the open points; where it differs from the build, the build wins (noted inline).** It settled the rules so `texts-reply-design` (wording, Settings switch) and `texts-reply-build` (the code) can start, and `texts-reply-security` has something to attack. Three points need a yes from you: see **Open points** at the end. All code goes in the home plugin (`agentboard-home`, kept outside this repo). Nothing here touches agentboard itself: its test still fails if "twilio", "sms" or "pull-texts" ever appears under `src/agentboard`.
 
 ## What changes
 
-Today the board only **listens**: once a minute it reads your texts from Twilio and turns each into a card. It sends nothing, and the timer's acceptance list says so ("nothing texted back").
+Today the board only **listens**: every 15 seconds (once a minute when this was written) it reads your texts from Twilio and turns each into a card. It sends nothing, and the timer's acceptance list says so ("nothing texted back").
 
 A reply is the board's **first send**. Every reply is one billed outbound text, so it gets its own machine key, its own board key and its own Settings switch. Turning on the pull never turns on replies.
 
@@ -42,16 +42,16 @@ Board voice, plain ASCII, no links, no emoji. Examples use made-up cards.
 | Question, with matches | `Added: Is the backup tested? - 1) 2026-11-02 Backup restore check: restored 12 cards from a copy, all matched` |
 | Question, no match | `Added: Is the backup tested? - No match in cards or reports.` |
 
-- The ack part is the card title cut to 60 characters; the answer gets the rest, at most 2 matches (date, title, short snippet).
+- The ack part is the card title cut to 60 characters; the answer gets the rest, at most 2 matches (date and title only: the build dropped the snippet as a security fix, since a description or report is not for an SMS).
 - A **question** is a text that ends with `?`, starts with `?`, or starts with `lookup:`. Plain rules, no guessing. A false positive costs one harmless "No match".
 - A question still makes a card (rule 1). `lookup` only reads finished cards and reports, so it answers "what did we do about X", not "what is in Review now". See Open point 3.
-- Every reply goes through the same four steps, in this order: strip control and invisible characters (`untrusted.one_line`), mask secrets (`redact.scrub`), keep only letters, digits, space and ordinary punctuation (`. , : ; ! ? ' " ( ) - + = / * & % # @ $ _ < >`) after turning curly quotes and dashes into plain ones, and turn `http://` and `www.` links into `(link)`, then cut to 320. That is the basic text alphabet, so 320 characters is at most 3 billed segments. One emoji or `|`, `[`, `{` would make the count jump (an emoji alone: up to 5).
+- Every reply goes through the same steps. As built the order is filter, mask, filter (`reply.clean`): strip control and invisible characters and keep only the text alphabet first, THEN mask secrets (`redact.scrub`, forced on), then filter once more, so a key that a visible non-text character hid from the masker is masked once the filter has reassembled it; the plan's order was mask first. The filter: keep only letters, digits, space and ordinary punctuation (`. , : ; ! ? ' " ( ) - + = / * & % # @ $ _ < >`) after turning curly quotes and dashes into plain ones, and turn `http://` and `www.` links into `(link)`, then cut to 320. That is the basic text alphabet, so 320 characters is at most 3 billed segments. One emoji or `|`, `[`, `{` would make the count jump (an emoji alone: up to 5).
 
 ## Keys and limits
 
 | Setting | Meaning |
 |---|---|
-| `AGENTBOARD_TEXTS_REPLY=1` | New machine key, exactly `1`. Separate from `AGENTBOARD_TEXTS=1`. Unset: the reply step does not exist, the switch is not drawn |
+| `AGENTBOARD_TEXTS_REPLY=1` / `=send` | New machine key, separate from `AGENTBOARD_TEXTS=1`. As built: `1` allows Off and Dry run (nothing is sent), `send` allows Send too. Unset or anything else: the reply step does not exist, the switch is not drawn |
 | `[texts] reply = true` | The board's key. Off in a copied config |
 | Settings switch **Text me back** | Held in memory only, so it is **off after every restart** (stricter than the pull timer's switch, which survives one). It is also the moment replies start: older texts get none |
 | `[texts] reply_cap = 20` | Replies a day, counted as the Mac's calendar day. Clamped to 1 to 100 in code, so a copied config cannot raise it past 100. A send that failed after it left still counts |
