@@ -149,6 +149,7 @@
   .btn.primary { background: var(--accent); color: var(--bg); border-color: var(--accent); }
   .btn:disabled { opacity: .75; cursor: default; }
   :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  input[type=checkbox], input[type=range] { accent-color: var(--accent); }   /* the page's own ink, not the browser's blue */
 
   #add { display: none; gap: 8px; margin-bottom: 24px; }
   #add.open { display: flex; }
@@ -388,6 +389,7 @@
   .sum-link { cursor: pointer; border-radius: 4px; }
   .sum-link:hover, .sum-link.active { text-decoration: underline; text-underline-offset: 2px; }
   .sum-link.active { font-weight: 700; }
+  #summary .sum-link { display: inline-block; line-height: 24px; }   /* a 24px target, not the 16px of the text (WCAG 2.5.8); the header row is taller than that, so nothing moves */
   .ask-callout { border-color: var(--warn) !important; }
   .rev-callout small, .ask-callout small { display: block; color: var(--muted); font-size: var(--fs-sm); margin-top: 4px; }
   .pill.askp { color: var(--err); }
@@ -428,7 +430,7 @@
     background: var(--surface); border: 1px solid var(--line); border-radius: 6px;
     padding: 2px 8px; cursor: pointer; color: var(--muted);
   }
-  .card[data-status="todo"] .copy { position: static; opacity: .75; white-space: nowrap; }   /* in the foot row (.meta), not over the title */
+  .card[data-status="todo"] .copy { position: static; opacity: 1; white-space: nowrap; }   /* in the foot row (.meta), not over the title; shown, at full strength: .75 took it to 3.35:1 in dark */
   .card:hover .copy, .card:focus-within .copy { opacity: 1; }
   .copy:hover { color: var(--text); }
   /* The same button after a successful copy: green check + "Copied". Hover/focus swaps the check for an x (click undoes it). */
@@ -936,16 +938,16 @@
   #mix h2 { font-size: var(--fs-lg); margin-bottom: 4px; }
   #mix .mix-note { color: var(--muted); font-size: var(--fs-sm); margin-bottom: 10px; }
   #mix h3 { font-size: var(--fs-xs); letter-spacing: var(--tr-label); text-transform: uppercase; color: var(--muted); margin: 14px 0 4px; }
-  .mix-row { display: grid; grid-template-columns: auto 1fr 72px auto; align-items: center; gap: 2px 10px; padding: 7px 0; border-top: 1px solid var(--line); }
-  .mix-row.cfg-vol { grid-template-columns: auto 1fr 160px auto; }   /* the volume slider gets room; its number sits where Hear it would */
+  .mix-row { display: grid; grid-template-columns: 18px 1fr 72px auto; align-items: center; gap: 2px 10px; padding: 7px 0; border-top: 1px solid var(--line); }   /* a fixed first column, so every name starts at the same x (Volume sat 13px to the left) */
+  .mix-row > input[type=checkbox] { width: 16px; height: 16px; margin: 0; }
+  .mix-row.cfg-vol { grid-template-columns: 18px 1fr 160px auto; }   /* the volume slider gets room; its number sits where Hear it would */
   .mix-row.cfg-vol b { font-variant-numeric: tabular-nums; min-width: 4ch; text-align: right; font-weight: 500; }
-  .mix-row.lv > span:first-child { width: 13px; }   /* where the other rows' switch sits, so the names line up */
   .mix-row.lv .seg { grid-column: 3 / -1; justify-self: end; display: inline-flex; gap: 2px; padding: 2px; border: 1px solid var(--line); border-radius: 8px; }   /* Off / Subtle / Full */
   .mix-row.lv .seg .btn { min-height: 26px; padding: 2px 10px; border: 0; font-size: var(--fs-sm); color: var(--muted); }
   .mix-row.lv .seg .btn[aria-pressed="true"] { background: var(--chip); color: var(--text); box-shadow: inset 0 0 0 1px var(--line); }
   #hud-inner:focus { outline: none; }
   .mix-row label { font-weight: 600; cursor: pointer; }
-  .mix-row input[type=range] { width: 72px; margin: 0; }
+  .mix-row input[type=range] { width: 72px; height: 24px; margin: 0; }   /* a 24px target (WCAG 2.5.8) */
   .mix-row .mix-about { grid-column: 2 / -1; color: var(--muted); font-size: var(--fs-sm); }
   kbd { font: var(--fs-xs) ui-monospace, Menlo, monospace; background: var(--chip); border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; }
   #toast {
@@ -1126,7 +1128,7 @@
     .cards { overflow: visible; flex: none; }
     .empty { min-height: 100px; }
   }
-  @media (prefers-reduced-motion: reduce) { .bar b, .card { transition: none; } .card.enter, .card.flash, .card.ask, .card.review, .card.abandoned, .card.livebar::after, .col.acol.enter, .card.rev-in::after, .sub.live .g::after, .av.live, .pres i, .col h2 .cnt.tick { animation: none; } .card.ask { box-shadow: 0 0 0 2px var(--err); } .card.review { box-shadow: 0 0 0 2px var(--ok); } .card.abandoned { box-shadow: 0 0 0 2px var(--err); } .card.livebar .bar::after { animation: none; opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) { .bar b, .card { transition: none; } .card.enter, .card.flash, .card.ask, .card.review, .card.abandoned, .card.livebar::after, .col.acol.enter, .card.rev-in::after, .sub.live .g::after, .av.live, .top .who .av.live, .p-who .agent-pill .av.live, .pres i, .col h2 .cnt.tick { animation: none; } .card.ask { box-shadow: 0 0 0 2px var(--err); } .card.review { box-shadow: 0 0 0 2px var(--ok); } .card.abandoned { box-shadow: 0 0 0 2px var(--err); } .card.livebar .bar::after { animation: none; opacity: 0; } }
   /* Look > Calm cards (off until chosen): a Doing or lane card is a plain card with the agent's stripe and the status word; the
      orange/green/red fill, border and coloured shadow go. An ask, review or abandoned card keeps its coloured edge: that one carries meaning. */
   body.calm :is(.col.doing, .col.acol, .h-one) .card:not(.done):not(.ask):not(.review):not(.abandoned) { background: var(--surface); border-color: var(--line); box-shadow: inset 0 1px 0 var(--card-hi), var(--shadow); }
@@ -3464,7 +3466,7 @@ function hearLayer(L) {                         // the Hear button: the layer al
 }
 function renderMix() {
   const levelAt = L => !layerOn(L.id) ? 0 : layerLvl(L.id) >= 1 ? 2 : 1;   // Off / Subtle / Full from the saved switch and level
-  const row = L => L.levels ? `<div class="mix-row plain lv"><span></span><label>${L.name}</label><span class="seg" role="group" aria-label="${L.name}">${L.levels.map((n, i) => `<button class="btn" type="button" data-level="${L.id}" data-val="${i / (L.levels.length - 1)}" aria-pressed="${levelAt(L) === i}">${n}</button>`).join('')}</span><span class="mix-about">${L.about}</span></div>` : `<div class="mix-row${L.plain ? ' plain' : ''}"><input type="checkbox" id="mix-${L.id}" data-mix="${L.id}"${layerOn(L.id) ? ' checked' : ''}><label for="mix-${L.id}">${L.name}</label>`
+  const row = L => L.levels ? `<div class="mix-row plain lv"><span></span><label>${L.name}</label><span class="seg" role="group" aria-label="${L.name}">${L.levels.map((n, i) => `<button class="btn" type="button" data-level="${L.id}" data-val="${i / (L.levels.length - 1)}" aria-pressed="${levelAt(L) === i}">${n}</button>`).join('')}</span><span class="mix-about">${L.about}</span></div>` : `<div class="mix-row${L.plain ? ' plain' : ''}"><input type="checkbox" id="lyr-${L.id}" data-mix="${L.id}"${layerOn(L.id) ? ' checked' : ''}><label for="lyr-${L.id}">${L.name}</label>`
     + (L.plain ? '<span></span><span></span>' : `<input type="range" min="0" max="100" value="${Math.round(layerLvl(L.id) * 100)}" data-lvl="${L.id}" aria-label="${L.name} level">`   // a look switch has no level and nothing to hear
     + `<button class="btn" data-hear="${L.id}">Hear it</button>`) + `<span class="mix-about">${L.about}</span></div>`;
   $('cfg-sound').innerHTML = `<div class="mix-row"><input type="checkbox" id="cfg-snd"${sndOn ? ' checked' : ''}><label for="cfg-snd">Sound</label><span class="mix-about">the cues, Touch and the layers; <kbd>s</kbd> flips it on any view</span></div>`
