@@ -97,6 +97,7 @@ class Store:
         self.dir = Path(board_dir)
         self.path = self.dir / "tasks.json"
         self.lock_path = self.dir / ".lock"
+        self.committed = None   # the task list as this store last wrote it (for the step right after a commit; never a substitute for load())
 
     @property
     def owner(self):
@@ -133,6 +134,7 @@ class Store:
         """Atomic and flushed to disk, the previous version kept as tasks.json.bak (backup.py); then an hourly snapshot if one is due."""
         backup.write_atomic(self.path, json.dumps(data, indent=2))
         statefile.sweep_temps(self.dir)   # temp files a writer that died mid-save left behind (10 minutes old or more; a live write is never touched)
+        self.committed = data.get("tasks")
         backup.Backups(self.dir).tick()
 
     def _scrub(self, text, cap=None):
@@ -1011,11 +1013,20 @@ NUDGE_GAP_S = 60   # one nudge a minute per line
 STAMP = "%Y-%m-%dT%H:%M:%S"   # every time the board writes: card updated/created, log lines, chat at, cursors, listeners
 
 
+_STAMP_SHAPE = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}")
+
+
 def parse_stamp(s):
     """A board stamp as a datetime, or None when it is not one (the one parser: hud, the chat, the cursors and the CLI all use it)."""
     from datetime import datetime
+    s = str(s)[:19]
+    if _STAMP_SHAPE.fullmatch(s):   # fromisoformat first, for the board's own shape only: strptime is ten times slower and ran 130,000 times per HUD poll at 5,000 cards
+        try:
+            return datetime.fromisoformat(s)
+        except ValueError:
+            pass
     try:
-        return datetime.strptime(str(s)[:19], STAMP)
+        return datetime.strptime(s, STAMP)
     except (TypeError, ValueError):
         return None
 
