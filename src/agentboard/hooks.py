@@ -24,7 +24,7 @@ from datetime import datetime
 from pathlib import Path
 
 from . import cursors, listeners, untrusted
-from .store import BoardError, owner_name
+from .store import DEFAULT_OWNER, BoardError, owner_name
 
 HOOK_COMMAND = "agentboard hook send-message"
 EVENTS = {"send-message": ("PostToolUse", "SendMessage"), "stop": ("Stop", None)}   # hook event -> (settings list, matcher)
@@ -147,6 +147,7 @@ def stop_decision(store, payload):
     if not name:
         return None
     owner = store.owner
+    who = owner if owner != DEFAULT_OWNER else "the board's owner"   # the prose: without a [board] owner the name is "you", and "you wrote to you" reads wrong
     unread = [m for m in store.chat_thread_new(name, after=cursors.get(store.dir, name)) if m.get("via") != "board"]   # the board's own notices need no answer
     if unread:
         last = unread[-1]
@@ -154,16 +155,16 @@ def stop_decision(store, payload):
         more = f" and {len(unread) - 1} more" if len(unread) > 1 else ""
         left = cursors.pending(store.dir, name)
         if left and left["seq"] >= last["seq"]:   # printed by its wait (delivered), and the session has done nothing on the board since
-            reason = (f"{owner} wrote to you on the board{more}; your wait printed it but you have not acted on it: “{said}”. Answer with "
+            reason = (f"{who[0].upper()}{who[1:]} wrote to you on the board{more}; your wait printed it but you have not acted on it: “{said}”. Answer with "
                       f"`agentboard chat send \"<one line>\" --name {name} --to {owner}`, then start `agentboard chat inbox --name {name} --wait 3600` "
                       "as a background command so the next line wakes you.")
         else:
-            reason = (f"{owner} wrote to you on the board{more}, unread: “{said}”. Read it with `agentboard chat inbox --name {name}`, answer with "
+            reason = (f"{who[0].upper()}{who[1:]} wrote to you on the board{more}, unread: “{said}”. Read it with `agentboard chat inbox --name {name}`, answer with "
                       f"`agentboard chat send \"<one line>\" --name {name} --to {owner}`, then start `agentboard chat inbox --name {name} --wait 3600` "
                       "as a background command so the next line wakes you.")
         return {"decision": "block", "reason": reason[:REASON_MAX + 200]}
     if not listeners.is_listening(store.dir, name):
-        return {"decision": "block", "reason": (f"Nothing is listening for you on the board: a line {owner} types there would wait until you happen to look. "
+        return {"decision": "block", "reason": (f"Nothing is listening for you on the board: a line {who} types there would wait until you happen to look. "
                                                 f"Start `agentboard chat inbox --name {name} --wait 3600` as a background command (Bash with run_in_background) "
                                                 "and end your turn; it prints the line and exits when one arrives, and that wakes you.")}
     return None

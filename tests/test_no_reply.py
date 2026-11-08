@@ -243,6 +243,24 @@ class TheStopHook(Base):
         self.assertEqual((code, out), (None, ""))
 
 
+    def test_the_reason_names_the_owner_and_never_says_you_wrote_to_you(self):
+        """Without [board] owner the owner's name is "you", and the old prose read "you wrote to you" and "a line you types there"."""
+        d = hooks.stop_decision(self.s, STOP)                                                    # nothing unread, no wait: the listening reason
+        self.assertIn("a line the board's owner types there", d["reason"])
+        self.s.chat_send(self.s.owner, "hello?", kind="user", to="AGENT-4")
+        d = hooks.stop_decision(self.s, STOP)
+        self.assertTrue(d["reason"].startswith("The board's owner wrote to you"), d["reason"])
+        for bad in ("you wrote to you", "you types"):
+            self.assertNotIn(bad, d["reason"])
+        cfg = Path(self.s.dir) / "config.toml"
+        text = cfg.read_text() if cfg.exists() else ""
+        cfg.write_text(text.replace("[board]", '[board]\nowner = "Troy"', 1) if "[board]" in text else text + '\n[board]\nowner = "Troy"\n')
+        self.assertEqual(self.s.owner, "Troy")
+        d = hooks.stop_decision(self.s, STOP)
+        self.assertTrue(d["reason"].startswith("Troy wrote to you"), d["reason"])
+        self.assertIn("--to Troy", d["reason"])
+
+
 class TheInstall(Base):
     def test_install_writes_both_hooks_status_names_a_missing_one_and_uninstall_takes_both(self):
         _code, out, _err = self.run_cli("hooks", "install")
