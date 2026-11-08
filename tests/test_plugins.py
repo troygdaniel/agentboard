@@ -358,6 +358,18 @@ class TheCommandLine(Base):
             code, _, err = self.run_cli("demo-cmd")
         self.assertEqual(code, 2)
         self.assertIn("invalid choice", err)
+        self.assertIn("agentboard: plugins are off: $AGENTBOARD_PLUGINS is not 1: a command a plugin adds is not available here", err)   # one line says why
+        with self.eps():
+            _, _, err = self.run_cli("--board", "x", "demo-cmd")   # the hint looks past the global options
+        self.assertIn("plugins are off", err)
+        with self.eps():
+            _, _, err = self.run_cli("list", "--no-such-flag")   # a core command with a bad flag: no hint
+        self.assertNotIn("plugins are", err)
+        plugins._reset()
+        with mock.patch.dict(os.environ, {"AGENTBOARD_PLUGINS": "1"}), self.eps():
+            code, _, err = self.run_cli("no-such-cmd")   # plugins on and the word unknown: the plain error, no hint
+        self.assertEqual(code, 2)
+        self.assertNotIn("plugins are", err)
 
     def test_a_plugin_cannot_shadow_a_core_command(self):
         def reg(api):

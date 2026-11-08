@@ -1438,6 +1438,21 @@ def cmd_serve(a):
     serve(_store(), a.port, not a.no_open)
 
 
+def _plugins_off_hint(argv, sub, code):
+    """After argparse refused the command line: when the word was no core command and plugins are off, one line says so, because the
+    command may be one a plugin adds and those exist only with the board's environment (a sweep run from a plain shell is otherwise a
+    mystery: "invalid choice" and nothing more). Prints nothing while plugins are on or the command was a known one."""
+    if code != 2:
+        return
+    toks = list(argv)
+    while toks and toks[0].startswith("-"):
+        toks = toks[2:] if toks[0] == "--board" else toks[1:]
+    why = plugins.disabled_reason()
+    if toks and toks[0] not in sub.choices and why:
+        print(f"agentboard: plugins are {why}: a command a plugin adds is not available here; run it from the board's shell, with its environment",
+              file=sys.stderr)
+
+
 def main(argv=None):
     if argv is None:   # the real command line, not a test calling main([...]): private files from here on (private.py)
         private.tighten_process()
@@ -1709,7 +1724,11 @@ def main(argv=None):
     sp.set_defaults(fn=cmd_plugins)
     add_plugin_commands(sub)
 
-    a = p.parse_args(argv)
+    try:
+        a = p.parse_args(argv)
+    except SystemExit as e:
+        _plugins_off_hint(sys.argv[1:] if argv is None else argv, sub, e.code)
+        raise
     if a.board:
         os.environ["AGENTBOARD_BOARD"] = a.board
     if a.cmd == "rebuild" and not (a.all or a.id):
