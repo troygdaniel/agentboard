@@ -12,7 +12,7 @@ class DrawerTests(unittest.TestCase):
         self.assertNotIn("DRAWER", HTML)
         self.assertIn("renderLater(parked)", HTML)   # everything parked, whatever the filter says (Nov 4)
         self.assertIn("t.status === 'backlog' && !isKid(t)", HTML)
-        self.assertIn('<button class="btn" id="later-btn" aria-controls="later">Later <span id="later-n"></span></button>', HTML)
+        self.assertIn('<button class="btn" id="later-btn" aria-controls="later" title="Tasks parked for another day (l)">Later <span id="later-n"></span></button>', HTML)
 
     def test_by_agent_has_the_park_an_idea_form_like_the_board(self):
         render = HTML[HTML.index("function renderLater(list) {"):]

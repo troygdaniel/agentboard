@@ -1299,9 +1299,9 @@
 <div class="wrap">
   <header>
     <h1><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="1.5" y="2" width="3.5" height="12" rx="1.2" fill="currentColor" opacity=".35"/><rect x="6.25" y="2" width="3.5" height="8" rx="1.2" fill="currentColor"/><rect x="11" y="2" width="3.5" height="5" rx="1.2" fill="currentColor" opacity=".6"/></svg>agentboard</h1>
-    <nav class="ab-tabs" aria-label="Pages"><a class="tab on" id="tab-board" href="./" aria-current="page">Board</a><a class="tab" id="tab-agents" href="./agents">By agent</a><a class="tab" id="hud-btn" href="#/hud" role="button" aria-controls="hud">Load</a></nav>
+    <nav class="ab-tabs" aria-label="Pages"><a class="tab on" id="tab-board" href="./" aria-current="page" title="Every task in three columns: Todo, Doing and Done">Board</a><a class="tab" id="tab-agents" href="./agents" title="One lane per agent: who is doing what">By agent</a><a class="tab" id="hud-btn" href="#/hud" role="button" aria-controls="hud" title="A live view of who is working and who is waiting on you (h)">Load</a></nav>
     <button class="btn" id="new-btn" type="button" aria-label="New task (n)" title="New task (n)"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><span class="lbl">New task</span></button>
-    <button class="btn" id="later-btn" aria-controls="later">Later <span id="later-n"></span></button>
+    <button class="btn" id="later-btn" aria-controls="later" title="Tasks parked for another day (l)">Later <span id="later-n"></span></button>
     <span id="ab-slot-header" style="display:contents"></span>
     <span class="spacer"></span>
     <select class="btn" id="board-switch" aria-label="Board" hidden></select>
@@ -1672,7 +1672,7 @@ function card(t) {
     ? `<button class="copy copied${copiedLabel.length > 6 ? ' wide' : ''}" type="button" title="Prompt copied. Click to clear" aria-label="${esc(copiedLabel)}, click to clear">` +
       `<svg class="cp-ok" width="11" height="11" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>` +
       `<svg class="cp-x" width="11" height="11" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg>${esc(copiedLabel)}</button>`
-    : `<button class="copy" type="button">Copy prompt</button>`;
+    : `<button class="copy" type="button" title="Copy this task's instructions, to paste into an agent's terminal to start it (c)">Copy prompt</button>`;
   const meta = (todo || backlog || !who) && (copy || queued || laterBtn || toTodoBtn) ? `<div class="meta">${copy}${laterBtn}${toTodoBtn}${who && !todo ? '' : queued}</div>` : '';
   const asking = !!t.needs_input && doing;
   const reviewing = !!t.review && doing && !asking;
@@ -1733,7 +1733,7 @@ const FLAG_LABEL = { needs_input: 'needs input', review: 'to review' };
 function todoColHtml(list, filtered) {
   // the ORCH button lives here (Nov 6): press it and the ORCH drawer slides out from the left over this column. The unread
   // count rides its corner. A class, not an id: Load draws its own Todo column while the board's is still in the page.
-  const orch = `<button class="orch-btn" aria-controls="chat" aria-label="${chatUnread ? `Talk to ORCH, ${chatUnread} unread` : 'Talk to ORCH'}" title="Talk to ORCH" style="--c:${agentColor('ORCH')}"><span class="av" aria-hidden="true">O</span>ORCH<span class="chat-n">${chatUnread || ''}</span></button>`;
+  const orch = `<button class="orch-btn" aria-controls="chat" aria-label="${chatUnread ? `Talk to ORCH, ${chatUnread} unread` : 'Talk to ORCH'}" title="Talk to ORCH, the coordinator session for this board" style="--c:${agentColor('ORCH')}"><span class="av" aria-hidden="true">O</span>ORCH<span class="chat-n">${chatUnread || ''}</span></button>`;
   return `<section class="col todo" data-status="todo"><h2>Todo <span class="cnt">${list.length}</span>${orch}</h2>`
     + `<div class="cards">${list.length ? list.map(card).join('') : `<div class="empty">${filtered ? 'No matches' : EMPTY.todo}</div>`}</div></section>`;
 }
@@ -2740,7 +2740,7 @@ function panelHtml(t) {
   const ctx = (t.ctx || []).length ? `<dt>Context</dt><dd>${t.ctx.map(c => `<code>${esc(c)}</code>`).join(' ')}</dd>` : '';
   const details = `<div class="p-sec"><h3>Details</h3><dl><dt>ID</dt><dd><code>${esc(t.id)}</code></dd><dt>Created</dt><dd>${stamp(t.created)}</dd><dt>Updated</dt><dd>${stamp(t.updated)}</dd>${ctx}</dl></div>`;
   const prompt = !cfg.dispatch ? '' : `<div class="p-sec"><details id="pd" ${promptOpen ? 'open' : ''}><summary>Prompt</summary><pre id="pre">${esc(promptText || 'Loading…')}</pre></details></div>`;
-  const copy = (cfg.dispatch ? `<button class="btn" id="p-copy">Copy prompt</button>` : '') + (t.run && t.run.status === 'running' && t.run.alive !== false ? `<button class="btn danger" id="p-run-stop" title="Stop the one-shot run (the card moves to ask)">Stop run</button>` : '');
+  const copy = (cfg.dispatch ? `<button class="btn" id="p-copy" title="Copy this task's instructions, to paste into an agent's terminal to start it (c)">Copy prompt</button>` : '') + (t.run && t.run.status === 'running' && t.run.alive !== false ? `<button class="btn danger" id="p-run-stop" title="Stop the one-shot run (the card moves to ask)">Stop run</button>` : '');
   const par = t.parent_id && byId.get(t.parent_id)
     ? `<div class="p-sec"><h3>Subtask of</h3><ul class="p-subs"><li data-sub-id="${esc(t.parent_id)}"><span class="sn">${esc(byId.get(t.parent_id).title)}</span></li></ul></div>` : '';
   const kids = kidsMap.get(t.id) || [];
