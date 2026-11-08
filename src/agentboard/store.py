@@ -767,7 +767,8 @@ class Store:
         if changed:
             self.chat_send(by, "ORCH and agents: agent chat is on. Run agentboard instructions, follow its 'Talking to other agents' section "
                            "with your own name, and read your inbox with: agentboard chat inbox --name <you> --wait 300" if on
-                           else "ORCH and agents: agent chat is off. Plain status lines only from here.", "user", to="all", via="board")
+                           else f"ORCH and agents: agent chat is off. Lines to each other wait; status lines and answers to {_who(self.owner)} "
+                                "still post, detail and all.", "user", to="all", via="board")
         return bool(on)
 
     def chat_send(self, sender, text, kind="agent", to=None, topic=None, detail=None, card=None, files=None, propose=None,
@@ -777,8 +778,12 @@ class Store:
         The one line is what the panel shows; everything else is optional and shown on tap: `to` (an agent, ORCH or all),
         `topic` (status, learn, help, heads-up, handoff), `detail` (the technical part), `card` (a card id it is about),
         `files` (paths other agents should know are being touched), `propose` (an action for the owner to approve; chat never does
-        it), `reply_to` (the seq it answers). A multi-line text keeps its first line and the rest becomes the detail. Anything
-        beyond a plain line is agent-to-agent talk and needs the board-wide switch on."""
+        it), `reply_to` (the seq it answers). A multi-line text keeps its first line and the rest becomes the detail.
+
+        Agent-to-agent talk needs the board-wide switch on: a line to an agent, ORCH or all, a heads-up about files, or a reply to
+        another agent's line. An answer to the owner (addressed to them, or to no one: the owner's thread) is never talk, whatever
+        its topic, detail or reply, and is never refused for its length: a line over CHAT_LINE_MAX is cut at a word and the rest
+        is kept at the top of the detail."""
         if kind not in ("agent", "user"):
             raise BoardError("kind must be 'agent' or 'user'")
         if kind == "agent":   # what the owner types is left as written (redact.py)
@@ -796,8 +801,6 @@ class Store:
         text = first.strip()
         if rest.strip() and not detail:
             detail = rest
-        if len(text) > CHAT_LINE_MAX:
-            raise BoardError(f"keep the line under {CHAT_LINE_MAX} characters; put the rest in --detail")
         to = (to or "").strip() or None
         if to and to.lower() == "all":
             to = "all"
@@ -821,16 +824,25 @@ class Store:
             except (TypeError, ValueError):
                 raise BoardError("reply-to must be a message number") from None
         to_owner = _to_owner(to, self.owner)   # answering the owner is not agent-to-agent talk: ORCH and the agents do it in their threads
-        talk = bool((to and not to_owner) or (topic and topic != "status") or detail or files or propose or reply_to)
+        talk = bool(to and not to_owner) or bool(files and not to_owner)
         with self._lock():
             data = self._read()
-            if talk and kind == "agent" and not data.get("chat_agents"):
-                raise BoardError("agent chat is off for this board; its owner turns it on with `agentboard chat agents on` (a plain line still posts)")
             if card:
                 if not any(t["id"] == card for t in data["tasks"]):
                     raise BoardError(f"no such task: {card}")
-            if reply_to is not None and not any(m["seq"] == reply_to for m in data["chat"]):
-                raise BoardError(f"no chat message #{reply_to}")
+            if reply_to is not None:
+                parent = next((m for m in data["chat"] if m["seq"] == reply_to), None)
+                if parent is None:
+                    raise BoardError(f"no chat message #{reply_to}")
+                if not to and parent.get("kind") != "user":   # an unaddressed reply to an agent's line is talking to that agent
+                    talk = True
+            if talk and kind == "agent" and not data.get("chat_agents"):
+                raise BoardError("agent chat is off for this board; its owner turns it on with `agentboard chat agents on` "
+                                 f"(a status line, and any answer to {_who(self.owner)}, still posts)")
+            if len(text) > CHAT_LINE_MAX:
+                if talk:
+                    raise BoardError(f"keep the line under {CHAT_LINE_MAX} characters; put the rest in --detail")
+                text, detail = _split_long_line(text, detail)   # an answer to the owner is kept whole: line plus detail
             seq = data["chat_seq"] + 1
             data["chat_seq"] = seq
             msg = {"seq": seq, "at": _now(), "sender": sender, "text": text, "kind": kind}
@@ -955,6 +967,17 @@ def _seconds_between(earlier, later):
 
 
 OWNER_WORDS = ("you", "the user", "user", "owner")   # how a prompt names an unnamed owner: --to "the user" still reaches them
+
+
+def _split_long_line(text, detail):
+    """A line over CHAT_LINE_MAX, cut at the last space before the limit (or at the limit when there is none in the second half),
+    with the rest put at the top of the detail. The line ends in an ellipsis so the reader knows it goes on."""
+    cut = text.rfind(" ", CHAT_LINE_MAX // 2, CHAT_LINE_MAX - 1)
+    if cut < 0:
+        cut = CHAT_LINE_MAX - 1
+    head, rest = text[:cut].rstrip() + "\u2026", text[cut:].strip()
+    detail = (rest + ("\n\n" + detail if detail else "")).strip()[:CHAT_DETAIL_MAX] or None
+    return head, detail
 
 
 def _to_owner(to, owner):

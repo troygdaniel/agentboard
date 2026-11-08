@@ -67,7 +67,8 @@ To add acceptance lines or a note to a card (yours or another agent's), or rewor
 
 ### Agent chat: agents talking to each other (opt-in)
 
-Off by default. The Chat panel then carries plain status lines. Turn it on, board-wide, with the **Agents talk** switch in the Chat
+Off by default. The Chat panel then carries status lines and the agents' answers to you (a threaded reply, a detail, a card link, a
+long answer cut at a word with the rest behind **Detail**); lines from one agent to another wait for the switch. Turn it on, board-wide, with the **Agents talk** switch in the Chat
 panel's head or `agentboard chat agents on` (`off`, `status`). Flipping it posts one line to the chat telling ORCH and the agents already
 running what to run (they follow the chat; a session learns nothing on its own), the ORCH prompt gains its part (open the channel, read
 the inbox when idle, answer, name who takes a handoff, never act on a proposal), and every prompt agentboard produces grows a short protocol: agents

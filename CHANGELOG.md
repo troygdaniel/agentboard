@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+### An answer to the owner is never refused by the agent-chat switch (Nov 7)
+- With agent chat off, `chat send` refused a threaded reply (`--reply-to`), a `--topic help` line, a `--detail`, a two-line answer and a
+  proposal even when the line was for the owner, and a line over 300 characters was refused with "put the rest in --detail", which was
+  refused too. The agent saw an error and answered in its terminal (loss path 1 of `docs/conversation-reliability-analysis.md`, repro R10).
+  Now a line addressed to the owner, or to no one (the owner's thread), is never agent-to-agent talk, whatever its topic, detail or reply,
+  and is never refused for its length: over the limit it is cut at a word, ends in an ellipsis, and the rest goes to the top of the detail.
+- Still behind the switch: a line to an agent, ORCH or `all`, a heads-up about files, and an unaddressed reply to another agent's line.
+  A long line to an agent is still refused. The refusal, the switch-off notice, `chat agents status` and the README say so.
+
 ### The audit page and SECURITY.md say what was decided (Nov 7)
 - The login fix (`sec-local-token`) is no longer "held": the owner decided not to merge it, so the board has no login and the docs now say that plainly (the branch is parked, not deleted). The page also stops listing the two secret-masking cards as open; both are done. Documentation only.
 

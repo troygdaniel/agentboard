@@ -52,9 +52,12 @@ class SwitchTests(Base):
         self.assertNotIn("to", m)
 
     def test_talking_needs_the_switch(self):
-        for kw in ({"to": "AGENT-2"}, {"topic": "learn"}, {"detail": "x"}, {"files": ["a.py"]}, {"propose": "deploy"}):
-            with self.assertRaises(BoardError):
+        peer = self.s.chat_send("AGENT-2", "my status line")
+        for kw in ({"to": "AGENT-2"}, {"to": "ORCH", "detail": "x"}, {"to": "all", "topic": "learn"}, {"files": ["a.py"]},
+                   {"topic": "heads-up", "files": ["a.py"]}, {"reply_to": peer["seq"]}, {"to": "AGENT-2", "propose": "deploy"}):
+            with self.assertRaises(BoardError) as cm:
                 self.s.chat_send("AGENT-1", "hi", **kw)
+            self.assertIn("any answer to the user, still posts", str(cm.exception))
         self.s.chat_send("you", "@AGENT-2 look at this", kind="user", to="AGENT-2")   # the owner is never gated
         self.assertTrue(self.s.set_chat_agents(True))
         m = self.s.chat_send("AGENT-1", "fcntl locks are per process, use flock on the fd", to="all", topic="learn", detail="see store.py _lock")
@@ -176,6 +179,48 @@ class MessageTests(Base):
         self.assertIn("agent chat is off", str(code))   # sys.exit(message): the message is the exit code here
         code, out = self.run_cli("chat", "send", "hi", "--name", "AGENT-1")
         self.assertEqual(code, None)
+        q = self.s.chat_send("you", "how far along?", kind="user", to="AGENT-1")
+        code, out = self.run_cli("chat", "send", "nearly there\nthe lock is in, tests next", "--name", "AGENT-1", "--to", "you",
+                                 "--reply-to", str(q["seq"]), "--topic", "help", "--card", "harden-webhook-retries")
+        self.assertEqual(code, None)
+        self.assertEqual(self.s.chat_list()[-1]["detail"], "the lock is in, tests next")
+
+    def test_an_answer_to_the_owner_is_never_refused_while_off(self):
+        """Loss path 1 of docs/conversation-reliability-analysis.md (repro R10): with agent chat off, a threaded reply, a --topic,
+        a --detail, a two-line answer, a card link, a proposal or a long line all post when they are for the owner."""
+        self.s.set_chat_agents(False)
+        q = self.s.chat_send("you", "question?", kind="user", to="AGENT-1")
+        notice = self.s.chat_send("you", "agent chat is off", kind="user", to="all", via="board")
+        for kw in ({"to": "you"}, {"to": "You", "reply_to": q["seq"]}, {"reply_to": q["seq"]}, {"reply_to": notice["seq"]},
+                   {"to": "you", "topic": "status"}, {"to": "you", "topic": "help"}, {"topic": "help"}, {"detail": "the long part"},
+                   {"to": "the user", "detail": "the long part"}, {"to": "you", "card": "harden-webhook-retries"}, {"propose": "deploy"},
+                   {"to": "owner", "files": ["a.py"]}):
+            m = self.s.chat_send("AGENT-1", "done\nhere is more", **kw)
+            self.assertEqual((m["text"], m["detail"]), ("done", kw.get("detail", "here is more")), kw)
+        # a line for the owner over the limit is kept whole: the line is cut at a word, the rest tops the detail
+        words = " ".join(f"word{i}" for i in range(60))
+        m = self.s.chat_send("AGENT-1", words, to="you", detail="and the technical part")
+        self.assertLessEqual(len(m["text"]), 300)
+        self.assertTrue(m["text"].endswith("\u2026") and not m["text"][:-1].endswith("word") and m["text"][-7:-1].startswith("word"))
+        self.assertEqual(m["text"][:-1] + " " + m["detail"], words + "\n\nand the technical part")
+        m = self.s.chat_send("AGENT-1", "x" * 320)   # no space to cut at: cut at the limit
+        self.assertEqual((len(m["text"]), m["text"][-1], m["detail"]), (300, "\u2026", "x" * 21))
+        # the same long line to an agent is still refused, on or off, as is any line to an agent while off
+        for on in (False, True):
+            self.s.set_chat_agents(on)
+            with self.assertRaises(BoardError):
+                self.s.chat_send("AGENT-1", "x" * 320, to="AGENT-2")
+        self.s.set_chat_agents(False)
+        with self.assertRaises(BoardError):
+            self.s.chat_send("AGENT-1", "done", to="AGENT-2", reply_to=q["seq"])
+        # the owner's long line is kept whole too
+        m = self.s.chat_send("you", "y " * 200, kind="user")
+        self.assertEqual((len(m["text"]) <= 300, m["text"][-1], m["detail"].startswith("y")), (True, "\u2026", True))
+
+    def test_the_switch_notice_says_answers_still_post(self):
+        self.s.set_chat_agents(True)
+        self.s.set_chat_agents(False)
+        self.assertIn("answers to the user still post", self.s.chat_list()[-1]["text"])
 
 
 class RecallTests(Base):

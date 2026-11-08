@@ -518,7 +518,7 @@ def cmd_chat_agents(a):
         s.set_chat_agents(a.state == "on")
     on = s.chat_agents()
     print("agent chat is " + ("on: agents may talk to each other on the shared chat (any action still needs your approval)" if on
-                              else "off: agents post plain status lines only (turn on with: agentboard chat agents on)"))
+                              else "off: agents post status lines and answers to you only (turn on with: agentboard chat agents on)"))
 
 
 def cmd_chat_idle(a):

@@ -103,7 +103,8 @@ class TheStoreStaysResponsive(unittest.TestCase):
         big = "eyJ" * 330_000
         for name, fn in (("edit", lambda: s.edit("c", description=big)), ("update", lambda: s.update("step", 10, big, body_md=big)),
                          ("ask", lambda: s.ask("c", big, body_md=big)), ("chat", lambda: s.chat_send("AGENT-1", "hi\n" + big, detail=big)),
-                         ("chat, one huge line (refused)", lambda: self.assertRaises(BoardError, s.chat_send, "AGENT-1", big))):
+                         ("chat, one huge line to the owner (cut into line plus detail)", lambda: s.chat_send("AGENT-1", big)),
+                         ("chat, one huge line to an agent (refused)", lambda: self.assertRaises(BoardError, s.chat_send, "AGENT-1", big, to="AGENT-2"))):
             dt, _ = timed(fn)
             self.assertLess(dt, LIMIT, name)
 
