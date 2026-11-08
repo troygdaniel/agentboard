@@ -16,7 +16,8 @@
   `/api/watchdog-fix` does one. `agentboard doctor` gains a `watchdog` line: WARN with the counts, PASS when the board is clean (so `doctor --strict` exits 1 while a claim is
   stale or an agent has vanished). `watchdog --fix all` reports a row an earlier fix in the same run already covered as "already done" and
   goes on; `--fix abc` is refused with the accepted forms. The Board page shows the same rows under the Doing header (`/api/tasks` carries `watchdog` when there
-  is something to show). ORCH's prompt and `agentboard instructions` name the command.
+  is something to show). ORCH's prompt and `agentboard instructions` name the command (an agent reports a stuck card to ORCH and never
+  releases a peer's claim itself). The tasks feed caches the findings for a few seconds between polls.
 - A claim refused because another agent holds the card now says what to do (ask ORCH, or `agentboard watchdog` if that agent is
   gone) instead of only "use --force". Card `overnight-rel-agent-protocol`; evidence in `docs/overnight/overnight-rel-agent-protocol.md`.
 

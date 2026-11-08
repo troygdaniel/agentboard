@@ -289,9 +289,24 @@ class TheBoardPageAndThePrompts(Base):
         from agentboard import prompt
         self.assertIn("watchdog                                           # a card looks stuck?", prompt.ORCH_TEMPLATE)
         self.assertIn("`agentboard watchdog` lists every such case with its one fix", cli.INSTRUCTIONS)
-        self.assertIn("Never `--force` past another agent's claim", cli.INSTRUCTIONS)
+        self.assertIn("never run `--fix` on another agent's claim and never `--force` past one", cli.INSTRUCTIONS)   # agents report; ORCH or the owner decides
+        self.assertIn("Tell your orchestrator in one chat line and leave the fix to it", cli.INSTRUCTIONS)
         code, out, err = self.run_cli("instructions")
         self.assertIn("agentboard watchdog", out)
+
+
+class TheTasksFeedCache(Base):
+    def test_findings_are_reused_for_a_few_seconds_and_dropped_by_a_fix(self):
+        server._DOG_CACHE.clear()
+        self.s.add("Queued work", task_id="queued")
+        self.s.claim("queued", "AGENT-2")
+        self.age("queued")
+        first = server._watchdog_cached(self.s, now=100.0)
+        self.assertEqual([f["kind"] for f in first][:1], ["vanished"])
+        watchdog.heal(self.s, "release", "queued")
+        self.assertIs(server._watchdog_cached(self.s, now=102.0), first)            # inside the window: the same list, no second pass
+        self.assertEqual(server._watchdog_cached(self.s, now=106.0), [])            # after it: a fresh pass sees the release
+        server._DOG_CACHE.clear()
 
 
 class TasksFeed(_Http):
@@ -306,5 +321,9 @@ class TasksFeed(_Http):
                 if t["id"] == "queued":
                     t["updated"] = old
                     t["log"][-1]["at"] = old
+        server._DOG_CACHE.clear()
         d = json.loads(self.get("/api/tasks")[1])
         self.assertIn("claimed-idle", [f["kind"] for f in d["watchdog"]])
+        fix = next(f["fix"] for f in d["watchdog"] if f["kind"] == "claimed-idle")
+        self.post("/api/watchdog-fix", fix)                                           # a fix drops the cache: the next poll is clean
+        self.assertNotIn("watchdog", json.loads(self.get("/api/tasks")[1]))

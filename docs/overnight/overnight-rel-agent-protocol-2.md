@@ -48,6 +48,14 @@ In the headless-Chrome check the rows listed vanished, stuck, claimed-idle, spli
 - `/api/tasks` now reads the chat log and the listener and session files once per poll when the board has findings; on a clean board
   it reads them once to learn there are none. That is the same cost `/api/hud` already paid every second with Load open.
 
+## After the cross-review (AGENT-8, card xr-watchdog-agents-may-release)
+
+- The agent instructions no longer tell an agent to release a peer's claim: a stuck card is reported to the orchestrator in one chat line,
+  and the fix is ORCH's or the owner's; `--fix` on another agent's claim and `--force` past one are both named as things an agent never
+  does. An agent's own rows (its orphan subtask, a twin it made) it may fix itself. ORCH's prompt keeps the `--fix` hint.
+- `/api/tasks` no longer runs the watchdog's pass on every one-second poll: the findings are cached per board for 5 seconds
+  (`server._watchdog_cached`), and a fix through `/api/watchdog-fix` drops the cache so the next poll is current.
+
 ## Not done
 
 - A `--watch` mode for the CLI, and a nightly line in the review ("the watchdog released N cards this week"), could follow.
