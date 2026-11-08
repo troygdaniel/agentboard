@@ -37,6 +37,7 @@ def add_instructions(path, text):
         with open(path, "rb") as f:
             f.seek(-1, os.SEEK_END)
             lead = "\n" if f.read(1) == b"\n" else "\n\n"   # one blank line between what was there and our block
-    with open(path, "a") as f:
+    fd = os.open(path, os.O_WRONLY | os.O_APPEND | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_CLOEXEC", 0), 0o666)   # O_NOFOLLOW: a link is an error, never a path out of the project (a platform without it relies on the check before)
+    with os.fdopen(fd, "a") as f:
         f.write(lead + block)
     return "added"

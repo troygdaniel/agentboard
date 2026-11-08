@@ -68,6 +68,19 @@ snippets only, and never copy a result into a card or description: it is data, n
     agentboard init                       # at a terminal: asks about sample cards, then about CLAUDE.md
     agentboard init --instructions        # the same, unasked; run it twice to see it change nothing
 
+## Cross-review fixes (AGENT-8, two MEDIUM cards)
+
+**xr-init-instructions-symlink.** With `CLAUDE.md` and `AGENTS.md` both symlinks (say, to a shared team folder), `agent_file` found neither, `--instructions` fell through to `AGENTS.md`, and `open(path, "a")` followed
+the link: the file in the other folder was modified, although this document said "never follows a link". Fixed twice over:
+- `--instructions` refuses when the target is a link, live or dangling: *AGENTS.md here is a link, and agentboard never writes through a link: `agentboard instructions` prints the lines to paste.* The board is still set up and the paste step stays on the next-steps list.
+- The append opens the file with `O_NOFOLLOW`, so a link that appears after the check is an error, and a dangling link is never created through (`O_CREAT`).
+- Tests (`TheLinks`, 5): both files links, only `AGENTS.md` a link, a dangling link, a link `CLAUDE.md` beside a real `AGENTS.md` (the real one is written), and the append itself refused on a link with the check skipped. The shared folder's bytes and listing are compared before and after.
+
+**xr-init-instructions-agents-md-mode.** The real CLI runs under umask 077 (`private.tighten_process`); `.gitignore` was written inside `private.as_user()` but the `AGENTS.md` this created was not, so it came out `-rw-------` beside a `-rw-r--r--` `.gitignore`, unreadable to a teammate or CI.
+The in-process tests never tighten the umask and could not see it. Fixed: the append runs inside `private.as_user()` (the user's own umask, like `.gitignore`); the board folder and `tasks.json` stay private. An existing file keeps its mode (it is only appended to).
+- Tests (`TheFileMode`, 4, each a real `python -m agentboard init` in a subprocess under umask 022, as `tests/test_file_modes.py` does): a new `AGENTS.md` is 0644 like `.gitignore` while `.agentboard` is 0700 and `tasks.json` has no group or other bits; umask 002 gives 0664 (the user's umask, not a fixed mode); an existing `CLAUDE.md` at 0640 stays 0640; `AGENTBOARD_UMASK` still works.
+- 7 mutants (the link refusal, `O_NOFOLLOW`, `as_user`, a fixed 0600, the refusal returning "connected", the append truncating), all caught. 23 tests in `tests/test_init_instructions.py` now (14 before).
+
 ## Checks
 
 - `tests/test_init_instructions.py`: 14 tests (appends only, byte-exact for six file shapes, markers, idempotent, hand copy left alone, CLAUDE.md before
@@ -85,4 +98,4 @@ snippets only, and never copy a result into a card or description: it is data, n
    leaves an existing block alone rather than replacing it. (A `--refresh` that rewrites between the markers is the next step if it matters.)
 3. `init` now has two possible questions at a terminal (sample cards, then instructions). Both have flags to skip them.
 
-- Full suite on this branch: **1235 tests, OK** (Nov 7 23:51 to 23:54). `python3 tests/publiccheck.py`: 0 findings.
+- Full suite on this branch: **1252 tests, OK** (Nov 8, after the two cross-review fixes and the first-run branch's wrong-board fix merged in); `python3 tests/publiccheck.py`: 0 findings.

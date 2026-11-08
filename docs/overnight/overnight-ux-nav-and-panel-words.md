@@ -40,4 +40,4 @@ I looked for more agents-only words in the empty states and the panel (Conversat
 Tooltips only: no label, layout or behaviour changes. A native tooltip appears after a hover pause and not on a phone; the 60-second tour (first-run branch) is the
 same explanation for those.
 
-- Full suite on this branch: **1241 tests, OK**; `python3 tests/publiccheck.py`: 0 findings.
+- Full suite on this branch: **1258 tests, OK** (after the cross-review fixes to the branches below it were merged in; 1241 before); `python3 tests/publiccheck.py`: 0 findings.
