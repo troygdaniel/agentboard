@@ -594,4 +594,6 @@ What to expect when you clone this onto a managed machine (the full audit and ch
 
 The suite runs with a network guard (`tests/netguard.py`): a test that opens a connection to anything but loopback fails with the guard's name in the message. `AGENTBOARD_TEST_NET=1` turns it off for one run. The security sign-off for a reviewer is [`docs/security-signoff.md`](docs/security-signoff.md).
 
+How it is built, file by file: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md). How to work on it (cards, worktrees, the gates, the changelog rule): [`CONTRIBUTING.md`](CONTRIBUTING.md). Every document, one line each: [`docs/index.md`](docs/index.md).
+
 MIT licensed.
