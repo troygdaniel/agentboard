@@ -67,6 +67,10 @@ socket.socket.connect, socket.socket.connect_ex, socket.getaddrinfo = connect, c
 
 ## What weakens the story (from tonight's merge review, filed as cards, not fixed here)
 
+Update after the rebase onto main (00:0x, Nov 8): ORCH merged fixes for the listener race (7381e9e), the two masker shapes (88712d4),
+the Stop hook cursor case (16a273c), the repro's live-board read (a287e1d) and the autopilot marking (e5eb381) during the night; the sign-off's
+known limits were updated to match. The `[redact]` switch now has a doctor line (`overnight-sec-doctor-redact-switch`).
+
 - HIGH `rev1107-listeners-race`: `chat-listeners.json` has no lock; concurrent waits lose entries (reliability).
 - MEDIUM `rev1107-redact-url-empty-user`, `rev1107-redact-short-basic`: two credential shapes the masker misses.
 - MEDIUM `rev1107-stophook-case`, `rev1107-repro-reads-live-board`, `rev1107-autopilot-marks-read`: Stop hook and receipts correctness.

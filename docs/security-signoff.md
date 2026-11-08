@@ -3,8 +3,8 @@
 **What it is.** A kanban board for the Claude Code sessions a developer runs in parallel. A command line (`agentboard …`) and a
 small web server, both from one Python package with **no dependencies** (`pyproject.toml`: `dependencies = []`, stdlib only). The
 server listens on **127.0.0.1 only**, serves one HTML page, and stores everything in one folder, `.agentboard/`, inside your project.
-This page states what the code does and cites the file and the test that proves each line. It was written on 2026-11-07 against
-`main` 3cec02a (v0.3.1). Where a claim could not be proved by a test or a grep it is listed under **Known limits**, not asserted.
+This page states what the code does and cites the file and the test that proves each line. It was written on 2026-11-07 and re-verified
+line by line against `main` 2b1adae (v0.3.1) in the small hours of 2026-11-08. Where a claim could not be proved by a test or a grep it is listed under **Known limits**, not asserted.
 
 ## Data flow
 
@@ -23,12 +23,12 @@ Text moves one way into the board file and out to the page. Nothing in the pictu
 | Claim | Where in the code | Proof |
 |---|---|---|
 | The server binds `127.0.0.1`; there is no flag for another interface | `server.py:435` `ThreadingHTTPServer(("127.0.0.1", port), …)` | `agentboard doctor` "listeners … all loopback only"; `lsof -nP -i -a -p <pid>` shows one LISTEN line |
-| The whole test suite (1,190+ tests) makes **no connection off the machine**, and a change that adds one fails the suite | every module | `tests/netguard.py`, loaded by both runners before any test runs, refuses any non-loopback `connect`/`connect_ex`/`getaddrinfo` with an error naming the test; `tests/test_net_guard.py` proves it trips on 198.51.100.1 and lets loopback and AF_UNIX through; the run of 2026-11-07: 0 refusals (`docs/overnight/overnight-sec-nonet-guard.md`) |
-| Only one module can open an outbound socket: the opt-in `http` provider | `providers.py:11` (`urllib.request`), nowhere else: `grep -n "urllib.request\|socket\|http.client" src/agentboard/*.py` | `agentboard doctor` line "code: modules that can make an outbound connection: providers; modules that can listen: server" (`doctor.py:497`) |
-| Programs the board can start are all opt-in: `claude` (chat rounds, `agentboard run`), the `command` provider, `osascript` banners, voice tools, `git` for read-only log/status | `agentchat.py:296`, `runs.py:274`, `providers.py:150`, `cli.py:736`, `voice.py:103`, `reports.py:131` | `tests/test_lockdown_wiring.py` |
+| The whole test suite (1,200+ tests) makes **no connection off the machine**, and a change that adds one fails the suite | every module | `tests/netguard.py`, loaded by both runners before any test runs, refuses any non-loopback `connect`/`connect_ex`/`getaddrinfo` with an error naming the test; `tests/test_net_guard.py` proves it trips on 198.51.100.1 and lets loopback and AF_UNIX through; the run of 2026-11-07: 0 refusals (`docs/overnight/overnight-sec-nonet-guard.md`) |
+| Only one module can open an outbound socket: the opt-in `http` provider | `providers.py:11` (`urllib.request`), nowhere else: `grep -n "urllib.request\|socket\|http.client" src/agentboard/*.py` | `agentboard doctor` line "code: modules that can make an outbound connection: providers; modules that can listen: server" (`doctor.py:570`) |
+| Programs the board can start are all opt-in: `claude` (chat rounds, `agentboard run`), the `command` provider, `osascript` banners, voice tools, `git` for read-only log/status | `agentchat.py:296`, `runs.py:274`, `providers.py:150`, `cli.py:723`, `voice.py:103`, `reports.py:131` | `tests/test_lockdown_wiring.py` |
 | **The master lock `AGENTBOARD_LOCKDOWN=1` refuses every one of those at once**, plus the `[backup] sync_dir` copy, `spawn`, and all plugins, even when a copied `config.toml` asks for them | `lockdown.py:26` (any value but `""`, `0`, `false`, `no` locks; read on every call, never cached) | `tests/test_lockdown.py`, `tests/test_lockdown_wiring.py` (9 tests), `tests/test_plugins.py::test_the_master_lock_beats_everything` |
 | Under the lock, `config.toml` cannot pull a file from outside the project into a prompt (markdown, file-tail, template) | `providers.py:51` `inside_project` (resolves symlinks; refuses absolute, `..`, `~`) | `tests/test_file_reads_lockdown.py` |
-| Plugins are off unless `AGENTBOARD_PLUGINS` is exactly `1`; `AGENTBOARD_NO_PLUGINS` is a second lock; agentboard ships none | `plugins.py:62` | `tests/test_plugins.py` (off by default, key exactly 1, either lock closes every door while running) |
+| Plugins are off unless `AGENTBOARD_PLUGINS` is exactly `1`; `AGENTBOARD_NO_PLUGINS` is a second lock; agentboard ships none | `plugins.py:64` | `tests/test_plugins.py` (off by default, key exactly 1, either lock closes every door while running) |
 | The page loads nothing from the internet: no CDN, font, script or image | `static/index.html`: the only `http` string is the SVG namespace | `tests/test_page_csp.py`: CSP `default-src 'none'; connect-src 'self'; script-src 'nonce-…' 'self'`, no framing, nosniff |
 | Install fetches once (`pipx install git+…` and `setuptools>=68`); nothing runs at install, no update check, no telemetry | `pyproject.toml`; no such code exists | `grep -rn "telemetry\|analytics\|update" src/agentboard/*.py` finds no network call |
 
@@ -45,7 +45,8 @@ listing below taken from a throwaway project on 2026-11-07.
 | `backups/tasks-<stamp>.json.gz` | hourly snapshots (`backup.py:97`) | 600 (folder 700) |
 | `config.toml` | providers, switches, phone numbers if you add them | 600 |
 | `.lock` | the write lock | 600 |
-| `sessions.json`, `chat-cursors.json`, `chat-listeners.json`, `server-<pid>.json` | session name per Claude Code id and transcript path; where each agent read to; which wait is running (pid); how the server was started (yes/no flags) | 600 (`serverstate.py:72` uses `O_EXCL\|O_NOFOLLOW`) |
+| `sessions.json`, `chat-cursors.json`, `chat-delivered.json`, `chat-listeners.json`, `server-<pid>.json` | session name per Claude Code id and transcript path; where each agent read to and what was printed to it; which wait is running (pid); how the server was started (yes/no flags) | 600 (`serverstate.py:72` uses `O_EXCL\|O_NOFOLLOW`) |
+| `.listeners.lock`, `.cursors.lock` | empty files held for a file lock while those two are written (`listeners.py:48-56`) | 600 |
 | `reports/<card>.html`, `runs/<card>/<id>/{run.json,prompt.md,stdout.json,stderr.log}` | a card's finished report; one-shot run records (runs are opt-in) | 600 (folders 700) |
 | `chat-casual.json`, `chat-autopilot.json` | only when the opt-in chat rounds are on | 600 |
 | `<project>/.gitignore` | `init` adds the line `.agentboard/` | your umask (a project file, `private.py:56`) |
@@ -59,19 +60,19 @@ Nothing is written anywhere else; nothing is synced unless you set `[backup] syn
 
 Text that agents write is masked where it enters the store (`redact.py`; `store.py` `_scrub` on add/start/claim/edit/ask/review/update/chat):
 cloud and API key prefixes, tokens, JWTs, private-key blocks, `Authorization:` values, URL passwords, `api_key = …`; invisible and
-look-alike characters are folded first. Proof: `tests/test_redact*.py` (8 files). It is a shape filter, not a classifier: see Known limits.
+look-alike characters are folded first. Proof: `tests/test_redact*.py` (9 files). It is a shape filter, not a classifier: see Known limits.
 
 ## What the two hooks do
 
 `agentboard hooks install` writes, into **this project's** `.claude/settings.json` only (never `~/.claude`), two entries whose command is the
-absolute path of the installed `agentboard`, shell-quoted (`hooks.py:173-230`; `tests/test_hook_install.py`). No board text ever reaches a shell.
+absolute path of the installed `agentboard`, shell-quoted (`hooks.py:179-236`; `tests/test_hook_install.py`). No board text ever reaches a shell.
 
 - `PostToolUse` on `SendMessage`: `agentboard hook send-message` reads Claude Code's JSON payload from stdin and, only while agent chat is on,
   posts the message to the board file, masked (`hooks.py:99-125`). Exit 0 always; prints nothing.
 - `Stop`: `agentboard hook stop` reads the payload and answers `{"decision":"block","reason":…}` once when the owner's unread line is waiting
   or no wait is running (`hooks.py:128-158`); the quoted line is passed as data (`untrusted.one_line`). It reads the board, writes nothing.
 
-`agentboard hooks uninstall` (`hooks.py:261`) removes exactly those entries and deletes the file only if it held nothing else (`tests/test_hook_install.py:72-99`).
+`agentboard hooks uninstall` (`hooks.py:267`) removes exactly those entries and deletes the file only if it held nothing else (`tests/test_hook_install.py:72-99`).
 
 ## What an agent can and cannot do through the board
 
@@ -99,12 +100,13 @@ Uninstall completely: `agentboard hooks uninstall` in each project, `pipx uninst
 
 1. **No login.** Any program running as your user, or a browser extension, can read and change the board on the local port. Websites cannot
    (Host, Origin and CSP checks). A key-cookie lock exists on a parked branch (`sec-web`) and is not merged (`SECURITY.md`, Known gaps).
-2. **The masker is a shape filter.** A short password (`hunter2`), a `Basic` header with a short value, or `redis://:password@host` (empty user) are
-   stored as written; `[redact] enabled = false` in the board's `config.toml`, which any local process can edit, turns it off (`redact.py:156-170`);
+2. **The masker is a shape filter.** A short password (`hunter2`) or a token with no recognisable shape is stored as written (the `Basic` and
+   `redis://:password@host` gaps found on Nov 7 were fixed the same night, 88712d4); `[redact] enabled = false` in the board's `config.toml`, which any local process can edit, turns it off (`redact.py:181-195`);
    `agentboard doctor` prints `FAIL masking` when it is off and `WARN masking` when the default was changed (`doctor.py` `check_redact`,
-   `tests/test_doctor.py`). Cards `rev1107-redact-url-empty-user` and `rev1107-redact-short-basic` are filed.
+   `tests/test_doctor.py`).
 3. **A plugin is trusted code.** Install none on a managed machine; both locks refuse them.
 4. **Hard links** out of the project are not detectable by the lockdown path check (symlinks are); writing one needs write access to the project.
-5. **Reliability, not security:** `chat-listeners.json` is written without a lock and loses entries under concurrent waits (card `rev1107-listeners-race`).
+5. **Reliability, not security:** the listener and cursor files are written under a lock since Nov 7 (7381e9e, 16a273c); a receipt still says
+   "answered" for any later agent line to the owner, not only a reply to that line (card `rev1107-answered-means-any-line`).
 6. The Stop hook's `.claude/settings.json` entry carries the install path (for example `~/.local/bin/agentboard`) and is often committed with a project.
 7. **Not audited:** the `claude` program's own traffic, other apps, Linux and Windows (verification used macOS `lsof`, `ps`), and the voice tools.
