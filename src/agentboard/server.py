@@ -124,6 +124,8 @@ def make_handler(default_store, port):
                 self.send_header(k, v)
             self.send_header("Content-Length", str(len(raw)))
             self.send_header("Cache-Control", "no-store")
+            if not any(k.lower() == "x-content-type-options" for k in (extra or {})):
+                self.send_header("X-Content-Type-Options", "nosniff")   # nothing this server sends is ever read as another type
             self.end_headers()
             self.wfile.write(raw)
 

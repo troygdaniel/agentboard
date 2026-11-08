@@ -86,6 +86,40 @@ a repo with the permissions an interactive agent there has, and never passes a f
 log, backup or the page), opens no socket, starts no program, and prints each snippet cleaned of control characters, secret-masked and quoted as data. A plugin may
 add a source; with plugins off or locked there are none. Core code never opens a file named in `config.toml`.
 
+## The work profile and `agentboard selfcheck`
+
+`agentboard profile work` is one switch for a managed PC (`src/agentboard/profile.py`). Any of three sources turns it on and none can turn another off: the
+environment (`AGENTBOARD_PROFILE=work`), a machine file (`~/.config/agentboard/profile`, written by the command, mode 600) and `[board] profile = "work"` in a
+board's `config.toml` (`agentboard init --profile work` writes it). Any value that is not a plain off word means work (fail closed). It sets the master lock
+and the plugin lock for the process and everything it starts, and installs two run-time guards (`src/agentboard/guards.py`):
+
+- **network guard** (every command): `connect`, `connect_ex`, `sendto`, `create_connection`, every name lookup and every `bind` refuse an address that is not this
+  machine (127.0.0.0/8, `::1`, a Unix socket, the name `localhost`); listening is refused anywhere but loopback. It refuses before anything is sent.
+- **process guard** (`agentboard serve` only): `subprocess`, `os.system`, `os.popen`, `os.exec*`, `os.spawn*`, `os.posix_spawn` and `os.fork` refuse. The server also
+  opens no browser, schedules no chat rounds, and skips the "commits made" git line on a finished card.
+
+The guards make the board's promise checkable; they are not a sandbox. A C extension or `ctypes` can open a socket without passing them (the static scan fails the
+build on `ctypes`, `cffi` and any third-party package, and the package has no dependencies), and a program the board did not start is not covered: the operating
+system's firewall is still the answer to a hostile process.
+
+`agentboard selfcheck` (`src/agentboard/selfcheck.py`; `--json` for a machine-readable list; exit 1 on a FAIL) is the proof:
+
+- **Static:** every `.py` file is parsed and checked against tables of what may use the network, start a program (`shell=True` only in the locked command provider), run
+  `eval`/`exec`/`pickle`, name a host in a string, or import a third-party package, each entry with the reason and the lock; the page and its scripts must load nothing
+  from another host and the page's Content-Security-Policy must be the strict one.
+- **Runtime:** a throwaway board and a real server on a free loopback port with both guards installed. The canaries (a public address, a name, a UDP datagram, a listen on
+  all interfaces, a program start) must all be refused. Every route in `server.py` is requested and a scripted day of work runs through the real handlers; the guards'
+  records must show no outside address and no program started.
+- **Red-team:** DNS rebinding (eight wrong `Host` forms), cross-site POST (five forms) and GETs with side effects, exact `application/json` only, oversized, negative
+  and non-numeric lengths, a JSON bomb, two requests in one connection, `Content-Length` with `Transfer-Encoding`, duplicate lengths, CR/LF injection, over-long
+  lines and headers, a stalled client, a flood of idle connections (capped at 128 threads), every HTTP verb, no CORS header, nosniff and frame headers, path
+  traversal through every route that takes a name, a symlink out of the reports folder, a transcript path that is any file, unknown board names, and providers that
+  try to reach a metadata address, run a command or read a file outside the project.
+
+The tests (`tests/test_workprofile.py`) check that the selfcheck passes on this tree and that it turns red for each planted violation (a network import, a program
+start, `shell=True`, `eval`, a third-party package, an address, a page that loads from outside, a dropped policy, a server that stops checking the Host or the origin, a route
+that reaches out or starts a program, a listener on all interfaces, a lock that does not lock).
+
 ## Checking a machine
 
 `agentboard doctor` is read-only and prints PASS / WARN / FAIL lines you can paste into a review: whether `AGENTBOARD_LOCKDOWN` is set (WARN if not) and which

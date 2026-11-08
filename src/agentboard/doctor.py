@@ -20,6 +20,7 @@ from pathlib import Path
 from . import __version__, lockdown
 from . import prompt as promptlib
 from . import plugins, providers, redact, serverstate, untrusted
+from . import profile as profilelib
 from .store import BoardError
 
 PASS, WARN, FAIL, INFO = "PASS", "WARN", "FAIL", "INFO"
@@ -142,6 +143,9 @@ def check_locks(env):
     others = [f"{n} {'on' if on(n) else 'off'}" for n in names if n != lockdown.ENV]
     if others:
         out.append(_res(INFO, "lock", "narrow locks: " + ", ".join(others)))
+    why = profilelib.reason(None)
+    out.append(_res(PASS, "profile", f"the work profile is on ({why}); `agentboard selfcheck` proves it") if why
+                 else _res(INFO, "profile", "the work profile is not on; `agentboard profile work` turns on the lock, loopback-only networking and no program starts (then `agentboard selfcheck`)"))
     return out
 
 
@@ -279,7 +283,7 @@ def check_servers(board_dir, pids, shell_locked):
         plugins_on = s["plugins_open"]
         extra = f"; plugins ON: {', '.join(s['plugins_loaded']) or 'allowed'}" if plugins_on else ""
         if s["lockdown"] and not plugins_on:
-            out.append(_res(PASS, "server", f"{who} was started with {lockdown.ENV} on and plugins closed"))
+            out.append(_res(PASS, "server", f"{who} was started with {lockdown.ENV} on and plugins closed" + (", under the work profile (no outside connection, no program started)" if s.get("profile") else "")))
         elif shell_locked and not s["lockdown"]:
             out.append(_res(WARN, "server", f"{who} was started WITHOUT {lockdown.ENV} although this shell has it on{extra}; restart it from a shell that has it"))
         elif plugins_on:

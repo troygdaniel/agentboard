@@ -224,6 +224,18 @@ def _dependency_check():
             return _res(INFO, "static: declared dependencies", "could not be read here (no pyproject.toml beside the code, no installed metadata)")
 
 
+def _page_csp_ok(server_py):
+    """The Content-Security-Policy the board page is served with (PAGE_CSP in server.py): nothing by default, requests to itself only, no framing."""
+    try:
+        for node in ast.parse(Path(server_py).read_text()).body:
+            if isinstance(node, ast.Assign) and any(isinstance(t, ast.Name) and t.id == "PAGE_CSP" for t in node.targets):
+                text = ast.literal_eval(node.value)
+                return all(want in text for want in ("default-src 'none'", "connect-src 'self'", "frame-ancestors 'none'", "form-action 'none'", "base-uri 'none'")) and "*" not in text
+    except (OSError, ValueError, SyntaxError):
+        pass
+    return False
+
+
 def _assets_check(root):
     static = Path(root) / "static"
     found, files = [], 0
@@ -237,8 +249,7 @@ def _assets_check(root):
                 host = (m.group(1) or "").lower()
                 if host and host not in ("localhost", "127.0.0.1"):
                     found.append(f"{p.name} loads from {host}")
-    sv = (Path(root) / "server.py").read_text()
-    csp = "default-src 'none'" in sv and "connect-src 'self'" in sv and "frame-ancestors 'none'" in sv
+    csp = _page_csp_ok(Path(root) / "server.py")
     if found:
         return _res(FAIL, "static: the page loads nothing from outside", "; ".join(sorted(set(found))[:5]))
     return _res(PASS if csp else FAIL, "static: the page loads nothing from outside",
@@ -343,14 +354,18 @@ class Audit:
         os.environ.update({"AGENTBOARD_LOCKDOWN": "1", "AGENTBOARD_NO_PLUGINS": "1", "AGENTBOARD_PROFILE": "work", "HOME": str(self.tmp), "XDG_CONFIG_HOME": str(self.tmp / "cfg")})
         for key in ("AGENTBOARD_PLUGINS", "AGENTBOARD_BOARD", "AGENTBOARD_DIR"):
             os.environ.pop(key, None)
+        self.old_umask = os.umask(0o077)   # what `agentboard` itself sets at start (private.tighten_process): the modes below are the ones it keeps
+        from . import private
+        private.tighten_dir(self.board)
         self.net = guards.network_guard()
         self.proc = guards.process_guard()
         from . import server
         self.store = Store(self.board)
         self.server = server
-        handler = server.make_handler(self.store, self.port)
+        self.handler = None
+        self.srv = server.new_server(self.store, self.port)
+        handler = self.srv.RequestHandlerClass
         self.handler = handler
-        self.srv = server.ThreadingHTTPServer(("127.0.0.1", self.port), handler)
         handler.timeout = 2   # the stalled-client check must not take 15 s
         self.thread = threading.Thread(target=self.srv.serve_forever, daemon=True)
         self.thread.start()
@@ -363,6 +378,8 @@ class Audit:
         for g in (self.proc, self.net):
             if g:
                 g.uninstall()
+        if getattr(self, "old_umask", None) is not None:
+            os.umask(self.old_umask)
         for k, v in self.saved_env.items():
             if v is None:
                 os.environ.pop(k, None)
@@ -539,6 +556,28 @@ class Audit:
         took = time.time() - t0
         self.ok(took < 5 and self.alive(), "http: a stalled client is dropped", f"a body that never finishes was cut after {took:.1f} s (the handler timeout; 15 s in the real server)", f"held for {took:.1f} s")
         timeout_cfg = self.handler.timeout
+        # a flood of idle connections
+        held = []
+        try:
+            for _ in range(self.srv.MAX_CONNECTIONS + 30):
+                try:
+                    held.append(socket.create_connection(("127.0.0.1", port), timeout=2))
+                except OSError:
+                    break
+            time.sleep(0.3)
+            over = raw(port, f"GET /api/tasks HTTP/1.1\r\nHost: {host}\r\n\r\n".encode(), timeout=3)
+        finally:
+            for c in held:
+                with contextlib.suppress(OSError):
+                    c.close()
+        time.sleep(0.3)
+        self.ok(over.status == 503 and self.alive(), "http: a flood of connections is capped", f"{len(held)} idle connections held: the next is refused with 503 at once, and the server answers normally after they close",
+                f"status {over.status}; alive={self.alive()}")
+        old = raw(port, b"GET /api/tasks\r\n\r\n")
+        absolute = raw(port, f"GET http://evil.example/api/tasks HTTP/1.1\r\nHost: evil.example\r\nConnection: close\r\n\r\n".encode())
+        self.ok(b'"title"' not in old.raw and b'"tasks"' not in old.raw, "http: a request with no version and no Host", "nothing of the board comes back (no Host to check, so it is refused)", f"{old.status}: {old.raw[:60]!r}")
+        self.ok(absolute.status == 403, "http: an absolute-form target with another Host is refused", "403: the Host header decides, not the target", f"{absolute.status}")
+        self.ok(all(self.get(p).headers.get("x-content-type-options") == "nosniff" for p in ("/api/tasks", "/api/hud", "/nosuch", "/reports/")), "http: nosniff on every kind of response", "JSON, report index and error pages all say nosniff", "a response can be sniffed")
         # verbs
         verbs = {m: self.verb(m) for m in ("PUT", "DELETE", "PATCH", "OPTIONS", "TRACE", "CONNECT", "PROPFIND")}
         self.ok(all(v.status == 501 for v in verbs.values()), "http: other verbs are not implemented", "PUT, DELETE, PATCH, OPTIONS, TRACE, CONNECT and WebDAV verbs: 501 (no CORS preflight can succeed)", f"{ {k: v.status for k, v in verbs.items() if v.status != 501} }")
