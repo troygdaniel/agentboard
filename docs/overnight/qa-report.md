@@ -38,7 +38,7 @@ on 3.12 to 3.14, the server took 400 cards, 12 agents at once and 10 restarts wi
 | Soak | 10 server restarts: up within 10 s, every GET route 200 (JSON where expected), a POST edit each time, no Traceback, nothing over 2 s | PASS | |
 | Soak | backups: a snapshot exists, `verify` and `backup` run | PASS | |
 | Soak | hooks: install writes both hooks; `hook send-message` mirrors to chat (with agent chat on) and swallows garbage; `hook stop` blocks once, never twice | PASS | |
-| Soak | `doctor` on the soaked board | PASS after the burst | mid-soak it flagged 2 entries made by my seeding through the Store API under umask 022; the CLI and server set umask 077 themselves (`private.py`). Not a bug |
+| Soak | `doctor` on the soaked board | PASS | an earlier run flagged 2 entries made by my seeding through the Store API under umask 022; the CLI and server set umask 077 themselves (`private.py`), and the soak now does too. Not a bug |
 | Soak | stop hook wording | LOW | "a line you types there" when the owner has no name. Card `qa-stop-hook-reason-grammar` |
 | Render | board, HUD, By agent at 1440 and 390 wide, light and dark | PASS 12 of 12 | no console error, no failed load, no horizontal overflow, no unnamed control; `docs/overnight/qa-shots/` |
 | Render | deep link to a card that no longer exists; a script-shaped hash | PASS | toast "That task no longer exists.", nothing runs; the only console line is the 404 fetch |
@@ -95,6 +95,10 @@ python3 tests/qa/render_check.py http://127.0.0.1:<port> /tmp/agentboard-render 
 bash tests/qa/suite_matrix.sh /tmp/agentboard-matrix           # full runs per Python plus shuffled runs; about 25 minutes
 python3 tests/qa_random_order.py --seed 12345                  # one shuffled run, the same order again
 ```
+
+The scratch dir is the only thing `cleanroom.sh` and `soak.py` delete, and only one they made themselves: a path that does not exist
+yet, or a dir holding the marker file they wrote (`.agentboard-qa-scratch`). Your home, a project, a board folder or an existing dir
+without the marker is refused with exit 2 (cross-review card `xr-qa-rm-rf-unguarded`).
 
 ## Risks and what this does not prove
 

@@ -2,7 +2,16 @@
 # usage: bash tests/qa/cleanroom.sh <scratch dir>   (needs pipx, python3.11-3.14 on PATH, curl; network for the online steps)
 # Clean-room install as a stranger: fresh HOME, fresh pipx, fresh venvs, README commands verbatim. Logs PASS/FAIL per step.
 SRC="$(cd "$(dirname "$0")/../.." && pwd)"   # this checkout
-ROOT="$1"; rm -rf "$ROOT"; mkdir -p "$ROOT/home"
+ROOT="$1"
+# The scratch dir is the only thing this script deletes, and only one it made itself: a path that does not exist yet, or a dir holding the
+# marker a previous run wrote. Anything else (your home, a project, a board folder, a typo) is refused, so a wrong argument costs nothing.
+MARK=".agentboard-qa-scratch"
+case "$ROOT" in ""|/|"$HOME"|"$HOME/"|*/.agentboard|*/.agentboard/) echo "cleanroom: refusing to use '$ROOT' as the scratch dir" >&2; exit 2;; esac
+case "$ROOT" in /*) ;; *) echo "cleanroom: give an absolute path for the scratch dir" >&2; exit 2;; esac
+if [ -e "$ROOT" ]; then
+  if [ -d "$ROOT" ] && [ -f "$ROOT/$MARK" ]; then rm -rf "$ROOT"; else echo "cleanroom: '$ROOT' exists and is not a scratch dir this script made (no $MARK inside): refusing to delete it" >&2; exit 2; fi
+fi
+mkdir -p "$ROOT/home" && : > "$ROOT/$MARK"
 LOG="$ROOT/steps.log"; : > "$LOG"
 step() { local name="$1"; shift; if "$@" >"$ROOT/$(echo "$name" | tr ' /' '__').out" 2>&1; then echo "PASS  $name" | tee -a "$LOG"; else echo "FAIL  $name (exit $?)" | tee -a "$LOG"; fi; }
 export HOME="$ROOT/home"
@@ -29,7 +38,8 @@ SPID=$!; sleep 3
 step "serve: / answers 200" bash -c 'curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8799/ | grep -qx 200'
 step "serve: /hud answers 200" bash -c 'curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8799/hud | grep -qx 200'
 step "serve: /api/state is JSON" bash -c 'curl -s http://127.0.0.1:8799/api/state | python3 -c "import json,sys; json.load(sys.stdin)"'
-step "serve: listens on 127.0.0.1 only" bash -c 'lsof -nP -iTCP:8799 -sTCP:LISTEN | grep -q "127.0.0.1:8799" && ! lsof -nP -iTCP:8799 -sTCP:LISTEN | grep -q "\*:8799"'
+LSOF=$(command -v lsof || echo /usr/sbin/lsof)   # not on a minimal PATH
+step "serve: listens on 127.0.0.1 only" bash -c "$LSOF -nP -iTCP:8799 -sTCP:LISTEN | grep -q '127.0.0.1:8799' && ! $LSOF -nP -iTCP:8799 -sTCP:LISTEN | grep -q '[*]:8799'"
 step "serve: a second serve on the same port says so" bash -c '! timeout 10 agentboard serve --no-open --port 8799 2>&1 | head -5 | grep -qi traceback'
 kill $SPID 2>/dev/null; wait $SPID 2>/dev/null
 step "serve log has no Traceback" bash -c '! grep -q Traceback serve.log'

@@ -16,8 +16,14 @@ import time
 import urllib.request
 from pathlib import Path
 
-ROOT = Path(sys.argv[1]).resolve()
-SRC = sys.argv[2]
+ROOT = Path(sys.argv[1]).expanduser().resolve()
+SRC = str(Path(sys.argv[2]).resolve())   # absolute: the agents' subprocesses run from the scratch dir
+MARK = ".agentboard-qa-scratch"   # the scratch dir is the only thing this script deletes, and only one it made itself (the marker says so)
+home = Path.home().resolve()
+if ROOT in (Path("/"), home) or ROOT.name == ".agentboard" or home not in ROOT.parents and not str(ROOT).startswith(("/tmp", "/private/tmp", "/var/folders")):
+    sys.exit(f"soak: refusing to use {ROOT} as the scratch dir (give a fresh folder under your home or /tmp)")
+if ROOT.exists() and not (ROOT.is_dir() and (ROOT / MARK).is_file()):
+    sys.exit(f"soak: {ROOT} exists and is not a scratch dir this script made (no {MARK} inside): refusing to delete it")
 opts = {"--cards": 400, "--agents": 12, "--restarts": 10, "--port": 8790}
 for k in opts:
     if k in sys.argv:
@@ -27,10 +33,12 @@ if ROOT.exists():
     shutil.rmtree(ROOT)
 PROJ = ROOT / "proj"
 PROJ.mkdir(parents=True)
+(ROOT / MARK).write_text("made by tests/qa/soak.py: safe to delete\n")
 BOARD = PROJ / ".agentboard"
 ENV = {k: v for k, v in os.environ.items() if not k.startswith("AGENTBOARD_")}
 ENV.update({"PYTHONPATH": SRC, "HOME": str(ROOT / "home"), "AGENTBOARD_DIR": str(BOARD), "PYTHONDONTWRITEBYTECODE": "1"})
 (ROOT / "home").mkdir()
+os.umask(0o077)   # the CLI and server set this for themselves (private.py); the seeding below goes through the Store directly, so match them
 sys.path.insert(0, SRC)
 results = []
 
