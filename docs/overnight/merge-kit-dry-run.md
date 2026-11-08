@@ -66,6 +66,15 @@ Recommendation: merge the eleven reviewed branches in the morning as above, then
 main (one command each, their suite, a new hash), and run the kit once more with those four in the order. Merging them blind on top
 of the eleven is where the real conflicts are.
 
+## The combined tree, published: `overnight/combined-11` (04:40)
+
+At ORCH's ask the finished trial tree is a branch in the repo, `overnight/combined-11` at **59b848e** (main f360942, the eleven
+reviewed branches merged with the resolutions above, the cross-branch fixups, and one more fixup for the work profile's selfcheck
+tables, which enumerate the modules allowed to start a program and the POST routes: main's `repoguard.py`, `/api/demo` and
+`/api/watchdog-fix` were missing). A branch only; main untouched; nothing pushed. Its full suite: **1 failed, 1582 passed** (the one
+failure is the open settings-mode item). The authors of the four late branches rebase onto it tonight; the 05:30 kit run then merges
+the eleven and the rebased four in one pass.
+
 ## What the morning still decides (from AGENT-8's review, unchanged by this)
 
 - `overnight-rel-agent-protocol-3` is a protocol change (reports only on the card you hold): merge with -2, or merge -2 alone.
