@@ -17,7 +17,7 @@ from . import profile as profilelib
 from . import hooks as hookslib
 from . import listeners, watchdog
 from . import transcript as transcriptlib
-from . import plugins, reports, runs, serverstate, summary, voice
+from . import plugins, reports, runs, serverstate, settingsview, summary, voice
 from . import markdown as mdlib
 from . import prompt as promptlib
 from .store import BoardError, Store, subtask_counts, subtask_list
@@ -362,6 +362,8 @@ def make_handler(default_store, port):
                 # the HUD's "now", idle minutes and open lane ends move with the clock: rebuilt at most every 5 s while nothing else changed
                 key = (fkey, ckey, int(time.time() // 5)) if fkey else None
                 self._send_cached(_derived(self.store, "hud", key, build_hud))
+            elif url.path == "/api/settings":
+                self._send(200, settingsview.status(self.store.dir))   # Settings > Security and Backup: booleans, counts and ages only; nothing here changes anything
             elif url.path == "/api/config":
                 conf = _config(self.store)
                 colors = conf.get("agent_colors")   # [agent_colors] AGENT-1 = "#2563eb": overrides the palette slot a name gets

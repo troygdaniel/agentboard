@@ -29,7 +29,7 @@ try:
             call("Page.navigate", url=URL); time.sleep(1.8); js("localStorage.clear()")
             if PREFIX != "before": js(TEXTS)
             js("document.getElementById('cfg-btn').click()"); time.sleep(.6)
-            tags = ["general", "sound", "agents", "texts"] if PREFIX != "before" else ["sheet"]
+            tags = ["general", "sound", "agents", "texts", "security", "backup"] if PREFIX != "before" else ["sheet"]
             for t in tags:
                 if PREFIX != "before": js(f"document.getElementById('stab-{t}').click()"); time.sleep(.4)
                 shot(f"{t}-{size}-{scheme}")

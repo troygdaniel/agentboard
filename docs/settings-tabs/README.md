@@ -2,7 +2,7 @@
 
 Card `settings-ui-tabs`; design in `docs/settings-tabs-design.md`. Stage 2: the tab shell, General, Sound, Agents and chat, search, the plugin tab API.
 Throwaway board, made-up cards. The Texts tab in the screenshots is **simulated** with two rows registered through `AB.settingsTab` (the home plugin's own tab
-content ships from its repo); Security and Backup and data are phase 2.
+content ships from its repo). Security and Backup and data (phase 2) are real: read-only status from `GET /api/settings`.
 
 ## Measured in a real browser (Chrome, 1280x900 and 390x844)
 
@@ -24,10 +24,10 @@ Hear buttons.
 
 | View | Before | After |
 |------|--------|-------|
-| Wide, light | `before-sheet-wide-light.png` | `after-general-wide-light.png`, `after-sound-wide-light.png`, `after-texts-wide-light.png`, `after-agents-wide-light.png`, `after-search-wide-light.png` |
-| Wide, dark | `before-sheet-wide-dark.png` | `after-general-wide-dark.png`, `after-sound-wide-dark.png`, `after-texts-wide-dark.png` |
-| 390px, light | `before-sheet-narrow-light.png` | `after-general-narrow-light.png`, `after-sound-narrow-light.png` |
-| 390px, dark | `before-sheet-narrow-dark.png` | `after-general-narrow-dark.png`, `after-sound-narrow-dark.png`, `after-texts-narrow-dark.png`, `after-search-narrow-dark.png` |
+| Wide, light | `before-sheet-wide-light.png` | `after-general-wide-light.png`, `after-sound-wide-light.png`, `after-texts-wide-light.png`, `after-agents-wide-light.png`, `after-security-wide-light.png`, `after-backup-wide-light.png`, `after-search-wide-light.png` |
+| Wide, dark | `before-sheet-wide-dark.png` | `after-general-wide-dark.png`, `after-sound-wide-dark.png`, `after-texts-wide-dark.png`, `after-security-wide-dark.png`, `after-backup-wide-dark.png` |
+| 390px, light | `before-sheet-narrow-light.png` | `after-general-narrow-light.png`, `after-sound-narrow-light.png`, `after-security-narrow-light.png` |
+| 390px, dark | `before-sheet-narrow-dark.png` | `after-general-narrow-dark.png`, `after-sound-narrow-dark.png`, `after-texts-narrow-dark.png`, `after-backup-narrow-dark.png`, `after-search-narrow-dark.png` |
 
 The "before" is the old sheet's first screen; the rest of it scrolled.
 
@@ -37,3 +37,7 @@ The "before" is the old sheet's first screen; the rest of it scrolled.
 `tools/tabs_focus_and_deeplink_check.py` checks that Tab and Shift+Tab never leave the sheet and that `/#settings/<tab>` waits for a tab a plugin registers late (AGENT-6's two findings);
 `tools/tabs_shots.py <prefix> <outdir> [url]` takes the screenshots (it registers the simulated Texts tab itself). Both need
 `pip3 install --target /tmp/qa_pylibs websocket-client` and a throwaway board (`AGENTBOARD_DIR` elsewhere, made-up cards).
+
+## Security and Backup and data (phase 2)
+
+`GET /api/settings` answers with booleans, whole numbers and nulls only (`settingsview.py`). Checked live: a foreign `Host` gets 403, a POST gets 404, `/#settings/security` on a cold load opens that tab (it is drawn once the status has been read, and the deep link waits for it), the search finds "masking", and neither tab shows a path-like string.

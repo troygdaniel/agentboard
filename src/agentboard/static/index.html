@@ -1007,6 +1007,7 @@
   .mix-row.plain.ro .mix-about { grid-column: 1 / -1; }
   .mix-row .val { color: var(--muted); font-size: var(--fs-sm); text-align: right; }
   .mix-row .val b { color: var(--text); font-weight: 600; }
+  .mix-row .val.warn b { color: color-mix(in srgb, var(--warn) 78%, var(--text)); }
   .mix-about code, .results code { font: var(--fs-xs) ui-monospace, Menlo, monospace; background: var(--chip); border-radius: 4px; padding: 0 4px; }
   .results { padding: 8px 0; }
   .results .hit { display: grid; grid-template-columns: 1fr auto; gap: 1px 10px; padding: 8px 10px; border-radius: 8px; cursor: pointer; }
@@ -1556,6 +1557,12 @@
       <div class="pane" id="pane-agents" role="tabpanel" aria-labelledby="stab-agents" data-tab="agents" hidden>
         <h3>Agent chat</h3><div id="cfg-agents"></div>
         <h3>Who is listening</h3><div id="cfg-listen"></div>
+      </div>
+      <div class="pane" id="pane-security" role="tabpanel" aria-labelledby="stab-security" data-tab="security" hidden>
+        <h3>Status (read-only)</h3><div id="cfg-security"></div>
+      </div>
+      <div class="pane" id="pane-backup" role="tabpanel" aria-labelledby="stab-backup" data-tab="backup" hidden>
+        <h3>Status (read-only)</h3><div id="cfg-backup"></div>
       </div>
       <div class="pane" id="pane-more" role="tabpanel" aria-labelledby="stab-more" data-tab="more" hidden>
   <div id="ab-slot-settings"></div>
@@ -3830,6 +3837,8 @@ const SET_ICON = {
   general: '<svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="2.2" stroke="currentColor" stroke-width="1.4"/><path d="M8 1.8v2M8 12.2v2M1.8 8h2M12.2 8h2M3.6 3.6l1.4 1.4M11 11l1.4 1.4M12.4 3.6L11 5M5 11l-1.4 1.4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>',
   sound: '<svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M2.5 6.2h2.3L8 3.4v9.2L4.8 9.8H2.5z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M10.4 5.6a3.2 3.2 0 0 1 0 4.8M12.2 3.8a5.6 5.6 0 0 1 0 8.4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>',
   agents: '<svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M2.5 3.5h11v7h-5l-3 2.6v-2.6h-3z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>',
+  security: '<svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 1.8l5 1.8v4c0 3-2.2 5-5 6.4-2.8-1.4-5-3.4-5-6.4v-4z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>',
+  backup: '<svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><ellipse cx="8" cy="4" rx="5" ry="2" stroke="currentColor" stroke-width="1.4"/><path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4M3 8c0 1.1 2.2 2 5 2s5-.9 5-2" stroke="currentColor" stroke-width="1.4"/></svg>',
   plugin: '<svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="2.5" y="2.5" width="11" height="11" rx="2.6" stroke="currentColor" stroke-width="1.4"/><path d="M5.6 8h4.8M8 5.6v4.8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>',
   more: '<svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="3.5" cy="8" r="1.2" fill="currentColor"/><circle cx="8" cy="8" r="1.2" fill="currentColor"/><circle cx="12.5" cy="8" r="1.2" fill="currentColor"/></svg>',
 };
@@ -3913,6 +3922,9 @@ SET_NARROW.addEventListener('change', () => { if (mixIsOpen()) $('mix-tabs').set
 settingsTab('general', 'General', { order: 10, pane: $('pane-general'), icon: SET_ICON.general, has: () => true });
 settingsTab('sound', 'Sound', { order: 20, pane: $('pane-sound'), icon: SET_ICON.sound, has: () => true });
 settingsTab('agents', 'Agents and chat', { order: 30, pane: $('pane-agents'), icon: SET_ICON.agents, has: () => true });
+let settingsInfo = null;   // GET /api/settings: booleans, counts and ages, read each time the sheet opens; the Security and Backup tabs are drawn once it has been read
+settingsTab('security', 'Security', { order: 60, pane: $('pane-security'), icon: SET_ICON.security, has: () => !!settingsInfo });
+settingsTab('backup', 'Backup and data', { order: 70, pane: $('pane-backup'), icon: SET_ICON.backup, has: () => !!settingsInfo });
 settingsTab('more', 'More', { order: 90, pane: $('pane-more'), icon: SET_ICON.more, has: () => [...$('ab-slot-settings').children].some(c => !c.hidden), watch: $('ab-slot-settings') });
 Object.assign(AB, { settingsTab, settingsBadge });
 // the rows only this page can fill: the theme (the same switch as the header's), the board's own values, who is listening
@@ -3933,7 +3945,27 @@ function renderAgentsPane() {
     return `<div class="mix-row plain ro"><span class="nm">${esc(n)}</span><span class="val"><b>${s > 1 ? s + ' sessions' : s ? 'listening' : 'not listening'}</b></span></div>`;
   }).join('') : '<div class="mix-row plain ro"><span class="nm">Nobody has spoken on this board yet</span><span class="val"></span></div>';
 }
-function renderSettingsPanes() { renderThemeRow(); renderBoardRows(); renderAgentsPane(); }
+const agoMin = m => m == null ? 'never' : m < 1 ? 'just now' : m < 90 ? m + ' min ago' : m < 48 * 60 ? Math.floor(m / 60) + ' h ago' : Math.floor(m / 1440) + ' days ago';
+async function loadSettingsInfo() {
+  try { const r = await fetch('/api/settings', { cache: 'no-store' }); if (!r.ok) return; settingsInfo = await r.json(); } catch (e) { return; }   // a board that cannot answer simply has no Security or Backup tab
+  renderStatusRows(); syncSettingsTabs();
+}
+function renderStatusRows() {   // read-only: each row says what it is and names the key or the command that changes it; no path, pattern or name is ever shown
+  const I = settingsInfo; if (!I) return;
+  const ro = (name, val, about, warn) => `<div class="mix-row plain ro"><span class="nm">${name}</span><span class="val${warn ? ' warn' : ''}"><b>${val}</b></span><span class="mix-about">${about}</span></div>`;
+  const mask = !I.redact.enabled ? 'Keys and tokens agents write reach the board as written. Delete <code>[redact] enabled = false</code> from config.toml.'
+    : 'Keys, tokens and passwords are masked before they reach a card, a report or a log.' + (I.redact.phones ? ' Phone numbers are masked too.' : '')
+      + (I.redact.extra ? ` ${I.redact.extra} pattern${I.redact.extra === 1 ? '' : 's'} of your own ${I.redact.extra === 1 ? 'is' : 'are'} added.` : '') + ' <code>[redact]</code> in config.toml.';
+  $('cfg-security').innerHTML = ro('Lockdown', I.lockdown ? 'on' : 'off', 'On a locked-down machine the board starts no program, reaches no network and copies no data out. Set <code>AGENTBOARD_LOCKDOWN</code> in the shell that starts it.')
+    + ro('Work profile', I.profile ? 'on' : 'off', 'Loopback-only networking, no program started by the board, plugins refused. <code>agentboard profile work</code> turns it on.')
+    + ro('Secret masking', I.redact.enabled ? 'on' : 'OFF', mask, !I.redact.enabled)
+    + ro('Plugins', I.plugins.allowed ? `${I.plugins.loaded} loaded` + (I.plugins.failed ? `, ${I.plugins.failed} failed` : '') : 'off', I.plugins.allowed ? 'Plugins may add a tab and a page script. Set <code>AGENTBOARD_PLUGINS</code> to change it.' : 'This machine does not allow plugins. Set <code>AGENTBOARD_PLUGINS=1</code> to allow them.')
+    + ro('Self-check', 'on request', 'Run <code>agentboard selfcheck</code> to prove the guards. It starts a throwaway server, so it is not run from this page.');
+  $('cfg-backup').innerHTML = ro('Last backup', agoMin(I.backup.last_min), `${I.backup.snapshots} kept. The board copies its data before a risky change; <code>agentboard backup</code> makes one now.`)
+    + ro('Sync copy', I.backup.sync ? (I.backup.last_sync_min == null ? 'on' : 'on · ' + agoMin(I.backup.last_sync_min)) : 'off', 'A nightly copy of the newest backup to a folder you name in <code>[backup] sync_dir</code> in config.toml.')
+    + ro('Data folder', I.data_private ? 'private' : 'readable by others', I.data_private ? "Only you can read the board's data (mode 700)." : 'Other accounts on this machine can read it. <code>agentboard doctor</code> shows the fix.', !I.data_private);
+}
+function renderSettingsPanes() { renderThemeRow(); renderBoardRows(); renderAgentsPane(); loadSettingsInfo(); }
 // search: every row of every pane (a hidden tab's too); Enter or a click opens its tab, scrolls it to the top and marks it for a second
 function settingsIndex() {
   const out = [];

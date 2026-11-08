@@ -1,6 +1,6 @@
 # Settings: tabs
 
-**Status: designed in stage 1 (4d3b032), built in stage 2 (the shell, General, Sound, Agents and chat, search, the plugin API); Security and Backup are phase 2.** The card is `settings-ui-tabs`. Mockup (every tab, wide and narrow, a search state, light and dark): `docs/settings-tabs-mockup.html`,
+**Status: designed in stage 1 (4d3b032), built in stage 2 (the shell, General, Sound, Agents and chat, search, the plugin API) and phase 2 (the Security and Backup and data tabs from `GET /api/settings`).** The card is `settings-ui-tabs`. Mockup (every tab, wide and narrow, a search state, light and dark): `docs/settings-tabs-mockup.html`,
 with `settings-tabs-design-wide-light.png`, `-wide-dark.png`, `-narrow-light.png` and `-narrow-dark.png`. Every value in it is made up.
 
 ## The problem
@@ -20,8 +20,8 @@ A tab is drawn only while it has something in it. With no plugins the sheet has 
 | **Agents and chat** | **Agent chat**: Agents may talk to each other, shown as on or off **with the command that changes it** (`agentboard chat agents on` / `off`): a read-only status, no switch (ORCH, 8 Nov). **Who is listening** (status, from the receipts the chat already polls) | new rows on existing data |
 | **Texts** | Pull my texts, Text me back (Off / Dry run / Send, the inline Send confirm), the restart chip's row, the remember switch | plugin (home) |
 | **Facts** | Keep a daily list of my events and to-dos, Refresh now | plugin (home) |
-| **Security** | Status: lockdown, redaction, plugins allowed, last self-check | phase 2 (below) |
-| **Backup and data** | Status: last backup, data folder mode | phase 2 (below) |
+| **Security** | Status: lockdown, work profile, secret masking, plugins. The self-check row says how to run it: the board does not keep a result, and running it starts a throwaway server | built (phase 2) |
+| **Backup and data** | Status: last backup and how many are kept, sync copy on or off and its last time, whether the data folder is private | built (phase 2) |
 
 The sheet is 720px wide and `min(720px, 100vh - 48px)` tall; the tab list is vertical on the left, the pane scrolls inside it. At 900px of window height
 General and Agents and chat fit whole, and so does a plugin's tab (Texts, Facts); **Sound is the one tab that scrolls**: measured in the built page its pane is about
@@ -74,7 +74,7 @@ a bar under reduced motion.
 
 ## Decided (ORCH, 8 Nov)
 
-1. **Security and Backup and data are read-only status tabs, as phase 2.** They need a new `GET /api/settings`: loopback only with the Host check, on / off and
+1. **Security and Backup and data are read-only status tabs, as phase 2 (built).** They use a new `GET /api/settings`: loopback only with the Host check, on / off and
    counts only (no paths, no patterns, no secrets: the same rule as `config show`), and AGENT-3 reviews it before it merges. The shell takes them as two more
    `AB.settingsTab` calls, so nothing in stage 2 waits on them.
 2. **Agent chat is not written from the page.** The tab shows the status and the command to change it. If Troy later wants a switch, it gets a confirm box like
@@ -85,7 +85,7 @@ a bar under reduced motion.
 1. **Stage 2 (built):** the shell (tablist, panes, `AB.settingsTab`, `AB.settingsBadge`), General, Sound and Agents and chat, search, the Theme row, memory,
    deep link, keyboard, 390px, reduced motion; page-script check, 31 tests, before and after screenshots.
 2. The home plugin's two page scripts on their own branch (its tests, its repo); then AGENT-6 render-checks every tab, light and dark, wide and narrow.
-3. **Phase 2:** `GET /api/settings`, the Security and Backup and data tabs, AGENT-3's review.
+3. **Phase 2 (built):** `GET /api/settings` (`settingsview.py`: every value a boolean, a whole number or null; a test pins that no string and no `/` can appear), the Security and Backup and data tabs; AGENT-3 reviews it before it merges.
 
 ## Not designed
 
