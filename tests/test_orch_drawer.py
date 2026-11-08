@@ -77,14 +77,25 @@ class DrawerMarkupTests(unittest.TestCase):
 
 
 class GetStartedTests(unittest.TestCase):
-    def test_the_empty_board_shows_three_steps_with_copy_prompt_in_the_third(self):
+    def test_the_empty_board_shows_three_plain_steps_and_keeps_orch_as_an_option(self):
         w = re.search(r'<div id="welcome">.*?\n  </div>', HTML, re.S).group(0)
         self.assertIn("<h2>Get started</h2>", w)
-        steps = re.findall(r"<li>.*?</li>", w, re.S)
-        self.assertEqual(len(steps), 3)
-        self.assertIn("<code>claude</code>", steps[0])
-        self.assertIn("<code>/rename ORCH</code>", steps[1])
-        self.assertIn('class="btn primary orch-copy"', steps[2])
+        top, orch = w.split('<details class="orch-how">')
+        steps = re.findall(r"<li>.*?</li>", top, re.S)
+        self.assertEqual(len(steps), 3)                                           # add a task, connect an agent, watch it move: no ORCH needed
+        self.assertIn('id="welcome-add"', steps[0])
+        self.assertIn("<code", steps[1])
+        self.assertIn("agentboard instructions", steps[1])
+        self.assertIn("CLAUDE.md", steps[1])
+        self.assertIn("AGENTS.md", steps[1])
+        self.assertIn('id="welcome-demo"', top)                                   # sample cards without the terminal
+        self.assertIn('id="welcome-tour"', top)
+        self.assertNotIn("ORCH", top)                                             # the first screen needs no jargon
+        osteps = re.findall(r"<li>.*?</li>", orch, re.S)                          # ORCH's own three steps, folded away
+        self.assertEqual(len(osteps), 3)
+        self.assertIn("<code>claude</code>", osteps[0])
+        self.assertIn("<code>/rename ORCH</code>", osteps[1])
+        self.assertIn('class="btn primary orch-copy"', osteps[2])
         self.assertIn("$('welcome').style.display = tasks.length ? 'none' : 'block';", HTML)   # shown only on a board with no cards
 
     def test_the_drawer_head_has_copy_prompt_and_the_header_does_not(self):

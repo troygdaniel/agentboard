@@ -10,7 +10,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-from . import boards, hud, private
+from . import boards, demo, hud, private
 from . import hooks as hookslib
 from . import listeners
 from . import transcript as transcriptlib
@@ -361,6 +361,8 @@ def make_handler(default_store, port):
                 path = bound.path
                 if path == "/api/transcribe":
                     self._send(200, {"text": voice.transcribe_b64(body.get("audio"), self.store.dir)})
+                elif path == "/api/demo":   # the empty board's "Add sample cards" button: the same cards as `agentboard demo`
+                    self._send(200, {"cards": demo.seed(self.store)})
                 elif path == "/api/tasks":
                     t = self.store.add(body["title"], body.get("description", ""),
                                   body.get("status"), body.get("ctx", []),
@@ -481,7 +483,8 @@ def serve(store, port=8765, open_browser=True):
         others = [n for n in boards.load()["boards"] if boards.name_for(store.dir) != n]
     except BoardError:
         others = []
-    print(f"agentboard: {url}\n  board: {store.dir}" + "".join(f"\n  also: {url}b/{n}/" for n in others) + "\n  Ctrl+C to stop")
+    print(f"agentboard: {url}\n  board: {store.dir}" + "".join(f"\n  also: {url}b/{n}/" for n in others)
+          + "\n  open that address in your browser; it listens on this computer only (127.0.0.1)\n  Ctrl+C to stop")
     if open_browser:
         threading.Timer(0.3, webbrowser.open, args=(url,)).start()
 

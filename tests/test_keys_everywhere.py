@@ -66,7 +66,7 @@ class EscAndTypingTests(unittest.TestCase):
         self.assertEqual(order, sorted(order))   # a selection clears before Load closes
         card = HTML[HTML.index("document.addEventListener('keydown', e => {   // Esc on an open card"):]
         card = card[: card.index("\n});")]
-        self.assertIn("if ($('keys').classList.contains('on') || mixIsOpen()) return;", card)              # a sheet over the card closes first
+        self.assertIn("if ($('keys').classList.contains('on') || mixIsOpen() || tourIsOpen()) return;", card)              # a sheet over the card closes first
         self.assertIn("if (el && el.closest('#p-body') && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)) { el.blur(); e.tookPanel = true; return; }", card)
         self.assertIn("if (e.key === 'Escape') { e.stopPropagation(); toggleAdd(false); $('title').blur(); }", HTML)
 

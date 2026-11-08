@@ -137,7 +137,7 @@
   #cfg-btn { position: relative; }
   #cfg-btn .snd-off { display: none; position: absolute; top: 5px; right: 6px; width: 7px; height: 7px; border-radius: 50%; background: var(--warn); box-shadow: 0 0 0 2px var(--surface); }
   body.snd-off #cfg-btn .snd-off { display: block; }
-  #theme, #cfg-btn { width: 44px; height: 44px; padding: 0; display: grid; place-items: center; }   /* icon buttons: a 44px target (BJ: header tidy) */
+  #theme, #cfg-btn, #help-btn { width: 44px; height: 44px; padding: 0; display: grid; place-items: center; }   /* icon buttons: a 44px target (BJ: header tidy) */
   /* one top bar for the whole product: the same tabs (Board, By agent, Load) sit here and on the summary and report pages
      (nav.py draws those); Load shows this very header, it does not draw another. The page you are on is the lit one */
   .ab-tabs { display: inline-flex; gap: 2px; margin: 3px 0; padding: 3px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
@@ -1016,7 +1016,41 @@
     background: var(--chip); box-shadow: inset 0 0 0 1px var(--line); font-variant-numeric: tabular-nums; }
   #welcome .steps li > span:last-child { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
   #welcome code { padding: 2px 8px; border-radius: 6px; background: var(--chip); color: var(--text); font: var(--fs-md)/1.6 ui-monospace, Menlo, monospace; box-shadow: inset 0 0 0 1px var(--line); }
-  #welcome .aside { font-size: var(--fs-md); margin: 0; }
+  #welcome .aside { font-size: var(--fs-md); margin: 0 0 18px; line-height: 2.5; }
+  #welcome .aside .btn { margin: 0 4px; vertical-align: middle; }
+  #welcome .hint { color: var(--muted); font-size: var(--fs-md); }
+  #welcome kbd, #tour kbd { padding: 1px 7px; border-radius: 6px; background: var(--chip); color: var(--text); font: var(--fs-sm)/1.5 ui-monospace, Menlo, monospace; box-shadow: inset 0 0 0 1px var(--line); }
+  #welcome code[title] { cursor: copy; }
+  #welcome code.copied::after { content: ' copied'; color: var(--ok); font-family: inherit; font-size: var(--fs-sm); }
+  #welcome .orch-how { font-size: var(--fs-md); border-top: 1px solid var(--line); padding-top: 14px; }
+  #welcome .orch-how summary { cursor: pointer; color: var(--muted); }
+  #welcome .orch-how summary:hover, #welcome .orch-how summary:focus-visible { color: var(--text); }
+  #welcome .orch-how p { margin: 12px 0; }
+  #new-btn { display: inline-flex; align-items: center; gap: 6px; }
+  #help-btn { font-weight: 600; font-size: var(--fs-md); }
+  @media (max-width: 700px) { #new-btn { width: 44px; height: 44px; padding: 0; justify-content: center; } #new-btn .lbl { display: none; } }   /* the plus stays, the words go */
+  #keys .keys-foot { margin: 16px 0 0; }
+  #tour { position: fixed; inset: 0; z-index: 41; display: none; place-items: center; background: rgba(0,0,0,.4); }
+  #tour.on { display: grid; }
+  #tour .sheet { position: relative; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 24px 28px; width: min(460px, calc(100vw - 32px)); box-shadow: 0 20px 60px rgba(0,0,0,.35); }
+  #tour h2 { font-size: var(--fs-xl); font-weight: 600; letter-spacing: -.015em; margin: 4px 0 8px; }
+  #tour p { margin: 0 0 16px; color: var(--muted); line-height: 1.55; font-size: var(--fs-lg); }
+  #tour .tour-n { color: var(--muted); font-size: var(--fs-sm); font-variant-numeric: tabular-nums; }
+  #tour .tour-viz { margin: 0 0 18px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--chip); font-size: var(--fs-md); }
+  #tour .tour-viz code { display: block; font: var(--fs-sm)/1.7 ui-monospace, Menlo, monospace; color: var(--text); white-space: pre-wrap; }
+  #tour .tv-cols { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  #tour .tv-col { border: 1px solid var(--line); border-radius: 8px; padding: 8px; min-height: 64px; }
+  #tour .tv-col b { display: block; font-size: var(--fs-sm); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; font-weight: 600; }
+  #tour .tv-card { border: 1px solid var(--line); border-radius: 6px; padding: 4px 7px; background: var(--surface); color: var(--text); font-size: var(--fs-sm); }
+  #tour .tv-card.ask { border-color: var(--warn); }
+  #tour .tv-card i { font-style: normal; color: var(--muted); margin-left: 6px; }
+  #tour .tv-nav { display: flex; flex-wrap: wrap; gap: 6px; }
+  #tour .tv-nav span { padding: 3px 9px; border-radius: 6px; border: 1px solid var(--line); background: var(--surface); color: var(--text); font-size: var(--fs-sm); }
+  #tour .tour-nav { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  #tour .tour-dots { display: inline-flex; gap: 6px; }
+  #tour .tour-dots i { width: 7px; height: 7px; border-radius: 50%; background: var(--line); }
+  #tour .tour-dots i.on { background: var(--accent, var(--text)); }
+  #tour .sheet-x { position: absolute; top: 12px; right: 12px; }
   body.no-dispatch .orch-copy { display: none; }   /* [ui] dispatch = false: a board that runs no ORCH shows no prompt to copy */
   /* ----- the agent thread (Nov 6): one conversation with one agent, outside any card. Opens on the right, where the card panel
      opens, from the agent pill at the top of an open card or a lane's name on By agent. A card question shows inline, answered on the card ----- */
@@ -1300,8 +1334,9 @@
 <div class="wrap">
   <header>
     <h1><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="1.5" y="2" width="3.5" height="12" rx="1.2" fill="currentColor" opacity=".35"/><rect x="6.25" y="2" width="3.5" height="8" rx="1.2" fill="currentColor"/><rect x="11" y="2" width="3.5" height="5" rx="1.2" fill="currentColor" opacity=".6"/></svg>agentboard</h1>
-    <nav class="ab-tabs" aria-label="Pages"><a class="tab on" id="tab-board" href="./" aria-current="page">Board</a><a class="tab" id="tab-agents" href="./agents">By agent</a><a class="tab" id="hud-btn" href="#/hud" role="button" aria-controls="hud">Load</a></nav>
-    <button class="btn" id="later-btn" aria-controls="later">Later <span id="later-n"></span></button>
+    <nav class="ab-tabs" aria-label="Pages"><a class="tab on" id="tab-board" href="./" aria-current="page" title="Every task in three columns: Todo, Doing and Done">Board</a><a class="tab" id="tab-agents" href="./agents" title="One lane per agent: who is doing what">By agent</a><a class="tab" id="hud-btn" href="#/hud" role="button" aria-controls="hud" title="A live view of who is working and who is waiting on you (h)">Load</a></nav>
+    <button class="btn" id="new-btn" type="button" aria-label="New task (n)" title="New task (n)"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><span class="lbl">New task</span></button>
+    <button class="btn" id="later-btn" aria-controls="later" title="Tasks parked for another day (l)">Later <span id="later-n"></span></button>
     <span id="ab-slot-header" style="display:contents"></span>
     <span class="spacer"></span>
     <select class="btn" id="board-switch" aria-label="Board" hidden></select>
@@ -1314,6 +1349,7 @@
     <span class="status off" id="status" role="status" hidden><i></i><span>Disconnected; retrying</span></span>
     <button class="btn off" id="notif-btn" aria-label="Desktop notifications: off. Press to turn on." aria-pressed="false" title="Desktop notifications: off"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 2a4 4 0 0 0-4 4v3L2.8 11h10.4L12 9V6a4 4 0 0 0-4-4z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M6.5 13a1.5 1.5 0 0 0 3 0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
     <button class="btn" id="theme" aria-label="Color theme: auto. Press to change." title="Color theme: auto (follows the system)"></button>
+    <button class="btn" id="help-btn" type="button" aria-label="Help: keyboard shortcuts and a 60-second tour (?)" title="Help and keyboard shortcuts (?)" aria-controls="keys">?</button>
     <button class="btn" id="cfg-btn" aria-label="Settings (m)" title="Settings" aria-controls="mix"><i class="snd-off" aria-hidden="true"></i><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M6.8 1.5h2.4l.4 1.9 1.3.7 1.8-.7 1.2 2.1-1.5 1.2v1.6l1.5 1.2-1.2 2.1-1.8-.7-1.3.7-.4 1.9H6.8l-.4-1.9-1.3-.7-1.8.7-1.2-2.1 1.5-1.2V6.7L2.1 5.5l1.2-2.1 1.8.7 1.3-.7z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><circle cx="8" cy="8" r="2" stroke="currentColor" stroke-width="1.4"/></svg></button>
     </span>
   </header>
@@ -1341,13 +1377,22 @@
 
   <div id="welcome">
     <h2>Get started</h2>
-    <p>ORCH is the Claude session that runs this board: it adds cards, hands them to agents and answers you in the ORCH drawer.</p>
+    <p>A live board for the AI agents you run side by side. They report their own progress here; you watch, answer their questions and sign off what they finish.</p>
     <ol class="steps">
-      <li><span class="n">1</span><span>Open a terminal and start Claude: <code>claude</code></span></li>
-      <li><span class="n">2</span><span>In it, type <code>/rename ORCH</code></span></li>
-      <li><span class="n">3</span><span>Press <button class="btn primary orch-copy" title="Copy a prompt that boots that session as ORCH, from the live board">Copy prompt</button> and paste it there</span></li>
+      <li><span class="n">1</span><span>Add a task: <button class="btn primary" id="welcome-add" type="button">New task</button> <span class="hint">or press <kbd>n</kbd></span></span></li>
+      <li><span class="n">2</span><span>Connect an agent: in your project run <code title="Click to copy">agentboard instructions</code> and paste what it prints into the project's <code>CLAUDE.md</code> or <code>AGENTS.md</code></span></li>
+      <li><span class="n">3</span><span>Watch it move: a task goes from Todo to Doing when an agent starts it, and to Done when you sign it off</span></li>
     </ol>
-    <p class="aside">Just looking around? <code>agentboard demo</code> fills the board with made-up work.</p>
+    <p class="aside">Just looking around? <button class="btn" id="welcome-demo" type="button">Add sample cards</button> <button class="btn" id="welcome-tour" type="button">Take the 60-second tour</button> or press <kbd>?</kbd> for the keyboard shortcuts.</p>
+    <details class="orch-how">
+      <summary>Optional: let one Claude session coordinate the board (ORCH)</summary>
+      <p>ORCH is a Claude session that runs this board for you: it adds tasks, hands them to agents and answers you in the ORCH drawer. In Claude Code:</p>
+      <ol class="steps">
+        <li><span class="n">1</span><span>Open a terminal and start Claude: <code>claude</code></span></li>
+        <li><span class="n">2</span><span>In it, type <code>/rename ORCH</code></span></li>
+        <li><span class="n">3</span><span>Press <button class="btn primary orch-copy" title="Copy a prompt that boots that session as ORCH, from the live board">Copy prompt</button> and paste it there</span></li>
+      </ol>
+    </details>
   </div>
 
   <main class="board" id="board" aria-label="Task board"></main>
@@ -1409,6 +1454,16 @@
     <dt><kbd>Esc</kbd></dt><dd>Close the top layer: a sheet, a drawer, a field, the card, the selection, then Load</dd>
     <dt><kbd>?</kbd></dt><dd>This list</dd>
   </dl>
+  <p class="keys-foot"><button class="btn" id="keys-tour" type="button">Take the 60-second tour</button></p>
+</div></div>
+
+<div id="tour" role="dialog" aria-modal="true" aria-labelledby="tour-h"><div class="sheet">
+  <button class="icon-btn sheet-x" id="tour-close" type="button" aria-label="Close the tour"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+  <div class="tour-n" id="tour-n" aria-live="polite"></div>
+  <h2 id="tour-h"></h2>
+  <p id="tour-p"></p>
+  <div class="tour-viz" id="tour-viz" aria-hidden="true"></div>
+  <div class="tour-nav"><button class="btn" id="tour-back" type="button">Back</button><span class="tour-dots" id="tour-dots" aria-hidden="true"></span><button class="btn primary" id="tour-next" type="button">Next</button></div>
 </div></div>
 
 <div id="mix" role="dialog" aria-label="Settings"><div class="sheet">
@@ -1485,7 +1540,7 @@ let BYAGENT = location.pathname.replace(/\/+$/, '').endsWith('/agents');   // th
 const LATER_EMPTY = 'Nothing parked. Ideas you are not ready to start live here, out of the way.';
 const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;   // HUD running in its own window
 const COLUMNS = [['backlog', 'Later'], ['todo', 'Todo'], ['doing', 'Doing'], ['done', 'Done']];
-const EMPTY = { backlog: '', todo: 'Nothing queued — agents claim work from here', doing: 'Nothing in progress', done: 'Nothing finished yet' };
+const EMPTY = { backlog: '', todo: 'Nothing queued. Add a task (n), and an agent picks it up from here', doing: 'Nothing in progress. A card moves here when an agent starts it', done: 'Nothing finished yet. You move a card here once you have reviewed it' };
 const STALE_MIN = 10, DONE_SHOWN = 5;
 const DEFAULT_STALE_MIN = 120;   // fallback until /api/config's stale_minutes loads; keep in sync with hud.py's ABANDONED_MIN
 let raw = '', tasks = [], dragging = null, showAllDone = false, tick = 0;
@@ -1659,7 +1714,7 @@ function card(t) {
     ? `<button class="copy copied${copiedLabel.length > 6 ? ' wide' : ''}" type="button" title="Prompt copied. Click to clear" aria-label="${esc(copiedLabel)}, click to clear">` +
       `<svg class="cp-ok" width="11" height="11" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>` +
       `<svg class="cp-x" width="11" height="11" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg>${esc(copiedLabel)}</button>`
-    : `<button class="copy" type="button">Copy prompt</button>`;
+    : `<button class="copy" type="button" title="Copy this task's instructions, to paste into an agent's terminal to start it (c)">Copy prompt</button>`;
   const meta = (todo || backlog || !who) && (copy || queued || laterBtn || toTodoBtn) ? `<div class="meta">${copy}${laterBtn}${toTodoBtn}${who && !todo ? '' : queued}</div>` : '';
   const asking = !!t.needs_input && doing;
   const reviewing = !!t.review && doing && !asking;
@@ -1720,7 +1775,7 @@ const FLAG_LABEL = { needs_input: 'needs input', review: 'to review' };
 function todoColHtml(list, filtered) {
   // the ORCH button lives here (Nov 6): press it and the ORCH drawer slides out from the left over this column. The unread
   // count rides its corner. A class, not an id: Load draws its own Todo column while the board's is still in the page.
-  const orch = `<button class="orch-btn" aria-controls="chat" aria-label="${chatUnread ? `Talk to ORCH, ${chatUnread} unread` : 'Talk to ORCH'}" title="Talk to ORCH" style="--c:${agentColor('ORCH')}"><span class="av" aria-hidden="true">O</span>ORCH<span class="chat-n">${chatUnread || ''}</span></button>`;
+  const orch = `<button class="orch-btn" aria-controls="chat" aria-label="${chatUnread ? `Talk to ORCH, ${chatUnread} unread` : 'Talk to ORCH'}" title="Talk to ORCH, the coordinator session for this board" style="--c:${agentColor('ORCH')}"><span class="av" aria-hidden="true">O</span>ORCH<span class="chat-n">${chatUnread || ''}</span></button>`;
   return `<section class="col todo" data-status="todo"><h2>Todo <span class="cnt">${list.length}</span>${orch}</h2>`
     + `<div class="cards">${list.length ? list.map(card).join('') : `<div class="empty">${filtered ? 'No matches' : EMPTY.todo}</div>`}</div></section>`;
 }
@@ -2864,7 +2919,7 @@ function panelHtml(t) {
   const ctx = (t.ctx || []).length ? `<dt>Context</dt><dd>${t.ctx.map(c => `<code>${esc(c)}</code>`).join(' ')}</dd>` : '';
   const details = `<div class="p-sec"><h3>Details</h3><dl><dt>ID</dt><dd><code>${esc(t.id)}</code></dd><dt>Created</dt><dd>${stamp(t.created)}</dd><dt>Updated</dt><dd>${stamp(t.updated)}</dd>${ctx}</dl></div>`;
   const prompt = !cfg.dispatch ? '' : `<div class="p-sec"><details id="pd" ${promptOpen ? 'open' : ''}><summary>Prompt</summary><pre id="pre">${esc(promptText || 'Loading…')}</pre></details></div>`;
-  const copy = (cfg.dispatch ? `<button class="btn" id="p-copy">Copy prompt</button>` : '') + (t.run && t.run.status === 'running' && t.run.alive !== false ? `<button class="btn danger" id="p-run-stop" title="Stop the one-shot run (the card moves to ask)">Stop run</button>` : '');
+  const copy = (cfg.dispatch ? `<button class="btn" id="p-copy" title="Copy this task's instructions, to paste into an agent's terminal to start it (c)">Copy prompt</button>` : '') + (t.run && t.run.status === 'running' && t.run.alive !== false ? `<button class="btn danger" id="p-run-stop" title="Stop the one-shot run (the card moves to ask)">Stop run</button>` : '');
   const par = t.parent_id && byId.get(t.parent_id)
     ? `<div class="p-sec"><h3>Subtask of</h3><ul class="p-subs"><li data-sub-id="${esc(t.parent_id)}"><span class="sn">${esc(byId.get(t.parent_id).title)}</span></li></ul></div>` : '';
   const kids = kidsMap.get(t.id) || [];
@@ -3014,7 +3069,7 @@ $('p-move').addEventListener('click', async e => {
 });
 document.addEventListener('keydown', e => {   // Esc on an open card: a field inside it blurs first, a sheet over it closes first, then the card closes. tookPanel: the Esc below leaves Load alone
   if (e.key !== 'Escape' || !openId || panelEdit || $('add').classList.contains('open')) return;
-  if ($('keys').classList.contains('on') || mixIsOpen()) return;
+  if ($('keys').classList.contains('on') || mixIsOpen() || tourIsOpen()) return;
   const el = document.activeElement;
   if (el && el.closest('#p-body') && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)) { el.blur(); e.tookPanel = true; return; }
   closePanel(); e.tookPanel = true;
@@ -3856,7 +3911,7 @@ function renderGrid(d) {
   const agents = teleOrder(d.agents);
   const win = (d.window_min || 60) * 60000, end = Date.now(), start = end - win;
   const cnt = $('h-tele-n'); if (cnt) cnt.textContent = agents.length;
-  if (!agents.length) { box.innerHTML = `<div class="h-empty">No agents yet. They appear when they run <b>agentboard start</b>.</div>`; teleKey = ''; return; }
+  if (!agents.length) { box.innerHTML = `<div class="h-empty">No agents yet. An agent shows up here when it runs <b>agentboard start</b>. The Board's Get started panel says how to connect one.</div>`; teleKey = ''; return; }
   const key = agents.map(a => a.name).join('|');
   if (key !== teleKey) {
     teleKey = key;
@@ -4050,6 +4105,7 @@ function goView(i) {
 }
 document.addEventListener('keydown', e => {
   if (e.metaKey || e.ctrlKey) return;
+  if (tourIsOpen()) { tourKey(e); return; }   // the tour has the keys while it is open: Esc, the arrows and Tab stay inside it
   const typing = isTyping();
   if (e.key === 'Escape') {
     if (e.tookPanel) return;   // that press closed the open card; Load under it stays
@@ -4096,6 +4152,87 @@ function toggleKeys(on) {   // the shortcuts sheet, with the same slide as the o
   if (open !== $('keys').classList.contains('on')) touch('slide', open);
   $('keys').classList.toggle('on', open);
 }
+
+// --- first run: the header's New task and ? buttons, the empty board's three actions, and the 60-second tour ---
+$('new-btn').onclick = () => { if (hudIsOpen()) closeHud(); toggleAdd(true); };   // the same as n: the field is on the board, under Load
+$('help-btn').onclick = () => toggleKeys();
+$('welcome-add').onclick = () => toggleAdd(true);
+$('welcome-demo').onclick = async e => {
+  const b = e.currentTarget;
+  b.disabled = true;
+  try { await api('/api/demo', {}); showError(''); toast('Added sample cards. Remove them any time with: agentboard rm --demo'); raw = ''; load(); }
+  catch (err) { showError('Could not add sample cards: ' + err.message); }
+  b.disabled = false;
+};
+$('welcome').addEventListener('click', async e => {   // the commands in the Get started steps copy on a click
+  const c = e.target.closest('code[title]');
+  if (!c) return;
+  try { await navigator.clipboard.writeText(c.textContent); c.classList.add('copied'); setTimeout(() => c.classList.remove('copied'), 1400); }
+  catch (err) { showError('Copy failed: ' + err.message); }
+});
+const TOUR = [
+  { h: 'Agents report, you decide',
+    p: 'Each agent runs a few one-line commands in its own terminal. Its task then appears here by itself, with a live percent and a status line, so you never have to ask how it is going.',
+    viz: '<code>agentboard start "Refactor billing" --name atlas\nagentboard update refactor-billing 40 "Tests green"\nagentboard review refactor-billing "Ready for you"</code>' },
+  { h: 'Three columns',
+    p: 'Todo is waiting for an agent. Doing is being worked on, with its percent. Done is finished and signed off. An agent cannot move a card to Done: only you can.',
+    viz: '<div class="tv-cols"><div class="tv-col"><b>Todo</b><div class="tv-card">Write release notes</div></div><div class="tv-col"><b>Doing</b><div class="tv-card">Refactor billing<i>70%</i></div></div><div class="tv-col"><b>Done</b><div class="tv-card">Set up CI</div></div></div>' },
+  { h: 'When an agent needs you',
+    p: 'A card that asks a question, or is ready for your review, lights up. Open it (click it, or press Enter), read the report, answer in the card, then press Mark done (or d).',
+    viz: '<div class="tv-card ask">Deploy to staging or prod?<i>waiting on you</i></div>' },
+  { h: 'More ways to look',
+    p: 'By agent gives each agent its own lane. Load is a live view of who is busy and who is waiting on you. Later parks tasks for another day. Settings (m) has sound and look; ? lists every shortcut.',
+    viz: '<div class="tv-nav"><span>Board</span><span>By agent</span><span>Load</span><span>Later</span><span>New task (n)</span><span>Settings (m)</span><span>? shortcuts</span></div>' },
+];
+let tourAt = 0, tourOpener = null;
+const tourIsOpen = () => $('tour').classList.contains('on');
+function openTour(opener) {
+  tourOpener = opener || document.activeElement;
+  if ($('keys').classList.contains('on')) toggleKeys(false);
+  tourAt = 0; drawTour();
+  touch('slide', true);
+  $('tour').classList.add('on');
+  $('tour-next').focus();
+}
+function closeTour() {
+  if (!tourIsOpen()) return;
+  touch('slide', false);
+  $('tour').classList.remove('on');
+  try { tourOpener?.focus(); } catch (err) {}
+}
+function drawTour() {
+  const t = TOUR[tourAt];
+  $('tour-n').textContent = `Step ${tourAt + 1} of ${TOUR.length}`;
+  $('tour-h').textContent = t.h;
+  $('tour-p').textContent = t.p;
+  $('tour-viz').innerHTML = t.viz;   // fixed strings above, never board data
+  $('tour-dots').innerHTML = TOUR.map((_, i) => `<i${i === tourAt ? ' class="on"' : ''}></i>`).join('');
+  $('tour-back').hidden = tourAt === 0;
+  $('tour-next').textContent = tourAt === TOUR.length - 1 ? 'Done' : 'Next';
+}
+function tourStep(d) {
+  const to = tourAt + d;
+  if (to < 0) return;
+  if (to >= TOUR.length) { closeTour(); return; }
+  tourAt = to; drawTour(); touch('swish');
+}
+function tourKey(e) {
+  if (e.key === 'Escape') { e.preventDefault(); closeTour(); return; }
+  if (e.key === 'ArrowRight') { e.preventDefault(); tourStep(1); return; }
+  if (e.key === 'ArrowLeft') { e.preventDefault(); tourStep(-1); return; }
+  if (e.key === 'Tab') {   // focus stays inside the dialog
+    const f = [...$('tour').querySelectorAll('button')].filter(b => !b.hidden);
+    const first = f[0], last = f[f.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  }
+}
+$('tour-next').onclick = () => tourStep(1);
+$('tour-back').onclick = () => tourStep(-1);
+$('tour-close').onclick = closeTour;
+$('tour').addEventListener('click', e => { if (e.target.id === 'tour') closeTour(); });
+$('welcome-tour').onclick = e => openTour(e.currentTarget);
+$('keys-tour').onclick = () => openTour($('help-btn'));
 
 // --- desktop notifications: the browser's own Notification API, local only, opt-in with the bell. Only while the tab is in
 // the background (in front, the strip and the sounds already say it): an ask at once and again every 15 minutes while it
@@ -4268,7 +4405,7 @@ function aimedCard() {
 }
 // d: what the Done button does (the same move), on the card c would copy. One settle sound once it has landed.
 async function markDoneByKey() {
-  if ($('keys').classList.contains('on') || mixIsOpen()) return;   // not behind an open sheet
+  if ($('keys').classList.contains('on') || mixIsOpen() || tourIsOpen()) return;   // not behind an open sheet
   const id = aimedCard();
   if (!id) { toast('Point at a card, or open one, then press d to mark it done'); return; }
   const t = byId.get(id);
