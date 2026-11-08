@@ -1,18 +1,18 @@
 """The version is written in three places a person reads: pyproject.toml (what pip installs), __init__.py (what --version prints and
 doctor reports) and the README's --version line. They must agree: a release bumps all three, and this fails the day one is forgotten."""
 import re
-import tomllib
 import unittest
 from pathlib import Path
 
 import agentboard
+from agentboard import tomlread
 
 ROOT = Path(agentboard.__file__).resolve().parents[2]
 
 
 class VersionAgrees(unittest.TestCase):
     def test_init_matches_pyproject(self):
-        project = tomllib.loads((ROOT / "pyproject.toml").read_text())["project"]
+        project = tomlread.loads((ROOT / "pyproject.toml").read_text())["project"]
         self.assertEqual(agentboard.__version__, project["version"], "bump src/agentboard/__init__.py together with pyproject.toml")
 
     def test_the_readme_says_what_version_prints(self):

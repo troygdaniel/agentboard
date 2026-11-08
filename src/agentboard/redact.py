@@ -21,13 +21,74 @@ import base64
 import binascii
 import bisect
 import re
-import tomllib
+import sys
 from pathlib import Path
+
+from . import tomlread
+
+_POSSESSIVE = sys.version_info >= (3, 11)   # possessive quantifiers (x*+, x++, x?+, x{n,}+) exist from Python 3.11
+
+
+def _plain_quantifiers(pattern):
+    """The pattern with its possessive quantifiers made plain (x*+ -> x*), by a walk that knows what it is looking at: a + is possessive only
+    when it directly follows an unescaped quantifier (* + ? or a closing brace) outside a character class. `[*+/=]{4,}`, `a\\++` (an escaped
+    plus, repeated) and `x[?+]y` are left exactly as written; `[^\\s:/@]*+` and `{10,}+` lose the trailing +."""
+    out, i, n, in_class, prev_quant = [], 0, len(pattern), False, False
+    while i < n:
+        c = pattern[i]
+        if c == "\\":   # an escape: the next character is literal, never a quantifier
+            out.append(pattern[i:i + 2])
+            i += 2
+            prev_quant = False
+            continue
+        if in_class:
+            if c == "]":
+                in_class = False
+            out.append(c)
+            i += 1
+            prev_quant = False
+            continue
+        if c == "[":
+            in_class = True
+            out.append(c)
+            i += 1
+            if i < n and pattern[i] == "^":
+                out.append("^")
+                i += 1
+            if i < n and pattern[i] == "]":   # a leading ] is a literal inside the class
+                out.append("]")
+                i += 1
+            prev_quant = False
+            continue
+        if c == "+" and prev_quant:   # the possessive marker itself
+            i += 1
+            prev_quant = False
+            continue
+        if c == "{":   # a {m,n} quantifier: copy it whole
+            j = pattern.find("}", i)
+            if j > 0 and re.fullmatch(r"\{\d*(?:,\d*)?\}", pattern[i:j + 1]):
+                out.append(pattern[i:j + 1])
+                i = j + 1
+                prev_quant = True
+                continue
+        out.append(c)
+        prev_quant = c in "*+?"
+        i += 1
+    return "".join(out)
+
+
+def _compile(pattern, flags=0):
+    """re.compile, but on Python 3.9 and 3.10 the possessive quantifiers are made plain (_plain_quantifiers). They are here to stop a crafted
+    text from making a pattern backtrack for seconds (test_redact_dos); without them the same patterns still match the same strings, and the
+    size caps (`bound`, MAX_HIDDEN) keep the worst case small."""
+    if not _POSSESSIVE:
+        pattern = _plain_quantifiers(pattern)
+    return re.compile(pattern, flags)
 
 # Control (but not tab, newline, carriage return), format (zero-width, bidi, soft hyphen, tag), private-use and surrogate code points: invisible, or
 # able to split a key so that a pattern no longer sees it ("sk-" + zero-width space + key): the set untrusted.text_lines drops, plus the invisible
 # fillers, joiners and variation selectors. Only the COPY used for matching loses them: the text you store keeps every one it had.
-_INVISIBLE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f\xad\u034f\u0600-\u0605\u061c\u06dd\u070f\u08e2\u115f\u1160\u17b4\u17b5\u180b-\u180e\u200b-\u200f\u202a-\u202e\u2060-\u2064"
+_INVISIBLE = _compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f\xad\u034f\u0600-\u0605\u061c\u06dd\u070f\u08e2\u115f\u1160\u17b4\u17b5\u180b-\u180e\u200b-\u200f\u202a-\u202e\u2060-\u2064"
                         r"\u2066-\u206f\u2800\u3164\ufe00-\ufe0f\ufeff\uffa0\ufff9-\ufffb\ue000-\uf8ff\ud800-\udfff\U000110bd\U000110cd\U00013430-\U0001343f\U0001bca0-\U0001bca3"
                         r"\U0001d173-\U0001d17a\U000e0001\U000e0020-\U000e007f\U000e0100-\U000e01ef\U000f0000-\U000ffffd\U00100000-\U0010fffd]")
 MAX_HIDDEN = 5000    # a text with more invisible characters than this is not prose: they are dropped instead of being mapped around
@@ -44,7 +105,7 @@ _DASHES = {c: "-" for lo, hi in _DASH_RANGES for c in range(lo, hi + 1)}
 # what a normaliser (NFKC) turns them back into: "api_key" + a fullwidth "=" + a value is an assignment to the eye and to the next program that reads it.
 _FOLD = {**{c: chr(c - 0xFEE0) for c in range(0xFF01, 0xFF5F)}, **_DASHES}      # one for one, like the dashes (the fullwidth hyphen is in both and agrees)
 
-PLACEHOLDER = re.compile(r"^[xX*._\-]+$|EXAMPLE|\$\{?\w|<[^>]*>|\{\w+\}|changeme|placeholder|dummy|redacted|^your[-_]", re.I)
+PLACEHOLDER = _compile(r"^[xX*._\-]+$|EXAMPLE|\$\{?\w|<[^>]*>|\{\w+\}|changeme|placeholder|dummy|redacted|^your[-_]", re.I)
 _CACHE = {}
 
 DEFAULTS = {"enabled": True, "phones": False, "extra": []}
@@ -116,8 +177,8 @@ def _auth_header(m):
     return m.group(1) + _mask("secret")
 
 
-_UUID = re.compile(r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")
-_WORDY = re.compile(r"[a-z0-9]+(?:[_.-][a-z0-9]+)+")    # snake_case and kebab-case names: identifiers, not keys
+_UUID = _compile(r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")
+_WORDY = _compile(r"[a-z0-9]+(?:[_.-][a-z0-9]+)+")    # snake_case and kebab-case names: identifiers, not keys
 
 
 def _api_key_like(v):
@@ -146,30 +207,30 @@ def _url_password(m):
 
 # (kind, pattern, replacement function). Order matters: a private-key block first, then headers, then the rest.
 SHAPES = [
-    ("private-key", re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----(?:(?:(?!-----(?:BEGIN|END) )[\s\S]){0,10000}?-----END [A-Z ]*PRIVATE KEY-----|(?:\s*+[A-Za-z0-9+/=]{16,}+)*+)"), lambda m: _mask("private-key")),   # to its END line, or (cut off) through the base64 lines: the sentences after it stay
-    ("auth-header", re.compile(r"(Authorization:\s*+(?:Token|Bearer|Basic)\s++)([A-Za-z0-9._=+/~-]{4,}+)", re.I), _auth_header),
-    ("jwt", re.compile(r"(?<![A-Za-z0-9_-])eyJ[A-Za-z0-9_-]{10,}+\.[A-Za-z0-9_-]{10,}+\.[A-Za-z0-9_-]{10,}+"), _whole("jwt")),   # lookbehind + possessive: the text eyJeyJeyJ... was quadratic (44 s for 400 KB)
-    ("aws-key", re.compile(r"AKIA[0-9A-Z]{16}"), _whole("aws-key")),
-    ("api-key", re.compile(r"sk-(?:ant-|proj-)?[A-Za-z0-9_-]{20,}+"), _whole("api-key", _api_key_like)),
-    ("github-token", re.compile(r"(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{20,}"), _whole("github-token")),
-    ("slack-token", re.compile(r"xox[abprs]-[A-Za-z0-9-]{10,}+"), _whole("slack-token")),
-    ("account-sid", re.compile(r"(?<![A-Za-z0-9])(?:AC|SK)[0-9a-f]{32}(?![A-Za-z0-9])"), _whole("account-sid")),
-    ("stripe-key", re.compile(r"(?<![A-Za-z0-9])(?:sk|rk)_(?:live|test)_[A-Za-z0-9]{20,}"), _whole("stripe-key")),
-    ("webhook-secret", re.compile(r"(?<![A-Za-z0-9])whsec_[A-Za-z0-9+/=]{20,}"), _whole("webhook-secret")),
-    ("google-key", re.compile(r"(?<![A-Za-z0-9_-])AIza[0-9A-Za-z_-]{35}(?![0-9A-Za-z_-])"), _whole("google-key")),
-    ("slack-webhook", re.compile(r"(?:https?://)?hooks\.slack\.com/services/T[A-Z0-9]+/B[A-Z0-9]+/[A-Za-z0-9]+"), _whole("slack-webhook")),
-    ("npm-token", re.compile(r"(?<![A-Za-z0-9_])npm_[A-Za-z0-9]{36}(?![A-Za-z0-9])"), _whole("npm-token")),
-    ("sendgrid-key", re.compile(r"(?<![A-Za-z0-9_-])SG\.[A-Za-z0-9_-]{16,}+\.[A-Za-z0-9_-]{16,}+"), _whole("sendgrid-key")),
-    ("url-password", re.compile(r"(://[^\s:/@]*+:)([^\s@/]++)(@)"), _url_password),   # the user may be empty: redis://:PASSWORD@host
-    ("bearer", re.compile(r"(?<![A-Za-z])(Bearer\s++)([A-Za-z0-9._~+/=-]{20,}+)"), _keep_prefix("secret", _secret_like)),
-    ("key-hex", re.compile(r"((?<![A-Za-z])(?:api[_-]?key|key|token|secret|passwd|password)\W{1,4})([0-9a-fA-F]{32,64})(?![0-9a-fA-F])", re.I), _keep_prefix("hex")),
-    ("assigned-secret", re.compile(r"((?:aws[_-]?secret[_-]?access[_-]?key|secret[_-]?access[_-]?key|api[_-]?key|apikey|secret[_-]?key|secret|passwd|password|pwd|auth[_-]?token|access[_-]?token|refresh[_-]?token|client[_-]?secret|app[_-]?secret|private[_-]?token|signing[_-]?(?:key|secret))[\"']?\s*+[:=]\s*+[\"']?)([A-Za-z0-9/+_=.~-]{16,}+)", re.I),
+    ("private-key", _compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----(?:(?:(?!-----(?:BEGIN|END) )[\s\S]){0,10000}?-----END [A-Z ]*PRIVATE KEY-----|(?:\s*+[A-Za-z0-9+/=]{16,}+)*+)"), lambda m: _mask("private-key")),   # to its END line, or (cut off) through the base64 lines: the sentences after it stay
+    ("auth-header", _compile(r"(Authorization:\s*+(?:Token|Bearer|Basic)\s++)([A-Za-z0-9._=+/~-]{4,}+)", re.I), _auth_header),
+    ("jwt", _compile(r"(?<![A-Za-z0-9_-])eyJ[A-Za-z0-9_-]{10,}+\.[A-Za-z0-9_-]{10,}+\.[A-Za-z0-9_-]{10,}+"), _whole("jwt")),   # lookbehind + possessive: the text eyJeyJeyJ... was quadratic (44 s for 400 KB)
+    ("aws-key", _compile(r"AKIA[0-9A-Z]{16}"), _whole("aws-key")),
+    ("api-key", _compile(r"sk-(?:ant-|proj-)?[A-Za-z0-9_-]{20,}+"), _whole("api-key", _api_key_like)),
+    ("github-token", _compile(r"(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{20,}"), _whole("github-token")),
+    ("slack-token", _compile(r"xox[abprs]-[A-Za-z0-9-]{10,}+"), _whole("slack-token")),
+    ("account-sid", _compile(r"(?<![A-Za-z0-9])(?:AC|SK)[0-9a-f]{32}(?![A-Za-z0-9])"), _whole("account-sid")),
+    ("stripe-key", _compile(r"(?<![A-Za-z0-9])(?:sk|rk)_(?:live|test)_[A-Za-z0-9]{20,}"), _whole("stripe-key")),
+    ("webhook-secret", _compile(r"(?<![A-Za-z0-9])whsec_[A-Za-z0-9+/=]{20,}"), _whole("webhook-secret")),
+    ("google-key", _compile(r"(?<![A-Za-z0-9_-])AIza[0-9A-Za-z_-]{35}(?![0-9A-Za-z_-])"), _whole("google-key")),
+    ("slack-webhook", _compile(r"(?:https?://)?hooks\.slack\.com/services/T[A-Z0-9]+/B[A-Z0-9]+/[A-Za-z0-9]+"), _whole("slack-webhook")),
+    ("npm-token", _compile(r"(?<![A-Za-z0-9_])npm_[A-Za-z0-9]{36}(?![A-Za-z0-9])"), _whole("npm-token")),
+    ("sendgrid-key", _compile(r"(?<![A-Za-z0-9_-])SG\.[A-Za-z0-9_-]{16,}+\.[A-Za-z0-9_-]{16,}+"), _whole("sendgrid-key")),
+    ("url-password", _compile(r"(://[^\s:/@]*+:)([^\s@/]++)(@)"), _url_password),   # the user may be empty: redis://:PASSWORD@host
+    ("bearer", _compile(r"(?<![A-Za-z])(Bearer\s++)([A-Za-z0-9._~+/=-]{20,}+)"), _keep_prefix("secret", _secret_like)),
+    ("key-hex", _compile(r"((?<![A-Za-z])(?:api[_-]?key|key|token|secret|passwd|password)\W{1,4})([0-9a-fA-F]{32,64})(?![0-9a-fA-F])", re.I), _keep_prefix("hex")),
+    ("assigned-secret", _compile(r"((?:aws[_-]?secret[_-]?access[_-]?key|secret[_-]?access[_-]?key|api[_-]?key|apikey|secret[_-]?key|secret|passwd|password|pwd|auth[_-]?token|access[_-]?token|refresh[_-]?token|client[_-]?secret|app[_-]?secret|private[_-]?token|signing[_-]?(?:key|secret))[\"']?\s*+[:=]\s*+[\"']?)([A-Za-z0-9/+_=.~-]{16,}+)", re.I),
      _keep_prefix("secret", _has_letter_and_digit)),
-    ("generic-secret", re.compile(r"((?<![A-Za-z0-9])(?:key|auth|token|credentials?|access[_-]?key)[\"']?\s*+[:=]\s*+[\"']?)([A-Za-z0-9/+_=.~-]{20,}+)", re.I),
+    ("generic-secret", _compile(r"((?<![A-Za-z0-9])(?:key|auth|token|credentials?|access[_-]?key)[\"']?\s*+[:=]\s*+[\"']?)([A-Za-z0-9/+_=.~-]{20,}+)", re.I),
      _keep_prefix("secret", _random_like)),
 ]
 
-PHONE = re.compile(r"(?<![\d.])(?:\(?[2-9]\d{2}\)?[ .-]\d{3}[ .-]\d{4}|\+1[ ]?\d{10})(?!\d)")
+PHONE = _compile(r"(?<![\d.])(?:\(?[2-9]\d{2}\)?[ .-]\d{3}[ .-]\d{4}|\+1[ ]?\d{10})(?!\d)")
 
 
 def _fictional(num):
@@ -192,7 +253,7 @@ def settings(board_dir):
     if hit and hit[0] == mt:
         return hit[1]
     try:
-        sect = tomllib.loads(path.read_text()).get("redact", {})
+        sect = tomlread.loads(path.read_text()).get("redact", {})
     except (OSError, ValueError):
         sect = {}
     if isinstance(sect, dict):
@@ -207,9 +268,9 @@ def _extras(conf):
     rxs = []
     for p in conf["extra"]:
         try:
-            rxs.append(re.compile(p))
+            rxs.append(_compile(p))
         except re.error:
-            rxs.append(re.compile(re.escape(p)))
+            rxs.append(_compile(re.escape(p)))
     return rxs
 
 

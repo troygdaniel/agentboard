@@ -6,7 +6,7 @@ one-line shell commands; you watch one clean board in your browser, answer quest
 finished work — instead of juggling a dozen terminal tabs.
 
 - **Local only.** A tiny Python server on `127.0.0.1`; data is one JSON file in your project. See [Local-only and safety](#local-only-and-safety).
-- **No dependencies, no database.** Python standard library only. Python 3.11+.
+- **No dependencies, no database.** Python standard library only. Python 3.9 to 3.14 (the Python a Mac or Ubuntu already has is enough).
 - **Agents never close their own work.** They finish with `review`; *you* mark the card done.
 - **Reports lead with the action.** Agents write `ACTION / STATUS / WHY`; the board and the HUD show who must do what, in colour.
 
@@ -22,19 +22,46 @@ finished work — instead of juggling a dozen terminal tabs.
 
 ## Install
 
-Requirements: **Python 3.11 or newer**, and [pipx](https://pipx.pypa.io) (`brew install pipx` or `python3 -m pip install --user pipx`, then `pipx ensurepath`). Tested on macOS; it uses only the standard library.
+Requirements: **Python 3.9 or newer** (`python3 --version`; 3.9 to 3.14 are tested) and [pipx](https://pipx.pypa.io) (`brew install pipx`, or with no admin rights `python3 -m pip install --user pipx`, then `pipx ensurepath` and a new terminal). No other dependency: it is the standard library only, and on Python 3.9 and 3.10 a small built-in reader stands in for `tomllib`. Tested on macOS; nothing in it is Mac-only except the optional notifications and dictation.
+
+Three commands, then the board is running:
+
+    pipx install git+https://github.com/troygdaniel/agentboard     # once per machine (pipx makes its own venv under ~/.local)
+    cd your-project && agentboard init                             # once per project: .agentboard/ (tasks.json, config.toml), git-ignored
+    agentboard serve                                               # http://localhost:8765 (Ctrl+C stops)
+
+The long form:
 
     pipx install git+https://github.com/troygdaniel/agentboard     # from GitHub
     # or, from a checkout:
     git clone https://github.com/troygdaniel/agentboard && cd agentboard && pipx install .
     agentboard --version                                           # prints: 0.3.1
 
-No pipx? From inside a checkout, with `python3` being 3.11+ (`python3 --version`):
+No pipx? From inside a checkout, with `python3` being 3.9+ (`python3 --version`):
 
     rm -rf build && python3 -m venv ~/.agentboard-venv && ~/.agentboard-venv/bin/pip install .
     export PATH="$HOME/.agentboard-venv/bin:$PATH"     # so the bare `agentboard` commands below work (add to your shell profile)
 
-To upgrade a checkout: `git pull && rm -rf build && pipx install . --force` (then restart `agentboard serve`). Releases are tagged (`v0.3.0`); see `CHANGELOG.md`.
+Releases are tagged (`v0.3.0`); see `CHANGELOG.md`.
+
+### Upgrade
+
+    pipx upgrade agentboard                                        # installed from GitHub: fetches the latest commit
+    # or, from a checkout:
+    git pull && rm -rf build && pipx install . --force
+    agentboard doctor                                              # want: no FAIL; INFO version shows the new commit
+
+Then stop and start `agentboard serve` (the running server keeps the old code until it restarts). Cards, config and backups are files in `.agentboard/` and are never touched by an upgrade; a newer board reads an older `tasks.json` as it is.
+
+### Uninstall, leaving nothing behind
+
+    agentboard hooks uninstall                                     # in each project where you ran `hooks install` (removes the two entries from .claude/settings.json)
+    pipx uninstall agentboard                                      # the program and its venv (~/.local/pipx/venvs/agentboard, ~/.local/bin/agentboard)
+    rm -rf your-project/.agentboard                                # a project's cards, config, reports and backups (and the .gitignore line, if you like)
+    rm -rf ~/.agentboard                                           # only if you used named boards: the registry and boards made with `agentboard board new`
+    rm -rf ~/.config/agentboard                                    # only if you made it: private-words.txt for the repo check
+
+That is the whole footprint. agentboard writes nowhere else: no launch agent, no login item, no shell profile line (pipx's `ensurepath` is pipx's own), no cache outside those folders, nothing in `~/Library` (dictation reads model files other apps installed, it writes none). `[backup] sync_dir`, if you set one, is a folder you chose; delete it yourself.
 
 **Offline, or a locked-down PC (no package index, no admin rights).** Both commands above fetch build tools from PyPI the first time: pipx upgrades
 its own pip (it does this even for a prebuilt wheel, so pipx is a dead end offline), and a plain pip install of the checkout builds in an isolated environment that
@@ -548,7 +575,7 @@ Copy prompt button, the CLI and `agentboard prompt` are unaffected.
 
 What to expect when you clone this onto a managed machine (the full audit and checklist: [`docs/security-audit-2026-11-07.md`](docs/security-audit-2026-11-07.md)):
 
-1. **Needs:** `git`, Python 3.11+ (`python3 --version`), and `pipx` (or a venv, see [Install](#install)). Nothing else; there are no dependencies.
+1. **Needs:** `git`, Python 3.9+ (`python3 --version`; the system Python of a Mac or Ubuntu 22.04 is enough), and `pipx` (or a venv, see [Install](#install)). Nothing else; there are no dependencies, and no admin rights: everything lands under your home folder.
 2. **Get it from a copy you reviewed and pin the commit:** `git clone https://github.com/troygdaniel/agentboard && cd agentboard && git checkout <reviewed commit> && pipx install .`
    The only network use is that one fetch (plus `setuptools>=68` from PyPI while building). Nothing runs at install: no setup script, no `.pth`, no lock file.
 3. **Set the master lock in the shell profile that starts the board:** `export AGENTBOARD_LOCKDOWN=1`. It refuses everything that would start a program or send
@@ -568,6 +595,13 @@ What to expect when you clone this onto a managed machine (the full audit and ch
 - `agentboard: command not found`: run `pipx ensurepath` and open a new terminal.
 - `no board found; run agentboard init`: run it in your project, or set `AGENTBOARD_DIR`.
 - `cannot listen on port 8765`: another board is running; use `agentboard serve --port 8766`.
+- **A plugin (or the board) crashed on load, or a feature's buttons vanished from Settings** (Nov 7: the home plugin's two data files were not in its package, so it failed to import for hours while every test passed, because tests run from `src/`). Run `agentboard doctor` with plugins on: `FAIL plugin <name> failed to load: <ErrorClass>` names it, and the plugin's own `home:files` line says which file. Fix the package-data list, reinstall.
+- **The board runs but a feature is silently off after a restart** (Nov 7: a restart from a different terminal dropped the environment variables, so every opt-in key read as unset). Keys are environment variables of the *server's* shell, not of yours: start `agentboard serve` from the shell that has them (or a script that loads them first), then `agentboard doctor`, whose `server` and plugin lines say what the running server was started with.
+- **Something you deleted from the source is back after reinstalling** (Nov 7: a stale `build/` folder put removed modules back into the installed copy). `rm -rf build` in the checkout, then `pipx install . --force`; `agentboard doctor` warns `stale install` and prints the fix. `pipx upgrade` from the GitHub URL never has this problem.
+- **`agentboard doctor` says `FAIL tracked files`** on your own repo: it found a key-shaped string, a non-fictional phone number or a private key block in a tracked file (it prints the file and line, never the text). Rotate the key if it is real; if it is a test fixture, build it from pieces (`"AKIA" + "..."`) or use the 555-01xx numbers reserved for fiction.
+- **`ModuleNotFoundError: tomllib`** on Python 3.9 or 3.10: you have an agentboard older than this note; upgrade. Since then the board reads TOML with its own small reader where the standard library has none.
+- **`pipx: command not found`** right after installing pipx: `python3 -m pipx ensurepath`, then open a new terminal (pipx adds `~/.local/bin` to PATH for new shells only).
+- **A first run of `agentboard doctor` shows WARN lines**: `lock` (set `AGENTBOARD_LOCKDOWN=1` on a work machine; at home the WARN is expected), `plugins ON` (you turned them on), `config` (a switch in config.toml would start a program or send data). Every WARN names the switch; `--strict` makes them count as failures for a review.
 
 ## Development
 

@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Python 3.9 to 3.14, a three-command install, upgrade and uninstall written down, doctor passes on the repo (Nov 7, overnight)
+- The floor drops from 3.11 to 3.9 (the Python a 2021 Mac or Ubuntu 22.04 already has): `tomlread.py` uses `tomllib` where it exists and a small built-in TOML reader before that (tables, arrays of tables, dotted and quoted keys, all string forms, numbers, dates, arrays, inline tables; checked against tomllib on the config `init` writes, the README's block and every snippet the tests write), the masker's possessive quantifiers become plain ones on 3.9 and 3.10 (same matches, slower worst case, bounded by the size caps), and one f-string that needed 3.12 is split. The suite runs on 3.9, 3.11, 3.12, 3.13 and 3.14.
+- README: install is three commands, then Upgrade and Uninstall sections (the whole footprint: pipx's venv, `.agentboard/` per project, `~/.agentboard` for named boards, `~/.config/agentboard` for private words, the hooks `hooks uninstall` removes; nowhere else), and a troubleshooting list written from the Nov 7 failures (a plugin crashing on load, keys lost on a restart, a stale `build/`, the doctor's tracked-files FAIL, first-run WARNs).
+- `agentboard doctor` on this repository is 0 FAIL: the key scan now leaves alone what the masker itself knows is words (`sk-learn-pipeline-for-the-model`), and the two test fixtures that are real-looking by design (a phone number, a token assignment) are built from pieces.
+
 ### The chat box says who reads the line, and a refused send keeps your text (Nov 8)
 - Under each chat box (the ORCH drawer, an agent's thread, a card's chat) one small line now says who the line goes to and whether
   anything wakes them: `Goes to ORCH · listening`, `Goes to AGENT-2 · not listening: it reads this when its session next runs` (amber),

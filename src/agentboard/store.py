@@ -6,10 +6,10 @@ import json
 import os
 import re
 import time
-import tomllib
 from pathlib import Path
 
 from . import backup
+from . import tomlread
 from . import chatwake
 from . import listeners
 from . import redact
@@ -38,7 +38,7 @@ class BoardError(Exception):
 def owner_name(board_dir):
     """The human's name on this board: [board] owner in config.toml, else "you". Read fresh each time, so an edit shows up without a restart."""
     try:
-        conf = tomllib.loads((Path(board_dir) / "config.toml").read_text())
+        conf = tomlread.loads((Path(board_dir) / "config.toml").read_text())
     except (OSError, ValueError):
         return DEFAULT_OWNER
     board = conf.get("board")

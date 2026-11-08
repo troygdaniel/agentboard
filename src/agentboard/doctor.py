@@ -55,7 +55,9 @@ def _fake(kind, text):
         return not re.search(r"\d", text)
     if kind == "cloud or API key":
         body = re.sub(r"^(?:AKIA|AC|sk-|gh[pousr]_|xox[abprs]-)", "", text)
-        return len(set(body.lower())) <= 3
+        if len(set(body.lower())) <= 3:
+            return True
+        return redact.scrub(text, conf=redact.settings(None)) == text   # a shape the masker itself leaves alone (sk-learn-pipeline-for-the-model) is words, not a key
     return False
 
 
