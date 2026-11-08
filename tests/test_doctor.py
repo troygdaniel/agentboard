@@ -353,7 +353,7 @@ class WholeReport(unittest.TestCase):
         with mock.patch.object(Path, "home", return_value=self.root / "home"):
             results = self.run_doctor()
         text = doctor.render(results, self.board)
-        self.assertLessEqual(len(text.splitlines()), 20)
+        self.assertLessEqual(len(text.splitlines()), 24)   # the overnight branches each add a line (agents, watchdog, masking, profile)
         self.assertRegex(text.splitlines()[-1], r"^\d+ FAIL, \d+ WARN, \d+ PASS, \d+ INFO$")
 
     def test_exit_code_fails_on_fail_and_with_strict_on_warn(self):

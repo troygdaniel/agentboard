@@ -60,6 +60,15 @@ is the developer's.
 |---|---|
 | `agentchat.py` | Agent chat: the protocol block every prompt carries while the switch is on, `recall` (search over cards, history and chat), the idle drafter and the autopilot/casual rounds (the only parts that start the local `claude` binary). |
 | `cursors.py` | Where each session got to in the chat: `chat-cursors.json` (seen) and `chat-delivered.json` (printed by a wait). |
+| `agentfiles.py` | Finds CLAUDE.md or AGENTS.md in a project and whether it carries agentboard's agent block (`init --instructions`, the doctor's agents line). |
+| `demo.py` | The sample cards `init --demo` and `POST /api/demo` seed on a new board, and the welcome text a bare `agentboard` prints. |
+| `guards.py` | The work profile's socket and subprocess guards: with the profile on, nothing but loopback connects and no program starts. |
+| `profile.py` | The work-PC profile: read from the environment, a machine file or config; `apply()` sets the lock and no-plugins before anything loads. |
+| `repoguard.py` | Added on an overnight branch; see its evidence doc under docs/overnight/. |
+| `selfcheck.py` | `agentboard selfcheck`: a static scan of the package plus a live audit of a throwaway (or the running) server, as PASS/FAIL lines. |
+| `statefile.py` | One way to write the small JSON state files beside tasks.json: atomic replace, flock'd read-modify-write, a sweep of stale temp files. |
+| `tomlread.py` | `loads()`/`load()` for config.toml and pyproject: tomllib when Python has it, a hand parser on 3.9 and 3.10. |
+| `watchdog.py` | The agent protocol's watchdog: the ways a board is stuck between agents, each with its one fix (`agentboard watchdog`, the Load strip, a doctor line). |
 | `listeners.py` | Who is listening: `chat-listeners.json`, one entry per `chat inbox --wait` process, written under a file lock. |
 | `chatwake.py` | The chat wake file `chat-wake.json`: a counter, a time and who a line was for (never its words), moved on every post, so a wait watches one small file and reads the board only when it moved. |
 | `hooks.py` | The two Claude Code hooks `agentboard hooks install` writes into `.claude/settings.json` (or `~/.claude/settings.json` with `--user`): PostToolUse on SendMessage mirrors a message's first line into the chat; Stop tells a session about to go quiet with an unread owner line. Session name to session id lives in `sessions.json`. |

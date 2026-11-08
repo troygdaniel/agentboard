@@ -243,7 +243,7 @@ def static_checks(root=None):
 def _dependency_check():
     pyproject = HERE.parents[1] / "pyproject.toml"
     try:
-        import tomllib
+        from . import tomlread as tomllib
         deps = tomllib.loads(pyproject.read_text()).get("project", {}).get("dependencies", None)
         if deps is None:
             return _res(PASS, "static: declared dependencies", "none declared")

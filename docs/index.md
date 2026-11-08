@@ -24,3 +24,6 @@ Pictures and mockups, from throwaway boards: `docs/board-light.png`, `docs/board
 `docs/ux-five/`, `docs/ux-six/` (screenshots of the UX cards they are named after); `docs/card-colour-mockup.html`, `docs/subtasks-mockup.html`,
 `docs/ux-mockups.html`, `docs/ux-mockups-2.html`, `docs/chat-words-design-mockup.html`, `docs/texts-reply-design-mockup.html` (clickable mockups,
 with their `.png` captures beside them).
+| [docs/security-signoff.md](security-signoff.md) | The two-page security sign-off: what was checked on the night of Nov 7-8, how, and what a reviewer can rerun. |
+
+The folder `docs/by-agent-lane-cue/` holds further documents; see its own README.
