@@ -963,8 +963,11 @@
   /* Mix: the extra sound layers, the same sheet as the shortcuts. One row per layer: its switch, its level, a Hear button */
   #mix { position: fixed; inset: 0; z-index: 40; display: none; place-items: center; background: rgba(0,0,0,.35); }
   #mix.on { display: grid; }
-  #mix .sheet { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 22px 26px; width: min(480px, calc(100vw - 32px)); max-height: calc(100vh - 32px); overflow: auto; box-shadow: 0 20px 60px rgba(0,0,0,.35); }
-  #mix h2 { font-size: var(--fs-lg); margin-bottom: 4px; }
+  /* Settings in tabs (settings-ui-tabs): the head (title, search, close) over a body of a tab list and one pane. 720 wide and 720 tall, so General,
+     Agents and chat and a plugin's tab fit whole; Sound, the old sheet's bulk, scrolls inside its pane. Below 620px the sheet is the screen. */
+  #mix .sheet { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 0; width: min(720px, calc(100vw - 32px)); height: min(720px, calc(100vh - 48px)); overflow: hidden;
+    display: grid; grid-template-columns: auto 1fr auto; grid-template-rows: auto minmax(0, 1fr); box-shadow: 0 20px 60px rgba(0,0,0,.35); }
+  #mix h2 { font-size: var(--fs-lg); margin: 0; grid-column: 1; grid-row: 1; align-self: center; padding: 14px 0 10px 20px; }
   #mix .mix-note { color: var(--muted); font-size: var(--fs-sm); margin-bottom: 10px; }
   #mix h3 { font-size: var(--fs-xs); letter-spacing: var(--tr-label); text-transform: uppercase; color: var(--muted); margin: 14px 0 4px; }
   .mix-row { display: grid; grid-template-columns: 18px 1fr 72px auto; align-items: center; gap: 2px 10px; padding: 7px 0; border-top: 1px solid var(--line); }   /* a fixed first column, so every name starts at the same x (Volume sat 13px to the left) */
@@ -978,6 +981,57 @@
   .mix-row label { font-weight: 600; cursor: pointer; }
   .mix-row input[type=range] { width: 72px; height: 24px; margin: 0; }   /* a 24px target (WCAG 2.5.8) */
   .mix-row .mix-about { grid-column: 2 / -1; color: var(--muted); font-size: var(--fs-sm); }
+  /* the head: the title, the search box, the close button (the DOM order is title, close, search: focus goes to the close button first) */
+  #mix .sheet-x { position: static; grid-column: 3; grid-row: 1; align-self: center; margin: 0 14px 0 0; }
+  .sh-search { grid-column: 2; grid-row: 1; align-self: center; display: flex; align-items: center; gap: 8px; margin: 0 10px 0 14px; min-height: 32px; padding: 0 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--muted); font-size: var(--fs-md); cursor: text; }
+  .sh-search input { flex: 1; min-width: 0; border: 0; background: none; font: inherit; color: var(--text); outline: none; }
+  .sh-search:focus-within { border-color: var(--neutral); outline: 2px solid var(--accent); outline-offset: 1px; }
+  .sh-search kbd { font-size: var(--fs-xs); color: var(--muted); }
+  .sh-search:focus-within kbd { display: none; }
+  .sh-body { grid-column: 1 / -1; grid-row: 2; min-height: 0; display: flex; border-top: 1px solid var(--line); }
+  .tabs { flex: none; width: 170px; padding: 10px 8px; border-right: 1px solid var(--line); display: flex; flex-direction: column; gap: 2px; overflow-y: auto; }
+  .tab { display: flex; align-items: center; gap: 9px; min-height: 34px; padding: 4px 10px; border: 0; border-radius: 8px; background: none; color: var(--muted); font: inherit; font-size: var(--fs-md); font-weight: 500; text-align: left; cursor: pointer; white-space: nowrap; }
+  .tab:hover { color: var(--text); background: var(--chip); }
+  .tab[aria-selected="true"] { color: var(--text); background: var(--chip); box-shadow: inset 0 0 0 1px var(--line); font-weight: 600; }
+  .tab svg { width: 15px; height: 15px; flex: none; opacity: .8; }
+  .tab .dot { margin-left: auto; width: 7px; height: 7px; border-radius: 50%; background: var(--warn); flex: none; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .panes { flex: 1; min-width: 0; min-height: 0; overflow-y: auto; padding: 4px 22px 18px; }
+  .pane[hidden], .results[hidden], .panes.searching > .pane { display: none; }
+  .pane h3:first-child { margin-top: 10px; }
+  #mix-touch, #mix-amb, #mix-fx { display: grid; grid-template-columns: 1fr 1fr; column-gap: 26px; }   /* the layers in two columns: the Sound tab was a long single list */
+  #mix-touch > .mix-row:nth-child(-n+2), #mix-amb > .mix-row:nth-child(-n+2), #mix-fx > .mix-row:nth-child(-n+2) { border-top: 0; }
+  .mix-row .mix-about { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }   /* two lines in a tab; the whole line is the row's title */
+  .mix-row .nm { font-weight: 600; }
+  .mix-row.plain.ro { grid-template-columns: 1fr auto; }
+  .mix-row.plain.ro .mix-about { grid-column: 1 / -1; }
+  .mix-row .val { color: var(--muted); font-size: var(--fs-sm); text-align: right; }
+  .mix-row .val b { color: var(--text); font-weight: 600; }
+  .mix-row .val.warn b { color: color-mix(in srgb, var(--warn) 78%, var(--text)); }
+  .mix-about code, .results code { font: var(--fs-xs) ui-monospace, Menlo, monospace; background: var(--chip); border-radius: 4px; padding: 0 4px; }
+  .results { padding: 8px 0; }
+  .results .hit { display: grid; grid-template-columns: 1fr auto; gap: 1px 10px; padding: 8px 10px; border-radius: 8px; cursor: pointer; }
+  .results .hit[aria-selected="true"] { background: var(--chip); box-shadow: inset 0 0 0 1px var(--line); }
+  .results .hit b { font-weight: 600; }
+  .results .hit span { color: var(--muted); font-size: var(--fs-sm); }
+  .results .hit .where { font-size: var(--fs-xs); text-transform: uppercase; letter-spacing: var(--tr-tight); align-self: center; }
+  .results .none { color: var(--muted); padding: 10px; }
+  .results mark { background: color-mix(in srgb, var(--warn) 30%, transparent); color: inherit; border-radius: 3px; }
+  .mix-row.flash { animation: setflash 1.2s ease-out; }
+  @keyframes setflash { 0% { background: color-mix(in srgb, var(--warn) 30%, transparent); } 100% { background: transparent; } }
+  @media (prefers-reduced-motion: reduce) { .mix-row.flash { animation: none; box-shadow: inset 3px 0 0 var(--warn); } }
+  /* a phone: the sheet is the screen, the tab list is a strip that scrolls sideways, one column */
+  @media (max-width: 619px) {
+    #mix .sheet { width: 100vw; height: 100dvh; border: 0; border-radius: 0; }
+    .sh-body { flex-direction: column; }
+    .tabs { width: auto; flex-direction: row; border-right: 0; border-bottom: 1px solid var(--line); overflow-x: auto; overflow-y: hidden; padding: 8px 12px; gap: 6px; scroll-snap-type: x proximity; }
+    .tab { flex: none; border: 1px solid var(--line); border-radius: 999px; padding: 2px 12px; min-height: 32px; scroll-snap-align: start; }
+    .tabs { scrollbar-width: none; }
+    .tabs::-webkit-scrollbar { display: none; }
+    .panes { padding: 4px 16px 18px; }
+    #mix-touch, #mix-amb, #mix-fx { grid-template-columns: 1fr; }
+    #mix-touch > .mix-row:nth-child(2), #mix-amb > .mix-row:nth-child(2), #mix-fx > .mix-row:nth-child(2) { border-top: 1px solid var(--line); }
+  }
   kbd { font: var(--fs-xs) ui-monospace, Menlo, monospace; background: var(--chip); border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; }
   #toast {
     position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 16px); opacity: 0; pointer-events: none;
@@ -1484,13 +1538,38 @@
 
 <div id="mix" role="dialog" aria-label="Settings"><div class="sheet">
   <h2>Settings</h2><button class="icon-btn sheet-x" id="mix-close" type="button" aria-label="Close"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>
+  <label class="sh-search"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="7" cy="7" r="4.6" stroke="currentColor" stroke-width="1.5"/><path d="M10.6 10.6L14 14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg><input id="mix-search" type="search" placeholder="Search settings" aria-label="Search settings" aria-controls="mix-results" autocomplete="off" spellcheck="false"><kbd aria-hidden="true">/</kbd></label>
+  <div class="sh-body">
+    <div class="tabs" id="mix-tabs" role="tablist" aria-label="Settings" aria-orientation="vertical"></div>
+    <div class="panes" id="mix-panes">
+      <div class="pane" id="pane-general" role="tabpanel" aria-labelledby="stab-general" data-tab="general" hidden>
+        <h3>Theme</h3><div id="cfg-theme"></div>
+        <h3>Look (every view)</h3><div id="mix-look"></div>
+        <h3>This board</h3><div id="cfg-board"></div>
+      </div>
+      <div class="pane" id="pane-sound" role="tabpanel" aria-labelledby="stab-sound" data-tab="sound" hidden>
   <p class="mix-note">Sound and look, for every view. The usual sound is the default: the volume can go above it through a limiter, and the layers are extras, each off until you switch it on; Touch, the sounds of using the board, starts on. Hear one first; the level is yours too.</p>
   <h3>Sound</h3><div id="cfg-sound"></div>
   <h3>Touch (what your hands do, on every view)</h3><div id="mix-touch"></div>
   <h3>Ambience (plays with the ambient bed, on every view)</h3><div id="mix-amb"></div>
   <h3>Effects (every view)</h3><div id="mix-fx"></div>
-  <h3>Look (every view)</h3><div id="mix-look"></div>
+      </div>
+      <div class="pane" id="pane-agents" role="tabpanel" aria-labelledby="stab-agents" data-tab="agents" hidden>
+        <h3>Agent chat</h3><div id="cfg-agents"></div>
+        <h3>Who is listening</h3><div id="cfg-listen"></div>
+      </div>
+      <div class="pane" id="pane-security" role="tabpanel" aria-labelledby="stab-security" data-tab="security" hidden>
+        <h3>Status (read-only)</h3><div id="cfg-security"></div>
+      </div>
+      <div class="pane" id="pane-backup" role="tabpanel" aria-labelledby="stab-backup" data-tab="backup" hidden>
+        <h3>Status (read-only)</h3><div id="cfg-backup"></div>
+      </div>
+      <div class="pane" id="pane-more" role="tabpanel" aria-labelledby="stab-more" data-tab="more" hidden>
   <div id="ab-slot-settings"></div>
+      </div>
+      <div class="results" id="mix-results" role="listbox" aria-label="Matching settings" hidden></div>
+    </div>
+  </div>
 </div></div>
 
 <aside id="later" aria-label="Later">
@@ -1596,7 +1675,7 @@ const AB = window.AB = (() => {
     chip: fn => chipFns.push(fn),                             // fn(task) -> an html string (escape what you put in it) for the card's source row
     chips: t => { const h = chipFns.map(fn => safe(() => fn(t)) || '').join(''); return h ? `<div class="srcrow">${h}</div>` : ''; },
     header: $('ab-slot-header'), settings: $('ab-slot-settings'),
-    openSettings: el => { toggleMix(true); if (el) el.scrollIntoView({ block: 'start' }); },
+    openSettings: el => { toggleMix(true, el && el.closest ? el.closest('[data-tab]')?.dataset.tab : undefined); if (el) el.scrollIntoView({ block: 'start' }); },   // opens the sheet on the tab that holds el
   };
 })();
 // One colour per agent NAME, never per card (2026-11-01): AGENT-1 to AGENT-5 were all "green" because each card carried its own,
@@ -2187,7 +2266,7 @@ async function load() {
 }
 
 // --- shared agent chat: a self-organize channel the owner can see and join ---
-let chatMsgs = [], chatMaxSeq = 0, chatSeenSeq = 0, chatUnread = 0, chatFirstLoad = true, chatReceipts = { read: {}, listening: {} }, chatNames = [], chatRetired = [];
+let chatMsgs = [], chatMaxSeq = 0, chatSeenSeq = 0, chatUnread = 0, chatFirstLoad = true, chatReceipts = { read: {}, listening: {} }, chatNames = [], chatRetired = [], chatAgentsOn = false;
 const chatExpanded = new Set();   // seqs of unusually long messages a reader chose to expand
 async function loadChat() {
   try {
@@ -2201,6 +2280,7 @@ async function loadChat() {
     chatReceipts = d.receipts || { read: {}, delivered: {}, listening: {} };   // who read what, who is listening (see receiptHtml)
     chatRetired = d.retired || [];   // [hud] retired: a line to one of these gets no warning and no Nudge
     chatNames = Array.isArray(d.names) ? d.names : [];                          // who a line can reach (see whoReads)
+    chatAgentsOn = !!d.agents;                                                   // agent chat on or off: Settings > Agents and chat shows it
     refreshGoes();
     if (chatFirstLoad) {
       // Establish the baseline on the very first poll after page load, whether or not any
@@ -2696,11 +2776,13 @@ let theme = 'auto';
 try { theme = localStorage.getItem('agentboard-theme') || 'auto'; } catch (e) {}
 if (!THEMES.includes(theme)) theme = 'auto';
 applyTheme(theme);
-$('theme').onclick = () => {
-  theme = THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length];
+function setTheme(t) {   // the header's half-moon and the Settings > General row are the same switch
+  theme = t;
   applyTheme(theme); touch('toggle', theme === 'light' ? true : theme === 'dark' ? false : null);   // light is up, dark is down, auto is level
   try { localStorage.setItem('agentboard-theme', theme); } catch (e) {}
-};
+  if (typeof renderThemeRow === 'function' && mixIsOpen()) renderThemeRow();
+}
+$('theme').onclick = () => setTheme(THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length]);
 
 
 // --- detail panel ---
@@ -3738,16 +3820,207 @@ function renderMix() {
   $('mix-look').innerHTML = LAYERS.filter(L => L.look).map(row).join('');
 }
 const mixIsOpen = () => $('mix').classList.contains('on');
-function toggleMix(on) {
+function toggleMix(on, tabId) {
   const open = on ?? !mixIsOpen();
   if (open !== mixIsOpen()) touch('slide', open);
-  if (open) renderMix(); else stopDemo();
+  if (open) { renderMix(); renderSettingsPanes(); } else stopDemo();
   $('mix').classList.toggle('on', open);
-  if (open) $('mix').querySelector('input').focus(); else $('cfg-btn').focus();
+  if (open) { setSearch(''); wantSettingsTab(tabId || hashTab(), { focus: true }); }
+  else { if (/^#settings(\/|$)/.test(location.hash)) history.replaceState(null, '', location.pathname + location.search); $('cfg-btn').focus(); }
 }
+// --- Settings in tabs (settings-ui-tabs, docs/settings-tabs-design.md). The core panes and a plugin's register through one call, settingsTab(),
+// and a tab with nothing in it is not drawn. The tab is remembered per browser; #settings and #settings/<tab> open the sheet on it. ---
+const SET_TAB_KEY = 'agentboard-settings-tab';
+const SET_NARROW = matchMedia('(max-width: 619px)');
+const setTabs = [];   // {id, label, order, icon, pane, badge, has}: sorted by order, drawn only while has() is true
+const SET_ICON = {
+  general: '<svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="2.2" stroke="currentColor" stroke-width="1.4"/><path d="M8 1.8v2M8 12.2v2M1.8 8h2M12.2 8h2M3.6 3.6l1.4 1.4M11 11l1.4 1.4M12.4 3.6L11 5M5 11l-1.4 1.4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>',
+  sound: '<svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M2.5 6.2h2.3L8 3.4v9.2L4.8 9.8H2.5z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M10.4 5.6a3.2 3.2 0 0 1 0 4.8M12.2 3.8a5.6 5.6 0 0 1 0 8.4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>',
+  agents: '<svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M2.5 3.5h11v7h-5l-3 2.6v-2.6h-3z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>',
+  security: '<svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 1.8l5 1.8v4c0 3-2.2 5-5 6.4-2.8-1.4-5-3.4-5-6.4v-4z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>',
+  backup: '<svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><ellipse cx="8" cy="4" rx="5" ry="2" stroke="currentColor" stroke-width="1.4"/><path d="M3 4v8c0 1.1 2.2 2 5 2s5-.9 5-2V4M3 8c0 1.1 2.2 2 5 2s5-.9 5-2" stroke="currentColor" stroke-width="1.4"/></svg>',
+  plugin: '<svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="2.5" y="2.5" width="11" height="11" rx="2.6" stroke="currentColor" stroke-width="1.4"/><path d="M5.6 8h4.8M8 5.6v4.8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>',
+  more: '<svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="3.5" cy="8" r="1.2" fill="currentColor"/><circle cx="8" cy="8" r="1.2" fill="currentColor"/><circle cx="12.5" cy="8" r="1.2" fill="currentColor"/></svg>',
+};
+let setTabsSig = '';
+let pendingSettingsTab = null;   // a tab asked for (a deep link, openSettings) before its plugin registered it: selected the moment it has something, the hash left alone until then
+function settingsTab(id, label, o = {}) {   // the pane for `id` (the same element every time); a plugin appends its rows to it
+  let t = setTabs.find(x => x.id === id);
+  if (!t) {
+    const pane = o.pane || Object.assign(document.createElement('div'), { id: 'pane-' + id });
+    pane.className = 'pane'; pane.setAttribute('role', 'tabpanel'); pane.setAttribute('aria-labelledby', 'stab-' + id); pane.dataset.tab = id; pane.hidden = true;
+    if (!o.pane) $('mix-panes').insertBefore(pane, $('mix-results'));
+    t = { id, label: String(label || id), order: +o.order || 50, icon: o.icon || SET_ICON.plugin, pane, badge: '', has: o.has || (() => [...pane.children].some(c => !c.hidden)) };
+    setTabs.push(t); setTabs.sort((a, b) => a.order - b.order);
+    new MutationObserver(() => syncSettingsTabs()).observe(o.watch || pane, { childList: true, attributes: true, attributeFilter: ['hidden'], subtree: true });   // a row added, or a plugin hiding its own box: the tab follows
+    syncSettingsTabs();
+  }
+  return t.pane;
+}
+function settingsBadge(id, state) { const t = setTabs.find(x => x.id === id); if (t) { t.badge = state ? 'warn' : ''; syncSettingsTabs(); } }   // the small amber dot on a tab
+function syncSettingsTabs() {   // draw the tab list from the tabs that have something; rebuilt only when it changed, so a focused tab keeps focus
+  const vis = setTabs.filter(t => t.has());
+  const sig = vis.map(t => t.id + '|' + t.label + '|' + t.badge).join(';');
+  if (sig === setTabsSig) return;
+  setTabsSig = sig;
+  const cur = $('mix-tabs').querySelector('[aria-selected="true"]')?.dataset.tab;
+  $('mix-tabs').innerHTML = vis.map(t => `<button class="tab" type="button" role="tab" id="stab-${esc(t.id)}" data-tab="${esc(t.id)}" aria-controls="pane-${esc(t.id)}" aria-selected="false" tabindex="-1">${t.icon}<span>${esc(t.label)}</span>${t.badge ? '<i class="dot" aria-hidden="true"></i><span class="sr"> needs a look</span>' : ''}</button>`).join('');
+  if (!mixIsOpen()) return;
+  if (pendingSettingsTab && vis.some(t => t.id === pendingSettingsTab)) selectSettingsTab(pendingSettingsTab);   // the tab asked for has arrived
+  else selectSettingsTab(vis.some(t => t.id === cur) ? cur : vis[0]?.id, { keepScroll: true, keepHash: !!pendingSettingsTab });
+}
+function wantSettingsTab(id, o = {}) {   // select `id` now if it exists; else remember it, show the remembered tab and leave the hash as it is
+  const known = !!id && setTabs.some(t => t.id === id && t.has());
+  if (id && !known) { pendingSettingsTab = id; selectSettingsTab(null, { ...o, keepHash: true }); }
+  else selectSettingsTab(id || rememberedSettingsTab() || 'general', o);
+}
+function selectSettingsTab(id, o = {}) {
+  if (!o.keepHash) pendingSettingsTab = null;   // the person chose a tab, or the tab asked for has arrived
+  const vis = setTabs.filter(t => t.has());
+  const t = vis.find(x => x.id === id) || vis.find(x => x.id === rememberedSettingsTab()) || vis[0];
+  if (!t) return;
+  $('mix-panes').classList.remove('searching'); $('mix-results').hidden = true;
+  setTabs.forEach(x => { x.pane.hidden = x !== t; });
+  $('mix-tabs').setAttribute('aria-orientation', SET_NARROW.matches ? 'horizontal' : 'vertical');
+  $('mix-tabs').querySelectorAll('[role="tab"]').forEach(b => {
+    const on = b.dataset.tab === t.id;
+    b.setAttribute('aria-selected', String(on)); b.tabIndex = on ? 0 : -1;
+    if (on) { if (o.focus) b.focus({ preventScroll: true }); b.scrollIntoView({ block: 'nearest', inline: 'center' }); }
+  });
+  t.pane.querySelectorAll('.mix-about').forEach(a => { if (!a.title) a.title = a.textContent.trim(); });   // a clamped line keeps its whole text one hover away
+  if (!o.keepScroll) $('mix-panes').scrollTop = 0;
+  try { localStorage.setItem(SET_TAB_KEY, t.id); } catch (e) {}
+  if (mixIsOpen() && !o.keepHash) history.replaceState(null, '', location.pathname + location.search + '#settings/' + t.id);
+}
+const rememberedSettingsTab = () => { try { return localStorage.getItem(SET_TAB_KEY); } catch (e) { return null; } };
+const hashTab = () => { const m = /^#settings\/([\w-]+)$/.exec(location.hash); return m ? m[1] : null; };
+function settingsTrapTarget(items, active, shift) {   // pure: where Tab goes to stay inside the sheet, or null to let it move as usual
+  if (!items.length) return null;
+  const i = items.indexOf(active);
+  if (i < 0) return shift ? items[items.length - 1] : items[0];
+  if (shift && i === 0) return items[items.length - 1];
+  if (!shift && i === items.length - 1) return items[0];
+  return null;
+}
+$('mix').addEventListener('keydown', e => {   // a modal dialog keeps focus: Tab from the last control wraps to the close button, Shift+Tab from the close button to the last
+  if (e.key !== 'Tab') return;
+  const items = [...$('mix').querySelectorAll('button, input, select, textarea, a[href], [tabindex]')].filter(el => !el.disabled && el.tabIndex >= 0 && el.offsetParent !== null);
+  const t = settingsTrapTarget(items, document.activeElement, e.shiftKey);
+  if (t) { e.preventDefault(); t.focus(); }
+});
+$('mix-tabs').addEventListener('click', e => { const b = e.target.closest('[role="tab"]'); if (b) selectSettingsTab(b.dataset.tab); });
+$('mix-tabs').addEventListener('keydown', e => {   // a real tablist: one tab stop, the arrows move and select, Home and End go to the ends
+  const tabs = [...$('mix-tabs').querySelectorAll('[role="tab"]')], i = tabs.indexOf(document.activeElement);
+  if (i < 0) return;
+  const prev = SET_NARROW.matches ? 'ArrowLeft' : 'ArrowUp', next = SET_NARROW.matches ? 'ArrowRight' : 'ArrowDown';
+  const j = e.key === next ? (i + 1) % tabs.length : e.key === prev ? (i - 1 + tabs.length) % tabs.length : e.key === 'Home' ? 0 : e.key === 'End' ? tabs.length - 1 : -1;
+  if (j < 0) return;
+  e.preventDefault(); e.stopPropagation(); selectSettingsTab(tabs[j].dataset.tab, { focus: true });   // stopped here: the board's arrow shortcuts would move focus to a card
+});
+SET_NARROW.addEventListener('change', () => { if (mixIsOpen()) $('mix-tabs').setAttribute('aria-orientation', SET_NARROW.matches ? 'horizontal' : 'vertical'); });
+// the core panes: General and Sound and Agents and chat always have rows; More holds whatever a plugin appended to AB.settings
+settingsTab('general', 'General', { order: 10, pane: $('pane-general'), icon: SET_ICON.general, has: () => true });
+settingsTab('sound', 'Sound', { order: 20, pane: $('pane-sound'), icon: SET_ICON.sound, has: () => true });
+settingsTab('agents', 'Agents and chat', { order: 30, pane: $('pane-agents'), icon: SET_ICON.agents, has: () => true });
+let settingsInfo = null;   // GET /api/settings: booleans, counts and ages, read each time the sheet opens; the Security and Backup tabs are drawn once it has been read
+settingsTab('security', 'Security', { order: 60, pane: $('pane-security'), icon: SET_ICON.security, has: () => !!settingsInfo });
+settingsTab('backup', 'Backup and data', { order: 70, pane: $('pane-backup'), icon: SET_ICON.backup, has: () => !!settingsInfo });
+settingsTab('more', 'More', { order: 90, pane: $('pane-more'), icon: SET_ICON.more, has: () => [...$('ab-slot-settings').children].some(c => !c.hidden), watch: $('ab-slot-settings') });
+Object.assign(AB, { settingsTab, settingsBadge });
+// the rows only this page can fill: the theme (the same switch as the header's), the board's own values, who is listening
+function renderThemeRow() {
+  $('cfg-theme').innerHTML = `<div class="mix-row plain lv"><span></span><label>Theme</label><span class="seg" role="group" aria-label="Theme">${THEMES.map(t => `<button class="btn" type="button" data-theme-set="${t}" aria-pressed="${theme === t}">${t[0].toUpperCase() + t.slice(1)}</button>`).join('')}</span><span class="mix-about">Auto follows the system. The same switch as the half-moon in the header.</span></div>`;
+}
+function renderBoardRows() {
+  const ro = (name, val, about) => `<div class="mix-row plain ro"><span class="nm">${name}</span><span class="val">${val}</span><span class="mix-about">${about}</span></div>`;
+  $('cfg-board').innerHTML = ro('Owner', `<b>${esc(OWNER)}</b>`, 'The name agents address in chat. Set <code>[board] owner</code> in config.toml.')
+    + ro('Stale after', `<b>${esc(cfg.stale_minutes)}</b> minutes`, 'A card in Doing with no update this long is marked stale. Set <code>[board] stale_minutes</code> in config.toml.');
+}
+function renderAgentsPane() {
+  const on = chatAgentsOn;
+  $('cfg-agents').innerHTML = `<div class="mix-row plain ro"><span class="nm">Agents may talk to each other</span><span class="val"><b>${on ? 'on' : 'off'}</b></span><span class="mix-about">${on ? 'Agents post to each other on the shared chat; any action one proposes still needs your OK.' : 'Agents post one-line status only; a line to you always goes.'} Change it in a terminal: <code>agentboard chat agents ${on ? 'off' : 'on'}</code>.</span></div>`;
+  const names = (chatNames || []).filter(n => !isOwner(n));
+  $('cfg-listen').innerHTML = names.length ? names.map(n => {
+    const k = nameKey(chatReceipts.listening, n), s = k ? (chatReceipts.listening[k].sessions || 1) : 0;
+    return `<div class="mix-row plain ro"><span class="nm">${esc(n)}</span><span class="val"><b>${s > 1 ? s + ' sessions' : s ? 'listening' : 'not listening'}</b></span></div>`;
+  }).join('') : '<div class="mix-row plain ro"><span class="nm">Nobody has spoken on this board yet</span><span class="val"></span></div>';
+}
+const intOf = v => Number.isFinite(v) ? Math.trunc(v) : 0;   // a number into markup is always a whole number, whatever the server sent
+const agoMin = m => m == null ? 'never' : m < 1 ? 'just now' : m < 90 ? m + ' min ago' : m < 48 * 60 ? Math.floor(m / 60) + ' h ago' : Math.floor(m / 1440) + ' days ago';
+async function loadSettingsInfo() {
+  try { const r = await fetch('/api/settings', { cache: 'no-store' }); if (!r.ok) return; settingsInfo = await r.json(); } catch (e) { return; }   // a board that cannot answer simply has no Security or Backup tab
+  renderStatusRows(); syncSettingsTabs();
+}
+function renderStatusRows() {   // read-only: each row says what it is and names the key or the command that changes it; no path, pattern or name is ever shown
+  const I = settingsInfo; if (!I) return;
+  const n = intOf, minOrNull = v => v == null ? null : n(v);
+  const ro = (name, val, about, warn) => `<div class="mix-row plain ro"><span class="nm">${name}</span><span class="val${warn ? ' warn' : ''}"><b>${val}</b></span><span class="mix-about">${about}</span></div>`;
+  const mask = !I.redact.enabled ? 'Keys and tokens agents write reach the board as written. Delete <code>[redact] enabled = false</code> from config.toml.'
+    : 'Keys, tokens and passwords are masked before they reach a card, a report or a log.' + (I.redact.phones ? ' Phone numbers are masked too.' : '')
+      + (n(I.redact.extra) ? ` ${n(I.redact.extra)} pattern${n(I.redact.extra) === 1 ? '' : 's'} of your own ${n(I.redact.extra) === 1 ? 'is' : 'are'} added.` : '') + ' <code>[redact]</code> in config.toml.';
+  $('cfg-security').innerHTML = ro('Lockdown', I.lockdown ? 'on' : 'off', 'On a locked-down machine the board starts no program, reaches no network and copies no data out. Set <code>AGENTBOARD_LOCKDOWN</code> in the shell that starts it.')
+    + ro('Work profile', I.profile ? 'on' : 'off', 'Loopback-only networking, no program started by the board, plugins refused. <code>agentboard profile work</code> turns it on.')
+    + ro('Secret masking', I.redact.enabled ? 'on' : 'OFF', mask, !I.redact.enabled)
+    + ro('Plugins', I.plugins.allowed ? `${n(I.plugins.loaded)} loaded` + (n(I.plugins.failed) ? `, ${n(I.plugins.failed)} failed` : '') : 'off', I.plugins.allowed ? 'Plugins may add a tab and a page script. Set <code>AGENTBOARD_PLUGINS</code> to change it.' : 'This machine does not allow plugins. Set <code>AGENTBOARD_PLUGINS=1</code> to allow them.')
+    + ro('Self-check', 'on request', 'Run <code>agentboard selfcheck</code> to prove the guards. It starts a throwaway server, so it is not run from this page.');
+  $('cfg-backup').innerHTML = ro('Last backup', agoMin(minOrNull(I.backup.last_min)), `${n(I.backup.snapshots)} kept. The board copies its data before a risky change; <code>agentboard backup</code> makes one now.`)
+    + ro('Sync copy', I.backup.sync ? (I.backup.last_sync_min == null ? 'on' : 'on · ' + agoMin(n(I.backup.last_sync_min))) : 'off', 'A nightly copy of the newest backup to a folder you name in <code>[backup] sync_dir</code> in config.toml.')
+    + ro('Data folder', I.data_private ? 'private' : 'readable by others', I.data_private ? "Only you can read the board's data (mode 700)." : 'Other accounts on this machine can read it. <code>agentboard doctor</code> shows the fix.', !I.data_private);
+}
+function renderSettingsPanes() { renderThemeRow(); renderBoardRows(); renderAgentsPane(); loadSettingsInfo(); }
+// search: every row of every pane (a hidden tab's too); Enter or a click opens its tab, scrolls it to the top and marks it for a second
+function settingsIndex() {
+  const out = [];
+  setTabs.filter(t => t.has()).forEach(t => t.pane.querySelectorAll('.mix-row').forEach(row => {
+    const name = (row.querySelector('label, .nm')?.textContent || '').replace(/\s+/g, ' ').trim();
+    if (name) out.push({ row, tab: t, name, about: (row.querySelector('.mix-about')?.textContent || '').replace(/\s+/g, ' ').trim() });
+  }));
+  return out;
+}
+let searchHits = [], searchAt = 0;
+function setSearch(q) {
+  const box = $('mix-search'); box.value = q;
+  if (!q.trim()) { searchHits = []; $('mix-panes').classList.remove('searching'); $('mix-results').hidden = true; box.removeAttribute('aria-activedescendant'); return; }
+  const words = q.toLowerCase().split(/\s+/).filter(Boolean), lq = q.toLowerCase().trim();
+  searchHits = settingsIndex().map(h => {
+    const n = h.name.toLowerCase(), all = (n + ' ' + h.about.toLowerCase() + ' ' + h.tab.label.toLowerCase());
+    if (!words.every(w => all.includes(w))) return null;
+    return { ...h, score: n.startsWith(lq) ? 0 : n.includes(lq) ? 1 : words.every(w => n.includes(w)) ? 2 : 3 };
+  }).filter(Boolean).sort((a, b) => a.score - b.score).slice(0, 8);
+  searchAt = 0;
+  const mark = s => { const i = s.toLowerCase().indexOf(words[0]); return i < 0 ? esc(s) : esc(s.slice(0, i)) + '<mark>' + esc(s.slice(i, i + words[0].length)) + '</mark>' + esc(s.slice(i + words[0].length)); };
+  $('mix-panes').classList.add('searching'); $('mix-results').hidden = false;
+  $('mix-results').innerHTML = searchHits.length ? searchHits.map((h, i) => `<div class="hit" role="option" id="hit-${i}" data-i="${i}" aria-selected="${i === 0}"><b>${mark(h.name)}</b><span class="where">${esc(h.tab.label)}</span><span>${esc(h.about.slice(0, 120))}</span></div>`).join('') : '<div class="none">No setting matches that.</div>';
+  if (searchHits.length) box.setAttribute('aria-activedescendant', 'hit-0'); else box.removeAttribute('aria-activedescendant');
+}
+function moveHit(d) {
+  if (!searchHits.length) return;
+  searchAt = (searchAt + d + searchHits.length) % searchHits.length;
+  $('mix-results').querySelectorAll('.hit').forEach((h, i) => h.setAttribute('aria-selected', String(i === searchAt)));
+  $('mix-search').setAttribute('aria-activedescendant', 'hit-' + searchAt);
+  $('hit-' + searchAt).scrollIntoView({ block: 'nearest' });
+}
+function openHit(i) {
+  const h = searchHits[i]; if (!h) return;
+  setSearch(''); selectSettingsTab(h.tab.id);
+  h.row.scrollIntoView({ block: 'start' });
+  h.row.querySelector('input, button, select')?.focus({ preventScroll: true });   // focus lands on the setting itself
+  h.row.classList.remove('flash'); void h.row.offsetWidth; h.row.classList.add('flash');
+  setTimeout(() => h.row.classList.remove('flash'), 1400);
+}
+$('mix-search').addEventListener('input', e => setSearch(e.target.value));
+$('mix-search').addEventListener('keydown', e => {
+  if (e.key === 'ArrowDown') { e.preventDefault(); moveHit(1); }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); moveHit(-1); }
+  else if (e.key === 'Enter') { e.preventDefault(); openHit(searchAt); }
+  else if (e.key === 'Escape' && e.target.value) { e.preventDefault(); e.stopPropagation(); setSearch(''); selectSettingsTab(rememberedSettingsTab() || 'general'); }   // the first Escape clears the box, the next closes the sheet
+});
+$('mix-results').addEventListener('click', e => { const h = e.target.closest('.hit'); if (h) openHit(+h.dataset.i); });
+addEventListener('hashchange', () => { if (/^#settings(\/|$)/.test(location.hash)) toggleMix(true, hashTab() || undefined); });
 $('cfg-btn').onclick = () => toggleMix();
 $('mix').addEventListener('click', e => {
   if (e.target.id === 'mix' || e.target.closest('#mix-close')) { toggleMix(false); return; }
+  const ts = e.target.closest('[data-theme-set]'); if (ts) { setTheme(ts.dataset.themeSet); return; }
   const h = e.target.closest('[data-hear]'); if (h) hearLayer(LAYERS.find(L => L.id === h.dataset.hear));
   const lv = e.target.closest('[data-level]');   // Off / Subtle / Full: one click each way
   if (lv) {
@@ -4182,6 +4455,7 @@ document.addEventListener('keydown', e => {
   if (e.altKey) return;
   if ((e.key === '[' || e.key === ']') && !SOLO) { e.preventDefault(); goView((curView() + (e.key === ']' ? 1 : VIEWS - 1)) % VIEWS); return; }   // SOLO: the Load window has no board to flip to
   if ('123'.includes(e.key) && e.key && !SOLO) { e.preventDefault(); goView(+e.key - 1); return; }   // 1 Board, 2 By agent, 3 Load: the same ring, by number; the view you are on stays as it is
+  if (e.key === '/' && mixIsOpen()) { e.preventDefault(); $('mix-search').focus(); return; }   // in the Settings sheet the slash is the search box
   if (e.key === 'm') { toggleMix(); return; }
   if (e.key === 's') { toggleSound(); return; }   // sound on or off, on every view
   if (e.key === 't' && openId && panelHasTabs(lastDetail)) { e.preventDefault(); setPanelTab(PANEL_TABS[(PANEL_TABS.indexOf(panelTab) + 1) % PANEL_TABS.length]); return; }   // the open card's next tab
@@ -4653,6 +4927,7 @@ if (SOLO) {
   document.addEventListener('pointerdown', () => { if (sndOn) { ac(); startAmb(true); cue.open(); } }, { once: true });
 }
 else if (location.hash === '#/hud') openHud();
+else if (/^#settings(\/|$)/.test(location.hash)) toggleMix(true, hashTab() || undefined);   // #settings and #settings/texts open the sheet, on that tab
 else if (location.hash.length > 1) openPanel(decodeURIComponent(location.hash.slice(1)));
 
 // hover a name on any card: every card of that agent stays lit, the rest step back

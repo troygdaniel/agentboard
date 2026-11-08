@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+### Settings in tabs: General, Sound, Agents and chat, and a tab for each plugin, with search (Nov 8)
+- The Settings sheet was one 480px column of 19 sound and look controls, 2,164px tall; the settings that were not sound sat below the fold. It is now 720px
+  wide with a tab list on the left (the screen, with a strip of tabs, on a phone): **General** (Theme, the Look rows, the board's owner and stale minutes),
+  **Sound** (the old sheet's layers, in two columns), **Agents and chat** (agent chat on or off with the command that changes it, and who is listening),
+  and a tab for each plugin that registers one (`AB.settingsTab(id, label, {order})`; a tab with nothing in it is not drawn; `AB.settings` still works and
+  shows as a More tab). A search box finds a setting on any tab (`/` focuses it, Enter opens it); `/#settings/<tab>` opens the sheet on a tab; the last tab
+  is remembered per browser; the tab list is a real tablist (arrows, Home, End). No setting was removed or renamed. **Security** and **Backup and data** show
+  read-only status (lockdown, work profile, secret masking, plugins; last backup, sync copy, whether the data folder is private) from a new `GET /api/settings`:
+  booleans, counts and minutes only, never a path, a pattern or a secret, behind the same Host check as every route, with no route that changes anything; each row
+  names the key or the command that does. (`settings-ui-tabs`; `docs/settings-tabs-design.md`)
+
 ### Boring start, stop, restart and status (Nov 8, branch overnight/overnight-rel-server-lifecycle)
 - New commands: `agentboard status` (running or not: pid, port, since, uptime, plugins, lockdown; stale server files cleaned; exit 1 when
   nothing runs), `agentboard stop` (SIGTERM, then a wait until the server has finished what it was doing), `agentboard restart` (same port,

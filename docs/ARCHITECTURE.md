@@ -69,6 +69,7 @@ is the developer's.
 | `repoguard.py` | Added on an overnight branch; see its evidence doc under docs/overnight/. |
 | `selfcheck.py` | `agentboard selfcheck`: a static scan of the package plus a live audit of a throwaway (or the running) server, as PASS/FAIL lines. |
 | `statefile.py` | One way to write the small JSON state files beside tasks.json: atomic replace, flock'd read-modify-write, a sweep of stale temp files. |
+| `settingsview.py` | What Settings > Security and Backup and data show: `GET /api/settings`, booleans, counts and minutes only (no path, pattern, name or secret), read-only, behind the Host check. |
 | `tomlread.py` | `loads()`/`load()` for config.toml and pyproject: tomllib when Python has it, a hand parser on 3.9 and 3.10. |
 | `watchdog.py` | The agent protocol's watchdog: the ways a board is stuck between agents, each with its one fix (`agentboard watchdog`, the Load strip, a doctor line). |
 | `listeners.py` | Who is listening: `chat-listeners.json`, one entry per `chat inbox --wait` process, written under a file lock. |
