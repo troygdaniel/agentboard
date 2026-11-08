@@ -127,6 +127,9 @@ def urls_in(text):
 
 
 def _git(args, cwd):
+    from . import profile   # (lazy: the work profile starts no program, git included; the report just has no "commits made" part)
+    if profile.in_effect():
+        return None
     try:
         p = subprocess.Popen(["git", *args], cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
     except OSError:

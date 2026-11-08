@@ -31,6 +31,7 @@ MAX_FILES = 3000          # tracked files scanned for key-shaped strings
 MAX_BYTES = 1_000_000     # a bigger file is skipped
 MAX_SHOWN = 5             # hits listed before "and N more"
 CORE_OUTBOUND = {"providers"}   # the modules of the core that may open an outbound connection (a URL you write in config.toml)
+AUDIT_ONLY = {"guards", "selfcheck"}   # they refuse outside connections / talk to a throwaway loopback server (work profile: `agentboard selfcheck`)
 
 _OFF = ("", "0", "false", "no")
 _HERE = Path(__file__).resolve().parent
@@ -564,8 +565,12 @@ def check_code():
             outbound.append(p.stem)
         if SERVER_IMPORT.search(src):
             servers.append(p.stem)
+    audit = sorted(set(outbound) & AUDIT_ONLY)
+    outbound = [m for m in outbound if m not in AUDIT_ONLY]
+    servers = [m for m in servers if m not in AUDIT_ONLY]
     extra = sorted(set(outbound) - CORE_OUTBOUND)
-    text = f"modules that can make an outbound connection: {', '.join(outbound) or 'none'}; modules that can listen: {', '.join(servers) or 'none'}"
+    text = (f"modules that can make an outbound connection: {', '.join(outbound) or 'none'}; modules that can listen: {', '.join(servers) or 'none'}"
+            + (f"; the work-profile guards and selfcheck ({', '.join(audit)}) only refuse or talk to loopback" if audit else ""))
     if extra:
         return [_res(WARN, "code", text + f". Beyond the core ({', '.join(sorted(CORE_OUTBOUND))}): {', '.join(extra)}: each is off unless configured; check the lock above")]
     return [_res(PASS, "code", text)]

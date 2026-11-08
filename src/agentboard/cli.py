@@ -20,6 +20,7 @@ from . import hud as hudlib
 from . import lockdown
 from . import plugins
 from . import private
+from . import profile as profilelib
 from . import prompt as promptlib
 from . import redact as redactlib
 from . import reports as reportslib
@@ -116,7 +117,10 @@ def cmd_init(a):
     d.mkdir(exist_ok=True)
     cfg = d / "config.toml"
     if not cfg.exists():
-        cfg.write_text(SAMPLE_CONFIG)
+        cfg.write_text(("[board]\nprofile = \"work\"            # the work-PC profile (agentboard profile): lock, no plugins, loopback only\n\n" if getattr(a, "profile", None) == "work" else "")
+                       + SAMPLE_CONFIG)
+    elif getattr(a, "profile", None) == "work":
+        print(f"{cfg} exists: add [board] profile = \"work\" to it by hand, or run `agentboard profile work` for the whole machine")
     (d / "tasks.json").touch()
     if not (d / "tasks.json").read_text().strip():
         (d / "tasks.json").write_text('{"tasks": []}')
@@ -1187,6 +1191,46 @@ def cmd_restore(a):
     print(f"restored. The board as it was is saved as {saved.name}" if saved else "restored.")
 
 
+def cmd_profile(a):
+    """The work-PC profile: show it, switch it on for this machine, or take the machine switch off."""
+    if a.what == "work":
+        p = profilelib.set_machine(True)
+        print(f"work profile ON for this machine ({p}); every agentboard command on it is under the profile from now on")
+    elif a.what == "off":
+        p = profilelib.set_machine(False)
+        print(f"machine switch removed ({p})")
+    try:
+        board = _store().dir
+    except BoardError:
+        board = None
+    srcs = profilelib.sources(board)
+    if srcs:
+        print("profile: WORK")
+        for where, text in srcs:
+            print(f"  on by {where}: {text}")
+        for line in profilelib.describe():
+            print(f"  - {line}")
+    else:
+        print("profile: normal (not the work profile)")
+        print("  switch it on:  agentboard profile work        (this machine, every board)")
+        print("                 export AGENTBOARD_PROFILE=work (this shell)")
+        print("                 agentboard init --profile work (a new board's config.toml)")
+    if a.what == "off" and srcs:
+        print("note: the environment or a board's config.toml still says work; the profile stays on until they are removed")
+
+
+def cmd_selfcheck(a):
+    """Prove what the work profile promises: a static scan of the code, then a live audit of a throwaway server. PASS/FAIL lines; exit 1 on a FAIL."""
+    from . import selfcheck
+    results = selfcheck.run()
+    if a.json:
+        print(json.dumps([{"level": l, "check": n, "detail": t} for l, n, t in results], indent=1))
+    else:
+        print(selfcheck.render(results))
+    if selfcheck.exit_code(results):
+        raise SystemExit(1)
+
+
 def cmd_doctor(a):
     """Read-only PASS/FAIL lines about this machine (listeners, locks, file modes, git, hooks), short enough to paste into a review."""
     from . import doctor
@@ -1456,6 +1500,7 @@ def _plugins_off_hint(argv, sub, code):
 def main(argv=None):
     if argv is None:   # the real command line, not a test calling main([...]): private files from here on (private.py)
         private.tighten_process()
+    profilelib.apply()   # the work profile, when any source says so: lock, no plugins, no outbound connection (profile.py); before plugins can load
     p = argparse.ArgumentParser(prog="agentboard", description="Kanban board for parallel CLI agents")
     p.add_argument("--version", action="version", version=__version__)
     p.add_argument("--board", metavar="NAME", help="use this registered board from any folder (or $AGENTBOARD_BOARD); see `agentboard board list`")
@@ -1466,7 +1511,12 @@ def main(argv=None):
         sp.set_defaults(fn=fn)
         return sp
 
-    add("init", cmd_init, "create .agentboard/ in the current directory")
+    sp = add("init", cmd_init, "create .agentboard/ in the current directory")
+    sp.add_argument("--profile", choices=["work"], help="write [board] profile = \"work\" into the new config.toml (the work-PC profile)")
+    sp = add("profile", cmd_profile, "the work-PC profile: loopback only, no plugins, no outside request, no program started (agentboard profile work)")
+    sp.add_argument("what", nargs="?", choices=["status", "work", "off"], default="status")
+    sp = add("selfcheck", cmd_selfcheck, "prove the work profile: static scan of the code plus a live audit of a throwaway server (PASS/FAIL list; exit 1 on a FAIL)")
+    sp.add_argument("--json", action="store_true", help="the list as JSON")
     sp = add("add", cmd_add, "add a task")
     sp.add_argument("title")
     sp.add_argument("-d", "--description")
