@@ -267,6 +267,30 @@ class HooksConfigCode(unittest.TestCase):
         with mock.patch.dict(os.environ, {"AGENTBOARD_LOCKDOWN": ""}):
             self.assertEqual(doctor.check_config(self.proj / ".agentboard")[0][0], doctor.PASS)
 
+    def test_masking_off_in_config_is_a_fail_and_a_changed_default_a_warn(self):
+        board = self.proj / ".agentboard"
+        self.assertEqual(doctor.check_redact(board)[0][0], doctor.PASS)                      # no [redact] section at all
+        (board / "config.toml").write_text("[redact]\nenabled = true\n")
+        self.assertEqual(doctor.check_redact(board)[0][0], doctor.PASS)
+        (board / "config.toml").write_text("[redact]\nenabled = false\n")
+        r = doctor.check_redact(board)[0]
+        self.assertEqual(r[0], doctor.FAIL)
+        self.assertIn("OFF", r[2])
+        self.assertIn("enabled = false", r[2])
+        (board / "config.toml").write_text('[redact]\nphones = true\nextra = ["AKIA[0-9A-Z]{16}", "hunter2"]\n')
+        r = doctor.check_redact(board)[0]
+        self.assertEqual(r[0], doctor.WARN)
+        self.assertIn("phone numbers", r[2])
+        self.assertIn("2 pattern(s)", r[2])
+        self.assertNotIn("hunter2", r[2])                                                     # a pattern is never printed
+        self.assertNotIn("AKIA", r[2])
+
+    def test_the_masking_line_is_part_of_a_run_and_redact_is_a_known_section(self):
+        (self.proj / ".agentboard" / "config.toml").write_text("[redact]\nenabled = false\n")
+        names = [r[1] for r in doctor.run(self.proj / ".agentboard", project=self.proj, runner=FakeRunner())]
+        self.assertIn("masking", names)
+        self.assertNotIn("redact", " ".join(r[2] for r in doctor.check_config(self.proj / ".agentboard") if "other sections" in r[2]))
+
     def test_outbound_capable_modules_beyond_the_core_warn_by_name(self):
         with tempfile.TemporaryDirectory() as d:
             (Path(d) / "providers.py").write_text("import urllib.request\n")
@@ -329,7 +353,7 @@ class WholeReport(unittest.TestCase):
         with mock.patch.object(Path, "home", return_value=self.root / "home"):
             results = self.run_doctor()
         text = doctor.render(results, self.board)
-        self.assertLessEqual(len(text.splitlines()), 20)
+        self.assertLessEqual(len(text.splitlines()), 24)   # the overnight branches each add a line (agents, watchdog, masking, profile)
         self.assertRegex(text.splitlines()[-1], r"^\d+ FAIL, \d+ WARN, \d+ PASS, \d+ INFO$")
 
     def test_exit_code_fails_on_fail_and_with_strict_on_warn(self):

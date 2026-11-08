@@ -58,6 +58,7 @@ PROCESS_CALLS = {"os.system", "os.popen", "os.fork", "os.forkpty"} | {f"os.{n}" 
 PROCESS_ALLOWED = {
     "agentchat.py": "claude -p for idle chat drafts; refuses under AGENTBOARD_LOCKDOWN (lockdown.refuse)",
     "cli.py": "osascript windows for `spawn` (refuses under the lock) and git/osascript helpers run by the person at the command line",
+    "repoguard.py": "read-only git queries (ls-files) for the repo guard the doctor and the tests share; a command, never the server",
     "doctor.py": "read-only git, pipx and lsof queries for `agentboard doctor` (a command, never the server)",
     "providers.py": "the command provider (a shell command you write in config.toml); locked off by AGENTBOARD_LOCKDOWN",
     "reports.py": "read-only git queries for a finished card's report; the server's process guard refuses them in the work profile",
@@ -243,7 +244,7 @@ def static_checks(root=None):
 def _dependency_check():
     pyproject = HERE.parents[1] / "pyproject.toml"
     try:
-        import tomllib
+        from . import tomlread as tomllib
         deps = tomllib.loads(pyproject.read_text()).get("project", {}).get("dependencies", None)
         if deps is None:
             return _res(PASS, "static: declared dependencies", "none declared")
@@ -542,6 +543,11 @@ class Audit:
         if gone.get("prev"):
             go("/api/restore", {"task": gone["prev"], "before": gone.get("prev_before"), "kids": gone.get("prev_kids") or []})
         go("/api/clear-done", {})
+        go("/api/demo", {})                                      # the empty board's sample cards (first-run)
+        with contextlib.suppress(Exception):                    # a twin card, the one fix the watchdog can do on a fresh board
+            S.start("Selfcheck twin", "AGENT-9", None)
+            S.start("Selfcheck twin", "AGENT-9", None, task_id="selfcheck-twin-2")
+        go("/api/watchdog-fix", {"action": "merge", "id": "selfcheck-twin-2"})
         go("/api/chat-agents", {"on": True})
         go("/api/chat", {"text": "hello from the selfcheck"})
         prop = S.chat_send("AGENT-9", "may I?", kind="agent", propose="do a thing") if S.chat_agents() else None
