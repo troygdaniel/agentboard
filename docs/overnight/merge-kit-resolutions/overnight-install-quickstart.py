@@ -12,6 +12,12 @@ def mains_shapes_with_the_shim(ours, theirs):
 
 ok = resolve(sys.argv[1], "src/agentboard/redact.py", mains_shapes_with_the_shim)
 
+# doctor.py: main (93c7053) moved the doctor's key scan to repoguard.py and deleted _fake(); the branch edited _fake() to defer to the
+# masker. Main's side wins (the empty side of the hunk): repoguard is the one set of rules now.
+from pathlib import Path   # noqa: E402
+if "<<<<<<<" in (Path(sys.argv[1]) / "src/agentboard/doctor.py").read_text():
+    ok = resolve(sys.argv[1], "src/agentboard/doctor.py", lambda ours, theirs: ours if "def _fake(" in theirs else ours + theirs) and ok
+
 # The branch replaces `import tomllib` with its reader (`from . import tomlread`) in every module. Code main added since (store._roster,
 # anything else that says tomllib.) merges without a conflict and then fails at run time with NameError: swap those uses to the reader,
 # which has the same loads() and TOMLDecodeError. (This was the single cause of 60-odd failures in the night's combined tree.)

@@ -44,6 +44,28 @@ After the sweep and the fixups the combined suite is down to that one open item 
 `_after_all.py` after the last merge as one more commit, "cross-branch fixups", and tests once more, so the table's last row is that
 step.
 
+## Rerun on the main of 04:00 (f360942) and the four branches that landed after the review
+
+`main` took eight more merges after the first dry run (the LOWs, AGENT-1's receipts, `repoguard.py`, the By-agent fade, prefixed
+subtask ids). The order replays the same way with two resolutions extended for `repoguard`: `sec-workpc-profile` now also meets main's
+`doctor.py` import line (union plus the branch's `profile as profilelib`), and `install-quickstart` meets the deleted `_fake()` in
+`doctor.py` (main's `repoguard` wins; the branch's edit to the deleted function is dropped). Eleven of eleven merge again.
+
+Four `overnight/*` branches were not in AGENT-8's order because they landed after it (`overnight-agent-prompts` 8759582,
+`overnight-config-validation` 8715841, `overnight-perf-scale` 868c90c, `overnight-rel-server-lifecycle` 1c25fde). The kit now appends
+any such branch after the order. Against the fully merged trial tree each of them conflicts, and not in CHANGELOG alone:
+
+| branch | conflicts with the merged tree | kind |
+|---|---|---|
+| `overnight-agent-prompts` | `prompt.py` 7 hunks, `hooks.py` 4, `agentchat.py` 1, `store.py` 1 (its `rules.py` import vs `statefile`) | the night's prompt wording (f1 to f8, the watchdog, the hold rule) on one side, one source for every prompt on the other: a rebase by its author, not a literal resolution |
+| `overnight-perf-scale` | `server.py` 3, `index.html` 2, `store.py` 1, `hud.py` 1 | the ETag/304 routes and the derived cache meet tonight's server and page changes: the author's rebase |
+| `overnight-config-validation` | `doctor.py` 2 (its `check_config_schema` beside main's `check_redact`; `run()`), `prompt.py` 1 (`tomllib` vs the reader) | small, but the `tomllib` side depends on whether `install-quickstart` is taken |
+| `overnight-rel-server-lifecycle` | `cli.py` 2 (one is the whole `serve`/welcome block the first-run branch rewrote), `server.py` 1 (import line) | the first hunk needs a read of both sides: the author's rebase |
+
+Recommendation: merge the eleven reviewed branches in the morning as above, then ask each of the four authors to rebase onto that
+main (one command each, their suite, a new hash), and run the kit once more with those four in the order. Merging them blind on top
+of the eleven is where the real conflicts are.
+
 ## What the morning still decides (from AGENT-8's review, unchanged by this)
 
 - `overnight-rel-agent-protocol-3` is a protocol change (reports only on the card you hold): merge with -2, or merge -2 alone.

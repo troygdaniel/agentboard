@@ -17,6 +17,15 @@ def cli(ours, theirs):
 def server(ours, theirs):
     return ours + "".join(l + "\n" for l in theirs.splitlines() if "profile as profilelib" in l)
 
+def doctor_imports(ours, theirs):   # main's import line (repoguard and all) plus the branch's `profile as profilelib` line
+    from _lib import union_import
+    base = "".join(l + "\n" for l in theirs.splitlines() if l.startswith("from . import ") and " as profilelib" not in l)
+    extra = "".join(l + "\n" for l in theirs.splitlines() if " as profilelib" in l)
+    return (union_import(ours, base) if base else ours) + extra
+
 ok = resolve(sys.argv[1], "src/agentboard/cli.py", cli)
 ok = resolve(sys.argv[1], "src/agentboard/server.py", server) and ok
+from pathlib import Path   # noqa: E402
+if "<<<<<<<" in (Path(sys.argv[1]) / "src/agentboard/doctor.py").read_text():
+    ok = resolve(sys.argv[1], "src/agentboard/doctor.py", doctor_imports) and ok
 sys.exit(0 if ok else 1)
