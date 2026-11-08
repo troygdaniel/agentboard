@@ -645,6 +645,93 @@ class Audit:
         self.ok(listen == "127.0.0.1", "runtime: listening only on loopback", f"the server's socket is bound to {listen}", f"bound to {listen}")
 
 
+# ======================================================== LIVE (the running server) ==========================================
+LIVE_PATHS = ("/voice.js", "/", "/nosuch", "/api/prompt?id=none", "/api/orch-prompt")   # the only paths the live probes ask for: no card, chat line, report or transcript
+
+
+def live_checks(port, board_dir=None, runner=None):
+    """Read-only probes of the server that is RUNNING on 127.0.0.1:port. GET only for everything that could return board data; the few POSTs carry no body
+    and a foreign Origin or a wrong content type, so a correct server refuses them before it reads anything and a wrong one would find an empty body.
+    Asks for the page (static), a script, a missing path and the two prompt routes with a cross-site header; never a card, a chat line or a report."""
+    res = []
+
+    def ok(cond, name, good, bad):
+        res.append(_res(PASS if cond else FAIL, name, good if cond else bad))
+
+    def get(path, host=None, extra=None):
+        h = f"GET {path} HTTP/1.1\r\nHost: {host or f'localhost:{port}'}\r\n" + "".join(f"{k}: {v}\r\n" for k, v in (extra or {}).items()) + "Connection: close\r\n\r\n"
+        return raw(port, h.encode("latin-1", "replace"), timeout=5)
+
+    try:
+        up = get("/voice.js")
+    except OSError as e:
+        return [_res(FAIL, "live: the server answers", f"nothing is listening on 127.0.0.1:{port} ({e.__class__.__name__}); start `agentboard serve` or give --port")]
+    ok(up.status == 200 and b"function" in up.body, "live: the server answers on 127.0.0.1", f"port {port} serves the board's page files", f"status {up.status}")
+    wrong = {label: get("/voice.js", host=h).status for label, h in (("another name", f"evil.example:{port}"), ("another port", f"localhost:{port + 1}"), ("no port", "localhost"),
+                                                                       ("upper case", f"LOCALHOST:{port}"), ("IPv6", f"[::1]:{port}"), ("two hosts", f"localhost:{port}, evil.example"))}
+    ok(all(v == 403 for v in wrong.values()), "live: wrong Host refused (DNS rebinding)", f"{len(wrong)} wrong Host headers, all 403", f"not refused: {[k for k, v in wrong.items() if v != 403]}")
+    ok(get("/voice.js", host=f"127.0.0.1:{port}").status == 200, "live: both of its own names work", "localhost:PORT and 127.0.0.1:PORT", "127.0.0.1:PORT is refused")
+    page = get("/")
+    csp = page.headers.get("content-security-policy", "")
+    ok("default-src 'none'" in csp and "frame-ancestors 'none'" in csp and "connect-src 'self'" in csp and page.headers.get("x-frame-options") == "DENY" and page.headers.get("x-content-type-options") == "nosniff",
+       "live: the page's policy and headers", "Content-Security-Policy default-src 'none', connect-src 'self', no framing, nosniff", "the page lacks its policy or frame headers")
+    ok("access-control-allow-origin" not in page.headers and "access-control-allow-origin" not in get("/nosuch").headers, "live: no CORS header", "no response grants another origin access", "a response carries Access-Control-Allow-Origin")
+    ok(get("/nosuch").headers.get("x-content-type-options") == "nosniff" and up.headers.get("x-content-type-options") == "nosniff", "live: nosniff on scripts and errors", "yes", "a script or an error page can be sniffed (an older server: restart it from this build)")
+    side = [get(p, extra={"Sec-Fetch-Site": "cross-site"}).status for p in ("/api/prompt?id=none", "/api/orch-prompt")]
+    ok(side == [403, 403], "live: GETs with side effects refuse a cross-site browser", "/api/prompt and /api/orch-prompt: 403", f"{side}")
+    posts = []
+    for extra in ({"Origin": "http://evil.example"}, {"Sec-Fetch-Site": "cross-site"}, {"Origin": "null"}):
+        h = f"POST /api/tasks HTTP/1.1\r\nHost: localhost:{port}\r\nContent-Type: application/json\r\nContent-Length: 0\r\n" + "".join(f"{k}: {v}\r\n" for k, v in extra.items()) + "Connection: close\r\n\r\n"
+        posts.append(raw(port, h.encode()).status)
+    h = f"POST /api/tasks HTTP/1.1\r\nHost: localhost:{port}\r\nContent-Type: text/plain\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+    posts.append(raw(port, h.encode()).status)
+    ok(posts == [403, 403, 403, 415], "live: cross-site and wrong-type POSTs refused (CSRF)", "a foreign Origin, cross-site, Origin null: 403; text/plain: 415 (no body was sent, nothing was written)", f"{posts}")
+    verbs = {m: raw(port, f"{m} /nosuch HTTP/1.1\r\nHost: localhost:{port}\r\nConnection: close\r\n\r\n".encode()).status for m in ("PUT", "DELETE", "OPTIONS", "TRACE", "PATCH")}
+    ok(all(v == 501 for v in verbs.values()), "live: other verbs are not implemented", "PUT, DELETE, OPTIONS, TRACE, PATCH: 501", f"{verbs}")
+    leaks = []
+    for e in ("..%2f" * 6 + "etc/passwd", "../" * 6 + "etc/passwd", "%2e%2e/" * 6 + "etc/passwd", "..%252f..%252fetc/passwd", "%00"):
+        for pre in ("/reports/", "/b/", "/static/", "/voice.js/", "//"):
+            r = get(pre + e)
+            if r.status >= 500 or b"root:" in r.body:
+                leaks.append(f"{pre}{e[:14]} {r.status}")
+    ok(not leaks, "live: path traversal", "25 traversal URLs: nothing outside served, no 5xx", "; ".join(leaks[:3]))
+    two = raw(port, f"GET /voice.js HTTP/1.1\r\nHost: localhost:{port}\r\n\r\nGET /voice.js HTTP/1.1\r\nHost: localhost:{port}\r\nConnection: close\r\n\r\n".encode())
+    longline = raw(port, b"GET /" + b"a" * 70_000 + f" HTTP/1.1\r\nHost: localhost:{port}\r\n\r\n".encode())
+    manyh = raw(port, f"GET /voice.js HTTP/1.1\r\nHost: localhost:{port}\r\n".encode() + b"".join(f"X-{i}: y\r\n".encode() for i in range(300)) + b"\r\n")
+    ok(two.count == 1 and longline.status == 414 and manyh.status == 431, "live: framing", "no pipelining (one response per connection), a 70 KB line 414, 300 headers 431", f"{two.count} responses, {longline.status}, {manyh.status}")
+    ok(get("/voice.js").status == 200, "live: still serving after the probes", "yes", "the server stopped answering")
+    # what the running server says about itself, and who it listens for
+    if board_dir:
+        try:
+            from . import serverstate
+            states = [st for st in (serverstate.read(board_dir, int(p)) for p in _server_pids(board_dir)) if st and st["port"] == port]
+        except Exception:   # noqa: BLE001
+            states = []
+        if states:
+            st = states[0]
+            expected = profile.reason(board_dir) is not None   # this shell is under the profile, so a server that is not is a mismatch (a FAIL); on a home board it is only said (a WARN)
+            safe = st["lockdown"] and not st["plugins_open"]
+            res.append(_res(PASS if safe else (FAIL if expected else WARN), "live: how it was started",
+                            f"pid {st['pid']}: master lock on, plugins closed" if safe else f"pid {st['pid']} was started with the lock {'on' if st['lockdown'] else 'OFF'} and plugins {'OPEN' if st['plugins_open'] else 'closed'}: restart it under `agentboard profile work`"))
+            res.append(_res(PASS if st.get("profile") else (FAIL if expected else WARN), "live: the work profile", "the running server is under it (no outside connection, no program start)" if st.get("profile")
+                            else "the running server was not started under the work profile: run `agentboard profile work`, then restart it"))
+        else:
+            res.append(_res(INFO, "live: how it was started", "no server-<pid>.json for this port in the board folder (an older build, or another board)"))
+    try:
+        from . import doctor
+        runner = runner or subprocess.run
+        pids = doctor._board_pids(runner)
+        res += [(l, f"live: {n}", t) for l, n, t in doctor.check_listeners(runner, pids)]
+    except Exception:   # noqa: BLE001
+        res.append(_res(INFO, "live: listeners", "could not list the server's sockets here (ps or lsof)"))
+    return res
+
+
+def _server_pids(board_dir):
+    from . import serverstate
+    return [int(m.group(1)) for p in Path(board_dir).glob(f"{serverstate.PREFIX}*.json") if (m := serverstate._FILE.fullmatch(p.name)) and serverstate.pid_alive(int(m.group(1)))]
+
+
 def runtime_checks():
     a = Audit()
     try:
@@ -664,18 +751,23 @@ def runtime_checks():
     return a.res
 
 
-def run(static=True, runtime=True):
+def run(static=True, runtime=True, live=None, board_dir=None):
+    """live: None, or the port of the running server to probe (read-only) after the static scan. With live set the throwaway audit is skipped
+    unless runtime is asked for explicitly: the point is the real server."""
     results = []
     if static:
         results += static_checks()
-    if runtime:
+    if runtime and live is None:
         results += runtime_checks()
+    if live is not None:
+        results += live_checks(int(live), board_dir)
     return results
 
 
 def render(results):
     width = max(len(n) for _l, n, _t in results)
-    lines = ["agentboard selfcheck   (the work profile, proved: static scan of the code, then a live audit of a throwaway server)"]
+    live = any(n.startswith("live:") for _l, n, _t in results)
+    lines = ["agentboard selfcheck   (the work profile, proved: static scan of the code, then " + ("read-only probes of the running server)" if live else "a live audit of a throwaway server)")]
     lines += [f"{level:<4}  {name:<{width}}  {text}" for level, name, text in results]
     counts = {k: sum(1 for r in results if r[0] == k) for k in (FAIL, WARN, PASS, INFO)}
     lines.append(f"{counts[FAIL]} FAIL, {counts[WARN]} WARN, {counts[PASS]} PASS, {counts[INFO]} INFO")

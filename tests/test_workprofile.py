@@ -325,6 +325,125 @@ class TheSelfcheck(unittest.TestCase):
             self.assertNotIn(str(Path.home()), t)
 
 
+class TheLiveAudit(unittest.TestCase):
+    """selfcheck --live: read-only probes of a server that is already running. A throwaway server stands in for it."""
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+        self.board = self.tmp / ".agentboard"
+        self.board.mkdir()
+        self.store = Store(self.board)
+        self.store.add("PRIVATE-CARD-TITLE")
+        with socket.socket() as s:
+            s.bind(("127.0.0.1", 0))
+            self.port = s.getsockname()[1]
+        self.asked = []
+        env = {k: v for k, v in os.environ.items() if not k.startswith("AGENTBOARD_")}
+        env.update({"HOME": str(self.tmp), "XDG_CONFIG_HOME": str(self.tmp / "cfg"), "AGENTBOARD_LOCKDOWN": "1", "AGENTBOARD_NO_PLUGINS": "1"})
+        p = mock.patch.dict(os.environ, env, clear=True)
+        p.start()
+        self.addCleanup(p.stop)
+
+    def start(self, tweak=None):
+        h = server.make_handler(self.store, self.port)
+        asked = self.asked
+        orig_get, orig_post = h._route_get, h.do_POST
+
+        def route(this, url, q):
+            asked.append(("GET", url.path + ("?" + url.query if url.query else "")))
+            return orig_get(this, url, q)
+
+        def post(this):
+            asked.append(("POST", this.path, this.headers.get("Content-Length")))
+            return orig_post(this)
+        h._route_get, h.do_POST = route, post
+        if tweak:
+            tweak(h)
+        srv = server.BoundedHTTPServer(("127.0.0.1", self.port), h)
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        self.addCleanup(srv.server_close)
+        self.addCleanup(srv.shutdown)
+        serverstate.write(self.board, self.port, [])
+        self.addCleanup(serverstate.remove, self.board)
+
+    def live(self):
+        return selfcheck.live_checks(self.port, self.board, runner=lambda *a, **k: subprocess.CompletedProcess(a, 1, "", ""))
+
+    def test_a_good_server_passes_every_probe(self):
+        self.start()
+        res = self.live()
+        self.assertEqual(failing(res), [])
+        self.assertGreaterEqual(len([r for r in res if r[0] == selfcheck.PASS]), 11)
+
+    def test_it_never_asks_for_a_card_a_chat_line_a_report_or_a_transcript_and_never_sends_a_body(self):
+        self.start()
+        self.live()
+        gets = [a[1] for a in self.asked if a[0] == "GET"]
+        for path in gets:
+            self.assertFalse(path.startswith(("/api/tasks", "/api/task", "/api/chat", "/api/transcript", "/api/hud", "/summary", "/reports/real", "/api/boards", "/api/state")), path)
+        self.assertTrue(set(["/voice.js", "/", "/nosuch"]) <= set(gets))
+        posts = [a for a in self.asked if a[0] == "POST"]
+        self.assertTrue(posts)
+        self.assertTrue(all(a[2] == "0" for a in posts), "a probe POST carried a body")
+        self.assertEqual([t["title"] for t in self.store.load()], ["PRIVATE-CARD-TITLE"])   # and nothing was written
+
+    def test_a_running_server_that_stopped_checking_the_host_fails(self):
+        self.start(lambda h: setattr(h, "_host_ok", lambda this: True))
+        self.assertIn("live: wrong Host refused (DNS rebinding)", [n for n, _t in failing(self.live())])
+
+    def test_a_running_server_that_accepts_a_cross_site_post_fails(self):
+        self.start(lambda h: setattr(h, "_guard", lambda this, post=False: True))
+        names = [n for n, _t in failing(self.live())]
+        self.assertIn("live: cross-site and wrong-type POSTs refused (CSRF)", names)
+
+    def test_an_older_server_without_nosniff_says_restart_it(self):
+        real = server.make_handler
+
+        def old(store, port):
+            h = real(store, port)
+            send = h._send
+
+            def no_nosniff(this, code, body, ctype="application/json", extra=None):
+                raw = body if isinstance(body, bytes) else json.dumps(body).encode()
+                this.send_response(code)
+                this.send_header("Content-Type", ctype)
+                for k, v in (extra or {}).items():
+                    this.send_header(k, v)
+                this.send_header("Content-Length", str(len(raw)))
+                this.end_headers()
+                this.wfile.write(raw)
+            h._send = no_nosniff
+            return h
+        with mock.patch.object(server, "make_handler", old):
+            self.start()
+        self.assertIn("live: nosniff on scripts and errors", [n for n, _t in failing(self.live())])
+
+    def test_nothing_listening_is_one_clear_fail(self):
+        res = selfcheck.live_checks(self.port, self.board)
+        self.assertEqual([(l, n) for l, n, _t in res], [(selfcheck.FAIL, "live: the server answers")])
+
+    def test_a_server_not_under_the_profile_is_a_warning_unless_this_shell_is(self):
+        self.start()
+        res = {n: l for l, n, _t in self.live()}
+        self.assertEqual(res["live: the work profile"], selfcheck.WARN)
+        with mock.patch.dict(os.environ, {profile.ENV: "work"}):
+            res = {n: l for l, n, _t in self.live()}
+        self.assertEqual(res["live: the work profile"], selfcheck.FAIL)
+
+    def test_the_command_takes_a_port_and_skips_the_throwaway_audit(self):
+        self.start()
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out), mock.patch.dict(os.environ, {"AGENTBOARD_DIR": str(self.board)}):
+            try:
+                cli.main(["selfcheck", "--live", str(self.port), "--json"])
+            except SystemExit:
+                pass
+        names = [d["check"] for d in json.loads(out.getvalue())]
+        self.assertTrue(any(n.startswith("live:") for n in names))
+        self.assertFalse(any(n.startswith("runtime:") for n in names))
+
+
 class TheSelfcheckCatchesWhatItIsFor(unittest.TestCase):
     """A planted violation must turn the right line red. Without these, a green selfcheck proves nothing."""
 

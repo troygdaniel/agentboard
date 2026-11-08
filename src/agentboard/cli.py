@@ -1222,7 +1222,17 @@ def cmd_profile(a):
 def cmd_selfcheck(a):
     """Prove what the work profile promises: a static scan of the code, then a live audit of a throwaway server. PASS/FAIL lines; exit 1 on a FAIL."""
     from . import selfcheck
-    results = selfcheck.run()
+    board = None
+    if a.live is not None:
+        try:
+            board = _store().dir
+        except BoardError:
+            board = None
+        if a.live == 0:   # --live with no port: the port of a server this board recorded, else the default
+            from . import serverstate
+            ports = sorted({st["port"] for st in (serverstate.read(board, p) for p in selfcheck._server_pids(board)) if st and st["port"]}) if board else []
+            a.live = ports[0] if ports else 8765
+    results = selfcheck.run(live=a.live, board_dir=board)
     if a.json:
         print(json.dumps([{"level": l, "check": n, "detail": t} for l, n, t in results], indent=1))
     else:
@@ -1517,6 +1527,7 @@ def main(argv=None):
     sp.add_argument("what", nargs="?", choices=["status", "work", "off"], default="status")
     sp = add("selfcheck", cmd_selfcheck, "prove the work profile: static scan of the code plus a live audit of a throwaway server (PASS/FAIL list; exit 1 on a FAIL)")
     sp.add_argument("--json", action="store_true", help="the list as JSON")
+    sp.add_argument("--live", nargs="?", type=int, const=0, metavar="PORT", help="audit the RUNNING server on 127.0.0.1:PORT (default: the one this board recorded, else 8765) with read-only probes instead of the throwaway one")
     sp = add("add", cmd_add, "add a task")
     sp.add_argument("title")
     sp.add_argument("-d", "--description")
