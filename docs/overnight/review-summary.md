@@ -1,114 +1,93 @@
-# Overnight branches: cross-review for the morning (2026-11-08)
+# Overnight branches: cross-review for the morning (2026-11-08, 06:00 pass)
 
-Reviewer: AGENT-8 (card `overnight-crossreview`), independent of the branch authors. Read-only on every branch; each suite ran from a clean
-`git archive` of the branch tip (nothing in anyone's worktree was touched); render checks ran headless Chrome against throwaway boards; eight
-read-only code reviews, one per branch or stack, each claim checked against the code before it was kept. `main` moved all night (503e291 at
-the first pass, b319e87 at the trial merges, 33ecb3e by the last review); the merge order below is against **main as of 00:55**, and the 06:00
-pass re-checks every tip.
+Reviewer: AGENT-8 (card `overnight-crossreview`), independent of the branch authors. Read-only on every branch; every suite ran from a
+clean `git archive` of a tip, one at a time; render checks ran headless Chrome against throwaway boards; twelve read-only code reviews, each
+claim checked against the code before it was kept. First pass 00:55 (18 tips), this pass 06:00 to 07:00 (21 tips, 14 more full suite runs, main c4aca6a).
 
-**First pass written 00:55, extended 01:20 for the server-lifecycle branch (19 branch tips tested, 9 reviews, 19 cards). The 06:00 pass re-checks every tip against the main of the moment and adds any branch that lands after this.**
+## The short version (read this, then decide)
 
-## The short version
+**ORCH's merge kit already did the merge for you, as a dry run.** `overnight/combined-11` (59b848e, 03:58) is every overnight branch merged
+in a working order plus the cross-branch fixups, built by the kit on `overnight/overnight-morning-merge-kit` (script, per-branch
+resolutions, the night's result table). Its suite: **1583 passed, 1 failed**, and the one failure is closed by `f23d1e8` on the sign-off branch
+(see step 2). It renders exactly like main (12 of 16 views, the same four script-side false failures). Every HIGH and MEDIUM the first pass
+found has a fix committed on its branch, and the fixes I could reproduce are in the combined tree (verified at 06:00: `init --demo` seeds the
+right board, the selfcheck canaries are documentation addresses, `stop` checks the pid is an agentboard server, the agent instructions tell
+agents to report a stuck card rather than release a peer's claim).
 
-- **Merge first, no fix needed (4):** `overnight-ux-visual-polish`, `overnight-ux-nav-and-panel-words`, `overnight-sec-signoff-pack`
-  (mine; judge it by its evidence files), `overnight-qa-cleanroom`'s report commit. Each merges clean onto main.
-- **Merge after a small, named fix (8):** `visual-polish-3` (one colour token), `overnight-ux-firstrun` (**HIGH**: `init --demo` seeds the
-  wrong board), `overnight-ux-init-agent-instructions` (file mode, symlink), `overnight-ux-doctor-agents-line` (carries the two above),
-  `overnight-rel-agent-protocol` / `-2` (watchdog: `--fix all` aborts, strip unreadable on a phone, the instructions let agents release a peer's
-  claim), `overnight-sec-workpc-profile` (live canary addresses, misattributed `profile off`, overclaiming selfcheck lines), `overnight-qa-cleanroom`
-  (unguarded `rm -rf`), `overnight-rel-server-lifecycle` (landed 01:08: `stop` must check the pid is an agentboard server before signalling).
-- **Rebased during the night (1):** `overnight-rel-data-integrity` had a four-file conflict with main and a cursor rewrite behind main's
-  `cursors.py` that would have **regressed chat receipts** (HIGH, card filed); its author rebased it at 00:43 and the new tip merges clean. The
-  06:00 pass confirms the fix; then it is a plain MERGE.
-- **Your call (1):** `overnight-install-quickstart` lowers the Python floor to 3.9 with a 409-line TOML reader and a regex shim; sound after
-  two fixes and a careful rebase (its masker file is older than tonight's fixes), but whether agentboard should support 3.9 at all is a product
-  decision, not a review one.
-- **Protocol change, your call (1):** `overnight-rel-agent-protocol-3` refuses `update`/`review`/`ask` on a card another agent holds. Sound and
-  tested, but the check reads `AGENTBOARD_NAME` only and no agent-facing text says it exists; merge with -2 after that sentence is added, or
-  merge -2 alone if you want no behaviour change yet.
-- **One question for every branch:** each ships its evidence under `docs/overnight/` in the public repo, naming agents, worktrees and the
-  night's workflow. `publiccheck` passes (no private words), but decide once whether that folder belongs in the public tree or in the private notes.
-- **Already on main, delete the branch (2):** `overnight-agent-prompts`, `overnight-perf-scale` (zero commits ahead).
-- **Nineteen bug cards filed** (`xr-*`, Todo), one per finding, routed to the branch author in the title.
+**Recommended morning path:**
 
-## One row per branch
+1. Merge `overnight/combined-11` onto main (clean trial merge; main gained one commit since its base, c4aca6a, which auto-merges).
+2. Then, in this order, the five small branches that sit **on top of** combined-11 (each merges clean onto main):
+   `overnight-sec-signoff-pack` f23d1e8 (the one failing test's fix) → `overnight-rel-server-lifecycle` 4359186 (its stop/pid fix is in) →
+   `overnight-agent-prompts` 63909aa (after a README line) → `overnight-config-validation` 580059f (**after the HIGH below**) →
+   `overnight-perf-scale` fd03e24 (**after the HIGH below**; CHANGELOG conflict with lifecycle, keep both).
+3. Two decisions that are yours, not the review's: the **Python 3.9 floor** (install-quickstart, inside combined-11 already) and the
+   **hold check** (protocol-3, inside combined-11 already: `update`/`review`/`ask` refused on a card another agent holds). Both are sound
+   and tested; both change what every user sees. If you want either out, the kit's per-branch resolution files say how to drop it.
+4. One housekeeping question: every branch ships its evidence under `docs/overnight/` in the public repo (agents, worktrees, the night's
+   workflow). `publiccheck` is clean; decide once whether that folder belongs in the public tree.
 
-| Branch (tip) | What it does | Suite (clean archive) | Risks found | Recommendation |
+**New since 00:55 (reviewed this pass):** three branches landed on top of the combined tree after 00:30 and are not in the kit's order:
+`config-validation` (**HIGH**: `agentboard config show` prints `[redact] extra` patterns, `[knowledge]` paths and plugin strings verbatim),
+`perf-scale` (**HIGH**: the page records the new ETag while a reply box holds the render, then gets 304 and stays stale until the next
+change; its own size-budget test also fails), `agent-prompts` (README still quotes the old wording). Five cards filed; all three are
+MERGE AFTER FIX.
+
+**Cards:** 24 `xr-*` in all; 19 from the first pass are fixed on their branches (each status line says where), 5 from this pass are open.
+
+## One row per branch (06:00 tips)
+
+| Branch (tip) | What it does | Suite (clean archive) | State at 06:00 | Recommendation |
 |---|---|---|---|---|
-| `overnight-ux-visual-polish` (2fa3b56) | CSS polish: unique layer-checkbox ids (the Touch label named the wrong element), reduced-motion glow, 24 px targets, phone header three rows not four; evidence, before/after PNGs, audit tools | 1191 passed | Phantom 8 px row from an empty `#filter-summary` on phones (cosmetic); tests mostly grep the HTML; tools import from `/tmp/qa_pylibs` | **MERGE** |
-| `visual-polish-3-audit-and-fix-the-views` (368e852, stacked on the above) | Report pages keep contrast (`--ac` 7:1), Reports list reads as titles, 24 px small controls | 1200 passed | `summary.py:384` still has the 4.4:1 link blue the audit flagged (card `xr-polish3-summary-link-colour`); `_title_of` doubles ": report" | **MERGE AFTER FIX** (one token) |
-| `overnight-ux-firstrun` (4f3bcba) | Welcome, guided `init` (`--demo/--no-demo`, TTY-only prompt), `demo.py` sample cards, `POST /api/demo`, New task and ? buttons, 60 s tour | 1215 passed; 2 wall-clock masker tests fail only under load (old `LIMIT = 2.0` form, pass alone) | **HIGH** `init --demo` seeds the `AGENTBOARD_DIR`/`--board` board, not the one just created: reproduced, 12 `demo-*` cards landed on the other board (`xr-firstrun-demo-wrong-board`). Bare `agentboard` now exits 0 with a welcome (was 2) | **MERGE AFTER FIX** |
-| `overnight-ux-init-agent-instructions` (ffc8fa3, stacked) | `init --instructions` appends the agent block to CLAUDE.md or AGENTS.md between markers; asks only on a TTY | 1232 passed | **MEDIUM** file written 0600 under the CLI's umask 077 (`xr-init-instructions-agents-md-mode`); **MEDIUM** both files symlinks: appends through the AGENTS.md link (`xr-init-instructions-symlink`) | **MERGE AFTER FIX** |
-| `overnight-ux-nav-and-panel-words` (f8cf575, stacked) | Plain `title=` tooltips on tabs, Later, Copy prompt, ORCH pill | 1238 passed (with the tip below) | none | **MERGE** (with the stack) |
-| `overnight-ux-doctor-agents-line` (ab0281c, stack tip) | `doctor` agents line (names from tasks.json, whether CLAUDE.md/AGENTS.md carries the block), helpers to `agentfiles.py`, `ux-index.md` | 1248 passed | carries the three fixes above; `doctor.py run()` conflicts with main: keep both `check_stop_hook` and `check_agents` | **MERGE AFTER FIX** (fix beneath, merge the tip only) |
-| `overnight-rel-agent-protocol` (8aeb447) | `agentboard watchdog`: nine stuck states each with one fix; a strip on Load; a doctor line. Nothing runs on a timer: writes only on `--fix N` or a click | 33 targeted tests pass; full suite green at the -3 tip (1258) | **MEDIUM** `--fix all` aborts after doing its work when a released agent's row is healed twice (`xr-watchdog-fix-all-aborts`); **MEDIUM** strip rows overprint at 390 px (`xr-watchdog-strip-narrow`); `doctor --strict` now exits 1 on a stale claim; README silent | **MERGE AFTER FIX** |
-| `overnight-rel-agent-protocol-2` (c955388, stacked) | The strip on the Board page too (shared code), a line in ORCH's prompt and in the agent instructions | 41 targeted tests pass; full suite green at the -3 tip (1258) | **MEDIUM** the instructions tell every agent it may `--fix` and release a peer's claim (`xr-watchdog-agents-may-release`); `findings()` runs on every `/api/tasks` poll, two tasks.json parses a second per tab | **MERGE AFTER FIX** (over -1) |
-| `overnight-rel-agent-protocol-3` (4c82f03, stacked) | `update`, `review` and `ask` are refused for a card another agent holds; ORCH, the owner and nameless callers pass; server routes, the home plugin and the hooks mirror unaffected | 1261 passed (archive); 1320 OK merged onto main in a scratch copy | **MEDIUM** the evidence is `AGENTBOARD_NAME` alone (a `me --name` session passes, a stale env var is refused on its own card, two terminals with one name both pass) and no agent-facing text mentions the refusal (`xr-protocol3-env-only-undocumented`); CHANGELOG bullet spliced into the previous one | **MERGE AFTER FIX** with -2; or merge -2 alone tonight if no protocol change is wanted |
-| `overnight-rel-data-integrity` (148e317 reviewed; **rebased by its author at 00:43 to b5b4d66 on main 5e7a929**) | `statefile.py` (atomic, flock'd state files), corrupt tasks.json names the good copy, stale `.tmp` sweep, `verify` restore test and `--fix` | 148e317: 1196 passed (2 wall-clock masker tests fail only under load, pass alone); b5b4d66: author reports 1287 OK, (06:00) re-run | On 148e317: **HIGH** cursor rewrite behind main's `cursors.py`, four-file conflict, branch side would collapse delivered/seen receipts (`xr-reldata-cursor-regression`); **MEDIUM** `.claude/settings.json` 0600 via mkstemp (`xr-reldata-settings-mode`). The rebased tip merges clean onto main and its evidence says it now uses main's `cursors.py` and `write_settings` as they are, which closes both; to be confirmed at 06:00 | **MERGE** after the 06:00 check of b5b4d66 (was: merge after fix) |
-| `overnight-sec-workpc-profile` (76457b7) | Work profile (env, machine file or config) that sets the master lock and no-plugins and installs socket/subprocess guards; `selfcheck` (AST scan + in-process server flood) and `selfcheck --live`; connection cap 128 with 503, nosniff, JSON-bomb 400, report symlink 404 | 1219 passed (5df9a5a); 1227 passed (76457b7) | **MEDIUM** canaries dial `93.184.216.34` and `8.8.8.8` if the guard ever regresses (`xr-workpc-selfcheck-live-canaries`); **MEDIUM** `profile off` blames the environment after `apply()` rewrote it (`xr-workpc-profile-off-message`); **MEDIUM** PASS lines overclaim (`xr-workpc-selfcheck-overclaims`); `--live` delta clean | **MERGE AFTER FIX** |
-| `overnight-sec-signoff-pack` (de183ef, AGENT-8) | Two-page sign-off, network guard in the suite, file-table test, load-aware timing tests (merged separately as 126513c), doctor `masking` line | 1239 passed | mine: not judged here; evidence in `docs/overnight/overnight-sec-*.md`; CHANGELOG conflict only | MERGE (author's view) |
-| `overnight-qa-cleanroom` (a8f90f1) | Manual QA tools under `tests/qa/` (clean-room install, soak, headless render check, suite matrix), random-order runner, QA report and screenshots; its 3.11 fix is byte-identical to main's 6cc2742 | 1198 passed (816ab21 and a8f90f1) | **MEDIUM** `cleanroom.sh:5` and `soak.py:26` `rm -rf` argv[1] with no guard (`xr-qa-rm-rf-unguarded`); `tests/qa/pylibs/` not git-ignored; version hard-coded; `render_check`'s done-summary view opens `/#summary`, which 404s on every build including main | **MERGE AFTER FIX** (rebase drops the duplicate commit) |
-| `overnight-install-quickstart` (cfdad0e) | Lowers `requires-python` to 3.9: `tomlread.py` (tomllib when present, a hand parser on 3.9/3.10), a `_compile` shim that strips possessive quantifiers on 3.9/3.10, README install/upgrade/uninstall/troubleshooting, doctor's key scan defers to the masker | 1212 passed on 3.13; the reviewer also ran the redact and tomlread tests on 3.9 (164 pass) | **MEDIUM** its redact.py predates 88712d4: the rebase must take main's shapes and add only the shim (`xr-install-redact-resolve-main`, resolution verified: 118 redact tests pass on 3.13 and 3.9); **MEDIUM** the shim rewrites `+` inside `[...]` and after `\` (`xr-install-strip-possessive`); tomlread diverges from tomllib in corners (TAB in strings, five-quote literals, invalid dates traceback); 3.10 never run; README's `pipx upgrade` prints already-at-latest while the version stays 0.3.1 | **Troy's call on the 3.9 floor** (409 parser lines for a 2021 Mac's system Python); if yes, MERGE AFTER FIX as a rebase; if no, keep README/doctor, drop tomlread and the floor |
-| `overnight-docs-architecture` (0a7f287) | ARCHITECTURE.md, CONTRIBUTING.md, a documents index, a test that pins the module list, plugin API, command names and links to the code | 1244 passed on the branch; **the module-map test fails on today's main** (`chatwake.py`) | **HIGH** merging as-is turns main's suite red (`xr-docs-architecture-fails-main`); **MEDIUM** field names `parent` and `answer` do not exist (`parent_id`, `reply`), store's import list understated (`xr-docs-architecture-field-names`); the test does not check the data-file table, field names or lock discipline | **MERGE AFTER FIX** (add the chatwake row, fix the names, rerun on main) |
-| `overnight-rel-server-lifecycle` (fea46b7, landed 01:08) | `agentboard status`, `stop`, `restart`, `serve --background` (one detached child, log at `.agentboard/server.log` 0600), graceful SIGTERM (drains requests, removes its state file), `GET /api/health` (version, pid, port, uptime, plugins, lock state; no path or owner; behind the Host check) | 1288 passed | **MEDIUM** `stop` SIGTERMs whatever same-user pid a `server-<pid>.json` names without checking it is an agentboard process (pid reuse after a crash; demonstrated on a sleep child) (`xr-lifecycle-stop-any-pid`); `health()` honours `http_proxy` for 127.0.0.1; `server.log` has no `O_NOFOLLOW` and no rotation; Ctrl-C now waits up to 15 s for request threads; no CHANGELOG entry | **MERGE AFTER FIX** (the `ps` command check before `os.kill`, a proxy-free opener); clean onto main, one-line hunks against `workpc` and the UX stack |
-| `overnight-agent-prompts` (8b07a0d), `overnight-perf-scale` (ad37d9b) | nothing ahead of main | n/a | none | **DROP the branch** (already merged) |
+| `combined-11` (59b848e) | The kit's merge of every branch below plus cross-branch fixups (selfcheck tables, repoguard) | 1583 passed, 1 failed (`test_signoff_files` settings mode; fixed by f23d1e8) | clean onto main c4aca6a; renders like main | **MERGE** (step 1) |
+| `overnight-morning-merge-kit` (2ff9318) | The kit itself: `docs/overnight/merge-kit.sh`, per-branch resolution files, dry-run notes and result tables | 1305 passed | clean onto main; docs and scripts only | MERGE (the record of how combined-11 was made) |
+| `overnight-sec-signoff-pack` (f23d1e8, AGENT-8) | Two-page sign-off, network guard in the suite, file-table test, doctor `masking` line; f23d1e8 fixes the table for `write_settings` (existing mode kept, 0600 when created) | 1588 passed on combined + fix | one commit on combined-11, clean onto main | MERGE (step 2; author's view) |
+| `overnight-rel-server-lifecycle` (4359186) | `status`/`stop`/`restart`, `serve --background`, graceful SIGTERM, `/api/health` | 1591 passed at 4359186 (+ the one settings-mode failure every combined-based tip shares until f23d1e8 lands) | fix for `xr-lifecycle-stop-any-pid` landed (71cf43b: `ps` check, no proxy, rolled log); four commits on combined-11 | **MERGE** (step 2) |
+| `overnight-agent-prompts` (63909aa) | `rules.py`: one source for every agent prompt (wait block, working rules, report rule), a test that the surfaces agree | 1620 passed at 63909aa (+ the shared settings-mode failure) | hold, watchdog, subtasks and standing-wait rules survive verbatim; README still quotes `--force to override` and `--wait 120` (`xr-prompts-readme-stale`) | **MERGE AFTER FIX** (one README line) |
+| `overnight-config-validation` (580059f) | `configschema.py`, `agentboard config show/check/docs`, invalid values fall back to defaults, plugins register sections | 1598 passed at 580059f (+ the shared settings-mode failure) | **HIGH** `config show` prints secret-bearing strings (`xr-config-show-prints-secrets`); **MEDIUM** false WARN on the real `providers.label` key and `import tomllib` in tests against the 3.9 floor (`xr-config-check-label-and-tomllib`) | **MERGE AFTER FIX** |
+| `overnight-perf-scale` (fd03e24 reviewed; tip moved to 25112c6 at 06:2x, see note) | Per-board derived cache keyed on a stat per request, sha1 ETag with 304 on the polled routes, faster HUD stamp parsing, no re-read after a commit, a Todo fold past 200 cards, budgets in a test | 1591 passed at 25112c6 (+ the shared settings-mode failure); the HUD size-budget test passes there, so that card looks fixed | **HIGH** stale board after typing (`xr-perf-etag-stale-while-typing`, one-line fix); **MEDIUM** `test_perf_budgets` fails on its own tree (`xr-perf-hud-budget-fails`); cache freshness across processes reproduced OK; guards intact; HUD output byte-identical | **MERGE AFTER FIX** |
+| `overnight-ux-doctor-agents-line` (d9d463a, UX stack tip; carries firstrun, init-agent-instructions, nav-and-panel-words) | Welcome and guided `init` with sample cards, `init --instructions`, plain tooltips, `doctor` agents line | 1265 passed (d9d463a) | the HIGH (`init --demo` wrong board) and both MEDIUMs (AGENTS.md mode, symlink) fixed in 13aede6 / fb05ed4 and verified in combined-11 | in combined-11 |
+| `overnight-rel-agent-protocol-3` (9b2c907; carries -1 and -2) | Watchdog (nine stuck states, one fix each; strips on Load and Board; doctor line) and the hold check | 1261 passed (9b2c907) | all four cards fixed (872b073, 5537221, 9b2c907): `--fix all` finishes, strip reads at phone width, agents report instead of releasing, the hold rule is in the instructions and ORCH's prompt | in combined-11; **the hold check is your decision** |
+| `overnight-rel-data-integrity` (b5b4d66) | `statefile.py` atomic state files, recovery hints, `verify` restore test and `--fix` | 1284 passed (b5b4d66) | rebased by its author onto main; uses main's `cursors.py` and `write_settings`, so the HIGH (cursor regression) and the settings-mode MEDIUM are closed | in combined-11 |
+| `overnight-sec-workpc-profile` (3f1d46a) | Work profile switch wired through the master lock, `selfcheck` (+ `--live`), connection cap, nosniff, JSON-bomb 400, report symlink 404 | 1332 passed (3f1d46a) | all three MEDIUMs fixed in 3f1d46a (honest counts, documentation-range canaries, profile source reported) | in combined-11 |
+| `overnight-install-quickstart` (7d15096) | Python 3.9 to 3.14 (`tomlread.py`, a possessive-quantifier shim), install/upgrade/uninstall docs, doctor defers to the masker | 1293 passed (7d15096) on 3.13; redact + tomlread tests pass on 3.9 | rebased onto main 33ecb3e; both MEDIUMs fixed (shim is a tokenizer; masker shapes from main) | in combined-11; **the 3.9 floor is your decision** |
+| `overnight-qa-cleanroom` (350195a) | Manual QA tools (`tests/qa/`), random-order runner, QA report and screenshots | 1341 passed (350195a) | `rm -rf` guard landed (e88422e); `render_check`'s `/#summary` view still 404s on every build (LOW, in the card) | in combined-11 |
+| `visual-polish-3-audit-and-fix-the-views` (0c6f531; carries ux-visual-polish) | CSS polish, phone header three rows, report and summary contrast | 1205 passed (0c6f531) | summary link colour fixed (0c6f531) | in combined-11 |
+| `overnight-docs-architecture` (a2687ad) | ARCHITECTURE.md, CONTRIBUTING.md, documents index, a test that pins the module list to the code | 1294 passed (a2687ad) | rebased onto main 33ecb3e; `chatwake.py` row and field names fixed (both cards) | in combined-11 |
 
-## Merge order (safest first) and what each step must resolve
+## Conflicts
 
-1. `overnight-ux-visual-polish` then `visual-polish-3` (after the one-token fix): both clean onto main; polish-3 contains polish.
-2. `overnight-sec-signoff-pack`: CHANGELOG conflict only (keep both sections).
-3. `overnight-qa-cleanroom` (after the `rm -rf` guard and `.gitignore` line): clean onto main; the rebase drops its duplicate 3.11 commit.
-4. The UX stack, **tip only** (`overnight-ux-doctor-agents-line` ab0281c) after the HIGH and the two MEDIUMs are fixed beneath it: `doctor.py run()`
-   conflict, keep both `check_stop_hook` (main) and `check_agents` (stack). Merging `overnight-ux-firstrun` alone would ship the HIGH.
-5. `overnight-sec-workpc-profile` (after its three fixes): one conflict, the `doctor.py` import line (union). It also conflicts with the UX stack in
-   `cli.py` and `server.py`, so whichever of 4 and 5 goes second must be rebased onto the other first.
-6. `overnight-rel-agent-protocol-2` (after its three fixes; carries -1): CHANGELOG only. It conflicts with `rel-data-integrity` and `workpc` in
-   `doctor.py`/`cli.py` family files, so rebase after 5.
-7. `overnight-rel-data-integrity` **last**: its author rebased it at 00:43 (b5b4d66) and the four-file conflict is gone; the 06:00 pass confirms the
-   cursor code is main's and the suite is green, then it merges clean. If anything still names `write_cursor` or `chat-cursors.json.lock`, stop.
-8. `overnight-rel-server-lifecycle` after its `ps` check: clean onto main; one-line hunks against `workpc` (server.py import) and the UX stack
-   (cli.py `cmd_serve`, doctor.py `run()`), so merge it before or right after whichever of those goes in.
-9. `overnight-docs-architecture` only after the `chatwake.py` row is added and its test passes on main (today it fails there): CHANGELOG only.
-10. Your two decisions: `overnight-rel-agent-protocol-3` (protocol change; with -2) and `overnight-install-quickstart` (3.9 floor; a careful rebase).
-
-## Conflicts between branches (trial merges with `git merge-tree` on each pair's own base; stacked pairs skipped)
-
-- `rel-data-integrity` conflicts with every branch that touches `agentchat.py`, `cli.py`, `hooks.py` or `listeners.py`: `rel-agent-protocol`
-  (all three), `sec-signoff-pack`, `install-quickstart`, and `qa-cleanroom` (`listeners.py`). Hence last, as a rebase.
-- `sec-workpc-profile` conflicts in `doctor.py` with `sec-signoff-pack`, `qa-cleanroom`, `rel-agent-protocol` and `ux-doctor-agents-line`, and in
-  `cli.py` + `server.py` with the whole UX stack.
-- `install-quickstart` conflicts in `redact.py` and `reports.py` with `qa-cleanroom`, `rel-agent-protocol`, `sec-signoff-pack`; and with main itself.
-- `rel-agent-protocol` x `sec-signoff-pack`: CHANGELOG only.
-- Clean with everything: `ux-visual-polish`, `visual-polish-3`, `docs-architecture` (CHANGELOG only).
+- Onto main c4aca6a: `combined-11` and all five branches on top of it merge clean. The standalone tips (protocol-3, workpc, UX stack,
+  polish-3, docs-architecture, install-quickstart) conflict with main only in files the combined tree already resolved (CHANGELOG, doctor.py,
+  cli.py, index.html, redact.py); that is why the path is "merge combined-11", not the branches one by one.
+- Between the five on top: `perf-scale` x `rel-server-lifecycle` conflict in CHANGELOG only (both add an Unreleased section; keep both);
+  server.py auto-merges (both add the same `import os`). The others are disjoint.
+- The first pass's pairwise map (which branch touched which shared file) is in the kit's resolution files and in the 00:55 version of this
+  document (`git log -- docs/overnight/review-summary.md` on this branch).
 
 ## Render checks (headless Chrome, 1440 and 390 wide, light and dark, throwaway boards)
 
-Script: the QA branch's `tests/qa/render_check.py` (console errors, failed loads, horizontal overflow, text under 11 px, unnamed controls)
-over four views. **Every branch build matched main's baseline exactly: 12 of 16 views clean**, and the four "failures" are the script's own
-`done-summary` URL (`/#summary`, which the page reads as a card id and 404s on `/api/task`) plus a pre-existing 10 px span, both present on main.
+Every build checked (main, the UX stack, polish-3, workpc, protocol-3, **combined-11**) gives 12 of 16 views clean with no console error or
+overflow of its own; the four "failures" on every build are the QA script's `done-summary` URL (`/#summary`, read by the page as a card id,
+404 on `/api/task`) and a pre-existing 10 px span. `combined-11` answers `/api/health` 404 because the lifecycle branch sits on top of it.
 
-| Build | Views clean | New problems vs main |
-|---|---|---|
-| main 503e291 (baseline) | 12 of 16 | — |
-| UX stack f8cf575, seeded board | 12 of 16 | none |
-| UX stack f8cf575, empty board (welcome + tour visible) | 12 of 16 | none |
-| visual-polish-3 368e852 | 12 of 16 | none |
-| sec-workpc-profile 5df9a5a | 12 of 16 | none |
-| rel-agent-protocol-3 4c82f03 (seeded board; my stuck-card seed did not trip the threshold, so the strip stayed hidden) | 12 of 16 | none with the strip hidden; the visible strip's narrow bug is the reviewer's reading of the branch's own PNG |
+## Bugs filed (all `xr-*`, Todo; the status line on each says where the fix landed)
 
-## Bugs filed from this review (all in Todo, routed to the branch author in the title)
-
-HIGH: `xr-firstrun-demo-wrong-board`, `xr-reldata-cursor-regression` (closed by the author's rebase), `xr-docs-architecture-fails-main`.
-MEDIUM: `xr-init-instructions-agents-md-mode`, `xr-init-instructions-symlink`, `xr-workpc-profile-off-message`, `xr-workpc-selfcheck-live-canaries`,
-`xr-workpc-selfcheck-overclaims`, `xr-reldata-settings-mode`, `xr-polish3-summary-link-colour`, `xr-qa-rm-rf-unguarded`, `xr-watchdog-fix-all-aborts`,
-`xr-watchdog-strip-narrow`, `xr-watchdog-agents-may-release`, `xr-install-redact-resolve-main`, `xr-install-strip-possessive`, `xr-protocol3-env-only-undocumented`, `xr-docs-architecture-field-names`, `xr-lifecycle-stop-any-pid`.
+- Fixed on their branches and verified or re-tested at 06:00 (19): `xr-firstrun-demo-wrong-board` (HIGH), `xr-reldata-cursor-regression` (HIGH,
+  closed by the author's rebase), `xr-docs-architecture-fails-main` (HIGH), `xr-init-instructions-agents-md-mode`, `xr-init-instructions-symlink`,
+  `xr-workpc-profile-off-message`, `xr-workpc-selfcheck-live-canaries`, `xr-workpc-selfcheck-overclaims`, `xr-reldata-settings-mode`,
+  `xr-polish3-summary-link-colour`, `xr-qa-rm-rf-unguarded`, `xr-watchdog-fix-all-aborts`, `xr-watchdog-strip-narrow`,
+  `xr-watchdog-agents-may-release`, `xr-install-redact-resolve-main`, `xr-install-strip-possessive`, `xr-protocol3-env-only-undocumented`,
+  `xr-docs-architecture-field-names`, `xr-lifecycle-stop-any-pid`.
+- Open, from this pass (5): `xr-config-show-prints-secrets` (HIGH), `xr-perf-etag-stale-while-typing` (HIGH), `xr-config-check-label-and-tomllib`,
+  `xr-perf-hud-budget-fails`, `xr-prompts-readme-stale`.
 
 ## How this was done
 
-- Inventory: `git branch --list "overnight/*"`, each branch's merge base with `main`, commits and `--stat`; repeated at 00:30 because four tips
-  moved and four branches appeared during the pass.
-- Trial merges: `git merge-tree --write-tree` of each branch onto `main`, and of each pair of branches on their own merge base.
-- Suites: `PYTHONPATH=src python -m pytest -q` in a `git archive` copy of each tip, one branch at a time (two suites at once on this laptop
-  trip the older 2.0 s masker timing tests; `main` has the load-aware form since 126513c).
-- Render checks as above; code review: eight read-only passes, each verified against the code; the HIGH on `init --demo` and the live canary
-  addresses were reproduced by AGENT-8 directly.
+- Inventory: `git branch --list "overnight/*"`, each tip's merge base and distance from main, at 00:30 and again at 05:55.
+- Trial merges: `git merge-tree --write-tree` of every tip onto main, and of each pair of branches on their own merge base (first pass).
+- Suites: `PYTHONPATH=src python -m pytest -q` in a `git archive` copy of each tip, one at a time (29 full runs over the night). Every
+  tip based on combined-11 shares one failure, `test_signoff_files` settings mode, which f23d1e8 closes; nothing else failed.
+- Render checks: the QA branch's `tests/qa/render_check.py` against `agentboard serve` of each build on a seeded throwaway board.
+- Reviews: twelve read-only passes (one per branch or stack, three for the branches that landed after midnight), each finding reproduced or
+  read in the code before it was kept; the fixes for the first pass's HIGHs were re-verified in the combined tree by hand.
