@@ -143,7 +143,7 @@ class TighteningWhatIsAlreadyThere(unittest.TestCase):
         store = Store(self.dir)
         fake = mock.MagicMock()
         fake.serve_forever.side_effect = KeyboardInterrupt
-        with mock.patch.object(server, "ThreadingHTTPServer", return_value=fake), mock.patch.object(server.threading, "Thread"), \
+        with mock.patch.object(server, "new_server", return_value=fake), mock.patch.object(server.threading, "Thread"), \
                 contextlib.redirect_stdout(io.StringIO()):
             server.serve(store, 8199, open_browser=False)
         self.assertEqual(mode(self.dir / "config.toml"), 0o600)
