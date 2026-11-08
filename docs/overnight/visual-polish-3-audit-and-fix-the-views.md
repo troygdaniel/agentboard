@@ -17,6 +17,8 @@ the error strip and the panel's conversation tab. Light and dark, 1280 and 390 w
 | 4 | **The Reports list read as slugs**: "make-the-backup-restore-safe-on-a-clean", cut mid-word, in a bare bullet list, links 18px tall | The card's title is the link; the id and the time sit under it; each row is a 24px target with a rule between |
 | 5 | **Targets under 24px**: the agent names in By agent (20px), the error strip's close (21x19), the brand link on the server-rendered pages (23px), the report-list links (18px) | All 24px |
 
+| 6 | **The agent thread's header lost the card title at phone width**: "on ..." and nothing else (a title too long for the line was dropped whole, because an inline button is not cut by the line's ellipsis). Found while reviewing chat-f8 at 390px | The card line is a flex row: the title shrinks with its own ellipsis and the state ("up for review", "waiting on you") stays |
+
 Report files are written once, with their CSS inline, so **reports written before this change keep the old colours until they age out (24 hours)**;
 a report written now has the new ones. The audit's "after" run used a report written after the change.
 
@@ -28,7 +30,7 @@ a report written now has the new ones. The audit's "after" run used a report wri
 | Targets under 24px | 5 kinds: lane names, error close, brand link, list links, 1 inline link | 1 inline link (exempt: it sits in a sentence) |
 | Controls with no accessible name | 0 | 0 |
 | Horizontal overflow | none | none |
-| Full test suite | 1194 | **1203, OK** (9 new: 3 in `tests/test_reports.py`, 6 in `tests/test_visual_polish.py`); `tests/publiccheck.py`: 0 findings |
+| Full test suite | 1194 | **1204, OK** (10 new: 3 in `tests/test_reports.py`, 7 in `tests/test_visual_polish.py`); `tests/publiccheck.py`: 0 findings |
 
 Screenshots (`r3-before-*` and `r3-after-*`, same made-up board; the "after" report is a newer one, hence different text):
 
@@ -37,6 +39,9 @@ Screenshots (`r3-before-*` and `r3-after-*`, same made-up board; the "after" rep
 | Reports list, wide, light | `r3-before-reports-wide-light.png` | `r3-after-reports-wide-light.png` |
 | Reports list, narrow, dark | `r3-before-reports-narrow-dark.png` | `r3-after-reports-narrow-dark.png` |
 | A card's report, wide, dark | `r3-before-report-wide-dark.png` | `r3-after-report-wide-dark.png` |
+| Agent thread header, narrow, light | `r3-before-thread-head-narrow-light.png` | `r3-after-thread-head-narrow-light.png` |
+
+(The thread-header pair comes from two different made-up boards: the "before" from the chat-f8 review board, the "after" from this round's.)
 
 ## How to try it
 

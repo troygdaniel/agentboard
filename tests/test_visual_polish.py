@@ -113,6 +113,16 @@ class TheBoardKeepsSmallControlsReachable(unittest.TestCase):
             self.assertIn(f"color: color-mix(in srgb, var({tok}) 78%, var(--text))", rule(sel))
 
 
+class TheThreadHeadKeepsItsCardTitle(unittest.TestCase):
+    def test_the_card_line_is_a_flex_row_and_the_title_shrinks_with_its_own_ellipsis(self):
+        # as an inline button inside a line with text-overflow, a title too long for the line was dropped whole: "on ..." and nothing else at 390px
+        self.assertIn("display: flex", rule(".th-on"))
+        r = rule(".th-on .th-card")
+        self.assertIn("text-overflow: ellipsis", r)
+        self.assertIn("min-width: 0", r)
+        self.assertIn('<span class="th-line th-on">${line2}</span>', HTML)
+
+
 class ThePhoneHeader(unittest.TestCase):
     def test_it_is_three_rows_not_four(self):
         # at 390 wide the header was logo + tabs, Later alone, the counts, the icons alone: 185px. Later now shares a row with the icons

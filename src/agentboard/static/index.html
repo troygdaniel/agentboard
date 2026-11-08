@@ -1023,6 +1023,8 @@
   .th-line .st { font-weight: 600; } .th-line .st.ask { color: var(--err); } .th-line .st.rev { color: var(--ok); }
   .th-card { background: none; border: 0; padding: 0; font: inherit; color: var(--info); cursor: pointer; }
   .th-card:hover { text-decoration: underline; text-underline-offset: 2px; }
+  .th-on { display: flex; gap: 0 .35em; min-width: 0; }   /* "on <card> · state": the title shrinks with its own ellipsis; as a plain inline box a long one was dropped whole and left "on ..." at phone width */
+  .th-on .th-card { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; }
   #thread-body { padding: 16px 20px; display: flex; flex-direction: column; gap: 14px; }
   #thread-body .cmsg { max-width: 94%; }
   .th-ask { border: 1px solid var(--err); border-radius: 12px; padding: 12px 14px; background: var(--surface); box-shadow: 0 0 0 3px color-mix(in srgb, var(--err) 8%, transparent); }
@@ -2184,7 +2186,7 @@ function threadHeadHtml(name) {
   const cur = cards.find(t => t.needs_input) || cards.find(t => t.review) || cards[0];
   const line1 = `${STATE_WORD2[st] || st}${last ? ` · last update ${ago(last).text}` : ''}${cards.length > 1 ? ` · ${cards.length} cards` : ''}`;
   const line2 = cur ? `on <button class="th-card" type="button" data-open="${esc(cur.id)}">${esc(cur.title)}</button>${cur.needs_input ? ' · <span class="st ask">waiting on you</span>' : cur.review ? ' · <span class="st rev">up for review</span>' : ''}` : 'no card in Doing';
-  return `<span class="av" style="--c:${agentColor(name)}" aria-hidden="true">${esc(nodeGlyph(name))}</span><div class="th-lines"><span class="th-name">${esc(name)}</span><span class="th-line">${line1}</span><span class="th-line">${line2}</span></div>`;
+  return `<span class="av" style="--c:${agentColor(name)}" aria-hidden="true">${esc(nodeGlyph(name))}</span><div class="th-lines"><span class="th-name">${esc(name)}</span><span class="th-line">${line1}</span><span class="th-line th-on">${line2}</span></div>`;
 }
 function threadBodyHtml(name) {
   const [recent, older] = recentOf(chatMsgs.filter(m => inThread(m, name)), name);
