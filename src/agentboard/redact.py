@@ -191,7 +191,8 @@ def _extras(conf):
 def _sub_visible(rx, repl, text):
     """rx.sub(repl, text), but matching on a copy without the invisible characters and with every Unicode dash folded to "-" and every fullwidth ASCII form folded to ASCII, and replacing
     in the original by the matched span: a key that carries a zero-width space or an en dash is masked whole, and everything else (a ZWJ in
-    an emoji, a ZWNJ in Persian, the dash in "pages 3-5") stays as written."""
+    an emoji, a ZWNJ in Persian, the dash in "pages 3-5") stays as written. One exception: the part of a MATCH that is kept (the name in
+    `x–api–key: KEY`) comes out of the folded copy, so it reads with plain hyphens and ASCII (`x-api-key: [redacted secret]`); the tests say so."""
     view = text if text.isascii() else text.translate(_FOLD)         # one for one: every index is the same in both
     hidden = [m.start() for m in _INVISIBLE.finditer(view)]
     if not hidden and view == text:

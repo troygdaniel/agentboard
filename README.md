@@ -489,13 +489,15 @@ A plugin loads only when the machine says so: `AGENTBOARD_PLUGINS=1` (exactly `1
 
 A plugin is an entry point in the group `agentboard.plugins` whose value is a function taking one argument, `api` (see the top of `src/agentboard/plugins.py` for what it can register and the guarantees: nothing outside its own `/api/x/<name>/`, no shadowing a core command, a failing plugin costs only itself, an error reaches the client as its class name). A plugin is code you installed and switched on; it is trusted like any package.
 
+A command a plugin adds exists only where the plugin is loaded: from a plain shell (no key, or a lock) `agentboard <that command>` fails as an unknown command and adds one line to stderr saying plugins are off and the command may be a plugin's; run it from the board's shell, with its environment.
+
 The text-message features (turning texts into cards, an inbound-SMS webhook) are not part of agentboard: they live in a separate package that is kept outside this repository.
 
 ## Prompts and context providers (optional)
 
 Todo cards carry a copyable prompt that makes any agent claim the card and report progress. Prompts are assembled from
 providers in `.agentboard/config.toml` (`markdown`, `file-tail`, `http`, `command`; options `max_chars`, `redact`, `private`).
-Providers run only when a task lists one with `--ctx` and a prompt is built.
+Providers run only when a task lists one with `--ctx` and a prompt is built. A `markdown` or `file-tail` provider reads a file inside the project folder (the one holding `.agentboard/`, links followed): that includes `.env`, `.git/config` and `.agentboard/` itself, so point one only at files you would paste into a prompt; under `AGENTBOARD_LOCKDOWN` a path outside the project is refused.
 
 Two rules for a `command` provider. **Do not wrap `{arg}` or `{title}` in quotes** in `run`: each is already shell-quoted when it is
 filled in, so `grep "{arg}" notes.md` becomes `grep "'tailor pants'" notes.md` and a crafted argument can step out of your quotes;

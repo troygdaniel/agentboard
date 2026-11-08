@@ -60,7 +60,7 @@ python3 tests/publiccheck.py            # want 0 finding(s), in the checkout, be
 
 **Do not enable on the laptop**
 - `command` or `http` providers in `config.toml`, `[backup] sync_dir`, `[chat] casual` or `autopilot`, `agentboard run`, voice/dictate, any plugin. (The lock refuses them anyway.)
-- `agentboard hooks install` in a repo you do not own: it adds one hook to that project's `.claude/settings.json`.
+- `agentboard hooks install` in a repo you do not own: it adds two hooks to that project's `.claude/settings.json`: a PostToolUse hook on SendMessage that mirrors each message's first line to the board's chat, and a Stop hook that, when the session is about to go quiet with an unread line from the owner or no `chat inbox --wait` running, says so once (it never blocks twice in a row and writes to the board file only).
 - Agents that read email or web pages and then write into the board: their text becomes card text. It is escaped and masked, but it is untrusted.
 - Keep the live board (`.agentboard/`, git-ignored by `init`) out of any repo you push, and take screenshots only from a throwaway board.
 
