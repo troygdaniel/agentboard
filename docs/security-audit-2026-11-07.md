@@ -37,7 +37,7 @@ Five audits ran overnight against `main`, each read-only on a throwaway board: n
 
 ## Work-laptop checklist
 
-**Install** (needs `git`, Python 3.11+, `pipx`; no other dependency)
+**Install** (needs `git`, Python 3.9+, `pipx`; no other dependency)
 1. Clone from a copy you have reviewed and pin the commit: `git clone <repo> && cd agentboard && git checkout <reviewed commit>`. If pip must use a mirror, the only package fetched while building is `setuptools>=68`.
 2. `pipx install .` (not from a URL on the laptop). Nothing runs at install; there is no setup script, no `.pth` file, no lock file.
 

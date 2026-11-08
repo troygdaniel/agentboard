@@ -97,9 +97,8 @@ class Backups:
         self.snap_dir = self.dir / "backups"
         if conf is None:
             try:
-                import tomllib
-
-                conf = tomllib.loads((self.dir / "config.toml").read_text())
+                from . import tomlread
+                conf = tomlread.loads((self.dir / "config.toml").read_text())
             except (OSError, ValueError):
                 conf = {}
         sect = conf.get("backup", {}) if isinstance(conf, dict) else {}

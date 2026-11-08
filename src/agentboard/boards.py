@@ -34,9 +34,8 @@ def check_name(name):
 def load():
     """{'current': name|None, 'boards': {name: {'path': str, 'color': str|None}}}. A missing or unreadable file is an empty registry."""
     try:
-        import tomllib
-
-        raw = tomllib.loads(registry_path().read_text())
+        from . import tomlread
+        raw = tomlread.loads(registry_path().read_text())
     except OSError:
         raw = {}
     except ValueError as e:

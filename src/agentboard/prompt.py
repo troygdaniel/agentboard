@@ -3,10 +3,10 @@ import re
 import shlex
 import shutil
 import sys
-import tomllib
 from pathlib import Path
 
 from . import lockdown, providers
+from . import tomlread
 from .untrusted import is_text_card, marked, text_lines as _text_lines
 from .store import DEFAULT_OWNER, BoardError, owner_name
 
@@ -214,8 +214,8 @@ def load_config(board_dir):
         return {}
     try:
         with open(path, "rb") as f:
-            return tomllib.load(f)
-    except (tomllib.TOMLDecodeError, OSError) as e:
+            return tomlread.load(f)
+    except (tomlread.TOMLDecodeError, OSError) as e:
         raise BoardError(f"{path} is not valid config ({e}); fix or delete it") from e
 
 
