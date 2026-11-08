@@ -48,9 +48,12 @@ class DocumentedCommands(unittest.TestCase):
 
 
 def interpreter_with_setuptools():
+    """An interpreter that can build this project offline: pip, and the setuptools the project asks for (pyproject.toml: setuptools>=68). An older one
+    (macOS's /usr/bin/python3 with an empty HOME has 58) does not read the [project] table and builds an UNKNOWN-0.0.0 wheel with none of our files: that
+    is a machine that cannot run this check, not a stale build."""
     for py in (sys.executable, "/usr/bin/python3", shutil.which("python3")):
         if py and Path(py).exists():
-            ok = subprocess.run([py, "-c", "import setuptools, pip"], capture_output=True)
+            ok = subprocess.run([py, "-c", "import setuptools, pip; raise SystemExit(0 if int(setuptools.__version__.split('.')[0]) >= 68 else 1)"], capture_output=True)
             if ok.returncode == 0:
                 return py
     return None

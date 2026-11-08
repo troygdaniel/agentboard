@@ -61,6 +61,9 @@ class TheTableIsTrue(unittest.TestCase):
     def setUp(self):
         self.s = Session()
         self.addCleanup(self.s.close)
+        # .agentboard/sessions.json is written when a command runs inside a Claude Code session (it has CLAUDE_CODE_SESSION_ID); the table must be checked the same
+        # way wherever the suite runs, so the scripted day is given a session id of its own
+        self.s.env["CLAUDE_CODE_SESSION_ID"] = "test-session-for-the-signoff-table"
         self.s.run("init", "add 'A card' -d 'words' --status todo --id a-card", "claim a-card --name AGENT-1", "add 'step' --parent a-card",
                    "update step 50 working", "ask a-card 'a question?'", "review a-card 'a result' --body 'a body'",
                    "chat send 'hello' --name AGENT-1 --to 'the user'", "backup", "hooks install")

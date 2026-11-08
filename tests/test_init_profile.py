@@ -120,10 +120,12 @@ class AnyHomeSignalKeepsTheNormalBoard(Base):
         self.assertEqual(stray, [], "an AGENTBOARD_ variable the source names is not in profile.CORE_ENV")
 
     def test_signals_are_names_never_values(self):
-        with mock.patch.dict(os.environ, {"AGENTBOARD_SOMETHING_SECRET": "the-secret-value", "HOME": str(self.home)}):
+        marker = "marker" + "-" + "7"   # (a value that is plainly not a secret: the public-repo scan reads key-shaped assignments)
+        with mock.patch.dict(os.environ, {"AGENTBOARD_SOMETHING_A_PLUGIN_ADDS": marker, "HOME": str(self.home)}):
             sig = profile.home_signals()
         self.assertTrue(sig)
-        self.assertNotIn("the-secret-value", " ".join(sig))
+        self.assertIn("AGENTBOARD_SOMETHING_A_PLUGIN_ADDS", " ".join(sig))
+        self.assertNotIn(marker, " ".join(sig))
 
     def test_an_empty_or_off_value_is_not_a_signal(self):
         with mock.patch.dict(os.environ, {"AGENTBOARD_PLUGINS": "", "AGENTBOARD_TEXTS": "  ", "HOME": str(self.home)}, clear=False):
