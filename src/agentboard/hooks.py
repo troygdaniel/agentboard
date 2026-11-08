@@ -23,7 +23,7 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-from . import cursors, listeners, untrusted
+from . import cursors, listeners, statefile, untrusted
 from .store import DEFAULT_OWNER, BoardError, owner_name
 
 HOOK_COMMAND = "agentboard hook send-message"
@@ -63,7 +63,7 @@ def remember_session(board_dir, name, session_id=None, transcript=None):
         for k in sorted(d, key=lambda k: d[k].get("at", ""))[: len(d) - MAX_SESSIONS]:
             d.pop(k, None)
     try:
-        sessions_path(board_dir).write_text(json.dumps(d, indent=2))
+        statefile.write(sessions_path(board_dir), d, indent=2)
     except OSError:
         return None
     return sid

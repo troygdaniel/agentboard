@@ -14,6 +14,7 @@ import tempfile
 from datetime import datetime, timedelta
 
 from . import cursors, private
+from . import statefile
 from . import lockdown, untrusted
 from .store import CHAT_TOPICS, BoardError
 
@@ -266,7 +267,7 @@ def casual_once(store, claude, model=None, budget=None, per_hour=None, now=None,
             break
         count += 1
         try:
-            p.write_text(json.dumps({"hour": hour, "count": count}))
+            statefile.write(p, {"hour": hour, "count": count})
         except OSError:
             pass
         done.append(store.chat_set_said(m["seq"], said))
@@ -486,7 +487,7 @@ def autopilot_once(store, claude, roster, model=None, budget=None, per_hour=None
             seen[cursors.key(name)] = newest[-1]["seq"] if newest else inbox[-1]["seq"]
         count += 1
         try:
-            p.write_text(json.dumps({"hour": hour, "count": count, "shared": shared, "seen": seen}))
+            statefile.write(p, {"hour": hour, "count": count, "shared": shared, "seen": seen})   # atomic: a crash leaves the old count or the new one
         except OSError:
             pass
         if not d:

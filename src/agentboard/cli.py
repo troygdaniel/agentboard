@@ -26,6 +26,7 @@ from . import reports as reportslib
 from . import summary as summarylib
 from . import voice as voicelib
 from . import runs as runslib
+from . import statefile
 from . import untrusted
 from .server import serve
 from . import boards as boardlib
@@ -1217,6 +1218,24 @@ def cmd_verify(a):
         ok3, msg3, n3 = backuplib.verify_file(p)
         print(f"{'ok ' if ok3 else 'BAD'} {p.name}" + (f"  {n3['tasks']} tasks" if ok3 else f": {msg3}"))
         bad += not ok3
+    if a.fix:
+        for line in statefile.repair(s.dir):
+            print(f"fixed {line}")
+    for why in statefile.problems(s.dir):   # the small state files beside the board, and temp files an interrupted write left
+        print(f"BAD {why}")
+        bad += 1
+    snap = b.latest_auto()
+    if snap is not None:   # the restore test: the newest snapshot, put back into a scratch folder, must load as a board
+        import tempfile
+        try:
+            with tempfile.TemporaryDirectory() as td:
+                scratch = Path(td) / DIR_NAME
+                scratch.mkdir()
+                backuplib.write_atomic(scratch / "tasks.json", backuplib.read_text(snap), keep_previous=False)
+                print(f"ok  restore test: {snap.name} restores to a board of {len(Store(scratch).load())} tasks")
+        except Exception as e:   # noqa: BLE001
+            print(f"BAD restore test: {snap.name} does not restore ({e.__class__.__name__}: {str(e)[:140]})")
+            bad += 1
     age = b.age_minutes()
     if age is None:
         print("BAD no snapshots yet (run `agentboard backup`)")
@@ -1511,6 +1530,7 @@ def main(argv=None):
     sp.add_argument("--strict", action="store_true", help="exit 1 on a WARN as well")
     sp = add("verify", cmd_verify, "check the board file, its .bak and the newest snapshot (exit 1 if any is bad or the newest is over 2 hours old)")
     sp.add_argument("--all", action="store_true", help="check every snapshot")
+    sp.add_argument("--fix", action="store_true", help="also remove leftover temp files and set a state file that is not JSON aside (<name>.broken-<stamp>)")
     sp = add("dedupe", cmd_dedupe, "find accidental twin cards (`<id>-2` made by a second `start`) and, with --apply, merge them into the original")
     sp.add_argument("--apply", action="store_true", help="merge them (a snapshot is taken first); without it only lists them")
     sp = add("report", cmd_report, "markdown recap of what was completed today (or --date), by agent — for a standup or daily log")
