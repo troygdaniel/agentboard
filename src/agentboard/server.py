@@ -13,7 +13,7 @@ from urllib.parse import parse_qs, urlparse
 from . import boards, demo, hud, private
 from . import profile as profilelib
 from . import hooks as hookslib
-from . import listeners
+from . import listeners, watchdog
 from . import transcript as transcriptlib
 from . import plugins, reports, runs, serverstate, summary, voice
 from . import markdown as mdlib
@@ -96,6 +96,22 @@ def board_list(store, base=""):
         if Path(b["path"]).expanduser().resolve() != mine:
             out.append({"name": name, "url": f"/b/{name}/", "color": b.get("color"), "default": False})
     return {"boards": out, "current": f"{base}/"}
+
+
+_DOG_CACHE = {}   # board dir -> (monotonic time, findings): the Board polls every second, the watchdog's pass is worth a few seconds
+DOG_TTL_S = 5.0
+
+
+def _watchdog_cached(store, now=None):
+    """watchdog.findings() for this board, reused for DOG_TTL_S seconds between polls (a fix invalidates it through /api/watchdog-fix)."""
+    key = str(store.dir)
+    t = time.monotonic() if now is None else now
+    hit = _DOG_CACHE.get(key)
+    if hit and t - hit[0] < DOG_TTL_S:
+        return hit[1]
+    items = watchdog.findings(store, stale_min=watchdog.threshold(store))
+    _DOG_CACHE[key] = (t, items)
+    return items
 
 
 def make_handler(default_store, port):
@@ -268,6 +284,9 @@ def make_handler(default_store, port):
                         d["subs"] = lists[t["id"]]
                     slim.append(d)
                 out = {"tasks": slim}
+                dog = _watchdog_cached(self.store)   # the ways the board is stuck between agents (the Board's strip), at most once every few seconds
+                if dog:
+                    out["watchdog"] = dog
                 ps = plugins.state(self.store)   # what each allowed plugin reports for the page; no "plugins" key at all with none
                 if ps:
                     out["plugins"] = ps
@@ -276,6 +295,7 @@ def make_handler(default_store, port):
                 conf = _config(self.store)
                 data = hud.build(self.store.load(), abandoned_min=hud.stale_minutes(conf), retired=hud.retired(conf), roster=hud.roster(conf), owner=self.store.owner)
                 data["backup"] = self.store.backups.status()   # {last_backup_min, snapshots, last_sync, sync_dir}: the HUD's "backup N min ago" chip
+                data["watchdog"] = watchdog.findings(self.store, stale_min=hud.stale_minutes(conf))   # the ways the board is stuck between agents, each with its fix
                 self._send(200, data)
             elif url.path == "/api/config":
                 conf = _config(self.store)
@@ -400,6 +420,10 @@ def make_handler(default_store, port):
                     self._send(200, {"ok": True})
                 elif path == "/api/send-back":
                     self._send(200, self.store.send_back(body["id"], body["text"]))
+                elif path == "/api/watchdog-fix":   # one click on the HUD: one named fix (watchdog.heal), one history line
+                    touched = watchdog.heal(self.store, str(body.get("action", "")), str(body.get("id", "")))
+                    _DOG_CACHE.pop(str(self.store.dir), None)   # the next poll sees the board as it is now
+                    self._send(200, {"touched": touched})
                 elif path == "/api/run-kill":
                     self._send(200, {"result": runs.kill_run(self.store.dir, body["id"])})
                 elif path == "/api/delete":

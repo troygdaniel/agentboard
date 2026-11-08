@@ -299,7 +299,8 @@ class Store:
             if not force:
                 _parent_must_be_doing(_parent_of(tasks, t), t, "claim")
             if t.get("agent") and t["agent"] != name and not force and t["status"] == "doing":
-                raise BoardError(f"{task_id} is already claimed by {t['agent']} (use --force)")
+                raise BoardError(f"{task_id} is already claimed by {t['agent']}: ask ORCH, or if {t['agent']} is gone run `agentboard watchdog` "
+                                 "(it releases a stale claim) and claim again; --force takes it over as it stands")
             if t["status"] == "done" and not force:
                 raise BoardError(f"{task_id} is already done (use --force to reopen)")
             if not force:

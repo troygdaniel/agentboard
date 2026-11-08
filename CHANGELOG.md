@@ -2,6 +2,25 @@
 
 ## Unreleased
 
+### The agent protocol heals itself: `agentboard watchdog`, a strip on the HUD, a doctor line (Nov 8)
+- A board gets stuck between agents in a handful of ways and each used to need a person to notice and know the fix: a card claimed
+  and never worked, a card whose holder vanished (no update, no wait running, no chat), two cards for one piece of work, a card held
+  by one agent with subtasks held by another, a subtask whose parent was deleted, a subtask in Doing while its parent is not, two
+  sessions answering to one name, an agent that never said who it is (so the Stop hook and the mirror cannot reach its session).
+  `agentboard watchdog` finds all of them in one pass, numbered, each with its one fix; `--fix N` (or `all`) does it and says what
+  moved: release to Todo (history kept, holder cleared, open subtasks along), release every card of a vanished agent, merge the
+  twin into its keeper (a named snapshot first), hand the subtasks to the card's holder, make an orphan a card of its own, a subtask
+  follows its parent's column. Every fix is one history line marked "the watchdog, for <owner>". The two with no board-side fix say
+  what to run. Nothing happens unasked.
+- The Load view shows the findings in a strip above the lanes, one row each with its button; `/api/hud` carries them and
+  `/api/watchdog-fix` does one. `agentboard doctor` gains a `watchdog` line: WARN with the counts, PASS when the board is clean (so `doctor --strict` exits 1 while a claim is
+  stale or an agent has vanished). `watchdog --fix all` reports a row an earlier fix in the same run already covered as "already done" and
+  goes on; `--fix abc` is refused with the accepted forms. The Board page shows the same rows under the Doing header (`/api/tasks` carries `watchdog` when there
+  is something to show). ORCH's prompt and `agentboard instructions` name the command (an agent reports a stuck card to ORCH and never
+  releases a peer's claim itself). The tasks feed caches the findings for a few seconds between polls.
+- A claim refused because another agent holds the card now says what to do (ask ORCH, or `agentboard watchdog` if that agent is
+  gone) instead of only "use --force". Card `overnight-rel-agent-protocol`; evidence in `docs/overnight/overnight-rel-agent-protocol.md`.
+
 ### By agent no longer hides lanes past the edge: a fade and a "+4 more" chip (Nov 8)
 - With six or more agents the lanes scroll sideways under a scrollbar that overlay-scrollbar systems hide, so a lane past the right edge had no
   sign it was there, and an agent waiting on you could go unseen. Each edge that has more now fades, and a chip counts what is past it
