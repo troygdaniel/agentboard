@@ -59,7 +59,7 @@ Then stop and start `agentboard serve` (the running server keeps the old code un
     pipx uninstall agentboard                                      # the program and its venv (~/.local/pipx/venvs/agentboard, ~/.local/bin/agentboard)
     rm -rf your-project/.agentboard                                # a project's cards, config, reports and backups (and the .gitignore line, if you like)
     rm -rf ~/.agentboard                                           # only if you used named boards: the registry and boards made with `agentboard board new`
-    rm -rf ~/.config/agentboard                                    # only if you made it: private-words.txt for the repo check
+    rm -rf ~/.config/agentboard                                    # only if you made it: the profile file `agentboard profile work` writes, and private-words.txt for the repo check
 
 That is the whole footprint. agentboard writes nowhere else: no launch agent, no login item, no shell profile line (pipx's `ensurepath` is pipx's own), no cache outside those folders, nothing in `~/Library` (dictation reads model files other apps installed, it writes none). `[backup] sync_dir`, if you set one, is a folder you chose; delete it yourself.
 
@@ -69,7 +69,7 @@ downloads setuptools. A wheel needs neither. On any machine with network, build 
 
     rm -rf build && python3 -m pip wheel --no-deps -w dist .     # makes dist/agentboard-0.3.1-py3-none-any.whl (pure Python, works on any OS)
 
-On the offline machine, with `python3` being 3.11+:
+On the offline machine, with `python3` being 3.9+:
 
     python3 -m venv ~/.agentboard-venv && ~/.agentboard-venv/bin/pip install --no-index dist/agentboard-0.3.1-py3-none-any.whl
     export PATH="$HOME/.agentboard-venv/bin:$PATH"
