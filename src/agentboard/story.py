@@ -9,11 +9,15 @@ work profile exactly as it does at home. One scene at a time:
   4. Needs you: only what is waiting on the owner (or a calm "nothing").
   5. The days: what was finished each day, as a small timeline.
 
+Every card the page shows is a link to that card on the board: /#<id>, which opens its panel (details, history). The days are counts, not cards,
+so they link nowhere.
+
 A theme is a work area named by a word that several card titles share (summary.themes, the same rule as the Done summary); when no word is shared
 the cards are grouped by who is on them. A subtask is part of its card and is not a card of its own. Backlog ("Later") cards are parked, so they
 are not part of the story."""
 import html
 from datetime import datetime, timedelta
+from urllib.parse import quote
 
 from . import hud, nav, summary
 from .store import DEFAULT_OWNER
@@ -89,6 +93,7 @@ def _themes(cards, owner):
         th["m"] = len(th["cards"])
         th["n"] = th["counts"]["done"]
         th["line"] = plain(th, owner)
+        th["focus"] = _focus(th)["id"]
         for c in th["cards"]:
             c["slot"] = th["slot"]
     return out
@@ -100,22 +105,30 @@ def _bare(title, theme_name):
     return title[len(head):].strip() if theme_name and title.lower().startswith(head) and len(title) > len(head) else title
 
 
+def _focus(theme):
+    """The card a theme's sentence is about: its newest card of the state that matters most (waiting on the owner, then working, then waiting)."""
+    for state in ("needs", "working", "waiting"):
+        if theme["counts"][state]:
+            return next(x for x in theme["cards"] if x["state"] == state)   # cards are newest first
+    return theme["cards"][0]
+
+
 def plain(theme, owner=DEFAULT_OWNER):
-    """One sentence in plain words for a theme, from its newest card of the state that matters most."""
-    cards, c = theme["cards"], theme["counts"]
-    short = lambda title: _short(_bare(title, theme["name"]))
-
-    def pick(state):
-        return next(x for x in cards if x["state"] == state)   # cards are newest first
-
+    """One sentence in plain words for a theme, from its focus card."""
+    x, c = _focus(theme), theme["counts"]
+    t = _short(_bare(x["title"], theme["name"]))
     if c["needs"]:
-        return f"Waiting on {owner}: {short(pick('needs')['title'])}"
+        return f"Waiting on {owner}: {t}"
     if c["working"]:
-        x = pick("working")
-        return (f"{x['agent']} is on " if x["agent"] else "Working on ") + short(x["title"])
+        return (f"{x['agent']} is on " if x["agent"] else "Working on ") + t
     if c["waiting"]:
-        return f"Next up: {short(pick('waiting')['title'])}"
-    return f"All finished; the last was {short(cards[0]['title'])}"
+        return f"Next up: {t}"
+    return f"All finished; the last was {t}"
+
+
+def _href(base, card_id):
+    """The board with this card's panel open (the board reads the card from the hash, the way a notification opens it)."""
+    return f"{html.escape(base)}/#{quote(str(card_id), safe='')}"
 
 
 def headline(data):
@@ -166,7 +179,9 @@ h1,h2{{margin:0;font-weight:600;letter-spacing:-.015em;line-height:1.2}}h1{{font
 .flow{{display:flex;align-items:stretch;gap:10px}}
 .stage{{flex:1 1 0;min-width:0;background:var(--card);border:1px solid var(--line);border-top:4px solid var(--c);border-radius:14px;padding:12px 14px 16px}}
 .stage h3{{margin:0 0 12px;font-size:14px;font-weight:600;display:flex;justify-content:space-between;gap:8px}}.stage h3 span{{color:var(--mut);font-weight:400;font-variant-numeric:tabular-nums}}
-.dots{{display:flex;flex-wrap:wrap;gap:7px;margin:0;padding:0;list-style:none;min-height:18px}}.dot{{display:block;width:16px;height:16px;border-radius:50%;background:var(--c)}}
+.dots{{display:flex;flex-wrap:wrap;gap:7px;margin:0;padding:0;list-style:none;min-height:18px}}.dot{{display:block;position:relative;width:16px;height:16px;border-radius:50%;background:var(--c)}}
+a.dot::after{{content:"";position:absolute;inset:-4px}}   /* the dot stays 16px; the tap area is 24px */
+a.dot:hover{{box-shadow:0 0 0 3px var(--bg),0 0 0 5px var(--c)}}a.dot:focus-visible{{outline:2px solid var(--ac);outline-offset:3px}}
 .more{{font-size:13px;color:var(--mut);align-self:center}}.empty{{font-size:14px;color:var(--mut);margin:0}}
 .arrow{{align-self:center;flex:0 0 auto;color:var(--mut);font-size:22px;line-height:1}}
 .legend{{display:flex;gap:6px 14px;flex-wrap:wrap;margin:0;padding:0;list-style:none;font-size:14px;color:var(--mut)}}.legend li{{display:inline-flex;gap:7px;align-items:center}}.legend i{{display:block;width:12px;height:12px;border-radius:50%;background:var(--c)}}
@@ -174,12 +189,16 @@ h1,h2{{margin:0;font-weight:600;letter-spacing:-.015em;line-height:1.2}}h1{{font
 .themes{{display:grid;grid-template-columns:repeat(auto-fill,minmax(15rem,1fr));gap:12px;margin:0;padding:0;list-style:none}}
 .theme{{background:var(--card);border:1px solid var(--line);border-left:5px solid var(--c);border-radius:14px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}}
 .theme h3{{margin:0;font-size:17px}}.theme p{{margin:0;font-size:15px;color:var(--mut);overflow-wrap:anywhere}}
+.theme p a{{display:block;color:inherit;text-decoration:underline;text-decoration-color:var(--line);text-underline-offset:3px;border-radius:4px}}
+.theme p a:hover{{color:var(--fg);text-decoration-color:var(--c)}}.theme p a:focus-visible{{outline:2px solid var(--ac);outline-offset:2px}}
 .meter{{display:flex;gap:10px;align-items:center;font-size:14px;font-variant-numeric:tabular-nums}}.bar{{flex:1;height:8px;border-radius:99px;background:var(--line);overflow:hidden}}.bar i{{display:block;height:100%;background:var(--c);border-radius:99px;transition:width .9s ease .2s}}
 .js .scene:not(.in) .bar i{{width:0!important}}
 .note{{margin:0;font-size:14px;color:var(--mut)}}
 /* scene 4: needs you */
 .needs{{display:flex;flex-direction:column;gap:10px;margin:0;padding:0;list-style:none}}
-.need{{background:var(--card);border:1px solid var(--line);border-left:5px solid var(--wait);border-radius:14px;padding:12px 14px}}
+.need{{display:block;color:inherit;text-decoration:none;background:var(--card);border:1px solid var(--line);border-left:5px solid var(--wait);border-radius:14px;padding:12px 14px}}
+a.need{{position:relative;padding-right:36px}}a.need::after{{content:"\203a";position:absolute;right:14px;top:50%;transform:translateY(-50%);font-size:24px;line-height:1;color:var(--mut)}}   /* a chevron: it opens the card, and touch has no hover to say so */
+a.need:hover{{border-color:var(--wait);box-shadow:0 1px 0 var(--wait)}}a.need:hover::after{{color:var(--fg)}}a.need:focus-visible{{outline:2px solid var(--ac);outline-offset:2px}}
 .need .tag{{font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--wait);font-weight:600}}.need .tag em{{font-style:normal;text-transform:none;letter-spacing:0;font-weight:400;color:var(--mut);font-size:13px}}.need b{{display:block;font-size:17px;font-weight:600}}.need span{{color:var(--mut);font-size:15px;overflow-wrap:anywhere}}
 .calm{{display:flex;gap:14px;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px 18px;font-size:18px}}.calm i{{width:14px;height:14px;border-radius:50%;background:var(--ok);flex:0 0 auto}}
 /* scene 5: the days */
@@ -233,9 +252,10 @@ def _ring(data):
             + f'<text x="60" y="63">{pct_done}%</text><text class="sub" x="60" y="78">finished</text></svg>')
 
 
-def _dots(cards, name):
+def _dots(cards, name, base=""):
     shown = cards[:MAX_DOTS]
-    items = "".join(f'<li><i class="dot {c["slot"]}" title="{html.escape(_short(c["title"]))}"></i></li>' for c in shown)
+    items = "".join(f'<li><a class="dot {c["slot"]}" href="{_href(base, c["id"])}" title="{html.escape(_short(c["title"]))}" aria-label="{html.escape(_short(c["title"]))} ({html.escape(name)})"></a></li>'
+                    for c in shown)
     more = f'<li class="more">+{len(cards) - len(shown)} more</li>' if len(cards) > len(shown) else ""
     return f'<ul class="dots" aria-label="{html.escape(name)} cards">{items}{more}</ul>' if cards else '<p class="empty">No cards here.</p>'
 
@@ -262,17 +282,18 @@ def build_html(data, base=""):
     for stage, lab, cards in (("waiting", "Waiting", [x for x in data["cards"] if x["state"] == "waiting"]),
                               ("working", "Working", [x for x in data["cards"] if x["state"] in ("working", "needs")]),
                               ("done", "Done", [x for x in data["cards"] if x["state"] == "done"])):
-        stages.append(f'<div class="stage c-{stage}"><h3>{lab}<span>{len(cards)}</span></h3>{_dots(cards, lab)}</div>')
+        stages.append(f'<div class="stage c-{stage}"><h3>{lab}<span>{len(cards)}</span></h3>{_dots(cards, lab, base)}</div>')
     legend = "".join(f'<li><i class="{th["slot"]}"></i>{e(th["name"])}</li>' for th in data["themes"])
     s2 = ('<section class="scene" id="s2"><p class="kicker rise">2 · The flow</p><h2 class="rise">Work moves left to right.</h2>'
-          '<p class="lede rise">Every dot is a card; its colour is its theme. Hover a dot for its title.</p>'
+          '<p class="lede rise">Every dot is a card; its colour is its theme. Hover a dot for its title, click it to open the card.</p>'
           f'<div class="flow rise">{stages[0]}<span class="arrow" aria-hidden="true">→</span>{stages[1]}<span class="arrow" aria-hidden="true">→</span>{stages[2]}</div>'
           f'<ul class="legend rise" aria-label="Themes">{legend}</ul></section>')
     # scene 3
     cards3 = []
     for th in data["themes"][:MAX_THEMES]:
         pct = round(100.0 * th["n"] / th["m"]) if th["m"] else 0
-        cards3.append(f'<li class="theme {th["slot"]}"><h3>{e(th["name"])}</h3><p>{e(th["line"])}</p>'
+        line = f'<a href="{_href(base, th["focus"])}">{e(th["line"])}</a>' if th.get("focus") else e(th["line"])
+        cards3.append(f'<li class="theme {th["slot"]}"><h3>{e(th["name"])}</h3><p>{line}</p>'
                       f'<div class="meter"><span class="bar" role="img" aria-label="{th["n"]} of {th["m"]} done"><i style="width:{pct}%"></i></span><span>{th["n"]} of {th["m"]} done</span></div></li>')
     rest = len(data["themes"]) - MAX_THEMES
     s3 = ('<section class="scene" id="s3"><p class="kicker rise">3 · The themes</p><h2 class="rise">What the work is about.</h2>'
@@ -280,9 +301,9 @@ def build_html(data, base=""):
     # scene 4
     if data["needs"]:
         kinds = {"ask": "Question", "review": "Ready for you", "stale": "Gone quiet"}
-        rows = "".join(f'<li class="need"><span class="tag">{kinds.get(n["kind"], n["kind"])}<em> · {e(n["agent"])}'
+        rows = "".join(f'<li><a class="need" href="{_href(base, n["id"])}"><span class="tag">{kinds.get(n["kind"], n["kind"])}<em> · {e(n["agent"])}'
                        + (f' · waiting {e(hud.dur(n["age_min"]))}' if n.get("age_min") is not None else "")
-                       + f'</em></span><b>{e(_short(n["title"]))}</b><span>{e(_short(n["what"], 140))}</span></li>' for n in data["needs"])
+                       + f'</em></span><b>{e(_short(n["title"]))}</b><span>{e(_short(n["what"], 140))}</span></a></li>' for n in data["needs"])
         s4 = (f'<section class="scene" id="s4"><p class="kicker rise">4 · Needs {e(owner)}</p><h2 class="rise">{len(data["needs"])} thing{_s(len(data["needs"]))} waiting on {e(owner)}.</h2>'
               f'<ul class="needs rise">{rows}</ul></section>')
     else:

@@ -179,13 +179,13 @@ class PageTests(unittest.TestCase):
     def test_scene_four_names_the_owner_and_each_thing_waiting(self):
         h = self.page(owner="Troy")
         self.assertIn("2 things waiting on Troy.", h)
-        self.assertEqual(h.count('<li class="need">'), 2)
+        self.assertEqual(h.count('<a class="need" href='), 2)
         self.assertIn("Friendly or formal?", h)
 
     def test_many_cards_are_capped_to_dots_and_a_count(self):
         many = [card(f"c{i}", f"Thing{i} work", "todo") for i in range(story.MAX_DOTS + 15)]
         h = self.page(many)
-        self.assertEqual(h.count('<i class="dot '), story.MAX_DOTS)
+        self.assertEqual(h.count('<a class="dot '), story.MAX_DOTS)
         self.assertIn("+15 more", h)
 
     def test_more_themes_than_fit_end_in_a_line(self):
@@ -195,6 +195,54 @@ class PageTests(unittest.TestCase):
         d = story.collect(tasks, now=NOW)
         if len(d["themes"]) > story.MAX_THEMES:
             self.assertIn("more theme", story.build_html(d))
+
+
+class LinkTests(unittest.TestCase):
+    """Every card the page shows opens that card on the board (/#<id>, the hash the board opens a panel from); the days are counts, so they link nowhere."""
+    def page(self, tasks=None, base="", owner="you"):
+        return story.build_html(story.collect(sample() if tasks is None else tasks, now=NOW, owner=owner), base)
+
+    def hrefs(self, h, cls):
+        return re.findall(r'<a class="%s[^"]*" href="([^"]+)"' % cls, h)
+
+    def test_every_dot_opens_its_card(self):
+        h = self.page()
+        self.assertEqual(sorted(self.hrefs(h, "dot")), sorted(f"/#{i}" for i in ("b1", "b2", "b3", "d1", "d2", "s1", "s2")))
+        self.assertNotIn('<i class="dot', h)   # a dot is a link, not a bare mark
+
+    def test_a_dot_keeps_its_title_and_has_a_name_for_a_screen_reader(self):
+        h = self.page()
+        self.assertIn('title="Billing: reconcile month end" aria-label="Billing: reconcile month end (Working)"', h)
+
+    def test_each_row_in_needs_you_opens_its_card(self):
+        self.assertEqual(sorted(self.hrefs(self.page(), "need")), ["/#d2", "/#s1"])
+
+    def test_a_theme_sentence_opens_the_card_it_is_about(self):
+        d = story.collect(sample(), now=NOW)
+        by = {t["name"]: t for t in d["themes"]}
+        self.assertEqual(by["Billing"]["focus"], "b3")   # the one in progress, not a finished one
+        self.assertEqual(by["Search"]["focus"], "s1")    # waiting on the owner beats a card that merely waits
+        self.assertRegex(story.build_html(d), r'<p><a href="/#b3">[^<]*reconcile month end</a></p>')
+
+    def test_the_link_follows_the_base_and_an_odd_id_is_escaped(self):
+        h = self.page([card("a b&c/d", "Odd: one", "todo"), card("a b&c/e", "Odd: two", "todo")], base="/b/x")
+        self.assertIn('href="/b/x/#a%20b%26c%2Fd"', h)
+        self.assertNotIn('href="/#', h)
+
+    def test_the_days_are_not_links(self):
+        h = self.page()
+        day_list = h[h.index('class="days'):]
+        self.assertNotIn("<a ", day_list.split("</ol>")[0])
+
+    def test_a_card_in_the_flow_is_reachable_by_keyboard_and_touch(self):
+        css = story.CSS
+        self.assertIn("a.dot:focus-visible", css)
+        self.assertIn("a.need:focus-visible", css)
+        self.assertRegex(css, r"a\.dot::after\{content:\"\";position:absolute;inset:-4px\}")   # a 16px dot with a 24px tap area
+
+    def test_the_page_still_loads_nothing_from_outside(self):
+        h = self.page()
+        self.assertNotRegex(h, r"""(?:src|href)=["']https?://""")
 
 
 class WorkProfileTests(unittest.TestCase):

@@ -241,7 +241,8 @@ another agent's lane refuses it (red outline, no insertion line, a toast says wh
 a flow from Waiting to Working to Done with every card a dot, one colour per theme; one card per theme with a one-line sentence and "n of m done"; only what
 is waiting on you (or a calm "nothing"); and what was finished each day. A theme is a work area named by a word several titles share, as in the Done
 summary, or the agent on the cards when none is shared. It is written from the board's own cards with fixed templates: no model, no network, nothing started,
-so it is the same on the work profile. It follows light and dark, a phone width and reduced motion (no entrance animation at all).
+so it is the same on the work profile. It follows light and dark, a phone width and reduced motion (no entrance animation at all). Every card on it is a link:
+click a dot, a theme's sentence or a row under "Needs you" (or Tab to it and press Enter) and the board opens with that card's panel; Back returns to the Story.
 
 ### Done summary
 

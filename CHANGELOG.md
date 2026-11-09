@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Story items open their card (Nov 9)
+- Every card on the Story page is now a link to that card on the board, with its panel (details, history) open: each dot in the flow, the sentence on a theme card
+  (the card it is about), and each row under "Needs you" (with a chevron, since touch has no hover). Click, Tab then Enter, and a tap all work; a dot keeps its
+  16 px look with a 24 px tap area, and each has a name for a screen reader (title and stage). Back returns to the Story. The days are counts, so they link nowhere.
+  Same look in light, dark and a phone width; no new request, nothing started, so the work profile is unchanged.
+
 ### Story: the work in plain words, five scenes you scroll, a fourth tab (Nov 9)
 - New page `/story` and a **Story** tab next to Load (on the board, the Done summary, the reports list and every card report). Scene 1 is one sentence and a ring
   (finished in 7 days, in progress, waiting); scene 2 a flow Waiting, Working, Done with every card a dot in its theme's colour; scene 3 a card per theme with a
