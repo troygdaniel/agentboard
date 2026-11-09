@@ -174,12 +174,37 @@ def _top(mod):
     return mod.lstrip(".").split(".")[0]
 
 
+NEWER_STDLIB = frozenset({"tomllib"})   # standard library on 3.11+, imported inside try/except by tomlread.py: not "third-party" on a 3.9 or 3.10 run
+
+
+def _stdlib_names():
+    """The standard library's top-level module names: sys.stdlib_module_names on Python 3.10+; on 3.9 (what /usr/bin/python3 is on a Mac)
+    read from the running interpreter's own library folder, so the third-party check still runs there. None only when that folder cannot be read."""
+    names = getattr(sys, "stdlib_module_names", None)
+    if names is not None:
+        return names
+    try:
+        import sysconfig
+        lib = Path(sysconfig.get_path("stdlib"))
+        found = set(sys.builtin_module_names) | NEWER_STDLIB
+        for p in lib.iterdir():
+            if p.suffix == ".py":
+                found.add(p.stem)
+            elif p.is_dir() and (p / "__init__.py").is_file():
+                found.add(p.name)
+        for p in (lib / "lib-dynload").glob("*.so"):
+            found.add(p.name.split(".")[0])
+        return frozenset(found) if len(found) > 100 else None   # a folder that gave almost nothing was not the library: say "not checked"
+    except (OSError, KeyError):
+        return None
+
+
 def static_checks(root=None):
     root = Path(root) if root else HERE
     files = sorted(p for p in root.glob("*.py"))
     scans = {p.name: scan_file(p) for p in files}
     res = []
-    stdlib = getattr(sys, "stdlib_module_names", None)
+    stdlib = _stdlib_names()
 
     # 1. network-capable imports, file by file
     bad, allowed_seen = [], []

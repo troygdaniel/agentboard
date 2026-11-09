@@ -173,8 +173,11 @@ class RealServer(Base):
         self.port = free_port()
         e = {**os.environ, "PYTHONPATH": str(Path(agentboard.__file__).resolve().parents[1]), "AGENTBOARD_DIR": str(self.board),
              "AGENTBOARD_HOME": str(self.root / "home"), "PYTHONDONTWRITEBYTECODE": "1", **env}
+        # A suite started as a background job (nohup, cron, an agent's run_in_background) has SIGINT ignored, and a child inherits that:
+        # Python then installs no KeyboardInterrupt handler and the Ctrl+C below never stops the server. Put the default back.
         proc = subprocess.Popen([sys.executable, "-m", "agentboard", "serve", "--no-open", "--port", str(self.port)], env=e,
-                                stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                                stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                                preexec_fn=lambda: signal.signal(signal.SIGINT, signal.SIG_DFL))
         self.addCleanup(lambda: proc.poll() is None and proc.kill())
         deadline = time.time() + 15
         while time.time() < deadline and not serverstate.read(self.board, proc.pid):

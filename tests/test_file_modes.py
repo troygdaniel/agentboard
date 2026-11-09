@@ -33,7 +33,9 @@ class Session:
         self.home = self.root / "home"
         self.home.mkdir()
         self.env = {k: v for k, v in os.environ.items() if not k.startswith("AGENTBOARD_") and k != "PYTHONPATH"}
-        self.env.update({"HOME": str(self.home), "PYTHONPATH": SRC, **(extra_env or {})})
+        # PYTHONDONTWRITEBYTECODE: Apple's python 3.9 (/usr/bin/python3) keeps its bytecode cache under $HOME/Library/Caches, so under this
+        # throwaway HOME every run would write ~190 .pyc files that are Python's, not the board's ("nothing is written under HOME" would fail).
+        self.env.update({"HOME": str(self.home), "PYTHONPATH": SRC, "PYTHONDONTWRITEBYTECODE": "1", **(extra_env or {})})
         self.board = self.work / ".agentboard"
 
     def run(self, *cmds, umask="022"):
