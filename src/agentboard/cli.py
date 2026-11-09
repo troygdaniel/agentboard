@@ -1808,6 +1808,9 @@ def _plugins_off_hint(argv, sub, code):
               file=sys.stderr)
 
 
+LOCKED_OUT_HELP = {"dictate"}   # home-only commands whose help line is left out when the lock is on (see add() in main)
+
+
 def main(argv=None):
     if argv is None:   # the real command line, not a test calling main([...]): private files from here on (private.py)
         private.tighten_process()
@@ -1819,7 +1822,11 @@ def main(argv=None):
     sub = p.add_subparsers(dest="cmd", required=True)
 
     def add(name, fn, help):
-        sp = sub.add_parser(name, help=help)
+        # a command that is refused on a locked-down machine (the work profile) is not advertised there: `dictate` says "records the mic" in
+        # the command list of a profile that promises no microphone. It still runs, and says it is locked off (voice.py), if someone types it
+        # (no `help` argument at all: argparse.SUPPRESS on a subcommand prints a literal ==SUPPRESS== line before Python 3.13)
+        kw = {} if name in LOCKED_OUT_HELP and lockdown.locked(name) else {"help": help}
+        sp = sub.add_parser(name, **kw)
         sp.set_defaults(fn=fn)
         return sp
 

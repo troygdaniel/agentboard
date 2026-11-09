@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### The work profile no longer advertises the microphone command (Nov 9)
+- `agentboard --help` on a work-profile (locked-down) machine listed `dictate: records the mic, transcribes on this Mac (whisper.cpp)` in a profile that promises
+  no microphone. The command is refused there already (`voice is locked off on this machine`); now its row is left out of the command list while the lock is on.
+  Typing it still gives that message, and a machine without the lock lists it as before. (`work-ready-ux`: first run on the work profile, walked wide and narrow,
+  light and dark: no console errors, nothing leaves the machine, no other home-only wording found)
+- Not covered: the command name still shows in the `{init,profile,...}` usage line, which argparse builds from every command.
+
 ### Settings in tabs: General, Sound, Agents and chat, and a tab for each plugin, with search (Nov 8)
 - The Settings sheet was one 480px column of 19 sound and look controls, 2,164px tall; the settings that were not sound sat below the fold. It is now 720px
   wide with a tab list on the left (the screen, with a strip of tabs, on a phone): **General** (Theme, the Look rows, the board's owner and stale minutes),
