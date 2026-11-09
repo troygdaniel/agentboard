@@ -3,6 +3,7 @@ Each test turns the lock on and makes subprocess and urllib fail the test if the
 import contextlib
 import io
 import os
+import re
 import tempfile
 import unittest
 from datetime import datetime
@@ -113,6 +114,43 @@ class Spawn(Locked):
                     code = e.code if isinstance(e.code, int) else 1
                     err.write(str(e.code))
         self.assertNotEqual(code, 0)
+        self.assertIn("locked", err.getvalue())
+
+
+class HelpListing(Locked):
+    """The command list of a locked-down machine does not advertise the microphone command (work-ready-ux): it is refused there anyway."""
+
+    def help_text(self):
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            try:
+                cli.main(["--help"])
+            except SystemExit:
+                pass
+        return out.getvalue()
+
+    def test_locked_help_has_no_mic_line(self):
+        text = self.help_text()
+        self.assertNotIn("records the mic", text)
+        self.assertNotIn("whisper", text)
+        self.assertNotIn("SUPPRESS", text)   # argparse prints a literal ==SUPPRESS== for a hidden subcommand before Python 3.13
+        self.assertIsNone(re.search(r"^ {4}dictate\b", text, re.M))   # no row for it in the command list
+        self.assertIsNotNone(re.search(r"^ {4}spawn\b", text, re.M))   # the other rows are still listed
+
+    def test_unlocked_help_still_lists_dictate(self):
+        with self.unlocked():
+            text = self.help_text()
+        self.assertIn("records the mic", text)
+        self.assertIsNotNone(re.search(r"^ {4}dictate\b", text, re.M))
+
+    def test_the_hidden_command_still_says_it_is_locked(self):
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err), contextlib.redirect_stdout(err):
+            with mock.patch.dict(os.environ, {"AGENTBOARD_DIR": str(self.dir)}):
+                try:
+                    cli.main(["dictate", "--file", str(self.root / "x.wav")])
+                except SystemExit as e:
+                    err.write(str(e.code))
         self.assertIn("locked", err.getvalue())
 
 
