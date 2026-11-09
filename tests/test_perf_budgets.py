@@ -86,10 +86,21 @@ class Scale(unittest.TestCase):
     def test_each_polled_route_cold_cached_and_304(self):
         for path, label in (("/api/tasks", "/api/tasks"), ("/api/hud", "/api/hud"), ("/api/chat", "/api/chat")):
             with self.subTest(path):
-                def cold():
+                # A cold poll is a GET right after a write moved the file. The write (a 2 MB rewrite with an fsync) is not in the budget: the
+                # figures above measured the GET alone, and a busy disk made the sum fail on its own. So each try touches first and times only
+                # the GET. A retry touches again, so the bytes to compare with the cached ones are the LAST try's (timing.fast hands back the
+                # first, which made a slow first request after a fresh seed look like a stale cache: seen in shuffled order on Python 3.9).
+                tries, best, lim = [], float("inf"), timing.limit(BUDGET[f"{label} cold"])
+                for _ in range(timing.TRIES):
                     self.touch()
-                    return self.get(path)
-                code, body, hdr = self.check(f"{label} cold", cold)
+                    dt, res = timing.timed(self.get, path)
+                    tries.append(res)
+                    best = min(best, dt)
+                    if best < lim:
+                        break
+                    lim = timing.limit(BUDGET[f"{label} cold"], fresh=True)
+                self.assertLess(best, lim, f"{label} cold: {best * 1000:.0f} ms, budget {lim * 1000:.0f} ms (x{timing.factor():.1f} for this machine)")
+                code, body, hdr = tries[-1]
                 self.assertEqual(code, 200)
                 self.assertLess(len(body), SIZE_BUDGET[path], f"{path} is {len(body)} bytes")
                 tag = hdr.get("ETag")
