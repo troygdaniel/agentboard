@@ -191,7 +191,7 @@ def lookup(store, query, only=None, limit=DEFAULT_LIMIT):
     if only is not None and only not in sources:
         raise BoardError(f"unknown source '{only}'; the sources here are: {', '.join(sources)}")
     limit = max(1, min(MAX_LIMIT, int(limit)))
-    tasks = store.load()
+    tasks = store.load_all()   # done cards still on the board, and the cleared ones in archive.json
     hits, notes = [], []
     for name in ([only] if only else list(sources)):
         if name == "cards":

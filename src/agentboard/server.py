@@ -350,7 +350,7 @@ def make_handler(default_store, port):
             elif url.path == "/api/hud":
                 def build_hud():
                     conf = _config(self.store)
-                    data = hud.build(self.store.load(), abandoned_min=hud.stale_minutes(conf), retired=hud.retired(conf), roster=hud.roster(conf), owner=self.store.owner)
+                    data = hud.build(self.store.load_all(), abandoned_min=hud.stale_minutes(conf), retired=hud.retired(conf), roster=hud.roster(conf), owner=self.store.owner)
                     data["backup"] = self.store.backups.status()   # {last_backup_min, snapshots, last_sync, sync_dir}: the HUD's "backup N min ago" chip
                     data["watchdog"] = watchdog.findings(self.store, stale_min=hud.stale_minutes(conf))   # the ways the board is stuck between agents, each with its fix
                     return json.dumps(data).encode()
@@ -372,7 +372,9 @@ def make_handler(default_store, port):
                                   "agent_colors": {str(k): v for k, v in colors.items() if isinstance(v, str)} if isinstance(colors, dict) else {}})
             elif url.path == "/api/task":
                 try:
-                    t = dict(Store.get(self.store.load(), (q.get("id") or [""])[0]))
+                    wanted = (q.get("id") or [""])[0]
+                    live = self.store.load()
+                    t = dict(Store.get(live if any(x["id"] == wanted for x in live) else self.store.load_all(), wanted))   # a cleared card's detail still opens (from archive.json)
                     if t.get("body_md"):
                         # rendered here, not stored: agent text is untrusted, and to_html()
                         # never passes raw HTML through, so the client can insert it as-is

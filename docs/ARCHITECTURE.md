@@ -25,7 +25,7 @@ is the developer's.
 
 | Module | What it is |
 |---|---|
-| `store.py` | `Store`: the one data file `tasks.json`, read and written under an exclusive `fcntl` lock on `.agentboard/.lock`, every write atomic. Statuses (`backlog`, `todo`, `doing`, `done`), the card fields and their caps (`TITLE_MAX` 200, `DESCRIPTION_MAX` 20,000, `STATUS_MAX` 1,000, `BODY_MAX` 60,000), the agent lifecycle methods (`add`, `start`, `claim`, `update`, `ask`, `review`, `answer`, `done`, `move`, `edit`), subtasks and blockers, and the chat (messages live in the same file with `chat_seq` and the `chat_agents` switch). Every string is passed through the masker on its way in. |
+| `store.py` | `Store`: the live data file `tasks.json` (and `archive.json`, where `clear` moves finished cards; `load_all` reads both), read and written under an exclusive `fcntl` lock on `.agentboard/.lock`, every write atomic. Statuses (`backlog`, `todo`, `doing`, `done`), the card fields and their caps (`TITLE_MAX` 200, `DESCRIPTION_MAX` 20,000, `STATUS_MAX` 1,000, `BODY_MAX` 60,000), the agent lifecycle methods (`add`, `start`, `claim`, `update`, `ask`, `review`, `answer`, `done`, `move`, `edit`), subtasks and blockers, and the chat (messages live in the same file with `chat_seq` and the `chat_agents` switch). Every string is passed through the masker on its way in. |
 | `backup.py` | `write_atomic` (temp file, flush, rename; the previous version kept as `tasks.json.bak`, a hard link), hourly gzip snapshots in `.agentboard/backups/`, pruning (newest per hour for 48 h, per day for 30 d), the nightly copy to `[backup] sync_dir`. |
 | `boards.py` | Named boards: the registry `~/.agentboard/boards.toml` (`AGENTBOARD_HOME` moves it), `agentboard board new|add|list|use|rm`, and how `find_dir` resolves which board a command means. |
 | `redact.py` | The masker: secret-shaped strings (cloud and API keys, tokens, JWTs, private-key blocks, `Authorization:` values, assigned secrets, URL passwords) become `[redacted …]` where text enters the store. It matches on a copy with invisible characters removed and look-alike dashes and fullwidth forms folded, and masks the original by span. `[redact]` in config.toml adds patterns or phone masking. |
@@ -100,6 +100,7 @@ Everything is a file. Nothing is a database, a daemon of its own or a cloud.
 |---|---|---|---|
 | `.agentboard/tasks.json` | `store.py` (every CLI command and API call that changes the board) | everyone | cards, chat, `chat_seq`, the `chat_agents` switch; indent 2 |
 | `.agentboard/tasks.json.bak` | `backup.write_atomic` | `restore previous`, `verify` | the version before the last save (a hard link) |
+| `.agentboard/archive.json`, `archive.json.bak` | `store.clear_done`, `bulk_archive` (cards moving out), `unarchive` and `claim --force` (cards coming back) | `load_all`: `recall`, `lookup`, the HUD, `list --all`, the summary; `verify` | the cleared cards, same shape as tasks.json (`tasks` only); the live board never reads it, so a damaged archive cannot stop the page |
 | `.agentboard/.lock` | `store._lock` | | empty; the `fcntl` lock lives on it |
 | `.agentboard/backups/tasks-YYYYMMDD-HHMM.json.gz`, `backups/.state.json` | `backup.Backups.tick` (whoever saves next, and the server every 5 min) | `restore`, `verify`, the HUD's backup age | hourly for 48 h, daily for 30 d; manual snapshots are never pruned |
 | `.agentboard/config.toml` | `agentboard init` (once, every option commented), then you | `prompt.load_config` and every module with a section | never written by the board after `init` |
@@ -165,7 +166,8 @@ own prompt). In `store.py` terms:
   is the mean of its subtasks. `ask` sets `needs_input` with a `question`; the owner's reply (`POST /api/reply`) lands in `reply`, and
   `agentboard answer <id> --wait` blocks until it does. `review` sets the `review` flag with a one-line result and an optional markdown body;
   **only the owner** moves a card to `done` (the `done` command is theirs; agents are told never to run it). `move` changes columns; `clear`
-  archives the done ones (kept for history and the HUD).
+  archives the done ones: they move from `tasks.json` to `archive.json` (kept for history and the HUD through `load_all`; a card still flagged
+  `archived` inside `tasks.json` counts the same and moves on the next clear).
 - Every card gets subtasks (`add --parent`); the board flags a Doing card without them. `blocked_by` draws a lock until the blocker is done;
   `agentboard wait <id>` blocks until a status is reached.
 - Chat: `chat send --name X --to Y --topic T`, `chat inbox --name X --wait N` (the wait that keeps a session reachable; it registers a

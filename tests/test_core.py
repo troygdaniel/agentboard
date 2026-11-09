@@ -583,10 +583,12 @@ class ClearTests(unittest.TestCase):
             s.move("a", "done")
             s.add("B", status="todo")
             self.assertEqual(s.clear_done(), ["a"])
-            self.assertTrue(Store.get(s.load(), "a")["archived"])
-            self.assertEqual(hud.build(s.load())["totals"]["done_today"], 1)   # HUD still counts it
+            self.assertEqual([t["id"] for t in s.load()], ["b"])   # out of the live file...
+            self.assertTrue(Store.get(s.load_archived(), "a")["archived"])   # ...into archive.json
+            self.assertEqual(hud.build(s.load_all())["totals"]["done_today"], 1)   # HUD still counts it
             s.unarchive(["a"])
             self.assertNotIn("archived", Store.get(s.load(), "a"))
+            self.assertEqual(s.load_archived(), [])
 
 
 class SubtaskTests(unittest.TestCase):

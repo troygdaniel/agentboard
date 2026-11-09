@@ -234,7 +234,7 @@ class RecallTests(Base):
         self.s.update("old-lock-fix", 100, "switched the lock to flock on the fd", status="done")
         self.s.clear_done()
         self.s.chat_send("AGENT-2", "flock on the fd works across threads too", to="all", topic="learn", detail="fcntl.flock vs lockf")
-        rows = agentchat.recall(self.s.load(), self.s.chat_list(), "lock flock")
+        rows = agentchat.recall(self.s.load_all(), self.s.chat_list(), "lock flock")   # the cleared card is in archive.json now
         kinds = [(r["kind"], r.get("id") or r.get("seq")) for r in rows]
         self.assertIn(("card", "old-lock-fix"), kinds)
         self.assertIn(("card", "harden-webhook-retries"), kinds)
@@ -246,7 +246,7 @@ class RecallTests(Base):
         one = agentchat.recall(self.s.load(), [], "", card="harden-webhook-retries")
         self.assertEqual(len(one), 1)
         self.assertEqual([e["text"] for e in one[0]["log"]][-1], "retry loop in place; fcntl locks are per process")
-        mine = agentchat.recall(self.s.load(), [], "", agent="agent-2")
+        mine = agentchat.recall(self.s.load_all(), [], "", agent="agent-2")   # the cleared card is in archive.json
         self.assertEqual([r["id"] for r in mine], ["old-lock-fix"])
         self.assertEqual(agentchat.recall(self.s.load(), [], "nothing like this"), [])
 

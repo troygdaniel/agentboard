@@ -509,7 +509,7 @@ def draft_reply(store, name, claude, model=None, budget=None, inbox=None, limit=
     inbox = inbox if inbox is not None else store.chat_inbox(name)[-limit:]
     if not inbox:
         return None
-    tasks = store.load()
+    tasks = store.load_all()   # the drafter's memory reaches the cleared cards too
     words = " ".join(m["text"] for m in inbox)
     mem = recall(tasks, [], words, limit=4, log_lines=3) + recall(tasks, [], "", agent=name, limit=3, log_lines=3)
     from . import prompt as promptlib

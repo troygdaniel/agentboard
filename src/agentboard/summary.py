@@ -710,6 +710,6 @@ def build_html(data, base=""):
 
 
 def build(store, since=DEFAULT_SINCE, agent=None, today=None):
-    data = collect(store.load(), since, agent, today, store.owner)
+    data = collect(store.load_all(), since, agent, today, store.owner)   # finished work since N days, cleared cards included
     data["agent"] = agent or ""
     return data
