@@ -32,7 +32,7 @@ Check: `agentboard --version`.
     agentboard serve           # http://localhost:8765, Ctrl+C stops
 
 Agents use the `agentboard` command from other terminals in the same project folder.
-To give them the protocol, paste the output of `agentboard init --print-instructions` (or the README's "protocol" section) into the project's `CLAUDE.md`.
+To give them the protocol, run `agentboard init --instructions` (it adds the agent instructions to the project's `CLAUDE.md`).
 
 ## 4. For the security reviewer
 
