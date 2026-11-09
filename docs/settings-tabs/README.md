@@ -24,10 +24,10 @@ Hear buttons.
 
 | View | Before | After |
 |------|--------|-------|
-| Wide, light | `before-sheet-wide-light.png` | `after-general-wide-light.png`, `after-sound-wide-light.png`, `after-texts-wide-light.png`, `after-agents-wide-light.png`, `after-security-wide-light.png`, `after-backup-wide-light.png`, `after-search-wide-light.png` |
-| Wide, dark | `before-sheet-wide-dark.png` | `after-general-wide-dark.png`, `after-sound-wide-dark.png`, `after-texts-wide-dark.png`, `after-security-wide-dark.png`, `after-backup-wide-dark.png` |
+| Wide, light | `before-sheet-wide-light.png` | `after-general-wide-light.png`, `after-sound-wide-light.png`, `after-agents-wide-light.png`, `after-security-wide-light.png`, `after-backup-wide-light.png`, `after-search-wide-light.png` |
+| Wide, dark | `before-sheet-wide-dark.png` | `after-general-wide-dark.png`, `after-sound-wide-dark.png`, `after-security-wide-dark.png`, `after-backup-wide-dark.png` |
 | 390px, light | `before-sheet-narrow-light.png` | `after-general-narrow-light.png`, `after-sound-narrow-light.png`, `after-security-narrow-light.png` |
-| 390px, dark | `before-sheet-narrow-dark.png` | `after-general-narrow-dark.png`, `after-sound-narrow-dark.png`, `after-texts-narrow-dark.png`, `after-backup-narrow-dark.png`, `after-search-narrow-dark.png` |
+| 390px, dark | `before-sheet-narrow-dark.png` | `after-general-narrow-dark.png`, `after-sound-narrow-dark.png`, `after-backup-narrow-dark.png`, `after-search-narrow-dark.png` |
 
 The "before" is the old sheet's first screen; the rest of it scrolled.
 

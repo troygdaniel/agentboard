@@ -1,7 +1,6 @@
 # Settings: tabs
 
-**Status: designed in stage 1 (4d3b032), built in stage 2 (the shell, General, Sound, Agents and chat, search, the plugin API) and phase 2 (the Security and Backup and data tabs from `GET /api/settings`).** The card is `settings-ui-tabs`. Mockup (every tab, wide and narrow, a search state, light and dark): `docs/settings-tabs-mockup.html`,
-with `settings-tabs-design-wide-light.png`, `-wide-dark.png`, `-narrow-light.png` and `-narrow-dark.png`. Every value in it is made up.
+**Status: designed in stage 1 (4d3b032), built in stage 2 (the shell, General, Sound, Agents and chat, search, the plugin API) and phase 2 (the Security and Backup and data tabs from `GET /api/settings`).** The card is `settings-ui-tabs`. Mockup images (every tab, wide and narrow, a search state, light and dark): `settings-tabs-design-wide-light.png`, `-wide-dark.png`, `-narrow-light.png` and `-narrow-dark.png`. Every value in it is made up.
 
 ## The problem
 
