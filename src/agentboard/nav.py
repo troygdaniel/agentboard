@@ -1,9 +1,9 @@
 """One top bar for every page: the board, the by-agent view, the HUD, the Done summary, the reports list and each card report share
-the same brand and the same three tabs, so moving between them never feels like leaving the product. The board draws the same markup in index.html;
+the same brand and the same four tabs, so moving between them never feels like leaving the product. The board draws the same markup in index.html;
 the server-rendered pages take it from here. Links are same-origin only, prefixed with the board's base path."""
 import html
 
-TABS = (("board", "Board", "/"), ("agents", "By agent", "/agents"), ("hud", "Load", "/hud"))
+TABS = (("board", "Board", "/"), ("agents", "By agent", "/agents"), ("hud", "Load", "/hud"), ("story", "Story", "/story"))
 
 LOGO = ('<svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="1.5" y="2" width="3.5" height="12" rx="1.2" fill="currentColor" opacity=".35"/>'
         '<rect x="6.25" y="2" width="3.5" height="8" rx="1.2" fill="currentColor"/><rect x="11" y="2" width="3.5" height="5" rx="1.2" fill="currentColor" opacity=".6"/></svg>')

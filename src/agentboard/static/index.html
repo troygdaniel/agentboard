@@ -1450,7 +1450,7 @@
 <div class="wrap">
   <header>
     <h1><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="1.5" y="2" width="3.5" height="12" rx="1.2" fill="currentColor" opacity=".35"/><rect x="6.25" y="2" width="3.5" height="8" rx="1.2" fill="currentColor"/><rect x="11" y="2" width="3.5" height="5" rx="1.2" fill="currentColor" opacity=".6"/></svg>agentboard</h1>
-    <nav class="ab-tabs" aria-label="Pages"><a class="tab on" id="tab-board" href="./" aria-current="page" title="Every task in three columns: Todo, Doing and Done">Board</a><a class="tab" id="tab-agents" href="./agents" title="One lane per agent: who is doing what">By agent</a><a class="tab" id="hud-btn" href="#/hud" role="button" aria-controls="hud" title="A live view of who is working and who is waiting on you (h)">Load</a></nav>
+    <nav class="ab-tabs" aria-label="Pages"><a class="tab on" id="tab-board" href="./" aria-current="page" title="Every task in three columns: Todo, Doing and Done">Board</a><a class="tab" id="tab-agents" href="./agents" title="One lane per agent: who is doing what">By agent</a><a class="tab" id="hud-btn" href="#/hud" role="button" aria-controls="hud" title="A live view of who is working and who is waiting on you (h)">Load</a><a class="tab" id="tab-story" href="./story" title="The work in plain words: five scenes you scroll">Story</a></nav>
     <button class="btn" id="new-btn" type="button" aria-label="New task (n)" title="New task (n)"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><span class="lbl">New task</span></button>
     <button class="btn" id="later-btn" aria-controls="later" title="Tasks parked for another day (l)">Later <span id="later-n"></span></button>
     <span id="ab-slot-header" style="display:contents"></span>
@@ -4230,7 +4230,7 @@ document.addEventListener('fullscreenchange', () => { if (!document.fullscreenEl
 $('hud-btn').onclick = e => { e.preventDefault(); if (!hudIsOpen()) openHud(); };   // a tab: clicking the lit one does nothing (h and Esc close it)
 // tab links are relative to the page, which is wrong for /hud (its folder is still the board): pin them to the board's base. A plain click flips the view
 // without a reload (Load is an overlay, Board and By agent redraw in place); the pop-out window has no board, so it opens one
-$('tab-board').href = BASE + '/'; $('tab-agents').href = BASE + '/agents';
+$('tab-board').href = BASE + '/'; $('tab-agents').href = BASE + '/agents'; $('tab-story').href = BASE + '/story';   // Story is its own page: a plain link
 ['tab-board', 'tab-agents'].forEach((id, i) => { $(id).onclick = e => { if (e.metaKey || e.ctrlKey || e.shiftKey || e.button) return; e.preventDefault(); if (SOLO) window.open(BASE + (i ? '/agents' : '/'), 'agentboard-board'); else goView(i); }; });
 applyView();
 if (BYAGENT) document.title = APP + ' · by agent';

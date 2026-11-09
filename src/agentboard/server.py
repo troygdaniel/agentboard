@@ -17,7 +17,7 @@ from . import profile as profilelib
 from . import hooks as hookslib
 from . import listeners, watchdog
 from . import transcript as transcriptlib
-from . import plugins, reports, runs, serverstate, settingsview, summary, voice
+from . import plugins, reports, runs, serverstate, settingsview, story, summary, voice
 from . import markdown as mdlib
 from . import prompt as promptlib
 from .store import BoardError, Store, subtask_counts, subtask_list
@@ -303,6 +303,8 @@ def make_handler(default_store, port):
                     self._send(400, {"error": str(e)})
                     return
                 self._send(200, summary.build_html(data, self.base).encode(), "text/html; charset=utf-8", REPORT_HEADERS)
+            elif url.path in ("/story", "/story/"):
+                self._send(200, story.build_html(story.build(self.store), self.base).encode(), "text/html; charset=utf-8", REPORT_HEADERS)
             elif url.path in ("/reports", "/reports/"):
                 self._send(200, reports.index_html(self.store.dir, self.base).encode(), "text/html; charset=utf-8", REPORT_HEADERS)
             elif url.path.startswith("/reports/"):

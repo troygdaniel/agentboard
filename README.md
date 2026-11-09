@@ -231,6 +231,14 @@ foot row. After it comes one column per agent with a card in Doing (its ask, rev
 There is no Done column here (it stays on the board), so the agents get the width. A card opens its panel as usual, and drags as on Board: onto Todo, or onto a lane (a lane is Doing). A drop never changes who holds a card, so
 another agent's lane refuses it (red outline, no insertion line, a toast says why); a Todo card with no agent that you drop on a lane goes to Doing under Unassigned. On a phone it is one column per screen, swipe sideways.
 
+### Story
+
+**Story** (the fourth tab, `/story`) is the work in plain words, five scenes you scroll: a sentence and a ring (finished this week, in progress, waiting);
+a flow from Waiting to Working to Done with every card a dot, one colour per theme; one card per theme with a one-line sentence and "n of m done"; only what
+is waiting on you (or a calm "nothing"); and what was finished each day. A theme is a work area named by a word several titles share, as in the Done
+summary, or the agent on the cards when none is shared. It is written from the board's own cards with fixed templates: no model, no network, nothing started,
+so it is the same on the work profile. It follows light and dark, a phone width and reduced motion (no entrance animation at all).
+
 ### Done summary
 
 **Summary** on the Done column header (and `/summary?since=1d|7d|30d|all&agent=<name>`) turns the finished cards into one page about the work

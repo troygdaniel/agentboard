@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+### Story: the work in plain words, five scenes you scroll, a fourth tab (Nov 9)
+- New page `/story` and a **Story** tab next to Load (on the board, the Done summary, the reports list and every card report). Scene 1 is one sentence and a ring
+  (finished in 7 days, in progress, waiting); scene 2 a flow Waiting, Working, Done with every card a dot in its theme's colour; scene 3 a card per theme with a
+  one-line sentence and "n of m done"; scene 4 only what is waiting on you, or a calm "nothing"; scene 5 what was finished each day for 14 days.
+- Built from the board's own cards with fixed templates in `story.py`: no model call, no network, no program started, so the work profile serves it exactly as
+  a home machine does (a test builds it with every subprocess and socket made to fail). A theme is a work area named by a word several titles share
+  (the Done summary's rule), else the agent on the cards. Backlog ("Later") is parked, so it is not in the story; a subtask belongs to its card.
+- Light, dark, a 390px phone (the flow stacks, the pager hides), and reduced motion (no entrance animation at all, nothing hidden before it). Without script
+  everything is visible. The tab row on the board still fits four tabs at 390px. (`ux-story-view`)
+- Not covered: an "Explain simply" button (the card's optional later step; it would be off by default and locked off on the work profile); a choice of window
+  (7 days and 14 days are fixed).
+
 ### By agent: a Load strip across the top (Nov 9)
 - By agent now opens with a slim strip above the lanes: one gauge per agent (a ring for the share of the last hour the agent was at work, coloured by what it is
   doing now: working, ask, review, quiet; its name and the percentage beside it) and one trend line of how many agents were working, minute by minute, over the

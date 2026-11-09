@@ -11,14 +11,14 @@ from tests.test_reports import HttpTests as _Http
 
 
 class TabsTests(unittest.TestCase):
-    def test_three_tabs_under_the_base_with_the_active_one_marked(self):
+    def test_four_tabs_under_the_base_with_the_active_one_marked(self):
         h = nav.tabs("", "agents")
-        for href in ('href="/"', 'href="/agents"', 'href="/hud"'):
+        for href in ('href="/"', 'href="/agents"', 'href="/hud"', 'href="/story"'):
             self.assertIn(href, h)
         self.assertIn('class="tab on" href="/agents" aria-current=page', h)
         self.assertEqual(h.count("tab on"), 1)
         hb = nav.tabs("/b/work", "hud")
-        for href in ('href="/b/work/"', 'href="/b/work/agents"', 'href="/b/work/hud"'):
+        for href in ('href="/b/work/"', 'href="/b/work/agents"', 'href="/b/work/hud"', 'href="/b/work/story"'):
             self.assertIn(href, hb)
         self.assertIn('class="tab on" href="/b/work/hud"', hb)
 
@@ -47,11 +47,12 @@ class SameRowTests(unittest.TestCase):
     def setUp(self):
         self.html = STATIC.read_text()
 
-    def test_the_page_has_one_tab_row_and_it_lists_the_three_tabs_in_order(self):
+    def test_the_page_has_one_tab_row_and_it_lists_the_four_tabs_in_order(self):
         rows = re.findall(r'<nav class="ab-tabs" aria-label="Pages">(.*?)</nav>', self.html)
         self.assertEqual(len(rows), 1)   # the board's header only: Load has no bar of its own, so it cannot differ
-        self.assertEqual(re.findall(r'class="tab[^"]*"[^>]*>([^<]+)</a>', rows[0]), ["Board", "By agent", "Load"])
-        self.assertEqual(re.findall(r">([^<]+)</a>", nav.tabs("", "board")), ["Board", "By agent", "Load"])
+        self.assertEqual(re.findall(r'class="tab[^"]*"[^>]*>([^<]+)</a>', rows[0]), ["Board", "By agent", "Load", "Story"])
+        self.assertEqual(re.findall(r">([^<]+)</a>", nav.tabs("", "board")), ["Board", "By agent", "Load", "Story"])
+        self.assertIn("$('tab-story').href = BASE + '/story'", self.html)   # a plain link to its own page, pinned to the board's base like the other tabs
 
     def test_the_done_column_carries_summary_then_reports_then_clear(self):
         done = re.search(r"const clr = k === 'done' \? (.*?) : '';", self.html).group(1)

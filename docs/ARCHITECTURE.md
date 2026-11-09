@@ -51,6 +51,7 @@ is the developer's.
 | `static/voice.js` | The dictation button's script, served at `/voice.js`. |
 | `hud.py` | Aggregates the board for the Load tab: agents, activity feed, totals, timeline, stale cards (`/api/hud`). |
 | `summary.py` | The Done summary: finished cards by agent and area, as text, a Mermaid mindmap or an HTML page (`agentboard summary`). |
+| `story.py` | The Story page (`/story`): five scenes (the week, the flow, the themes, what needs you, the days) written from card data with fixed templates. No model, no network; the same on the work profile. |
 | `reports.py` | One self-contained HTML report per card entering review or done, in `.agentboard/reports/<card>-<stamp>.html`; `sweep` ages them out after `[reports] keep_hours`, always keeping the newest per card. |
 | `nav.py` | The top bar shared by every HTML page. |
 | `markdown.py` | A minimal markdown-to-HTML renderer for ask/review bodies; it never passes raw HTML through. |
