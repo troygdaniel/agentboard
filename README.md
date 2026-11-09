@@ -61,13 +61,17 @@ Then stop and start `agentboard serve` (the running server keeps the old code un
     rm -rf ~/.agentboard                                           # only if you used named boards: the registry and boards made with `agentboard board new`
     rm -rf ~/.config/agentboard                                    # only if you made it: the profile file `agentboard profile work` writes, and private-words.txt for the repo check
 
-That is the whole footprint. agentboard writes nowhere else: no launch agent, no login item, no shell profile line (pipx's `ensurepath` is pipx's own), no cache outside those folders, nothing in `~/Library` (dictation reads model files other apps installed, it writes none). `[backup] sync_dir`, if you set one, is a folder you chose; delete it yourself.
+That is the whole footprint. agentboard writes nowhere else: no launch agent, no login item, no shell profile line (pipx's `ensurepath` is pipx's own), no cache outside those folders, nothing in `~/Library` (dictation reads model files other apps installed, it writes none). The one thing outside is Python's own: the Mac's built-in Python 3.9 keeps compiled bytecode in `~/Library/Caches/com.apple.python` for any program it runs. `[backup] sync_dir`, if you set one, is a folder you chose; delete it yourself.
 
 **Offline, or a locked-down PC (no package index, no admin rights).** Both commands above fetch build tools from PyPI the first time: pipx upgrades
 its own pip (it does this even for a prebuilt wheel, so pipx is a dead end offline), and a plain pip install of the checkout builds in an isolated environment that
 downloads setuptools. A wheel needs neither. On any machine with network, build it once and carry the one file over:
 
-    rm -rf build && python3 -m pip wheel --no-deps -w dist .     # makes dist/agentboard-0.3.1-py3-none-any.whl (pure Python, works on any OS)
+    rm -rf build && python3 -m venv /tmp/agentboard-build && /tmp/agentboard-build/bin/pip wheel --no-deps -w dist .     # makes dist/agentboard-0.3.1-py3-none-any.whl (pure Python, works on any OS)
+    ls dist/                                                     # must say agentboard-0.3.1-..., never UNKNOWN-0.0.0
+
+Build inside the venv, not with `python3 -m pip wheel` directly: a Mac's built-in Python 3.9 (and some Linux system pythons) has an old pip that then uses the system's old
+setuptools, cannot read `pyproject.toml`, and says `Successfully built UNKNOWN`, a wheel with no program in it.
 
 On the offline machine, with `python3` being 3.9+:
 
