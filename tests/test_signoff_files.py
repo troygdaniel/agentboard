@@ -125,9 +125,19 @@ class TheTableIsTrue(unittest.TestCase):
         made = [str(p.relative_to(self.s.home)) for p in self.s.home.rglob("*")]
         self.assertEqual(made, [], f"the board wrote under HOME: {made}")
 
-    def test_the_table_names_the_registry_as_the_only_home_file(self):
+    def test_the_table_names_exactly_two_home_files_the_registry_and_the_machine_profile(self):
         names = [n for row in table_rows() for n in row[0] if n.startswith("~/")]
-        self.assertEqual(names, ["~/.agentboard/boards.toml"])
+        self.assertEqual(names, ["~/.agentboard/boards.toml", "~/.config/agentboard/profile"])
+
+    def test_profile_work_writes_the_one_machine_file_the_table_names_and_nothing_else_under_home(self):
+        s = Session()
+        self.addCleanup(s.close)
+        s.run("init", "profile work")
+        made = sorted(str(p.relative_to(s.home)) for p in s.home.rglob("*"))
+        self.assertEqual(made, [".config", ".config/agentboard", ".config/agentboard/profile"])
+        self.assertEqual(mode(s.home / ".config" / "agentboard" / "profile"), 0o600)
+        self.assertEqual(mode(s.home / ".config" / "agentboard"), 0o700)
+        self.assertEqual((s.home / ".config" / "agentboard" / "profile").read_text().strip(), "work")
 
 
 class TheParser(unittest.TestCase):

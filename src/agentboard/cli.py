@@ -1279,6 +1279,7 @@ def cmd_backup(a):
         print(f"{st['snapshots']} snapshots; newest {backuplib.human_age(st['last_backup_min'])}; nightly copy " + (f"to {st['sync_dir']} (last {st['last_sync'] or 'never'})" if st["sync_dir"] else "not set ([backup] sync_dir in config.toml)"))
         return
     if a.sync:
+        lockdown.refuse("the sync copy (backup --sync)")   # say the lock is why, not "no sync_dir set" (the work profile sets it)
         dest = b.sync(force=True)
         print(f"copied to {dest}" if dest else "no sync_dir set in config.toml (or nothing to copy)")
         return

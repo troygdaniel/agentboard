@@ -1,5 +1,6 @@
 """AGENTBOARD_LOCKDOWN is checked first in every path that starts a program or sends board data off the machine.
 Each test turns the lock on and makes subprocess and urllib fail the test if they are reached: refusing is not enough, nothing may start."""
+import argparse
 import contextlib
 import io
 import os
@@ -90,6 +91,16 @@ class BackupCopy(Locked):
         self.assertEqual(len(b.snapshots()), 1)   # the board's own hourly snapshot inside .agentboard is untouched
         with self.unlocked():
             self.assertEqual(b.sync_dir(), sync)
+
+    def test_backup_sync_says_the_lock_is_why_and_not_that_no_folder_is_set(self):
+        sync = self.root / "iCloud" / "agentboard-backups"
+        (self.dir / "config.toml").write_text(f'[backup]\nsync_dir = "{sync}"\n')   # a folder IS set: the old answer was "no sync_dir set in config.toml"
+        args = argparse.Namespace(list=False, sync=True, label="")
+        with mock.patch.dict(os.environ, {"AGENTBOARD_DIR": str(self.dir)}):
+            with self.assertRaises(BoardError) as raised:
+                cli.cmd_backup(args)
+        self.assertIn("locked off", str(raised.exception))
+        self.assertFalse(sync.exists())
 
 
 class Voice(Locked):
