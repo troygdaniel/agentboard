@@ -66,6 +66,7 @@ SCHEMA = {
     "board": {
         "owner": Field("str", "you", "your name: what the board, the HUD and every prompt call the human"),
         "stale_minutes": Field("int", 120, "a Doing card silent this long is marked abandoned on the board and the HUD", min=1, max=100_000),
+        "profile": Field("str", None, "work: the work profile for this board (lock, no plugins, loopback only; `agentboard init` writes it on a machine with no home setup); any value but off, home, no, false, 0 or empty also means work (a mistyped word is a lock, not a hole), and a copied config can add it, never remove it"),
     },
     "ui": {"dispatch": Field("bool", True, "show Copy prompt and the prompt preview")},
     "hud": {"retired": Field("list[str]", [], "agents hidden from the HUD; their cards and history stay")},
