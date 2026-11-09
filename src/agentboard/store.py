@@ -97,8 +97,10 @@ class Store:
     def __init__(self, board_dir):
         self.dir = Path(board_dir)
         self.path = self.dir / "tasks.json"
+        self.archive_path = self.dir / "archive.json"   # cleared cards live here, so every read of the live board stays small (see load_all)
         self.lock_path = self.dir / ".lock"
         self.committed = None   # the task list as this store last wrote it (for the step right after a commit; never a substitute for load())
+        self._archive_after = None   # a transaction's new archive, written right after tasks.json (cards coming back: live file first)
 
     @property
     def owner(self):
@@ -148,16 +150,89 @@ class Store:
         return backup.Backups(self.dir)
 
     def load(self):
+        """The live board: every card still in tasks.json (cleared cards are in archive.json; load_all has both)."""
         with self._lock():
             return self._read()["tasks"]
 
+    # -- the archive: cleared cards in their own file ------------------------
+    # `clear` (and the page's Archive) used to leave a card in tasks.json with `archived: true`, so a board that had finished two thousand cards
+    # re-read and re-served them on every poll. Now a cleared card moves to archive.json; the readers that want history (recall, lookup, the
+    # HUD, list --all, the summary) call load_all(). A card flagged `archived` inside tasks.json still counts as archived everywhere, and the
+    # next clear moves it out too.
+
+    def _read_archive(self):
+        """The cards in archive.json (lock held by the caller); none yet is an empty list. A damaged file stops with one line: it is never
+        overwritten with a guess, and the live board (load) does not read it, so the page keeps working."""
+        try:
+            data = json.loads(self.archive_path.read_text())
+        except FileNotFoundError:
+            return []
+        except ValueError as e:
+            raise BoardError(f"{self.archive_path} is not valid JSON ({e}); the version before its last save is archive.json.bak: "
+                             "check both with `agentboard verify`, then copy the good one back") from e
+        tasks = data.get("tasks") if isinstance(data, dict) else None
+        _check_cards(tasks, self.archive_path)
+        return tasks
+
+    def _write_archive(self, tasks):
+        backup.write_atomic(self.archive_path, json.dumps({"tasks": tasks}, indent=2))   # atomic; the previous version stays as archive.json.bak
+
+    def load_archived(self):
+        """Every card in archive.json."""
+        with self._lock():
+            return self._read_archive()
+
+    def load_all(self):
+        """Every card: the live board, then the archive. A card in both (an older tasks.json put back by `restore` can still hold one that was
+        cleared later) counts once, as the live one."""
+        with self._lock():
+            live = self._read()["tasks"]
+            seen = {t["id"] for t in live}
+            return live + [t for t in self._read_archive() if t["id"] not in seen]
+
+    def _move_archived_out(self, tasks):
+        """Move the archived cards out of the live list into archive.json. A card goes only when nothing live still hangs on it: a finished
+        subtask hidden under a still-open parent keeps its slot in the parent's bar, and a parent stays while one of its subtasks is live.
+        The archive is written first; if tasks.json then fails to save, the card is in both files and load_all counts it once."""
+        staying = {t["id"] for t in tasks if not t.get("archived")}
+        staying |= {t["parent_id"] for t in tasks if t["id"] in staying and t.get("parent_id")}
+        moving = [t for t in tasks if t.get("archived") and t["id"] not in staying and t.get("parent_id") not in staying]
+        if not moving:
+            return []
+        gone = {t["id"] for t in moving}
+        self._write_archive([t for t in self._read_archive() if t["id"] not in gone] + moving)
+        tasks[:] = [t for t in tasks if t["id"] not in gone]
+        return [t["id"] for t in moving]
+
+    def _pull_back(self, tasks, ids):
+        """Take cards (and their subtasks) out of the archive and put them back on the board, each at the end of its column; the archive
+        file itself is rewritten after tasks.json saves (transaction), so a failed save leaves the cards where they were. Returns the
+        cards brought back, in archive order."""
+        archive = self._read_archive()
+        wanted = set(ids)
+        wanted |= {t["id"] for t in archive if t.get("parent_id") in wanted}
+        back = [t for t in archive if t["id"] in wanted]
+        if not back:
+            return []
+        live = {t["id"] for t in tasks}
+        for t in back:
+            t.pop("archived", None)
+            if t["id"] not in live:
+                _insert(tasks, t, None)
+        self._archive_after = [t for t in archive if t["id"] not in wanted]
+        return back
+
     @contextlib.contextmanager
     def transaction(self):
-        """Yield the task list; saved on clean exit."""
+        """Yield the task list; saved on clean exit (then the archive, when a step in the transaction brought cards back from it)."""
         with self._lock():
             data = self._read()
+            self._archive_after = None
             yield data["tasks"]
             self._write(data)
+            if self._archive_after is not None:
+                self._write_archive(self._archive_after)
+                self._archive_after = None
 
     # -- helpers used by CLI and server ------------------------------------
 
@@ -298,6 +373,10 @@ class Store:
     def claim(self, task_id, name, color=None, force=False):
         name = self._scrub(name)
         with self.transaction() as tasks:
+            if not any(t["id"] == task_id for t in tasks) and any(t["id"] == task_id for t in self._read_archive()):
+                if not force:   # a cleared card is a done card: the same refusal, and the archive is not touched
+                    raise BoardError(f"{task_id} is done and cleared to archive.json (use --force to reopen it)")
+                self._pull_back(tasks, [task_id])   # claiming a cleared task (--force) puts it back on the board
             t = self.get(tasks, task_id)
             if not force and t.get("agent") == name and t["status"] == "doing":
                 return t   # this agent already holds it: claiming again changes nothing (no new log line, no cleared question or review)
@@ -685,7 +764,8 @@ class Store:
             return snap
 
     def clear_done(self):
-        """Archive every Done task: hidden from the board, kept for history and the HUD."""
+        """Archive every Done task: moved out of tasks.json into archive.json, kept for history and the HUD (load_all). Returns the ids
+        cleared now; a card archived earlier but still in tasks.json moves along with them."""
         with self.transaction() as tasks:
             parents_done = {t["id"] for t in tasks if t["status"] == "done"}
             # a finished subtask lives in its parent's card: only clear it together with a done parent
@@ -694,13 +774,16 @@ class Store:
             for t in tasks:
                 if t["id"] in ids:
                     t["archived"] = True
+            self._move_archived_out(tasks)
             return ids
 
     def unarchive(self, ids):
+        """Put archived cards back on the board, whether they sit flagged in tasks.json or were moved to archive.json (a parent brings its subtasks)."""
         with self.transaction() as tasks:
             for t in tasks:
                 if t["id"] in ids:
                     t.pop("archived", None)
+            self._pull_back(tasks, ids)
 
     def delete(self, task_id):
         """Remove a task; a parent takes its subtasks with it, a subtask just leaves its parent."""
@@ -758,6 +841,7 @@ class Store:
                     if not t.get("archived"):
                         t["archived"] = True
                         touched.append(t["id"])
+            self._move_archived_out(tasks)   # into archive.json; a subtask of a still-open parent stays, flagged, so the parent's bar keeps its slot
             return touched
 
     # -- shared chat (agents self-organizing, visible to the user) ----------

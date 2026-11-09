@@ -322,7 +322,7 @@ def cmd_edit(a):
 def cmd_list(a):
     s = _store()
     threshold = hudlib.stale_minutes(promptlib.load_config(s.dir))
-    tasks = s.load()
+    tasks = s.load_all() if a.all else s.load()   # --all: the cleared cards in archive.json too
     counts = subtask_counts(tasks)
     ids = {t["id"] for t in tasks}
     if not tasks and sys.stdout.isatty():
@@ -386,7 +386,7 @@ def cmd_tail(a):
     s = _store()
 
     def snapshot():
-        return hudlib.build(s.load(), feed_limit=TAIL_FEED_CAP)["events"]  # newest-first
+        return hudlib.build(s.load_all(), feed_limit=TAIL_FEED_CAP)["events"]  # newest-first; cleared cards' history included
 
     events = snapshot()
     # seed the watermark from the true newest event regardless of how much history --lines asks to print,
@@ -419,7 +419,7 @@ def cmd_report(a):
             raise BoardError(f"invalid --date '{a.date}'; use YYYY-MM-DD")
     else:
         day = date.today()
-    tasks = _store().load()
+    tasks = _store().load_all()   # a day's finished work includes cards cleared since
     by_id = {t["id"]: t for t in tasks}
     done = hudlib.done_on(tasks, day)
     events = hudlib.events_on(tasks, day)
@@ -765,7 +765,7 @@ def cmd_recall(a):
     s = _store()
     if not (a.query or a.card or a.agent):
         raise BoardError("say what to look for: a few words, --card <id> or --agent <name>")
-    rows = agentchat.recall(s.load(), s.chat_list(limit=500), a.query or "", agent=a.agent, card=a.card, limit=a.limit)
+    rows = agentchat.recall(s.load_all(), s.chat_list(limit=500), a.query or "", agent=a.agent, card=a.card, limit=a.limit)
     if a.json:
         print(json.dumps(rows, indent=2))
         return
@@ -1389,6 +1389,11 @@ def cmd_verify(a):
     if prev.exists():
         ok2, msg2, n2 = backuplib.verify_file(prev)
         print(f"{'ok ' if ok2 else 'BAD'} tasks.json.bak (the version before the last save)" + (f"  {n2['tasks']} tasks" if ok2 else f": {msg2}"))
+    for p, what in ((s.archive_path, "archive.json"), (Path(f"{s.archive_path}.bak"), "archive.json.bak (the version before its last save)")):
+        if p.exists():   # the cleared cards (clear moves them out of tasks.json); same shape, same check
+            oka, msga, na = backuplib.verify_file(p)
+            print(f"{'ok ' if oka else 'BAD'} {what}" + (f"  {na['tasks']} cleared cards" if oka else f": {msga}"))
+            bad += not oka
     files = b.snapshots() if a.all else b.snapshots()[:1]
     for p in files:
         ok3, msg3, n3 = backuplib.verify_file(p)
@@ -1899,7 +1904,7 @@ def main(argv=None):
     sp.add_argument("--paste", action="store_true", help="after 3 seconds press Cmd+V in the window you click (needs Accessibility for the terminal)")
     sp.add_argument("--file", help="transcribe this audio file instead of recording")
     sp.add_argument("--mic", help="avfoundation input, e.g. ':2' (default: the system's default microphone)")
-    add("clear", cmd_clear, "archive all Done tasks (kept for history and the HUD)")
+    add("clear", cmd_clear, "archive all Done tasks: moved to archive.json, kept for history and the HUD")
     sp = add("me", cmd_me, "tell the board this session's name, so mirrored messages carry it")
     sp.add_argument("--name", required=True)
     sp.add_argument("--session", help="register this name for another session id (ORCH, when an agent reports its id)")

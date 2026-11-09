@@ -583,7 +583,7 @@ Copy prompt button, the CLI and `agentboard prompt` are unaffected.
 | `answer ID [--wait] [--timeout S]` | print the reply you left on a card (agents use it to read your answer) |
 | `reports [--purge] [--hours N]` | list card reports; remove the old ones now |
 | `report [--date YYYY-MM-DD]` | markdown recap of what got done that day, by agent — for a standup or daily log |
-| `clear` | archive all Done cards (history and HUD counts kept) |
+| `clear` | archive all Done cards: they move to `archive.json` (history and HUD counts kept) |
 | `demo [--live]`, `rm --demo` | sample tasks / simulated agents |
 | `prompt <id> [--public]`, `rebuild [id] [--all]`, `instructions` | prompts and the agent snippet |
 
