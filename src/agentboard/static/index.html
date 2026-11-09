@@ -1248,6 +1248,53 @@
   .lane-chip .need { color: color-mix(in srgb, var(--err) 78%, var(--text)); }
   .lane-chip .ready { color: color-mix(in srgb, var(--ok) 78%, var(--text)); }
   @media (prefers-reduced-motion: reduce) { .lane-fade { transition: none; } }
+  /* ----- By agent: the Load strip (Nov 9). One gauge per agent for the last hour (the ring is the share of that hour the agent was at work, its
+     colour is the agent's state now, the same meaning as the lane's state word), then one trend line: how many agents were working, minute by minute.
+     A gauge scrolls to that agent's lane. Load itself stays one click away. Only By agent shows it; the Board and Load never do. ----- */
+  #load-strip { flex: none; display: flex; align-items: center; gap: 12px; margin: 0 0 12px; padding: 6px 12px 6px 8px; min-width: 0;
+    border: 1px solid var(--line); border-radius: 14px; background: var(--panel); box-shadow: inset 0 1px 0 var(--panel-hi), var(--panel-sh); }
+  #load-strip[hidden], body:not(.byagent) #load-strip, body:has(#hud.open) #load-strip { display: none; }
+  .ls-gauges { display: flex; flex: 1 1 auto; gap: 4px; min-width: 0; padding: 3px 2px; overflow-x: auto; scrollbar-width: none; }
+  /* more gauges than fit: the row swipes or scrolls sideways under a hidden scrollbar, so the edge that has more fades out (stripFade) */
+  .ls-gauges.fade-r { -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 36px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 36px), transparent); }
+  .ls-gauges.fade-l { -webkit-mask-image: linear-gradient(to left, #000 calc(100% - 36px), transparent); mask-image: linear-gradient(to left, #000 calc(100% - 36px), transparent); }
+  .ls-gauges.fade-l.fade-r { -webkit-mask-image: linear-gradient(to right, transparent, #000 36px, #000 calc(100% - 36px), transparent); mask-image: linear-gradient(to right, transparent, #000 36px, #000 calc(100% - 36px), transparent); }
+  .ls-gauges::-webkit-scrollbar { display: none; }
+  .ls-g { --st: var(--neutral); flex: none; display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 3px 12px 3px 5px; border: 1px solid transparent; border-radius: 999px;
+    background: transparent; color: var(--text); font: inherit; text-align: left; cursor: pointer; transition: background-color .15s, border-color .15s; }
+  .ls-g:hover { background: var(--chip); border-color: var(--line); }
+  .ls-g:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .ls-g.working { --st: var(--run); } .ls-g.waiting, .ls-g.abandoned { --st: var(--err); } .ls-g.review { --st: var(--ok); } .ls-g.quiet { --st: var(--warn); }
+  .ls-g.idle { opacity: .55; cursor: default; }
+  .ls-ring { position: relative; flex: none; width: 34px; height: 34px; }
+  .ls-ring svg { display: block; width: 34px; height: 34px; transform: rotate(-90deg); }
+  .ls-ring circle { fill: none; stroke-width: 4; }
+  .ls-ring .tr { stroke: var(--line); }
+  .ls-ring .fg { stroke: var(--st); stroke-linecap: round; transition: stroke-dasharray .4s ease, stroke .2s; }
+  .ls-ring .gl { position: absolute; inset: 0; display: grid; place-items: center; font-size: var(--fs-xs); font-weight: 700; font-variant-numeric: tabular-nums; }
+  .ls-tx { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
+  .ls-tx b { font-size: var(--fs-md); font-weight: 600; white-space: nowrap; }
+  .ls-tx span { font-size: var(--fs-xs); color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .ls-tx span i { font-style: normal; font-weight: 600; color: color-mix(in srgb, var(--st) 80%, var(--text)); }
+  .ls-trend { flex: none; display: flex; align-items: center; gap: 10px; padding-left: 12px; border-left: 1px solid var(--line); }
+  .ls-trend svg { display: block; width: 132px; height: 34px; overflow: visible; }
+  .ls-trend .ar { fill: color-mix(in srgb, var(--run) 18%, transparent); stroke: none; }
+  .ls-trend .ln { fill: none; stroke: var(--run); stroke-width: 1.6; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+  .ls-trend .now { fill: var(--run); }
+  .ls-trend .cap { display: flex; flex-direction: column; line-height: 1.25; font-size: var(--fs-xs); color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .ls-trend .cap b { font-size: var(--fs-md); font-weight: 600; color: var(--text); }
+  .ls-more { flex: none; font-size: var(--fs-sm); font-weight: 600; color: var(--muted); text-decoration: none; padding: 6px 4px; border-radius: 8px; white-space: nowrap; }
+  .ls-more:hover { color: var(--text); }
+  .ls-more:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .col.acol.ls-ping { animation: lsping .9s ease-out; }
+  @keyframes lsping { 0% { box-shadow: 0 0 0 3px var(--c, var(--accent)); } 100% { box-shadow: 0 0 0 3px transparent; } }
+  @media (prefers-reduced-motion: reduce) { .ls-ring .fg { transition: none; } .col.acol.ls-ping { animation: none; outline: 2px solid var(--c, var(--accent)); } }
+  @media (max-width: 900px) {   /* a phone: the gauges take a row and swipe sideways, the trend and the Load link share the row under them */
+    #load-strip { flex-wrap: wrap; gap: 4px 10px; padding: 6px 8px; }
+    .ls-gauges { flex-basis: 100%; }
+    .ls-trend { flex: 1 1 auto; padding-left: 0; border-left: 0; padding-left: 4px; }
+    .ls-trend svg { flex: 1 1 auto; width: auto; min-width: 80px; max-width: 200px; }
+  }
   .col.acol h2 { flex-wrap: nowrap; min-width: 0; }
   .col.acol h2 .nm { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
   @media (max-width: 900px) {   /* a phone: swipe sideways, one column per screen */
@@ -1463,6 +1510,8 @@
       </ol>
     </details>
   </div>
+
+  <section id="load-strip" hidden aria-label="Load over the last hour"></section>
 
   <main class="board" id="board" aria-label="Task board"></main>
   <div id="lane-cue" hidden>
@@ -4051,6 +4100,88 @@ const wakeBoot = () => { if (sndOn && Date.now() - T0 < 20000 && document.body.c
 // --- HUD ---
 let hudTimer = null, hudKey = '';
 const hudIsOpen = () => $('hud').classList.contains('open');
+
+// ---- By agent: the Load strip (Nov 9) ----
+// Fed by the same /api/hud Load reads (no new route, no outside request), polled only while By agent is the view on show and Load is shut.
+// A gauge is the share of the last hour an agent had a lane segment (working, waiting on you or in review); its colour is the agent's state
+// now. The trend is the number of agents with a working segment, minute by minute. A gauge scrolls to that agent's lane.
+let stripTimer = null, stripTag = '', stripKey = '';
+const STRIP_BUCKETS = 30;
+const STRIP_STATE = { working: 'working', waiting: 'ask', review: 'review', quiet: 'quiet', abandoned: 'abandoned', idle: 'idle' };   // the word a lane's header shows
+function stripFigures(d) {   // pure: per-agent share of the hour at work, and how many agents were working in each of STRIP_BUCKETS slices of it
+  const win = (d.window_min || 60) * 60000, end = Date.parse(d.now) || Date.now(), start = end - win, step = win / STRIP_BUCKETS;
+  const agents = [...(d.agents || [])].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base', numeric: true })).map(a => {
+    let at = 0;
+    const segs = ((d.lanes || {})[a.name] || []).map(r => ({ k: r.k, a: Math.max(start, Date.parse(r.a)), b: r.b === d.now ? end : Math.min(end, Date.parse(r.b)) })).filter(s => s.b > s.a);
+    segs.forEach(s => { at += s.b - s.a; });
+    return { name: a.name, state: a.state || 'idle', pct: Math.min(100, Math.round(at / win * 100)), segs };
+  });
+  const trend = Array.from({ length: STRIP_BUCKETS }, (_, i) => {
+    const t = start + (i + 1) * step;   // each slice is read at its right edge, so the last point is now and an agent that began a minute ago already counts
+    return agents.filter(a => a.segs.some(s => s.k === 'busy' && s.a <= t && t <= s.b)).length;
+  });
+  return { agents, trend };
+}
+function stripHtml(f) {
+  const R = 14, C = 2 * Math.PI * R;   // the ring's radius in a 34-wide box with a 4px stroke, and its length
+  const gauge = a => {
+    const on = a.state !== 'idle', dash = (a.pct / 100 * C).toFixed(1);
+    const word = STRIP_STATE[a.state] || a.state;
+    return `<button type="button" class="ls-g ${hh(a.state)}" data-agent="${hh(a.name)}"${on ? '' : ' aria-disabled="true"'} title="${hh(a.name)} · ${a.pct}% of the last hour at work · ${hh(word)} now${on ? ' · click for its lane' : ''}">`
+      + `<span class="ls-ring" aria-hidden="true"><svg viewBox="0 0 34 34"><circle class="tr" cx="17" cy="17" r="${R}"/><circle class="fg" cx="17" cy="17" r="${R}" stroke-dasharray="${dash} ${C.toFixed(1)}"/></svg><span class="gl">${hh(nodeGlyph(a.name))}</span></span>`
+      + `<span class="ls-tx"><b>${hh(a.name)}</b><span><i>${hh(word)}</i> · ${a.pct}%</span></span></button>`;
+  };
+  const max = Math.max(1, ...f.trend), W = 132, H = 34, px = i => (i / (STRIP_BUCKETS - 1) * W).toFixed(1), py = v => (H - 3 - v / max * (H - 8)).toFixed(1);
+  const pts = f.trend.map((v, i) => `${px(i)},${py(v)}`).join(' '), now = f.trend[f.trend.length - 1] || 0;
+  const trend = `<span class="ls-trend"><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Agents working, last hour: now ${now}, most ${Math.max(0, ...f.trend)}">`
+    + `<polygon class="ar" points="0,${H - 3} ${pts} ${W},${H - 3}"/><polyline class="ln" points="${pts}"/></svg>`
+    + `<span class="cap"><b>${now} working</b><span>last 60 min</span></span></span>`;
+  return `<div class="ls-gauges" role="group" aria-label="Agents, share of the last hour at work">${f.agents.map(gauge).join('')}</div>${trend}<a class="ls-more" href="#/hud" id="ls-more" title="Open the Load view (h)">Load ›</a>`;
+}
+async function stripLoad() {
+  try {
+    const res = await fetch('/api/hud', { cache: 'no-store', headers: stripTag ? { 'If-None-Match': stripTag } : {} });
+    if (res.status === 304) return;   // the server's copy has not changed
+    if (!res.ok) throw new Error(res.status);
+    stripTag = res.headers.get('ETag') || '';
+    const f = stripFigures(await res.json());
+    const key = JSON.stringify(f.agents.map(a => [a.name, a.state, a.pct])) + f.trend.join();
+    if (key === stripKey) return;   // nothing a gauge shows moved: no rebuild, so a hover or a focus is not lost
+    stripKey = key;
+    const box = $('load-strip'), keep = document.activeElement?.closest?.('.ls-g')?.dataset.agent;
+    box.innerHTML = f.agents.length ? stripHtml(f) : '';
+    box.hidden = !f.agents.length;
+    if (keep) box.querySelector(`.ls-g[data-agent="${CSS.escape(keep)}"]`)?.focus({ preventScroll: true });
+    box.querySelector('.ls-gauges')?.addEventListener('scroll', stripFade, { passive: true });
+    stripFade();
+  } catch (e) { /* the header's Disconnected chip says so; the strip keeps what it last drew */ }
+}
+function stripFade() {   // fade the edge of the gauge row that has more behind it
+  const g = document.querySelector('#load-strip .ls-gauges'); if (!g) return;
+  g.classList.toggle('fade-r', g.scrollLeft + g.clientWidth < g.scrollWidth - 2);
+  g.classList.toggle('fade-l', g.scrollLeft > 2);
+}
+function stripSync() {   // By agent with Load shut: draw and poll; anywhere else: stop
+  clearInterval(stripTimer); stripTimer = null;
+  const on = BYAGENT && !SOLO && !hudIsOpen();
+  if (!on) return;
+  stripTag = ''; stripLoad();
+  stripTimer = setInterval(() => { if (!document.hidden) stripLoad(); }, 5000);
+}
+function stripJump(name) {   // scroll that agent's lane into view, focus its name, and let it flash once
+  const lane = [...$('board').querySelectorAll('.col.acol')].find(c => c.dataset.status === 'agent:' + name);
+  if (!lane) return;
+  lane.scrollIntoView({ behavior: RM ? 'auto' : 'smooth', inline: 'center', block: 'nearest' });
+  lane.querySelector('.nm')?.focus({ preventScroll: true });
+  lane.classList.remove('ls-ping'); void lane.offsetWidth; lane.classList.add('ls-ping');
+  setTimeout(() => lane.classList.remove('ls-ping'), 1000);
+}
+addEventListener('resize', stripFade);
+$('load-strip').addEventListener('click', e => {
+  if (e.target.closest('#ls-more')) { e.preventDefault(); if (!hudIsOpen()) openHud(); return; }
+  const g = e.target.closest('.ls-g'); if (g) stripJump(g.dataset.agent);
+});
+
 // Load is the overlay under the board's own header: it starts where that header ends, and the header's tabs light the view you are on
 const placeHud = () => document.documentElement.style.setProperty('--hdr-b', Math.max(0, Math.ceil(document.querySelector('header').getBoundingClientRect().bottom)) + 'px');
 function litTab() {
@@ -4071,7 +4202,7 @@ function openHud() {
   if (!RM) $('board').querySelectorAll('.card[data-status="doing"], .card[data-status="todo"]').forEach(c => glideFrom.set(c.dataset.id, c.getBoundingClientRect()));
   hudScroll = { doing: $('h-cards-box').scrollTop, todo: $('h-todo-wrap').querySelector('.cards')?.scrollTop || 0 };
   $('h-cards-box').innerHTML = ''; $('h-todo-wrap').innerHTML = '';
-  $('hud').classList.add('open'); document.body.style.overflow = 'hidden'; litTab(); futScan();
+  $('hud').classList.add('open'); document.body.style.overflow = 'hidden'; litTab(); futScan(); stripSync();
   if (!SOLO) renderKeepingCardFocus();
   hudKey = ''; sndSeenAt = null; hudPrevTiles = null; setSnd(sndOn, true); setAmb(ambOn, true);
   if (!SOLO) touch('swish');   // the one sound of a view change, the same as a Board/By agent flip
@@ -4083,7 +4214,7 @@ function closeHud() {
   touch('swish');   // the same one sound; the bed plays on under the board, it belongs to every view
   // and the cards glide back from Load's columns to their places on the board (or the By agent lanes)
   if (!RM) document.querySelectorAll('#h-todo-wrap .card, #h-cards-box .card').forEach(c => glideFrom.set(c.dataset.id, c.getBoundingClientRect()));
-  $('hud').classList.remove('open', 'full'); document.body.style.overflow = ''; litTab(); futScan();
+  $('hud').classList.remove('open', 'full'); document.body.style.overflow = ''; litTab(); futScan(); stripSync();
   clearInterval(hudTimer);
   renderKeepingCardFocus();
   if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
@@ -4413,7 +4544,7 @@ function extendSelectionVertical(dir) {
 
 // Board and By agent are one page that draws two ways: flipping redraws it in place, with no reload, so nothing else on the page (the sound
 // included) is interrupted. The address bar and Back follow it. Load is an overlay on whichever is open.
-function applyView() { document.body.classList.toggle('byagent', BYAGENT); litTab(); }
+function applyView() { document.body.classList.toggle('byagent', BYAGENT); litTab(); stripSync(); }
 function setView(agents, push = true) {
   if (SOLO || agents === BYAGENT) return;
   BYAGENT = agents;

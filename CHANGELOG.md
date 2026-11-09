@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+### By agent: a Load strip across the top (Nov 9)
+- By agent now opens with a slim strip above the lanes: one gauge per agent (a ring for the share of the last hour the agent was at work, coloured by what it is
+  doing now: working, ask, review, quiet; its name and the percentage beside it) and one trend line of how many agents were working, minute by minute, over the
+  last hour. A gauge scrolls to that agent's lane, moves focus to the lane's name and lets the lane flash once; an idle agent's gauge is dimmed and does nothing.
+  More gauges than fit swipe or scroll sideways, and the edge with more behind it fades. A **Load ›** link opens the Load view, which is unchanged (so is its tab).
+  The strip shows on By agent only, never on the Board or under Load, reads the same `/api/hud` feed Load reads (polled every 5 s while By agent is on show,
+  stopped everywhere else), and adds no dependency and no outside request, so the work profile keeps it. Light, dark, 390 and 1440 wide; no motion under
+  reduced motion. (`ux-load-into-by-agent`; before and after in `docs/load-strip/`)
+
 ### Settings in tabs: General, Sound, Agents and chat, and a tab for each plugin, with search (Nov 8)
 - The Settings sheet was one 480px column of 19 sound and look controls, 2,164px tall; the settings that were not sound sat below the fold. It is now 720px
   wide with a tab list on the left (the screen, with a strip of tabs, on a phone): **General** (Theme, the Look rows, the board's owner and stale minutes),

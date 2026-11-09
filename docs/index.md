@@ -22,7 +22,7 @@ One line each. The first three are the ones most people need.
 | `docs/overnight/` | One evidence file per card of an overnight push (what changed, before/after, how to try it, risks), named after the card. |
 
 Pictures and mockups, from throwaway boards: `docs/board-light.png`, `docs/board-dark.png`, `docs/hud.png` (the README's); `docs/agent-chat/`,
-`docs/by-agent/`, `docs/copied-badge/`, `docs/copied-button/`, `docs/gorgeous-2026-11-04/`, `docs/hud-bughunt/`, `docs/panel-header-action/`,
+`docs/by-agent/`, `docs/copied-badge/`, `docs/copied-button/`, `docs/gorgeous-2026-11-04/`, `docs/hud-bughunt/`, `docs/load-strip/`, `docs/panel-header-action/`,
 `docs/ux-five/`, `docs/ux-six/` (screenshots of the UX cards they are named after); `docs/card-colour-mockup.html`, `docs/subtasks-mockup.html`,
 `docs/ux-mockups.html`, `docs/ux-mockups-2.html`, `docs/chat-words-design-mockup.html`, `docs/settings-tabs-mockup.html`, `docs/texts-reply-design-mockup.html` (clickable mockups,
 with their `.png` captures beside them).

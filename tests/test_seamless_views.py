@@ -34,7 +34,7 @@ class SeamlessViewsTests(unittest.TestCase):
 
     def test_a_direct_visit_still_lands_on_the_right_view(self):
         self.assertIn("applyView();\nif (BYAGENT) document.title = APP + ' · by agent';", HTML)
-        self.assertIn("function applyView() { document.body.classList.toggle('byagent', BYAGENT); litTab(); }", HTML)
+        self.assertIn("function applyView() { document.body.classList.toggle('byagent', BYAGENT); litTab(); stripSync(); }", HTML)
 
 
 if __name__ == "__main__":
