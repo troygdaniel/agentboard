@@ -12,6 +12,7 @@ An invalid value is never guessed at: the default applies and the check says so.
 |---|---|---|---|
 | `owner` | str | "you" | your name: what the board, the HUD and every prompt call the human. |
 | `stale_minutes` | int 1..100000 | 120 | a Doing card silent this long is marked abandoned on the board and the HUD. |
+| `profile` | str | unset | work: the work profile for this board (lock, no plugins, loopback only; `agentboard init` writes it on a machine with no home setup); any value but off, home, no, false, 0 or empty also means work (a mistyped word is a lock, not a hole), and a copied config can add it, never remove it. |
 
 ## `[ui]`
 

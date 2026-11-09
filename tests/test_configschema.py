@@ -241,5 +241,41 @@ class Doctor(Base):
         self.assertEqual([l for l, _n, _t in lines], ["PASS"])
 
 
+class TheProfileKey(Base):
+    """[board] profile is written by `agentboard init` on a managed PC and read by profile.py: doctor must know it (it warned "not a key the board reads"),
+    and teaching the schema about it must never turn a mistyped value from a lock into a hole."""
+
+    def test_the_key_init_writes_is_a_known_key(self):
+        self.assertEqual(cs.validate(tomlread.loads('[board]\nprofile = "work"\n')), [])
+        self.assertEqual(cs.validate(tomlread.loads('[board]\nprofile = "off"\n')), [])
+        got = cs.validate(tomlread.loads('[board]\nprofil = "work"\n'))   # a real typo is still caught, with the closest name
+        self.assertEqual([(f.level, f.where, f.fix) for f in got], [("WARN", "board.profil", "did you mean 'profile'?")])
+
+    def test_doctor_has_no_schema_warning_for_a_board_init_made_on_a_managed_pc(self):
+        from tests.test_doctor import FakeRunner
+        self.conf('[board]\nprofile = "work"            # the work-PC profile\n')
+        with mock.patch("importlib.metadata.entry_points", return_value=[]), mock.patch.object(Path, "home", return_value=Path(self.tmp.name) / "home"):
+            lines = [(l, n, t) for l, n, t in doctor.run(self.board, env={}, runner=FakeRunner()) if n == "schema"]
+        self.assertEqual([l for l, _n, _t in lines], ["PASS"])
+
+    def test_a_mistyped_value_still_means_work_the_schema_never_cleans_it_away(self):
+        from agentboard import profile
+        env = {"HOME": str(Path(self.tmp.name) / "home"), "XDG_CONFIG_HOME": str(Path(self.tmp.name) / "xdg")}
+        for raw in ('"work"', '"Work "', '"yes"', "true", "1", "5", '["x"]', '{ a = 1 }'):
+            with self.subTest(profile=raw):
+                self.conf(f"[board]\nprofile = {raw}\n")
+                cleaned, _f = cs.clean(tomlread.loads(f"[board]\nprofile = {raw}\n"))
+                self.assertEqual(cleaned["board"]["profile"], tomlread.loads(f"x = {raw}\n")["x"])   # kept as written: no default replaces it
+                with mock.patch.dict(os.environ, env, clear=True):
+                    profile._ENV0.update(seen=False, value=None)
+                    self.assertEqual([w for w, _t in profile.sources(self.board)], ["board"])
+        for raw in ('"off"', '"home"', '"no"', '"false"', '"0"', '""'):
+            with self.subTest(profile=raw):
+                self.conf(f"[board]\nprofile = {raw}\n")
+                with mock.patch.dict(os.environ, env, clear=True):
+                    profile._ENV0.update(seen=False, value=None)
+                    self.assertEqual(profile.sources(self.board), [])
+
+
 if __name__ == "__main__":
     unittest.main()
