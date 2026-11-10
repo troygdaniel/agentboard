@@ -1,6 +1,6 @@
 # Plugins at work: optional, reviewed, off by default
 
-**Status: design only, nothing built.** Card `plugins-optional-at-work`, base `main` at `ac12b33`. For Troy and the work security reviewer to approve, or change, before any code is written.
+**Status: design only, nothing built.** Card `plugins-optional-at-work`, base `main` at `ac12b33`. **Troy approved all five choices below as recommended (2026-11-09).** The work security reviewer has not seen it yet; nothing is built until they have.
 
 ## What is asked
 
@@ -67,6 +67,8 @@ Order matters once: run `profile work` before installing a plugin. An installed 
 7. Docs: `security-signoff.md` (new file row, the "plugin is trusted code" line, a new claim row), `SECURITY.md`, `WORK-SETUP.md`, `README.md`, the plugin section of `ARCHITECTURE.md`, `CHANGELOG.md`.
 
 ## Choices for Troy and the reviewer
+
+Troy approved all five as recommended on 2026-11-09. The reviewer's word is still open.
 
 | # | Choice | Recommended |
 |---|---|---|
