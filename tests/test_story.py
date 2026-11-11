@@ -161,10 +161,12 @@ class PageTests(unittest.TestCase):
         self.assertIsNone(re.search(r"(^|\})\s*\.scene:not\(\.in\) \.rise", story.CSS))
         self.assertIn("classList.add('js')", story.JS)
 
-    def test_the_bar_lights_story_and_links_under_the_base(self):
+    def test_the_bar_links_under_the_base_and_lights_no_tab(self):
+        # Nov 11: Story is a link in the board's Done column, like Summary and Reports, so its page lights none of the three tabs
         h = self.page(base="/b/x")
-        self.assertIn('class="tab on" href="/b/x/story" aria-current=page', h)
-        self.assertIn('href="/b/x/agents"', h)
+        self.assertNotIn("tab on", h)
+        for href in ('href="/b/x/"', 'href="/b/x/agents"', 'href="/b/x/need"'):
+            self.assertIn(href, h)
 
     def test_an_empty_board_says_so_with_one_scene(self):
         h = self.page([])
@@ -289,9 +291,10 @@ class HttpTests(unittest.TestCase):
             self.assertIn("frame-ancestors 'none'", headers["Content-Security-Policy"])
             self.assertIn("Billing", body)
 
-    def test_the_other_server_pages_carry_the_story_tab(self):
-        for path in ("/summary", "/reports"):
-            self.assertIn('href="/story"', self.get(path)[1])
+    def test_the_board_links_to_story_from_the_done_column(self):
+        page = self.get("/")[1]
+        self.assertIn("/story\" title=\"The work in plain words\">Story</a>", page)
+        self.assertNotIn('id="tab-story"', page)   # no longer a tab: the row is Board, By agent, Needs you
 
 
 if __name__ == "__main__":

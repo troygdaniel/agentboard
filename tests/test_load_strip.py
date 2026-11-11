@@ -20,11 +20,14 @@ class LoadStripTests(unittest.TestCase):
         self.assertIn('<section id="load-strip" hidden', HTML)
         self.assertLess(HTML.index('<section id="load-strip"'), HTML.index('<main class="board" id="board"'))
 
-    def test_only_by_agent_with_load_shut_shows_it(self):
-        self.assertIn("#load-strip[hidden], body:not(.byagent) #load-strip, body:has(#hud.open) #load-strip { display: none; }", HTML)
+    def test_every_tab_with_load_shut_shows_it(self):
+        # Nov 11: the gauges are the one map of every agent, above Board, By agent and Needs you alike; only Load itself (and its pop-out) hides them
+        self.assertIn("#load-strip[hidden], body:has(#hud.open) #load-strip { display: none; }", HTML)
+        self.assertNotIn("body:not(.byagent) #load-strip", HTML)
         sync = body("stripSync")
-        self.assertIn("BYAGENT && !SOLO && !hudIsOpen()", sync)
-        self.assertIn("clearInterval(stripTimer)", sync)   # off everywhere else: the poll stops with the view
+        self.assertIn("const on = !SOLO && !hudIsOpen();", sync)
+        self.assertNotIn("BYAGENT &&", sync)
+        self.assertIn("clearInterval(stripTimer)", sync)   # off under Load: the poll stops with the view
 
     def test_every_change_of_view_re_syncs_it(self):
         self.assertIn("function applyView() { document.body.classList.toggle('byagent', BYAGENT); litTab(); stripSync(); }", HTML)
@@ -57,7 +60,9 @@ class LoadStripTests(unittest.TestCase):
 
     def test_the_load_page_stays_reachable(self):
         self.assertIn('id="ls-more"', HTML)
-        self.assertIn('id="hud-btn"', HTML)   # and the Load tab itself is untouched
+        self.assertNotIn('id="hud-btn"', HTML)   # Load is no longer a tab (Nov 11): this link, the h key and /hud open it
+        self.assertIn("if (e.key === 'h') { if (!hudIsOpen()) openHud(); return; }", HTML)
+        self.assertIn("if (e.target.closest('#ls-more')) { e.preventDefault(); if (!hudIsOpen()) openHud(); return; }", HTML)
 
 
 if __name__ == "__main__":

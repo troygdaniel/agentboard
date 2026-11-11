@@ -11,16 +11,18 @@ from tests.test_reports import HttpTests as _Http
 
 
 class TabsTests(unittest.TestCase):
-    def test_four_tabs_under_the_base_with_the_active_one_marked(self):
+    def test_three_tabs_under_the_base_with_the_active_one_marked(self):
         h = nav.tabs("", "agents")
-        for href in ('href="/"', 'href="/agents"', 'href="/hud"', 'href="/story"'):
+        for href in ('href="/"', 'href="/agents"', 'href="/need"'):
             self.assertIn(href, h)
         self.assertIn('class="tab on" href="/agents" aria-current=page', h)
         self.assertEqual(h.count("tab on"), 1)
-        hb = nav.tabs("/b/work", "hud")
-        for href in ('href="/b/work/"', 'href="/b/work/agents"', 'href="/b/work/hud"', 'href="/b/work/story"'):
+        hb = nav.tabs("/b/work", "need")
+        for href in ('href="/b/work/"', 'href="/b/work/agents"', 'href="/b/work/need"'):
             self.assertIn(href, hb)
-        self.assertIn('class="tab on" href="/b/work/hud"', hb)
+        self.assertIn('class="tab on" href="/b/work/need"', hb)
+        for gone in ("/hud", "/story"):   # Load is an overlay (h, or Load › in the strip) and Story a link in the Done column: neither is a tab
+            self.assertNotIn(gone, nav.tabs("", "board"))
 
     def test_summary_and_reports_are_not_tabs(self):
         for active in ("summary", "reports"):
@@ -47,16 +49,16 @@ class SameRowTests(unittest.TestCase):
     def setUp(self):
         self.html = STATIC.read_text()
 
-    def test_the_page_has_one_tab_row_and_it_lists_the_four_tabs_in_order(self):
+    def test_the_page_has_one_tab_row_and_it_lists_the_three_tabs_in_order(self):
         rows = re.findall(r'<nav class="ab-tabs" aria-label="Pages">(.*?)</nav>', self.html)
         self.assertEqual(len(rows), 1)   # the board's header only: Load has no bar of its own, so it cannot differ
-        self.assertEqual(re.findall(r'class="tab[^"]*"[^>]*>([^<]+)</a>', rows[0]), ["Board", "By agent", "Load", "Story"])
-        self.assertEqual(re.findall(r">([^<]+)</a>", nav.tabs("", "board")), ["Board", "By agent", "Load", "Story"])
-        self.assertIn("$('tab-story').href = BASE + '/story'", self.html)   # a plain link to its own page, pinned to the board's base like the other tabs
+        self.assertEqual(re.findall(r'class="tab[^"]*"[^>]*>([^<]+)<', rows[0]), ["Board", "By agent", "Needs you"])   # Needs you carries its count in a span
+        self.assertEqual(re.findall(r">([^<]+)</a>", nav.tabs("", "board")), ["Board", "By agent", "Needs you"])
+        self.assertIn("$('tab-need').href = BASE + '/need'", self.html)   # pinned to the board's base like the other tabs
 
     def test_the_done_column_carries_summary_then_reports_then_clear(self):
         done = re.search(r"const clr = k === 'done' \? (.*?) : '';", self.html).group(1)
-        self.assertEqual(re.findall(r'href="\$\{\(window\.AB_BASE \|\| \'\'\)\}(/\w+)"', done), ["/summary", "/reports"])
+        self.assertEqual(re.findall(r'href="\$\{\(window\.AB_BASE \|\| \'\'\)\}(/\w+)"', done), ["/story", "/summary", "/reports"])   # Story is a link here now, not a tab
         self.assertLess(done.index(">Summary</a>"), done.index(">Reports</a>"))
         self.assertLess(done.index(">Reports</a>"), done.index('id="clear-done"'))
 
@@ -76,7 +78,7 @@ class SameRowTests(unittest.TestCase):
         self.assertIn("body:has(#hud.open) :is(#panel, #later, #chat, #thread) { z-index: 32; }", self.html)   # Later, ORCH and an agent thread open over Load
 
     def test_the_header_tab_lights_the_view_you_are_on(self):
-        self.assertIn("const on = hudIsOpen() ? 'hud-btn' : BYAGENT ? 'tab-agents' : 'tab-board';", self.html)
+        self.assertIn("const on = MEFIRST ? 'tab-need' : BYAGENT ? 'tab-agents' : 'tab-board';", self.html)   # Load is an overlay: the tab of the view under it stays lit
         self.assertIn("goView(i)", self.html)
 
     def test_the_later_and_todo_buttons_share_one_width(self):
@@ -113,7 +115,7 @@ class PagesTests(_ReportsBase):
         sm = summary.build_html(data, "/b/work")
         self.assertNotIn("tab on", sm)
         self.assertNotIn('href="/b/work/reports"', sm)
-        self.assertIn('href="/b/work/hud"', sm)
+        self.assertIn('href="/b/work/need"', sm)
         self.assertNotIn('class="btn" href="/b/work/">Board', sm)   # the old lone Board button is gone; the bar has it
         self.assertEqual(cid, "trim-bundle-size")
 

@@ -17,20 +17,20 @@ def body(fn):
 class SeamlessViewsTests(unittest.TestCase):
     def test_the_view_is_a_variable_the_page_flips_in_place(self):
         self.assertIn("let BYAGENT = location.pathname", HTML)
-        self.assertIn("function setView(agents, push = true) {", HTML)
+        self.assertIn("function setView(agents, push = true, need = false) {", HTML)   # Needs you is By agent drawn another way: a second flag, the same flip
         self.assertIn("applyView(); renderKeepingCardFocus();", HTML)          # a redraw, not a navigation
 
     def test_nothing_reloads_the_page_to_change_view(self):
         self.assertNotIn("location.href = BASE + (agents", HTML)
         self.assertNotIn("location.href = BASE + (BYAGENT", HTML)
         self.assertIn("if (e.key === 'a') { goView(BYAGENT ? 0 : 1); return; }", HTML)
-        self.assertIn("if (agents !== BYAGENT) { if (!here) touch('swish'); setView(agents); }", HTML)   # goView: the tabs, [ ] and a
+        self.assertIn("if (agents !== BYAGENT || need !== MEFIRST) { if (!here) touch('swish'); setView(agents, true, need); }", HTML)   # goView: the tabs, 1 2 3, [ ] and a
         self.assertIn("  if (here) closeHud();", body("goView"))
 
     def test_the_address_bar_and_back_follow_the_view(self):
-        self.assertIn("history.pushState({ view: agents ? 'agents' : 'board' }, '', BASE + (agents ? '/agents' : '/') + location.hash);", HTML)
+        self.assertIn("history.pushState({ view: need ? 'need' : agents ? 'agents' : 'board' }, '', BASE + (need ? '/need' : agents ? '/agents' : '/') + location.hash);", HTML)
         self.assertIn("window.addEventListener('popstate', () => {", HTML)
-        self.assertIn("  setView(agents, false);\n});", HTML)
+        self.assertIn("  setView(agents, false, need);\n});", HTML)
 
     def test_a_direct_visit_still_lands_on_the_right_view(self):
         self.assertIn("applyView();\nif (BYAGENT) document.title = APP + ' · by agent';", HTML)

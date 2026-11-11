@@ -115,7 +115,7 @@ class TouchSoundTests(unittest.TestCase):
         # Alt+arrows: a click per step that moved something
         self.assertIn("  else return;   // at the edge: no move, no click\n  touch('step');", PAGE)
         # tab switch: one swish for a view change, from the tabs, [ ] and a alike; the view flips in place so it plays through
-        self.assertIn("if (agents !== BYAGENT) { if (!here) touch('swish'); setView(agents); }", body("goView"))
+        self.assertIn("if (agents !== BYAGENT || need !== MEFIRST) { if (!here) touch('swish'); setView(agents, true, need); }", body("goView"))
         self.assertIn("if (e.key === 'a') { goView(BYAGENT ? 0 : 1); return; }", PAGE)
         # drawers and sheets slide in and out, from the button, the key, Escape and a click outside
         self.assertIn("function openLater() { setSide('later'); touch('slide', true);", PAGE)

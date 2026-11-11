@@ -237,7 +237,12 @@ another agent's lane refuses it (red outline, no insertion line, a toast says wh
 
 ### Story
 
-**Story** (the fourth tab, `/story`) is the work in plain words, five scenes you scroll: a sentence and a ring (finished this week, in progress, waiting);
+**Needs you** (the third tab, the key `3`, `/need`) is By agent arranged by what is waiting on you: the agents that asked you something first, then the ones
+with work to sign off, longest wait first. Agents that need nothing from you leave the board and their gauges above go grey (click one to bring its lane in).
+Under each waiting agent a rule says what and how long, `answer · 4 h · holds 3`; hover the card and the Todo cards it holds light up. Answer on the card as
+anywhere else; the lane leaves once you have, and the count on the tab runs down. `1`, `2`, `3` switch between Board, By agent and Needs you.
+
+**Story** (`/story`, linked from the Done column) is the work in plain words, five scenes you scroll: a sentence and a ring (finished this week, in progress, waiting);
 a flow from Waiting to Working to Done with every card a dot, one colour per theme; one card per theme with a one-line sentence and "n of m done"; only what
 is waiting on you (or a calm "nothing"); and what was finished each day. A theme is a work area named by a word several titles share, as in the Done
 summary, or the agent on the cards when none is shared. It is written from the board's own cards with fixed templates: no model, no network, nothing started,
@@ -434,9 +439,9 @@ Block until another task reaches a point you need, instead of polling `list` or 
 `review` and `needs_input` always end the wait early even when they weren't the target you asked
 for, since both mean progress is stalled on a human, not on more waiting.
 
-## The HUD (the Load tab)
+## The HUD (Load)
 
-Press `h`, or open `/hud` in its own window (second monitor). The board's Todo and Doing columns on the left, the same
+Press `h`, click `Load ›` at the end of the gauge strip, or open `/hud` in its own window (second monitor). The board's Todo and Doing columns on the left, the same
 cards as Board and By agent (they glide across on the switch), then the **Agents** column where Board's Done column is:
 
 - **One card per agent**, every agent, idle ones too: the pill, the age, and the agent's **60-minute load bar** (working /
