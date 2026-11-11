@@ -2,6 +2,28 @@
 
 ## Unreleased
 
+### Needs you: a third tab, the same cards with the agents waiting on you first (Nov 11)
+- The tab row is now **Board**, **By agent**, **Needs you**, and the keys `1`, `2`, `3` open them (`[`, `]` and `a` still work). Needs you is By agent
+  drawn another way, not another page: the agents that asked you something come first, then the ones with work to sign off, longest wait first, and inside a
+  lane the waiting card is on top. Agents that need nothing from you are not drawn; their gauges in the strip above go grey, and a click on a grey gauge brings
+  that lane in (a second click sends it away). The address is `/need`, and Back and Forward follow it.
+- One mental model across the tabs. Between Board and the other two the cards glide, as before. Between By agent and Needs you the lanes keep their exact size:
+  the ones that leave fade where they stood, then the ones that stay slide over (a lane that travels far lifts and passes over the others), and a lane that
+  does not move does not animate. The gauge strip now sits above all three tabs, in one fixed order; from the Board a gauge takes you to that agent's lane.
+- Under a waiting agent's name, on By agent and Needs you, a hairline rule with a run as long as the wait: `answer · 4 h · holds 3` or `sign off · 2 d · frees 1`.
+  "holds" counts the Todo cards blocked behind that card (they wait until it is done, not until you answer). Hover or focus the card, or click `holds 3` to pin
+  it, and Todo dims except for those cards and scrolls to them, then goes back when you leave. It works the other way too: a blocked Todo card lights the card
+  it waits on, on any tab. A gauge and its lane light each other the same way.
+- Answering from the card is unchanged (Go ahead, Hold, a typed reply, Mark done). On Needs you an answered card stops counting at once: a tick lands on
+  "You replied", the lane holds its place for a second, then leaves and the others close up. The count on the tab drops, and a hairline under the tab runs down
+  as you clear what was waiting. When nothing waits: "Nothing needs you", over slowly turning blueprint rings.
+- **Load** and **Story** are no longer tabs. Load is the overlay it always was: `h`, the `Load ›` link at the end of the gauge strip, or `/hud`; the tab of the
+  view under it stays lit. Story is a link in the Done column, before Summary and Reports, and the summary, reports and story pages show the same three tabs.
+- No new request, no dependency, nothing started: the view reads `/api/tasks` and the `/api/hud` feed the strip already polled (now on every tab, every 5 s).
+  Light, dark and a 390px phone (where Needs you opens on the first waiting agent, not on Todo); no motion under reduced motion.
+- Not covered: dragging a card between lanes on Needs you was not tested; the `holds 3` button is smaller than a 44px touch target; an empty board with no agent
+  has no strip, so Load is then reached with `h` or `/hud` only.
+
 ### Story items open their card (Nov 9)
 - Every card on the Story page is now a link to that card on the board, with its panel (details, history) open: each dot in the flow, the sentence on a theme card
   (the card it is about), and each row under "Needs you" (with a chevron, since touch has no hover). Click, Tab then Enter, and a tap all work; a dot keeps its

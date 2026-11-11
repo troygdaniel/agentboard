@@ -19,7 +19,7 @@ class Header(unittest.TestCase):
         return re.search(rf'<(?:a|button)[^>]*id="{ident}"[^>]*>', PAGE).group(0)
 
     def test_every_tab_and_the_later_button_explains_itself(self):
-        want = {"tab-board": ("three columns", "Todo", "Doing", "Done"), "tab-agents": ("lane per agent",), "hud-btn": ("live view", "waiting on you"),
+        want = {"tab-board": ("three columns", "Todo", "Doing", "Done"), "tab-agents": ("lane per agent",), "tab-need": ("By agent", "waiting on you"), "ls-more": ("live view", "waiting on you"),
                 "later-btn": ("parked", "another day")}
         for ident, words in want.items():
             t = title_of(self.tag(ident))
@@ -27,15 +27,16 @@ class Header(unittest.TestCase):
                 self.assertIn(w, t, f"{ident}: {t!r}")
 
     def test_the_shortcut_keys_are_in_the_words_where_there_is_one(self):
-        self.assertIn("(h)", title_of(self.tag("hud-btn")))
+        self.assertIn("(h)", title_of(self.tag("ls-more")))
+        self.assertIn("(3)", title_of(self.tag("tab-need")))
         self.assertIn("(l)", title_of(self.tag("later-btn")))
 
     def test_the_labels_themselves_did_not_change(self):
-        for label in (">Board</a>", ">By agent</a>", ">Load</a>", ">Later <span"):
+        for label in (">Board</a>", ">By agent</a>", ">Needs you<span", ">Load ›</a>", ">Later <span"):
             self.assertIn(label, PAGE)
 
     def test_no_tooltip_uses_the_agents_only_words(self):
-        for ident in ("tab-board", "tab-agents", "hud-btn", "later-btn"):
+        for ident in ("tab-board", "tab-agents", "tab-need", "ls-more", "later-btn"):
             t = title_of(self.tag(ident)).lower()
             for jargon in ("orch", "telemetry", "backlog", "hud"):
                 self.assertNotIn(jargon, t, f"{ident}: {t!r}")

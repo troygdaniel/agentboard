@@ -279,7 +279,7 @@ def make_handler(default_store, port):
                 self._send(500, {"error": f"server error ({e.__class__.__name__})"})
 
         def _route_get(self, url, q):
-            if url.path in ("/", "/index.html", "/hud", "/agents"):
+            if url.path in ("/", "/index.html", "/hud", "/agents", "/need"):
                 html = (STATIC / "index.html").read_text()
                 inject = f"<script>window.AB_BASE = {json.dumps(self.base)};</script><script src=\"{self.base}/voice.js\" defer></script>" + plugins.page_tags(self.base)   # the page prefixes its /api calls with this; plugin tags only while plugins are allowed
                 nonce = secrets.token_urlsafe(18)   # new for every response; only the page's own inline scripts get it

@@ -1253,7 +1253,7 @@
      A gauge scrolls to that agent's lane. Load itself stays one click away. Only By agent shows it; the Board and Load never do. ----- */
   #load-strip { flex: none; display: flex; align-items: center; gap: 12px; margin: 0 0 12px; padding: 6px 12px 6px 8px; min-width: 0;
     border: 1px solid var(--line); border-radius: 14px; background: var(--panel); box-shadow: inset 0 1px 0 var(--panel-hi), var(--panel-sh); }
-  #load-strip[hidden], body:not(.byagent) #load-strip, body:has(#hud.open) #load-strip { display: none; }
+  #load-strip[hidden], body:has(#hud.open) #load-strip { display: none; }
   .ls-gauges { display: flex; flex: 1 1 auto; gap: 4px; min-width: 0; padding: 3px 2px; overflow-x: auto; scrollbar-width: none; }
   /* more gauges than fit: the row swipes or scrolls sideways under a hidden scrollbar, so the edge that has more fades out (stripFade) */
   .ls-gauges.fade-r { -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 36px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 36px), transparent); }
@@ -1445,12 +1445,102 @@
     .boot-box div { opacity: 1; }
   }
 </style>
-</head>
+<style>
+/* Needs you (Nov 11): the third arrangement of the same cards. By agent, with the agents waiting on the owner first and the rest off the
+   board; the gauges above are the map of every agent on all three tabs. One accent, --need, for what is the owner's to act on. */
+:root{--need:#e8590c}
+#tab-need #need-n{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:999px;background:var(--need);color:#fff;font-size:11px;font-weight:700}
+#tab-need #need-n:empty{display:none}
+#tab-need #need-n.pop{animation:mePop .45s cubic-bezier(.2,.9,.3,1.4)}
+@keyframes mePop{from{transform:scale(1.6)}to{transform:scale(1)}}
+/* the switch on: lanes that wait on you stand in front with a wait rule; the rest fold back into spines */
+.col.acol.first h2 .av{box-shadow:0 0 0 2px var(--card,#fff),0 0 0 3.5px var(--need);position:relative}
+.col.acol.first h2 .av::after{content:"";position:absolute;inset:-4px;border-radius:50%;border:1px solid var(--need);animation:mePing 2.6s ease-out infinite}
+@keyframes mePing{from{transform:scale(1);opacity:.9}to{transform:scale(2.4);opacity:0}}
+.wait-rule{position:relative;height:22px;margin:-2px 14px 8px;border-bottom:1px solid color-mix(in srgb,var(--text,#1c2430) 22%,transparent)}
+.wait-rule .tk{position:absolute;bottom:0;width:0;height:6px;border-left:1px solid color-mix(in srgb,var(--text,#1c2430) 38%,transparent)}
+.wait-rule .run{position:absolute;left:0;bottom:-1px;height:0;border-bottom:3px solid var(--need);transform-origin:0 50%;animation:meGrow .7s cubic-bezier(.2,.7,.2,1) .25s both}
+.wait-rule .run.rev{border-bottom-width:1.5px}
+.wait-rule b{position:absolute;right:0;top:0;font-size:10px;font-weight:600;line-height:14px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted,#55616e)}
+@keyframes meGrow{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+.col.acol.back{cursor:pointer;min-width:0 !important;padding:0;overflow:hidden;border-top-width:1px;transform:rotateY(-22deg);transform-origin:0 50%;transition:transform .2s;background:linear-gradient(90deg,color-mix(in srgb,var(--c) 10%,#fff),#fff) !important;backdrop-filter:none}
+.col.acol.back:hover,.col.acol.back:focus-visible{transform:rotateY(-8deg) translateY(-4px)}
+.col.acol.back:focus-visible{outline:2px solid var(--need);outline-offset:2px}
+.col.acol.back{position:sticky;z-index:3;box-shadow:-10px 0 24px -14px rgba(28,36,48,.35)}
+.col.acol.back h2{writing-mode:vertical-rl;flex-direction:row;align-items:center;gap:10px;padding:14px 0;margin:0 auto;height:100%;box-sizing:border-box;white-space:nowrap}
+.col.acol.back h2 .nm{pointer-events:none}
+.col.acol.back h2 em{margin:0}
+.col.acol.back h2 .cnt,.col.acol.back h2 .av{writing-mode:horizontal-tb}
+.col.acol.back .cards{display:none}
+.col.acol.peek h2{cursor:pointer}
+.col.acol.peek{opacity:.96}
+@media (prefers-reduced-motion: reduce){.col.acol.first h2 .av::after,.wait-rule .run{animation:none}.col.acol.back{transition:none}}
+
+/* a waiting agent's other cards step back, so the card that needs you is the one you see */
+.col.acol.mine .cards > .card:not(.ask):not(.review){opacity:.5;transition:opacity .15s}
+.col.acol.mine .cards > .card:not(.ask):not(.review):hover,.col.acol.mine .cards > .card:not(.ask):not(.review):focus-within{opacity:1}
+/* the folded lane says how far along its agent is */
+.col.acol.back h2 .sp-bar{display:block;width:3px;height:120px;border-radius:2px;background:color-mix(in srgb,var(--text,#1c2430) 12%,transparent);position:relative;overflow:hidden;flex:none}
+.col.acol.back h2 .sp-bar i{position:absolute;left:0;right:0;top:0;background:var(--c);transition:height .4s}
+.col.acol.back h2 .sp-pct{writing-mode:horizontal-tb;font-size:10px;font-weight:600;color:var(--muted,#55616e)}
+/* nothing waits: the blueprint rings, turning slowly */
+.me-clear{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;min-height:420px;text-align:center;overflow:hidden;border-radius:18px}
+.me-clear strong{font-size:26px;font-weight:700;letter-spacing:-.01em;position:relative}
+.me-clear span{font-size:12px;color:var(--muted,#55616e);position:relative;max-width:30ch}
+.me-clear .rings{position:absolute;left:50%;top:50%;width:0;height:0;transform:rotateX(62deg)}
+.me-clear .rings i{position:absolute;border-radius:50%;box-sizing:border-box}
+.me-clear .rings i:nth-child(1){left:-330px;top:-330px;width:660px;height:660px;border:1px solid color-mix(in srgb,var(--text,#1c2430) 16%,transparent)}
+.me-clear .rings i:nth-child(2){left:-352px;top:-352px;width:704px;height:704px;background:repeating-conic-gradient(color-mix(in srgb,var(--text,#1c2430) 55%,transparent) 0deg .2deg,transparent .2deg 5deg);-webkit-mask:radial-gradient(closest-side,transparent calc(100% - 20px),#000 calc(100% - 19px),#000 calc(100% - 8px),transparent calc(100% - 7px));mask:radial-gradient(closest-side,transparent calc(100% - 20px),#000 calc(100% - 19px),#000 calc(100% - 8px),transparent calc(100% - 7px));animation:meTurn 240s linear infinite}
+.me-clear .rings i:nth-child(3){left:-250px;top:-250px;width:500px;height:500px;border:1px solid transparent;border-left-color:color-mix(in srgb,var(--text,#1c2430) 22%,transparent);border-bottom-color:color-mix(in srgb,var(--text,#1c2430) 22%,transparent);animation:meTurn 180s linear infinite reverse}
+@keyframes meTurn{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion: reduce){.me-clear .rings i,#tab-need #need-n.pop{animation:none}}
+
+.ls-g{transition:opacity .3s,filter .3s}
+.ls-g.away{filter:grayscale(1);opacity:.38}
+.ls-g.away:hover,.ls-g.away:focus-visible{opacity:.8}
+.col.acol.peek{outline:1px dashed color-mix(in srgb,var(--text,#1c2430) 30%,transparent);outline-offset:-1px}
+
+/* a lane in flight */
+.col.acol.moving{box-shadow:0 26px 50px -22px rgba(28,36,48,.45)}
+/* gauge and lane point at each other */
+.ls-g.lit{background:var(--chip,#f1efeb);border-color:var(--line,#e3e1dc)}
+.col.acol.lit{box-shadow:0 0 0 2px var(--c,#1c2430)}
+/* a waiting card lights the Todo cards it holds */
+.wait-rule .holds-btn{all:unset;cursor:pointer;color:var(--text,#1c2430);border-bottom:1px dotted currentColor;padding:6px 2px;margin:-6px -2px}
+.wait-rule .holds-btn:focus-visible{outline:2px solid var(--need);outline-offset:2px;border-radius:3px}
+.wait-rule.pinned .holds-btn{border-bottom-style:solid;color:#c2410c}
+#board .col.todo .card{transition:opacity .18s ease}
+#board.linking .col.todo .card:not(.held){opacity:.32}
+#board .card.held{box-shadow:0 0 0 2px var(--need)}
+#board .card.holder{box-shadow:0 0 0 2px color-mix(in srgb,var(--need) 55%,transparent)}
+.col.acol{transition:box-shadow .2s ease}
+#tab-need{position:relative}
+#tab-need::before,#tab-need::after{content:"";position:absolute;left:12px;right:12px;bottom:3px;height:2px;border-radius:2px;pointer-events:none}
+#tab-need::before{background:color-mix(in srgb,var(--text,#1c2430) 10%,transparent)}
+#tab-need::after{background:var(--need);transform-origin:0 50%;transform:scaleX(var(--left,0));transition:transform .6s cubic-bezier(.22,.8,.24,1)}
+@media (prefers-reduced-motion: reduce){#tab-need::after,#board .col.todo .card,.col.acol{transition:none}}
+/* the seam: to its left agents to answer, to its right agents to sign off */
+.col.acol.seam::before{content:"";position:absolute;left:-7px;top:6px;bottom:6px;width:0;border-left:1px dashed color-mix(in srgb,var(--text,#1c2430) 35%,transparent);pointer-events:none}
+/* the reply row fits a lane: Send never leaves the card */
+.col.acol .card-reply .rr{flex-wrap:nowrap}
+.col.acol .card-reply .rr input{flex:1 1 0;width:0;min-width:0}
+.col.acol .qr-free{display:flex;gap:6px;min-width:0}
+.col.acol .qr-free input{flex:1 1 0;width:0;min-width:0}
+/* you answered: a tick lands before the lane leaves */
+.col.acol .card .replied::before{content:"✓";display:inline-grid;place-items:center;width:16px;height:16px;margin-right:6px;border-radius:50%;background:#1a7f4b;color:#fff;font-size:11px;font-weight:700;animation:meTick .45s cubic-bezier(.2,.9,.3,1.5) both}
+@keyframes meTick{from{transform:scale(0)}to{transform:scale(1)}}
+/* all clear arrives */
+.me-clear{animation:meClear .9s cubic-bezier(.2,.8,.2,1) both}
+.me-clear .rings{animation:meRings 1.2s cubic-bezier(.2,.8,.2,1) both}
+@keyframes meClear{from{opacity:0}to{opacity:1}}
+@keyframes meRings{from{transform:rotateX(62deg) scale(.7);opacity:0}to{transform:rotateX(62deg) scale(1);opacity:1}}
+@media (prefers-reduced-motion: reduce){.me-clear,.me-clear .rings,.col.acol .card .replied::before{animation:none}#board.linking .col.todo .card:not(.held),#board .col.todo .card.held{transition:none}}
+</style></head>
 <body>
 <div class="wrap">
   <header>
     <h1><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="1.5" y="2" width="3.5" height="12" rx="1.2" fill="currentColor" opacity=".35"/><rect x="6.25" y="2" width="3.5" height="8" rx="1.2" fill="currentColor"/><rect x="11" y="2" width="3.5" height="5" rx="1.2" fill="currentColor" opacity=".6"/></svg>agentboard</h1>
-    <nav class="ab-tabs" aria-label="Pages"><a class="tab on" id="tab-board" href="./" aria-current="page" title="Every task in three columns: Todo, Doing and Done">Board</a><a class="tab" id="tab-agents" href="./agents" title="One lane per agent: who is doing what">By agent</a><a class="tab" id="hud-btn" href="#/hud" role="button" aria-controls="hud" title="A live view of who is working and who is waiting on you (h)">Load</a><a class="tab" id="tab-story" href="./story" title="The work in plain words: five scenes you scroll">Story</a></nav>
+    <nav class="ab-tabs" aria-label="Pages"><a class="tab on" id="tab-board" href="./" aria-current="page" title="Every task in three columns: Todo, Doing and Done">Board</a><a class="tab" id="tab-agents" href="./agents" title="One lane per agent: who is doing what">By agent</a><a class="tab" id="tab-need" href="./need" title="By agent, with the agents waiting on you first (3)">Needs you<span id="need-n"></span></a></nav>
     <button class="btn" id="new-btn" type="button" aria-label="New task (n)" title="New task (n)"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><span class="lbl">New task</span></button>
     <button class="btn" id="later-btn" aria-controls="later" title="Tasks parked for another day (l)">Later <span id="later-n"></span></button>
     <span id="ab-slot-header" style="display:contents"></span>
@@ -1556,7 +1646,8 @@
     <dt><kbd>h</kbd></dt><dd>Load</dd>
     <dt><kbd>a</kbd></dt><dd>By agent / back to the board</dd>
     <dt><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></dt><dd>Board, By agent, Load</dd>
-    <dt><kbd>[</kbd> <kbd>]</kbd></dt><dd>Previous / next view: Board, By agent, Load</dd>
+    <dt><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></dt><dd>Board, By agent, Needs you</dd>
+    <dt><kbd>[</kbd> <kbd>]</kbd></dt><dd>Previous / next view: Board, By agent, Needs you</dd>
     <dt><kbd>↑ ↓ ← →</kbd></dt><dd>Move between cards (on Load: Todo and Doing)</dd>
     <dt><kbd>j</kbd> <kbd>k</kbd></dt><dd>Next / previous card</dd>
     <dt><kbd>Enter</kbd> / <kbd>Space</kbd></dt><dd>Open card</dd>
@@ -1679,7 +1770,8 @@ let APP = 'agentboard';   // the tab title's name: 'agentboard · work' on a nam
 const BASE = window.AB_BASE || '';   // '' for the default board, '/b/<name>' for another one (the server fills it in)
 { const nativeFetch = window.fetch.bind(window); window.fetch = (u, o) => nativeFetch(typeof u === 'string' && u.startsWith('/api/') ? BASE + u : u, o); }
 const SOLO = location.pathname.replace(/\/+$/, '').endsWith('/hud');
-let BYAGENT = location.pathname.replace(/\/+$/, '').endsWith('/agents');   // the by-agent view: same page, swimlane columns; setView() flips it in place
+let BYAGENT = location.pathname.replace(/\/+$/, '').endsWith('/agents');
+let MEFIRST = location.pathname.replace(/\/+$/, '').endsWith('/need'); if (MEFIRST) BYAGENT = true;   // Needs you: By agent, with the agents waiting on the owner first (see byAgentHtml)   // the by-agent view: same page, swimlane columns; setView() flips it in place
 // the left drawer: Later (parked ideas), the same on the Board and on By agent (Todo is a column in both)
 const LATER_EMPTY = 'Nothing parked. Ideas you are not ready to start live here, out of the way.';
 const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;   // HUD running in its own window
@@ -1951,18 +2043,44 @@ function byAgentHtml(by, filtered) {
   const names = new Set([...doingBy.keys()].filter(Boolean));
   const sorted = [...names].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base', numeric: true }));
   const active = sorted.filter(n => doingBy.has(n));
-  if (doingBy.has('')) active.push('');   // Doing cards with no agent: an Unassigned lane last, so no card is shown nowhere
+  const sentRaw = t => t.needs_input && t.reply && t.reply.text && !t.reply.state;
+  const sentTo = t => { if (!sentRaw(t)) { sentSeen.delete(t.id); return false; } if (!sentSeen.has(t.id)) { sentSeen.set(t.id, Date.now()); setTimeout(render, SENT_HOLD + 60); } return Date.now() - sentSeen.get(t.id) >= SENT_HOLD; };   // answered, the agent has not read it yet: no longer yours
+  const wOf = t => sentTo(t) ? 2 : t.needs_input ? 0 : t.review ? 1 : 2, whenOf = t => { if (t.needs_input && t.reply && t.reply.text && whenKeep.has(t.id)) return whenKeep.get(t.id); const w = Date.parse(t.updated) || 0; whenKeep.set(t.id, w); return w; };   // an answer does not shuffle the lane while its tick shows
+  const laneW = n => Math.min(...doingBy.get(n).map(wOf));
+  if (MEFIRST) {   // Needs you: agents waiting on the owner first (asks, then sign-offs, longest wait first); inside a lane the waiting card on top
+    doingBy.forEach(list => list.sort((a, b) => wOf(a) - wOf(b) || (wOf(a) < 2 ? whenOf(a) - whenOf(b) : 0)));
+    const key = n => { const c = doingBy.get(n)[0]; return [wOf(c), wOf(c) < 2 ? whenOf(c) : 0]; };
+    active.sort((a, b) => { const x = key(a), y = key(b); return x[0] - y[0] || x[1] - y[1]; });
+  }
+  const live = id => { const b = byId.get(id); return b && b.status !== 'done'; }, holds = new Map();
+  tasks.forEach(t => { if (isKid(t) || t.status === 'done') return; const b = (t.blocked_by || []).find(live); if (b) holds.set(b, [...(holds.get(b) || []), t.id]); });
+  const pctOf = n => { const l = doingBy.get(n) || []; return l.length ? Math.round(l.reduce((a, t) => a + (t.progress || 0), 0) / l.length) : 0; };
+  const isBack = n => MEFIRST && laneW(n) === 2 && !lanePeek.has(n);
+  const laneCls = n => !MEFIRST ? '' : isBack(n) ? ' back' : laneW(n) < 2 ? ' mine' + (n === active[0] ? ' first' : '') + (n === seamOf() ? ' seam' : '') : ' peek';
+  const seamOf = () => { const sh = active.filter(a => !isBack(a)); return sh.some(a => laneW(a) === 0) ? sh.find(a => laneW(a) === 1) : null; };
+  // the wait rule: a hairline ruler under the lane's name, an orange run as long as the lane's oldest wait (1 h, 4 h, 1 d, 3 d marks)
+  const waitRule = n => {
+    if (laneW(n) === 2) return '';   // By agent shows the same rule, so it stays put when you flip to Needs you
+    const c = doingBy.get(n).filter(t => wOf(t) < 2).sort((a, b) => wOf(a) - wOf(b) || whenOf(a) - whenOf(b))[0], m = Math.max(1, (Date.now() - whenOf(c)) / 60000);
+    const pos = x => Math.max(0, Math.min(100, 100 * Math.log(Math.max(10, x) / 10) / Math.log(432)));
+    const lab = m < 60 ? Math.round(m) + ' min' : m < 1440 ? (Math.round(m / 6) / 10) + ' h' : (Math.round(m / 144) / 10) + ' d';
+    return `<div class="wait-rule" data-for="${esc(c.id)}" aria-label="Waiting on you for ${lab}${holds.get(c.id) ? ', holds ' + holds.get(c.id).length + ' cards in Todo' : ''}"><i class="run ${wOf(c) ? 'rev' : 'ask'}" style="width:${pos(m).toFixed(1)}%"></i>${[60, 240, 1440].map(x => `<i class="tk" style="left:${pos(x).toFixed(1)}%"></i>`).join('')}<b>${wOf(c) ? 'sign off' : 'answer'} · ${lab}${holds.get(c.id) ? ` · <button type="button" class="holds-btn" title="Show the cards in Todo that wait behind this one">${wOf(c) ? 'frees' : 'holds'} ${holds.get(c.id).length}</button>` : ''}</b></div>`;
+  };
   const colorFor = n => { const t = (doingBy.get(n) || [])[0]; return t ? colorOf(t) : 'var(--neutral)'; };
   const stateFor = n => agentState(doingBy.get(n) || []);
   const agentCol = n => {
     const st = stateFor(n), cards = doingBy.get(n) || [];
     const fresh = lanesKnown && !firstRender && !lanesBefore.has(n);   // Motion: a lane that was not up on the last By agent render slides in (a view switch is not that)
-    return `<section class="col acol${fresh ? ' enter' : ''}" data-status="agent:${esc(n)}" style="--c:${colorFor(n)}"><h2><span class="av" style="--c:${colorFor(n)}" aria-hidden="true">${esc(nodeGlyph(n))}</span>${n ? `<button class="nm" type="button" data-thread="${esc(n)}" title="Talk to ${esc(n)}">${esc(n)}</button>` : `<span class="nm" title="Unassigned">Unassigned</span>`}<span class="cnt">${cards.length}</span><em class="${st}">${esc(st)}</em></h2>`
-      + `<div class="cards">${cards.map(card).join('')}</div></section>`;
+    return `<section class="col acol${fresh ? ' enter' : ''}${laneCls(n)}" data-status="agent:${esc(n)}"${isBack(n) ? ` tabindex="0" role="button" aria-label="${esc(n || 'Unassigned')}: ${cards.length} card${cards.length === 1 ? '' : 's'}, not waiting on you. Open the lane"` : ''} style="--c:${colorFor(n)}${isBack(n) ? `;right:${(active.filter(isBack).length - 1 - active.filter(isBack).indexOf(n)) * 52}px` : ''}"><h2><span class="av" style="--c:${colorFor(n)}" aria-hidden="true">${esc(nodeGlyph(n))}</span>${n ? `<button class="nm" type="button" data-thread="${esc(n)}" title="Talk to ${esc(n)}">${esc(n)}</button>` : `<span class="nm" title="Unassigned">Unassigned</span>`}<span class="cnt">${cards.length}</span><em class="${st}">${esc(st)}</em>${isBack(n) ? `<i class="sp-bar" aria-hidden="true"><i style="height:${pctOf(n)}%"></i></i><span class="sp-pct">${pctOf(n)}%</span>` : ''}</h2>`
+      + waitRule(n) + `<div class="cards">${cards.map(card).join('')}</div></section>`;
   };
   const n = active.length;
-  $('board').style.setProperty('--tracks', `var(--todo-w) repeat(${Math.max(1, n)}, minmax(220px, 1fr))`);
-  return todoColHtml(by.todo, filtered) + (n ? active.map(agentCol).join('') : `<div class="empty">${filtered ? 'No matches' : 'No agent is working'}</div>`);
+  const shownL = active.filter(a => !isBack(a)); laneAway.clear(); active.filter(isBack).forEach(a => laneAway.add(a));
+  $('board').style.setProperty('--tracks', MEFIRST && n ? 'var(--todo-w)' + (shownL.length ? ` repeat(${shownL.length}, ${laneWpx}px)` : '') : `var(--todo-w) repeat(${Math.max(1, n)}, minmax(220px, 1fr))`);
+  document.body.classList.toggle('me-first', MEFIRST);
+  const clear = MEFIRST && n && !active.some(a => laneW(a) < 2) ? `<div class="me-clear" role="status"><div class="rings" aria-hidden="true"><i></i><i></i><i></i></div><strong>Nothing needs you</strong><span>${n} agent${n === 1 ? ' is' : 's are'} working · you will see them here the moment one stops</span></div>` : '';
+  if (clear) $('board').style.setProperty('--tracks', 'var(--todo-w) minmax(360px, 1fr)' + (shownL.length ? ` repeat(${shownL.length}, ${laneWpx}px)` : ''));
+  return todoColHtml(by.todo, filtered) + clear + (n ? shownL.map(agentCol).join('') : `<div class="empty">${filtered ? 'No matches' : 'No agent is working'}</div>`);
 }
 
 // --- By agent: a cue for the lanes past the edge (6+ agents scroll sideways, and the scrollbar can be hidden) ---
@@ -2070,7 +2188,86 @@ function quickEvents(root) {
 }
 
 
+// Needs you and By agent share their lanes. What is on show, what is away, and what an answer does to the order:
+const lanePeek = new Set(), laneAway = new Set(), sentSeen = new Map(), whenKeep = new Map(), SENT_HOLD = 1100; let needPeak = 0; let laneWpx = 240;
+const laneEls = () => [...$('board').querySelectorAll('.col.acol')];
+const laneSig = () => laneEls().map(c => c.dataset.status).join(',');
+function gaugesSync() {   // the gauges are the map of every agent: the ones whose lane is not on show in Needs you go grey
+  document.querySelectorAll('#load-strip .ls-g').forEach(g => { const away = MEFIRST && laneAway.has(g.dataset.agent); g.classList.toggle('away', away); });
+}
+new MutationObserver(gaugesSync).observe($('load-strip'), { childList: true, subtree: true });
+// Every redraw goes through here. Lanes that leave fade where they stood, lanes that stay slide to their new place at the same size,
+// lanes that arrive fade in: so a tab flip, an answer read or a sign-off reads as the same lanes moving, never as a new page.
 function render() {
+    const old = laneEls(), was = new Map(old.map(c => [c.dataset.status, c.getBoundingClientRect()])), sig = laneSig();
+    const cardWas = new Map(); old.forEach(l => l.querySelectorAll('.cards > .card').forEach(c => cardWas.set(c.dataset.id, [c.getBoundingClientRect(), l.dataset.status])));
+    const out = drawBoard.apply(this, arguments), now = laneEls();
+    if (BYAGENT && !MEFIRST && now[0]) laneWpx = Math.round(now[0].getBoundingClientRect().width);
+    gaugesSync(); if (linkKey && laneSig() === sig) linkPaint();
+    if (!was.size || laneSig() === sig || matchMedia('(prefers-reduced-motion: reduce)').matches) return out;
+    const keep = new Set(now.map(c => c.dataset.status)), br = $('board').getBoundingClientRect(), ease = 'cubic-bezier(.2,.8,.2,1)';
+    old.forEach(c => {   // beat one: a lane that leaves fades and sinks where it stood
+      if (keep.has(c.dataset.status)) return; const r = was.get(c.dataset.status); if (r.right < br.left || r.left > br.right) return;
+      c.style.cssText += `;position:fixed;left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px;margin:0;z-index:5;pointer-events:none`; document.body.appendChild(c);
+      c.animate([{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'translateY(16px) scale(.97)' }], { duration: 260, easing: 'ease-in', fill: 'forwards' }).onfinish = () => c.remove(); });
+    now.forEach((c, i) => {   // beat two: a lane that stays slides straight to its new place (same size, nothing else changes); a new one fades in
+      const r = was.get(c.dataset.status), n = c.getBoundingClientRect();
+      if (!r) { c.animate([{ opacity: 0, transform: 'translateY(16px) scale(.97)' }, { opacity: 1, transform: 'none' }], { duration: 340, delay: 240 + i * 22, fill: 'backwards', easing: ease });
+        if (MEFIRST && c.classList.contains('mine')) { c.classList.add('ls-ping'); setTimeout(() => c.classList.remove('ls-ping'), 1400); }   // an agent that has just stopped announces itself
+        return; }
+      const dx = r.left - n.left;
+      if (Math.abs(dx) > 1) { const far = Math.min(1, Math.abs(dx) / 900), lift = 3 + 13 * far, dur = 460 + 200 * far, delay = 150 + i * 22;
+        c.classList.add('moving'); c.style.zIndex = String(3 + Math.round(far * 5));
+        c.animate([{ transform: `translateX(${dx}px)` }, { transform: 'translateX(0)' }], { duration: dur, delay, fill: 'backwards', easing: 'cubic-bezier(.22,.8,.24,1)' }).onfinish = () => { c.classList.remove('moving'); c.style.zIndex = ''; };
+        c.animate([{ transform: 'translateY(0) scale(1)' }, { transform: `translateY(${-lift}px) scale(${1 + .018 * far})`, offset: .42 }, { transform: 'translateY(0) scale(1)' }], { duration: dur, delay, fill: 'backwards', easing: 'ease-in-out', composite: 'add' }); }
+      c.querySelectorAll('.cards > .card').forEach(k => {   // its cards ride with it; one that changed place inside the lane moves only by that
+        const w = cardWas.get(k.dataset.id); if (!w || w[1] !== c.dataset.status) return; k.getAnimations().forEach(a => { if (!(a instanceof CSSAnimation)) a.cancel(); });
+        const dy = (w[0].top - r.top) - (k.getBoundingClientRect().top - n.top); if (Math.abs(dy) > 1) k.animate([{ transform: `translateY(${dy}px)` }, { transform: 'none' }], { duration: 460, delay: 150 + i * 22, fill: 'backwards', easing: 'cubic-bezier(.22,.8,.24,1)' }); });
+    });
+    if (linkKey) linkPaint();
+    return out;
+}
+const laneOf = name => laneEls().find(c => c.dataset.status === 'agent:' + name), gaugeOf = name => [...document.querySelectorAll('#load-strip .ls-g')].find(g => g.dataset.agent === name);
+const blockerOf = t => (t.blocked_by || []).find(id => { const b = byId.get(id); return b && b.status !== 'done'; });
+const heldBy = id => tasks.filter(t => !isKid(t) && t.status !== 'done' && blockerOf(t) === id).map(t => t.id);
+const cardEl = id => document.querySelector(`#board .card[data-id="${CSS.escape(id)}"]`), todoBox = () => document.querySelector('#board .col.todo .cards');
+let linkKey = '', linkPin = false, todoTop = null;
+function linkClear() { document.querySelectorAll('.lit').forEach(x => x.classList.remove('lit')); $('board').classList.remove('linking'); document.querySelectorAll('.card.held, .card.holder').forEach(x => x.classList.remove('held', 'holder')); }
+function linkOff(force) {
+  if ((linkPin && !force) || !linkKey) return; linkKey = ''; linkPin = false; linkClear();
+  const tb = todoBox(); if (tb && todoTop != null) tb.scrollTo({ top: todoTop, behavior: RM ? 'auto' : 'smooth' }); todoTop = null;   // Todo goes back to where you had it
+}
+function linkPaint() {   // draw the link the key names: called on hover, and again after any redraw so a poll never drops it
+  linkClear(); const [k, v] = [linkKey[0], linkKey.slice(2)];
+  if (k === 'g') { gaugeOf(v)?.classList.add('lit'); laneOf(v)?.classList.add('lit'); return; }
+  if (k === 'l') { gaugeOf(v)?.classList.add('lit'); return; }
+  const t = byId.get(v), el = cardEl(v); if (!t || !el) return;
+  if (t.agent) gaugeOf(t.agent)?.classList.add('lit');
+  const held = heldBy(v), up = blockerOf(t), els = (held.length ? held : up ? [up] : []).map(cardEl).filter(Boolean); if (!els.length) return;
+  el.classList.add('holder'); els.forEach(x => x.classList.add('held'));
+  const inTodo = els.filter(x => x.closest('.col.todo'));
+  if (inTodo.length && !el.closest('.col.todo')) { $('board').classList.add('linking'); const tb = todoBox(); if (tb && todoTop == null) todoTop = tb.scrollTop; inTodo[0].scrollIntoView({ block: 'nearest', behavior: RM ? 'auto' : 'smooth' }); }
+}
+function linkOn(t) {
+  if (linkPin) return;
+  const g = t.closest?.('#load-strip .ls-g'), card = t.closest?.('#board .card'), lane = t.closest?.('#board .col.acol'), rule = t.closest?.('.wait-rule');
+  const key = g ? 'g:' + g.dataset.agent : rule ? 'c:' + rule.dataset.for : card ? 'c:' + card.dataset.id : lane ? 'l:' + lane.dataset.status.slice(6) : '';
+  if (!key || key === linkKey) return;   // still on the same thing: nothing restarts, nothing flickers
+  linkKey = key; linkPaint();
+}
+const LINKS = '#load-strip .ls-g, #board .col.acol, #board .card';
+for (const [on, off] of [['mouseover', 'mouseout'], ['focusin', 'focusout']]) {
+  document.addEventListener(on, e => { if (e.target.closest?.(LINKS)) linkOn(e.target); });
+  document.addEventListener(off, e => { const to = e.relatedTarget; if (!to || !to.closest?.(LINKS)) linkOff(); });
+}
+document.addEventListener('click', e => {   // "holds 3" is a button: a click (or a tap) pins the link, a second one lets go
+  const b = e.target.closest?.('.holds-btn');
+  if (!b) { if (linkPin && !e.target.closest('.card.held')) linkOff(true); return; }
+  e.preventDefault(); e.stopPropagation(); const was = linkPin; linkOff(true); if (was) return; linkOn(b); linkPin = true; b.closest('.wait-rule').classList.add('pinned');
+}, true);
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && linkPin) linkOff(true); });
+$('board').addEventListener('click', e => { const fold = e.target.closest('.col.acol.peek h2'); if (fold && !e.target.closest('.nm')) { lanePeek.delete(fold.closest('.col').dataset.status.slice(6)); render(); } }, true);
+function drawBoard() {
   const by = Object.fromEntries(COLUMNS.map(([k]) => [k, []]));
   const rawQ = ($('filter').value || '').trim(), q = rawQ.toLowerCase();
   $('filter').classList.toggle('on', tasks.length > 8 || !!q);
@@ -2088,6 +2285,8 @@ function render() {
   const working = top.filter(t => t.status === 'doing');
   const asks = working.filter(t => t.needs_input).length;
   const revs = working.filter(t => !t.needs_input && t.review).length;
+  { const b = $('need-n'), v = String((working.filter(t => t.needs_input && !(t.reply && t.reply.text && !t.reply.state)).length + revs) || ''); { const nNow = +v || 0; needPeak = nNow ? Math.max(needPeak, nNow) : 0; const tb = $('tab-need'); tb.style.setProperty('--left', needPeak ? (nNow / needPeak).toFixed(3) : 0); tb.title = nNow ? `${nNow} waiting on you` + (needPeak > nNow ? ` · ${needPeak - nNow} cleared` : '') + ' (3)' : 'Nothing is waiting on you (3)'; }
+    if (b.textContent !== v) { b.textContent = v; b.classList.remove('pop'); void b.offsetWidth; b.classList.add('pop'); } }
   // the filter it drives can't outlive what it's filtering to — once the last matching card
   // clears (answered / signed off), drop it instead of silently filtering to nothing forever
   if (flagFilter === 'needs_input' && !asks) flagFilter = null;
@@ -2182,7 +2381,7 @@ function render() {
     } else {
       body = list.length ? list.map(card).join('') : `<div class="empty">${(q || flagFilter) ? 'No matches' : doneDay != null ? 'Nothing finished ' + dayLabel(doneDay).toLowerCase() : EMPTY[k]}</div>`;
     }
-    const clr = k === 'done' ? `<span class="done-acts"><a class="clear-done sum-link" href="${(window.AB_BASE || '')}/summary" target="_blank" rel="noopener" title="Summary of finished work, to read or share">Summary</a><a class="clear-done sum-link" href="${(window.AB_BASE || '')}/reports" target="_blank" rel="noopener" title="Card reports, newest first">Reports</a>` + (by.done.length ? `<button class="clear-done" id="clear-done" title="Archive all Done cards">Clear</button>` : '') + `</span>` : '';
+    const clr = k === 'done' ? `<span class="done-acts"><a class="clear-done sum-link" href="${(window.AB_BASE || '')}/story" title="The work in plain words">Story</a><a class="clear-done sum-link" href="${(window.AB_BASE || '')}/summary" target="_blank" rel="noopener" title="Summary of finished work, to read or share">Summary</a><a class="clear-done sum-link" href="${(window.AB_BASE || '')}/reports" target="_blank" rel="noopener" title="Card reports, newest first">Reports</a>` + (by.done.length ? `<button class="clear-done" id="clear-done" title="Archive all Done cards">Clear</button>` : '') + `</span>` : '';
     const p = k === 'doing' && pres ? `<b class="pres" aria-hidden="true">${pres}</b>` : '';
     const dog = k === 'doing' && !BYAGENT ? dogHtml(boardDog) : '';   // the watchdog's rows under the Doing header (overnight-rel-agent-protocol-2)
     return `<section class="col ${k}" data-status="${k}"><h2>${label} <span class="cnt">${by[k].length}</span>${p}${clr}</h2>${ribbon}${dog}<div class="cards">${body}</div>${more}</section>`;
@@ -4136,7 +4335,7 @@ function stripHtml(f) {
   const trend = `<span class="ls-trend"><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Agents working, last hour: now ${now}, most ${Math.max(0, ...f.trend)}">`
     + `<polygon class="ar" points="0,${H - 3} ${pts} ${W},${H - 3}"/><polyline class="ln" points="${pts}"/></svg>`
     + `<span class="cap"><b>${now} working</b><span>last 60 min</span></span></span>`;
-  return `<div class="ls-gauges" role="group" aria-label="Agents, share of the last hour at work">${f.agents.map(gauge).join('')}</div>${trend}<a class="ls-more" href="#/hud" id="ls-more" title="Open the Load view (h)">Load ›</a>`;
+  return `<div class="ls-gauges" role="group" aria-label="Agents, share of the last hour at work">${f.agents.map(gauge).join('')}</div>${trend}<a class="ls-more" href="#/hud" id="ls-more" title="Load: a live view of who is working and who is waiting on you (h)">Load ›</a>`;
 }
 async function stripLoad() {
   try {
@@ -4163,7 +4362,7 @@ function stripFade() {   // fade the edge of the gauge row that has more behind 
 }
 function stripSync() {   // By agent with Load shut: draw and poll; anywhere else: stop
   clearInterval(stripTimer); stripTimer = null;
-  const on = BYAGENT && !SOLO && !hudIsOpen();
+  const on = !SOLO && !hudIsOpen();   // the same map of agents above all three tabs
   if (!on) return;
   stripTag = ''; stripLoad();
   stripTimer = setInterval(() => { if (!document.hidden) stripLoad(); }, 5000);
@@ -4179,14 +4378,18 @@ function stripJump(name) {   // scroll that agent's lane into view, focus its na
 addEventListener('resize', stripFade);
 $('load-strip').addEventListener('click', e => {
   if (e.target.closest('#ls-more')) { e.preventDefault(); if (!hudIsOpen()) openHud(); return; }
-  const g = e.target.closest('.ls-g'); if (g) stripJump(g.dataset.agent);
+  const g = e.target.closest('.ls-g'); if (!g) return; const who = g.dataset.agent;
+  if (!BYAGENT) goView(1);   // from the Board a gauge takes you to that agent's lane
+  else if (MEFIRST && lanePeek.has(who)) { lanePeek.delete(who); render(); return; }
+  else if (MEFIRST && laneAway.has(who)) { lanePeek.add(who); render(); }
+  requestAnimationFrame(() => stripJump(who));
 });
 
 // Load is the overlay under the board's own header: it starts where that header ends, and the header's tabs light the view you are on
 const placeHud = () => document.documentElement.style.setProperty('--hdr-b', Math.max(0, Math.ceil(document.querySelector('header').getBoundingClientRect().bottom)) + 'px');
 function litTab() {
-  const on = hudIsOpen() ? 'hud-btn' : BYAGENT ? 'tab-agents' : 'tab-board';
-  for (const id of ['tab-board', 'tab-agents', 'hud-btn']) { const a = $(id), is = id === on; a.classList.toggle('on', is); if (is) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); }
+  const on = MEFIRST ? 'tab-need' : BYAGENT ? 'tab-agents' : 'tab-board';   // Load is an overlay on whichever is open: the tab under it stays lit
+  for (const id of ['tab-board', 'tab-agents', 'tab-need']) { const a = $(id), is = id === on; a.classList.toggle('on', is); if (is) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); }
 }
 window.addEventListener('resize', placeHud);
 new ResizeObserver(placeHud).observe(document.querySelector('header'));
@@ -4227,10 +4430,10 @@ function toggleHudFull() {
   hudKey = ''; hudLoad();
 }
 document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement) { $('hud').classList.remove('full'); hudKey = ''; } });
-$('hud-btn').onclick = e => { e.preventDefault(); if (!hudIsOpen()) openHud(); };   // a tab: clicking the lit one does nothing (h and Esc close it)
 // tab links are relative to the page, which is wrong for /hud (its folder is still the board): pin them to the board's base. A plain click flips the view
 // without a reload (Load is an overlay, Board and By agent redraw in place); the pop-out window has no board, so it opens one
-$('tab-board').href = BASE + '/'; $('tab-agents').href = BASE + '/agents'; $('tab-story').href = BASE + '/story';   // Story is its own page: a plain link
+$('tab-need').href = BASE + '/need'; $('tab-need').onclick = e => { if (e.metaKey || e.ctrlKey || e.shiftKey || e.button) return; e.preventDefault(); goView(2); };
+$('tab-board').href = BASE + '/'; $('tab-agents').href = BASE + '/agents';
 ['tab-board', 'tab-agents'].forEach((id, i) => { $(id).onclick = e => { if (e.metaKey || e.ctrlKey || e.shiftKey || e.button) return; e.preventDefault(); if (SOLO) window.open(BASE + (i ? '/agents' : '/'), 'agentboard-board'); else goView(i); }; });
 applyView();
 if (BYAGENT) document.title = APP + ' · by agent';
@@ -4545,27 +4748,26 @@ function extendSelectionVertical(dir) {
 // Board and By agent are one page that draws two ways: flipping redraws it in place, with no reload, so nothing else on the page (the sound
 // included) is interrupted. The address bar and Back follow it. Load is an overlay on whichever is open.
 function applyView() { document.body.classList.toggle('byagent', BYAGENT); litTab(); stripSync(); }
-function setView(agents, push = true) {
-  if (SOLO || agents === BYAGENT) return;
-  BYAGENT = agents;
-  if (push) history.pushState({ view: agents ? 'agents' : 'board' }, '', BASE + (agents ? '/agents' : '/') + location.hash);
+function setView(agents, push = true, need = false) {
+  if (SOLO || (agents === BYAGENT && need === MEFIRST)) return;
+  BYAGENT = agents; MEFIRST = need; lanePeek.clear();
+  if (push) history.pushState({ view: need ? 'need' : agents ? 'agents' : 'board' }, '', BASE + (need ? '/need' : agents ? '/agents' : '/') + location.hash);
+  if (need) requestAnimationFrame(() => { const first = $('board').querySelector('.col.acol'); $('board').scrollLeft = matchMedia('(max-width: 900px)').matches && first ? first.getBoundingClientRect().left - $('board').getBoundingClientRect().left + $('board').scrollLeft - 12 : 0; });   // on a phone Needs you opens on the first agent that needs you, not on Todo
   applyView(); renderKeepingCardFocus(); futScan();
   if (layerOn('motion') && !RM) $('board').animate([{ opacity: .3 }, { opacity: 1 }], { duration: 220, easing: 'ease-out' });   // Motion: the view crossfades for the swish
 }
 window.addEventListener('popstate', () => {   // Back and Forward: the same one swish when the view changes, nothing for a hash alone
-  const agents = location.pathname.replace(/\/+$/, '').endsWith('/agents');
-  if (agents !== BYAGENT && !SOLO) touch('swish');
-  setView(agents, false);
+  const path = location.pathname.replace(/\/+$/, ''), need = path.endsWith('/need'), agents = need || path.endsWith('/agents');
+  if ((agents !== BYAGENT || need !== MEFIRST) && !SOLO) touch('swish');
+  setView(agents, false, need);
 });
 // [ and ] flip between the three views in a ring: Board, By agent, Load (the HUD)
 const VIEWS = 3;
-const curView = () => hudIsOpen() ? 2 : BYAGENT ? 1 : 0;
+const curView = () => MEFIRST ? 2 : BYAGENT ? 1 : 0;   // Board, By agent, Needs you (Load is the overlay: h, or Load › in the strip)
 function goView(i) {
-  const here = hudIsOpen();
-  if (i === 2) { if (!here) openHud(); return; }
-  const agents = i === 1;
-  if (agents !== BYAGENT) { if (!here) touch('swish'); setView(agents); }   // in place, no reload: the swish plays through
-  if (here) closeHud();   // closing Load is the one sound of a switch from it, whichever view is under it
+  const here = hudIsOpen(), agents = i >= 1, need = i === 2;
+  if (agents !== BYAGENT || need !== MEFIRST) { if (!here) touch('swish'); setView(agents, true, need); }   // in place, no reload: the swish plays through
+  if (here) closeHud();
 }
 document.addEventListener('keydown', e => {
   if (e.metaKey || e.ctrlKey) return;
@@ -4602,7 +4804,8 @@ document.addEventListener('keydown', e => {
   if (e.key === 'n') { e.preventDefault(); if (hudIsOpen()) closeHud(); toggleAdd(true); return; }   // the new-task field is on the board, under Load
   if (e.key === 'e' && openId && !panelEdit) { e.preventDefault(); startEdit('title'); return; }
   if (e.key === 'l') { $('later-btn').click(); return; }
-  if (e.key === 'h') { $('hud-btn').click(); return; }
+  if (e.key === 'h') { if (!hudIsOpen()) openHud(); return; }
+  if ((e.key === '1' || e.key === '2' || e.key === '3') && !SOLO && !e.altKey) { e.preventDefault(); goView(+e.key - 1); return; }   // 1 Board, 2 By agent, 3 Needs you
   if (e.key === 'a') { goView(BYAGENT ? 0 : 1); return; }
   if (e.shiftKey && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) { e.preventDefault(); extendSelectionVertical(e.key === 'ArrowDown' ? 'down' : 'up'); return; }   // on Load too: the bar floats above it
   const map = { ArrowDown: 'down', j: 'down', ArrowUp: 'up', k: 'up', ArrowLeft: 'left', ArrowRight: 'right' };
