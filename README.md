@@ -237,10 +237,10 @@ another agent's lane refuses it (red outline, no insertion line, a toast says wh
 
 ### Story
 
-**Needs you** (the third tab, the key `3`, `/need`) is By agent arranged by what is waiting on you: the agents that asked you something first, then the ones
-with work to sign off, longest wait first. Agents that need nothing from you leave the board and their gauges above go grey (click one to bring its lane in).
-Under each waiting agent a rule says what and how long, `answer · 4 h · holds 3`; hover the card and the Todo cards it holds light up. Answer on the card as
-anywhere else; the lane leaves once you have, and the count on the tab runs down. `1`, `2`, `3` switch between Board, By agent and Needs you.
+**Needs you** (the third tab, the key `3`, `/need`) is the cards waiting on you, one at a time: the card open in the middle, the ones before it as strips
+above and the ones after it as strips below, asks first and then sign-offs. `↑` `↓` (or a scroll, or a click on a strip) moves through the pile, `→` opens the
+card's details beside it, `Enter` goes to the reply box, and `Space` twice sends the card's first answer. An answered card leaves and the next one opens.
+`1`, `2`, `3` switch between Board, By agent and Needs you. On By agent, a line under a waiting agent's name says what it is waiting for and how long.
 
 **Story** (`/story`, linked from the Done column) is the work in plain words, five scenes you scroll: a sentence and a ring (finished this week, in progress, waiting);
 a flow from Waiting to Working to Done with every card a dot, one colour per theme; one card per theme with a one-line sentence and "n of m done"; only what
