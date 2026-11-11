@@ -100,6 +100,20 @@ class PileTests(unittest.TestCase):
         self.assertIn("@media (prefers-reduced-motion: reduce){.deck,.deck *{transition:none !important}", PAGE)
 
 
+class SoundTests(unittest.TestCase):
+    """The pile sounds through the board's Touch layer: nothing plays with sound off or that layer off, and every cue obeys its limits."""
+    def test_each_move_has_its_cue_in_the_touch_vocabulary(self):
+        touch = re.search(r"const TOUCH = \{(.*?)\n\};", PAGE, re.S).group(1)
+        for kind in ("flip:", "bump:", "arm:", "disarm:", "sent:", "clear:"):
+            self.assertIn("  " + kind, touch)
+        self.assertIn("tap(agentPitch(agent), t + .012, .035, .8, { verb: .45 });", touch)   # a card turns in its agent's voice
+        self.assertIn("deckSound('flip', top.agent, at - prevAt)", body("deckPose"))
+        self.assertIn("performance.now() - deckFlipAt > 45", body("deckPose"))               # a fast drag is not a rattle
+        self.assertIn("if (mode !== 'still'", body("deckPose"))                              # a redraw places the pile silently
+        self.assertIn("deckSound('bump')", body("deckStep"))
+        self.assertIn("touch('arm')", body("deckSpace"))
+
+
 class SharedTests(unittest.TestCase):
     def test_by_agent_says_what_a_waiting_agent_waits_for(self):
         lanes = body("byAgentHtml")

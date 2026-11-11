@@ -73,7 +73,11 @@ class TouchSoundTests(unittest.TestCase):
             self.assertNotIn("touch(", body(fn), fn)
         # what lands after an await (a copy, a done, an undo, a failed save) is still the user's action, so it may play after the gesture is past
         self.assertIn("touch.after = (kind, ...args) => { const t = touchAt(true);", PAGE)
-        self.assertEqual(sorted(set(re.findall(r"touch\.after\('(\w+)'", PAGE))), ["copy", "drop", "error", "toggle", "undo"])
+        # ...and on Needs you: the answer leaving and the last card cleared land on the redraw after your click (sent, clear)
+        self.assertEqual(sorted(set(re.findall(r"touch\.after\('(\w+)'", PAGE))), ["clear", "copy", "drop", "error", "sent", "toggle", "undo"])
+        # the pile's moves also come from a wheel, a finger and a timer, which are not gestures the Touch layer knows: one helper asks "after" for those only
+        self.assertIn("function deckSound(kind, ...args) { if (gestureLive) touch(kind, ...args); else touch.after(kind, ...args); }", PAGE)
+        self.assertEqual(sorted(set(re.findall(r"deckSound\('(\w+)'", PAGE))), ["bump", "disarm", "flip", "slide"])
 
     def test_the_existing_cues_and_the_bed_are_unchanged_and_never_doubled(self):
         for line in (

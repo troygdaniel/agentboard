@@ -24,6 +24,9 @@
   dims except for those cards; a blocked Todo card lights the card it waits on, on the Board too. A gauge and its lane light each other.
 - **Load** and **Story** are no longer tabs. Load is the overlay it always was: `h`, the `Load ›` link at the end of the gauge strip, or `/hud`; the tab of the
   view under it stays lit. Story is a link in the Done column, before Summary and Reports, and the summary, reports and story pages show the same three tabs.
+- Sound, in the Touch layer (so only with sound on and that layer on): each card you pass turns with a breath of paper and a note in its agent's voice, by
+  key, wheel, scroll or finger; the ends of the pile give a low bump; the details slide; the first `Space` is a rising pair and its cancel a falling tone; an
+  answer leaving is a sweep and two notes in the agent's voice; clearing the last card is a short rising chord.
 - No new request beyond `/api/task` for the open card's details (the feed the card panel already reads), no dependency, nothing started. Light and dark; no
   motion at all under reduced motion.
 - Not covered: it has only run on sample boards, never a long-lived one; on a phone the open card starts low on the screen; the passing-tests tick reads the

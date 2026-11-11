@@ -2403,9 +2403,9 @@ function deckPose(p, mode = 'glide', opts = {}) {
   const top = byId.get(deckIds[at]);
   if (top && (deckIds[at] !== deckTop || !deck.querySelector('.deck-head').firstChild || mode === 'still')) {
     if (deckIds[at] !== deckTop && deckArm) deckDisarm(true);
-    deckTop = deckIds[at]; deck.querySelector('.deck-head').innerHTML = deckHeadHtml(top, at, n); deckAgent = top.agent || ''; gaugesSync();
+    const prevAt = deckIds.indexOf(deckTop); deckTop = deckIds[at]; deck.querySelector('.deck-head').innerHTML = deckHeadHtml(top, at, n); deckAgent = top.agent || ''; gaugesSync();
     const m = $('deck-more'); if (m && m.dataset.for !== deckTop) { m.dataset.for = deckTop; if (deckOpen) { const k = deckMore.get(deckTop); m.innerHTML = k ? k[1] : '<p class="deck-wait">Loading the details…</p>'; deckFill(); } }
-    if (mode !== 'still') touch('step');   // one soft step per card, when the Touch sounds are on
+    if (mode !== 'still' && performance.now() - deckFlipAt > 45) { deckFlipAt = performance.now(); deckSound('flip', top.agent, at - prevAt); }   // each card you pass turns with a sound, in its agent's voice; a fast drag is not a rattle
   }
   if (mode === 'still') { void deck.offsetHeight; deck.classList.remove('still'); }
 }
@@ -2426,6 +2426,8 @@ async function deckFill() {
   try { const d = await (await fetch(BASE + '/api/task?id=' + encodeURIComponent(id), { cache: 'no-store' })).json(); const html = deckMoreHtml(d); deckMore.set(id, [d.updated, html]); const now = $('deck-more'); if (now && now.dataset.for === id && deckOpen) now.innerHTML = html; }
   catch (e) { el.innerHTML = '<p class="deck-wait">The details could not be loaded.</p>'; }
 }
+let deckFlipAt = 0;
+function deckSound(kind, ...args) { if (gestureLive) touch(kind, ...args); else touch.after(kind, ...args); }   // a wheel, a finger and a timer are not gestures the Touch layer knows: their sound is asked for "after"
 let deckWas = null, deckWasFront = null, deckWasView = false;
 function deckBefore() {   // before a redraw: was the pile on show, and where did its open card stand
   deckWasView = document.body.classList.contains('deckview') && !!$('board').querySelector('.deck-col');
@@ -2438,6 +2440,7 @@ function deckSettle() {   // after every redraw of the pile
   if (RM) { deckPose(at, 'still'); deckFill(); return; }
   if (gone && old && r) {   // the card you just answered: a tick lands on it, it leaves to the right, and the next one opens where it stood
     const t = byId.get(gone), word = !t || t.status === 'done' ? 'Signed off' : 'Sent';
+    if (clear) touch.after('clear'); else touch.after('sent', t && t.agent);   // your answer or sign-off has left: the redraw that shows it comes after the click, so the sound is asked for "after"
     old.style.cssText += `;position:fixed;left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px;margin:0;z-index:40;pointer-events:none;transition:none`;
     old.insertAdjacentHTML('beforeend', `<div class="deck-done"><i>✓</i>${word}</div>`); document.body.appendChild(old);
     old.animate([{ opacity: 1, transform: 'none' }, { opacity: 1, transform: 'scale(.985)', offset: .42 }, { opacity: 0, transform: 'translateX(140px) rotate(2deg) scale(.94)' }], { duration: 780, easing: 'cubic-bezier(.5,0,.3,1)', fill: 'forwards' }).onfinish = () => old.remove();
@@ -2451,22 +2454,22 @@ function deckGo(to) { const i = deckIds.indexOf(to); if (i < 0) return; deckPose
 function deckStep(d) {
   if (!d) return;
   const i = Math.round(deckP), j = Math.abs(d) > 1 ? dkClamp(i + d, 0, deckIds.length - 1) : i + d;
-  if (j < 0 || j >= deckIds.length) { const f = $('board').querySelector('.deck-slot.front'); if (f) f.animate([{ transform: 'none' }, { transform: `translateY(${d * 9}px)` }, { transform: 'none' }], { duration: 240, easing: 'ease-out' }); return; }   // the end of the pile: a small bump, no wrap
+  if (j < 0 || j >= deckIds.length) { deckSound('bump'); const f = $('board').querySelector('.deck-slot.front'); if (f) f.animate([{ transform: 'none' }, { transform: `translateY(${d * 9}px)` }, { transform: 'none' }], { duration: 240, easing: 'ease-out' }); return; }   // the end of the pile: a small bump, no wrap
   deckPose(j);
 }
 function deckJump(agent) { const i = deckIds.findIndex(id => (byId.get(id) || {}).agent === agent); if (i >= 0) deckPose(i); }
 function deckDetails(on) {   // the details slide out beside the card; the card makes room, nothing is redrawn
-  if (on === deckOpen) return; deckOpen = on; try { localStorage.setItem('ab-deck-details', on ? '1' : '0'); } catch (e) {}
+  if (on === deckOpen) return; deckOpen = on; deckSound('slide', on); try { localStorage.setItem('ab-deck-details', on ? '1' : '0'); } catch (e) {}
   const deck = $('board').querySelector('.deck'), m = $('deck-more'), b = deck?.querySelector('.deck-toggle'); if (!deck) return;
   deck.classList.toggle('open', on); b.textContent = on ? '‹ Hide details' : 'Details ›'; b.setAttribute('aria-expanded', on); b.title = on ? 'Hide the details (←)' : 'Show the details (→)';
   m.tabIndex = on ? 0 : -1; if (on) { m.removeAttribute('aria-hidden'); m.dataset.for = deckTop; const k = deckMore.get(deckTop); m.innerHTML = k ? k[1] : '<p class="deck-wait">Loading the details…</p>'; deckFill(); } else m.setAttribute('aria-hidden', 'true');
 }
-function deckDisarm(quiet) { clearTimeout(deckArmT); const was = deckArm; deckArm = null; document.querySelectorAll('.deck-armed').forEach(x => x.classList.remove('deck-armed')); if (was && !quiet) { const t = byId.get(deckTop), d = $('board').querySelector('.deck-head'); if (t && d) d.innerHTML = deckHeadHtml(t, deckIds.indexOf(deckTop), deckIds.length); } }
+function deckDisarm(quiet) { clearTimeout(deckArmT); const was = deckArm; deckArm = null; if (was && !quiet) deckSound('disarm'); document.querySelectorAll('.deck-armed').forEach(x => x.classList.remove('deck-armed')); if (was && !quiet) { const t = byId.get(deckTop), d = $('board').querySelector('.deck-head'); if (t && d) d.innerHTML = deckHeadHtml(t, deckIds.indexOf(deckTop), deckIds.length); } }
 function deckSpace() {   // Space arms the card's first answer and shows which; Space again within three seconds sends it. One key never answers.
   const t = byId.get(deckTop), slot = $('board').querySelector('.deck-slot.front'); if (!t || !slot) return;
   const btn = dkKind(t) === 0 ? slot.querySelector('[data-quick][data-text="Go ahead"]') : slot.querySelector('[data-done]'); if (!btn) return;
   if (deckArm === t.id) { deckDisarm(true); btn.click(); return; }
-  deckArm = t.id; btn.classList.add('deck-armed'); $('board').querySelector('.deck-head').innerHTML = deckHeadHtml(t, deckIds.indexOf(deckTop), deckIds.length);
+  deckArm = t.id; touch('arm'); btn.classList.add('deck-armed'); $('board').querySelector('.deck-head').innerHTML = deckHeadHtml(t, deckIds.indexOf(deckTop), deckIds.length);
   clearTimeout(deckArmT); deckArmT = setTimeout(() => deckDisarm(false), 3000);
 }
 document.addEventListener('click', e => {
@@ -4257,6 +4260,14 @@ const TOUCH = {                                          // kind: (t, ...) => th
   select: (t, n, agent, added) => { const f = agentPitch(agent) / 2 * Math.pow(2, Math.min(n, 12) / 12);   // a semitone up per card selected, in the card's voice
     tap(f, t, .03, .9, { glide: f * (added ? 1.04 : .96), verb: .4 }); },
   error: t => tap(196, t, .12, 1, { type: 'triangle', atk: .01, verb: .3 }),              // one low, dull tone
+  // Needs you, the pile: a card turning (a breath of paper, up the pile or down it, then the card's voice), the end of the pile, the
+  // first Space and its cancel, an answer leaving, and the last one cleared
+  flip:  (t, agent, dir) => { hush(t, .05, dir < 0 ? { from: 2400, to: 900, q: 1.5, v: .5, verb: .3 } : { from: 900, to: 2400, q: 1.5, v: .5, verb: .3 }); tap(agentPitch(agent), t + .012, .035, .8, { verb: .45 }); },
+  bump:  t => tap(150, t, .07, 1, { type: 'triangle', glide: 110, atk: .004, verb: .2 }),
+  arm:   t => { tap(880, t, .03, .8, { type: 'triangle', verb: .3 }); tap(1175, t + .07, .05, .9, { type: 'triangle', verb: .5 }); },
+  disarm: t => tap(880, t, .05, .7, { type: 'triangle', glide: 620, verb: .3 }),
+  sent:  (t, agent) => { const p = agentPitch(agent); hush(t, .12, { from: 500, to: 3600, v: .8, verb: .7 }); tap(p, t + .05, .05, .9, { verb: .6 }); tap(p * 1.5, t + .12, .09, 1, { verb: .8 }); },
+  clear: t => { tap(523, t, .12, .8, { atk: .01, verb: .9 }); tap(659, t + .09, .12, .8, { atk: .01, verb: .9 }); tap(784, t + .18, .12, .8, { atk: .01, verb: .9 }); tap(1047, t + .27, .12, .9, { atk: .01, verb: 1 }); },
 };
 function touch(kind, ...args) { const t = touchAt(); if (t != null) TOUCH[kind](t, ...args); return t != null; }
 touch.after = (kind, ...args) => { const t = touchAt(true); if (t != null) TOUCH[kind](t, ...args); };   // what lands after an await (a copy, a failed save): the gesture is past, the action is still yours
