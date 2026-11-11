@@ -1614,6 +1614,7 @@ body.deckview .board{display:block !important;overflow:visible !important;paddin
 .deck-slot.chk .deck-line{color:var(--muted)}
 .deck-av.chk{border-style:dashed;box-shadow:none}
 .deck-fix{font:inherit;font-size:12px;font-weight:700;min-height:32px;padding:0 14px;border-radius:999px;border:1px solid var(--need);background:color-mix(in srgb,var(--need) 12%,var(--surface));color:var(--text);cursor:pointer}
+.deck-fix.all{background:none;border-style:dashed;font-weight:600}
 .deck-fix:hover{background:color-mix(in srgb,var(--need) 24%,var(--surface))}
 .deck-fix:focus-visible{outline:2px solid var(--need);outline-offset:2px}
 .deck-rail{position:relative}
@@ -2365,6 +2366,7 @@ const DECK_NEAR = 3, DECK_STRIP = 34;   // strips shown each way before "+N more
 const dkSent = t => t.needs_input && t.reply && t.reply.text && !t.reply.state;
 const dkDog = id => (boardDog || []).find(f => f.id === id && (f.kind === 'stuck' || f.kind === 'claimed-idle'));   // the watchdog's finding for this card, if it is stuck: its agent went quiet and nothing will wake it
 const dkKind = t => dkSent(t) ? 9 : t.needs_input ? 0 : t.review ? 1 : dkDog(t.id) ? 2 : 9;   // 0 answer, 1 sign off, 2 check on, 9 not yours
+const dkMates = t => deckIds.map(id => byId.get(id)).filter(c => c && c.agent === t.agent && dkKind(c) === 2);   // the stuck cards one agent left behind: its asks and sign-offs are not among them
 const dkCls = t => ['ask', 'rev', 'chk'][dkKind(t)] || '';
 const dkAge = t => { const m = Math.max(1, (Date.now() - (Date.parse(t.updated) || Date.now())) / 60000); return m < 60 ? Math.round(m) + ' min' : m < 1440 ? (Math.round(m / 6) / 10) + ' h' : (Math.round(m / 144) / 10) + ' d'; };
 const dkPassed = t => { const x = (t.result || '') + ' ' + (t.status_text || ''); return dkKind(t) === 1 && /\b\d+\s+tests?\s+pass/i.test(x) && !/\bfail/i.test(x); };   // a sign-off whose agent wrote down passing tests
@@ -2403,7 +2405,9 @@ function deckHeadHtml(top, at, n) {   // the line above the pile: where you are,
   const hint = deckArm === top.id ? `<em class="armed">Space again to ${k === 2 ? 'do' : 'send'} “${esc(verb)}” · Esc cancels</em>` : `<em>↑ ↓ or scroll · → details · Enter to reply · Space, Space to ${ask ? 'go ahead' : k === 1 ? 'sign off' : 'release it'}</em>`;
   const what = ask ? 'asks' : k === 1 ? 'is ready for sign-off' : 'has gone quiet';
   const fix = dog && dog.fix ? `<button type="button" class="deck-fix" data-dog-action="${esc(dog.fix.action)}" data-dog-id="${esc(dog.fix.id)}" title="${esc(dog.what)}">${esc(dog.fix.label)}</button>` : '';
-  return `<b>${at + 1}<i> of ${n}</i></b><span>${esc(top.agent || 'Unassigned')} ${what} · ${k === 2 ? 'no update for' : 'waiting'} ${dkAge(top)}${held ? ` · ${k === 1 ? 'frees' : 'holds'} ${held}` : ''}${k === 2 ? ' · nothing will wake it' : ''}</span>${fix}${hint}`; }
+  const mates = dog && dog.fix && dog.fix.action === 'release' ? dkMates(top) : [];
+  const all = mates.length > 1 ? `<button type="button" class="deck-fix all" data-deck-all="${esc(top.agent)}" title="Every stuck card ${esc(top.agent)} left behind goes back to Todo. Its questions and sign-offs stay.">Release all ${mates.length} of ${esc(top.agent)}’s</button>` : '';
+  return `<b>${at + 1}<i> of ${n}</i></b><span>${esc(top.agent || 'Unassigned')} ${what} · ${k === 2 ? 'no update for' : 'waiting'} ${dkAge(top)}${held ? ` · ${k === 1 ? 'frees' : 'holds'} ${held}` : ''}${k === 2 ? ' · nothing will wake it' : ''}</span>${fix}${all}${hint}`; }
 // The pose: everything the pile shows, from one number. mode 'glide' lets the browser carry it there (a key, a click, letting go);
 // 'drag' follows the hand with no easing; 'still' places it at once (a redraw). opts.closed draws the open card as a strip (used to open
 // it a moment later); opts.folded draws every card away (used to unfold the pile on arrival).
@@ -4781,6 +4785,16 @@ function dogRender(items) {
   box.hidden = !(items || []).length;
   box.innerHTML = dogRowsHtml(items);
 }
+document.addEventListener('click', async e => {   // an agent that left several cards behind: one press releases every stuck one, each by the watchdog's own fix
+  const b = e.target.closest?.('[data-deck-all]'); if (!b) return;
+  const cards = dkMates({ agent: b.dataset.deckAll }); if (cards.length < 2) return;
+  b.disabled = true; let n = 0;
+  try {
+    for (const c of cards) { await api('/api/watchdog-fix', { action: 'release', id: c.id }); n++; if (c.id !== deckTop) deckCleared.push({ id: c.id, title: c.title, agent: c.agent, word: 'Released', undo: null }); }   // the open card gets its tick when it leaves
+    showError('');
+  } catch (err) { showError(`Released ${n} of ${cards.length}: ` + err.message); }
+  dogKey = ''; raw = ''; hudLoad(); load();
+});
 document.addEventListener('click', async e => {
   const b = e.target.closest('[data-dog-action]'); if (!b) return;
   b.disabled = true;

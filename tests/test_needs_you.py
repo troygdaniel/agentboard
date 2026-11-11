@@ -110,6 +110,18 @@ class StuckAndClearedTests(unittest.TestCase):
         self.assertIn("$('board').querySelector('.deck-head .deck-fix')", body("deckSpace"))   # Space, Space does the same, still two presses
         self.assertIn("working.filter(t => !t.needs_input && !t.review && dkDog(t.id)).length", body("render"))   # and the tab counts it
 
+    def test_an_agent_that_left_several_cards_behind_is_released_in_one_press(self):
+        # only its stuck cards, each by the watchdog's own single release: release-all would take its questions and sign-offs too
+        self.assertIn("const dkMates = t => deckIds.map(id => byId.get(id)).filter(c => c && c.agent === t.agent && dkKind(c) === 2);", PAGE)
+        head = body("deckHeadHtml")
+        self.assertIn("mates.length > 1 ?", head)                       # one stuck card has its own button and needs no second
+        self.assertIn('data-deck-all="${esc(top.agent)}"', head)
+        self.assertIn("Release all ${mates.length} of ${esc(top.agent)}", head)
+        self.assertLess(head.index("${fix}"), head.index("${all}"))     # Space, Space still finds the single release first
+        self.assertIn("await api('/api/watchdog-fix', { action: 'release', id: c.id });", PAGE)
+        self.assertNotIn("action: 'release-all'", PAGE)
+        self.assertIn("if (c.id !== deckTop) deckCleared.push({ id: c.id, title: c.title, agent: c.agent, word: 'Released', undo: null });", PAGE)
+
     def test_what_you_cleared_is_ticked_and_only_the_last_sign_off_can_be_undone(self):
         h = body("deckClearedHtml")
         self.assertIn("can = i === last && c.undo", h)
