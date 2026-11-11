@@ -62,9 +62,12 @@ class ViewTests(unittest.TestCase):
         self.assertNotIn("if (!MEFIRST || laneW(n) === 2) return '';", lanes)  # By agent shows the same rule, so it stays put across the flip
 
     def test_lanes_that_stay_slide_at_one_size_and_lanes_that_leave_fade_where_they_stood(self):
-        r = body("render")
-        self.assertIn("drawBoard.apply(this, arguments)", r)
-        self.assertIn("matchMedia('(prefers-reduced-motion: reduce)').matches) return out;", r)   # no motion under reduced motion
+        draw = body("render")
+        self.assertIn("const laneSnap = laneSnapshot();", draw)               # before the board is rebuilt...
+        self.assertIn("  laneSettle(laneSnap);", draw)                         # ...and after: every redraw, not only a tab click
+        self.assertLess(draw.index("$('board').innerHTML ="), draw.index("laneSettle(laneSnap);"))
+        r = body("laneSettle")
+        self.assertIn("matchMedia('(prefers-reduced-motion: reduce)').matches) return;", r)   # no motion under reduced motion
         self.assertIn("position:fixed", r)                                    # the leaving lane is held where it stood while it fades
         self.assertIn("composite: 'add'", r)                                  # the lift rides on the slide: one curve, no stop at the top
         self.assertNotIn("scaleX", r)                                         # a lane never changes width in flight

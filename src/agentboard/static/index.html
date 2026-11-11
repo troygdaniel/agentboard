@@ -2052,6 +2052,7 @@ function byAgentHtml(by, filtered) {
     const key = n => { const c = doingBy.get(n)[0]; return [wOf(c), wOf(c) < 2 ? whenOf(c) : 0]; };
     active.sort((a, b) => { const x = key(a), y = key(b); return x[0] - y[0] || x[1] - y[1]; });
   }
+  if (doingBy.has('')) active.push('');   // Doing cards with no agent: an Unassigned lane last, so no card is shown nowhere
   const live = id => { const b = byId.get(id); return b && b.status !== 'done'; }, holds = new Map();
   tasks.forEach(t => { if (isKid(t) || t.status === 'done') return; const b = (t.blocked_by || []).find(live); if (b) holds.set(b, [...(holds.get(b) || []), t.id]); });
   const pctOf = n => { const l = doingBy.get(n) || []; return l.length ? Math.round(l.reduce((a, t) => a + (t.progress || 0), 0) / l.length) : 0; };
@@ -2196,36 +2197,39 @@ function gaugesSync() {   // the gauges are the map of every agent: the ones who
   document.querySelectorAll('#load-strip .ls-g').forEach(g => { const away = MEFIRST && laneAway.has(g.dataset.agent); g.classList.toggle('away', away); });
 }
 new MutationObserver(gaugesSync).observe($('load-strip'), { childList: true, subtree: true });
-// Every redraw goes through here. Lanes that leave fade where they stood, lanes that stay slide to their new place at the same size,
-// lanes that arrive fade in: so a tab flip, an answer read or a sign-off reads as the same lanes moving, never as a new page.
-function render() {
-    const old = laneEls(), was = new Map(old.map(c => [c.dataset.status, c.getBoundingClientRect()])), sig = laneSig();
-    const cardWas = new Map(); old.forEach(l => l.querySelectorAll('.cards > .card').forEach(c => cardWas.set(c.dataset.id, [c.getBoundingClientRect(), l.dataset.status])));
-    const out = drawBoard.apply(this, arguments), now = laneEls();
-    if (BYAGENT && !MEFIRST && now[0]) laneWpx = Math.round(now[0].getBoundingClientRect().width);
-    gaugesSync(); if (linkKey && laneSig() === sig) linkPaint();
-    if (!was.size || laneSig() === sig || matchMedia('(prefers-reduced-motion: reduce)').matches) return out;
-    const keep = new Set(now.map(c => c.dataset.status)), br = $('board').getBoundingClientRect(), ease = 'cubic-bezier(.2,.8,.2,1)';
-    old.forEach(c => {   // beat one: a lane that leaves fades and sinks where it stood
-      if (keep.has(c.dataset.status)) return; const r = was.get(c.dataset.status); if (r.right < br.left || r.left > br.right) return;
-      c.style.cssText += `;position:fixed;left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px;margin:0;z-index:5;pointer-events:none`; document.body.appendChild(c);
-      c.animate([{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'translateY(16px) scale(.97)' }], { duration: 260, easing: 'ease-in', fill: 'forwards' }).onfinish = () => c.remove(); });
-    now.forEach((c, i) => {   // beat two: a lane that stays slides straight to its new place (same size, nothing else changes); a new one fades in
-      const r = was.get(c.dataset.status), n = c.getBoundingClientRect();
-      if (!r) { c.animate([{ opacity: 0, transform: 'translateY(16px) scale(.97)' }, { opacity: 1, transform: 'none' }], { duration: 340, delay: 240 + i * 22, fill: 'backwards', easing: ease });
-        if (MEFIRST && c.classList.contains('mine')) { c.classList.add('ls-ping'); setTimeout(() => c.classList.remove('ls-ping'), 1400); }   // an agent that has just stopped announces itself
-        return; }
-      const dx = r.left - n.left;
-      if (Math.abs(dx) > 1) { const far = Math.min(1, Math.abs(dx) / 900), lift = 3 + 13 * far, dur = 460 + 200 * far, delay = 150 + i * 22;
-        c.classList.add('moving'); c.style.zIndex = String(3 + Math.round(far * 5));
-        c.animate([{ transform: `translateX(${dx}px)` }, { transform: 'translateX(0)' }], { duration: dur, delay, fill: 'backwards', easing: 'cubic-bezier(.22,.8,.24,1)' }).onfinish = () => { c.classList.remove('moving'); c.style.zIndex = ''; };
-        c.animate([{ transform: 'translateY(0) scale(1)' }, { transform: `translateY(${-lift}px) scale(${1 + .018 * far})`, offset: .42 }, { transform: 'translateY(0) scale(1)' }], { duration: dur, delay, fill: 'backwards', easing: 'ease-in-out', composite: 'add' }); }
-      c.querySelectorAll('.cards > .card').forEach(k => {   // its cards ride with it; one that changed place inside the lane moves only by that
-        const w = cardWas.get(k.dataset.id); if (!w || w[1] !== c.dataset.status) return; k.getAnimations().forEach(a => { if (!(a instanceof CSSAnimation)) a.cancel(); });
-        const dy = (w[0].top - r.top) - (k.getBoundingClientRect().top - n.top); if (Math.abs(dy) > 1) k.animate([{ transform: `translateY(${dy}px)` }, { transform: 'none' }], { duration: 460, delay: 150 + i * 22, fill: 'backwards', easing: 'cubic-bezier(.22,.8,.24,1)' }); });
-    });
-    if (linkKey) linkPaint();
-    return out;
+// Every redraw calls these two, before and after it rebuilds the board. Lanes that leave fade where they stood, lanes that stay slide to
+// their new place at the same size, lanes that arrive fade in: so a tab flip, an answer read or a sign-off reads as the same lanes moving,
+// never as a new page.
+function laneSnapshot() {
+  const old = laneEls(), was = new Map(old.map(c => [c.dataset.status, c.getBoundingClientRect()])), sig = laneSig();
+  const cardWas = new Map(); old.forEach(l => l.querySelectorAll('.cards > .card').forEach(c => cardWas.set(c.dataset.id, [c.getBoundingClientRect(), l.dataset.status])));
+  return { old, was, sig, cardWas };
+}
+function laneSettle({ old, was, sig, cardWas }) {
+  const now = laneEls();
+  if (BYAGENT && !MEFIRST && now[0]) laneWpx = Math.round(now[0].getBoundingClientRect().width);
+  gaugesSync(); if (linkKey && laneSig() === sig) linkPaint();
+  if (!was.size || laneSig() === sig || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const keep = new Set(now.map(c => c.dataset.status)), br = $('board').getBoundingClientRect(), ease = 'cubic-bezier(.2,.8,.2,1)';
+  old.forEach(c => {   // beat one: a lane that leaves fades and sinks where it stood
+    if (keep.has(c.dataset.status)) return; const r = was.get(c.dataset.status); if (r.right < br.left || r.left > br.right) return;
+    c.style.cssText += `;position:fixed;left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px;margin:0;z-index:5;pointer-events:none`; document.body.appendChild(c);
+    c.animate([{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'translateY(16px) scale(.97)' }], { duration: 260, easing: 'ease-in', fill: 'forwards' }).onfinish = () => c.remove(); });
+  now.forEach((c, i) => {   // beat two: a lane that stays slides straight to its new place (same size, nothing else changes); a new one fades in
+    const r = was.get(c.dataset.status), n = c.getBoundingClientRect();
+    if (!r) { c.animate([{ opacity: 0, transform: 'translateY(16px) scale(.97)' }, { opacity: 1, transform: 'none' }], { duration: 340, delay: 240 + i * 22, fill: 'backwards', easing: ease });
+      if (MEFIRST && c.classList.contains('mine')) { c.classList.add('ls-ping'); setTimeout(() => c.classList.remove('ls-ping'), 1400); }   // an agent that has just stopped announces itself
+      return; }
+    const dx = r.left - n.left;
+    if (Math.abs(dx) > 1) { const far = Math.min(1, Math.abs(dx) / 900), lift = 3 + 13 * far, dur = 460 + 200 * far, delay = 150 + i * 22;
+      c.classList.add('moving'); c.style.zIndex = String(3 + Math.round(far * 5));
+      c.animate([{ transform: `translateX(${dx}px)` }, { transform: 'translateX(0)' }], { duration: dur, delay, fill: 'backwards', easing: 'cubic-bezier(.22,.8,.24,1)' }).onfinish = () => { c.classList.remove('moving'); c.style.zIndex = ''; };
+      c.animate([{ transform: 'translateY(0) scale(1)' }, { transform: `translateY(${-lift}px) scale(${1 + .018 * far})`, offset: .42 }, { transform: 'translateY(0) scale(1)' }], { duration: dur, delay, fill: 'backwards', easing: 'ease-in-out', composite: 'add' }); }
+    c.querySelectorAll('.cards > .card').forEach(k => {   // its cards ride with it; one that changed place inside the lane moves only by that
+      const w = cardWas.get(k.dataset.id); if (!w || w[1] !== c.dataset.status) return; k.getAnimations().forEach(a => { if (!(a instanceof CSSAnimation)) a.cancel(); });
+      const dy = (w[0].top - r.top) - (k.getBoundingClientRect().top - n.top); if (Math.abs(dy) > 1) k.animate([{ transform: `translateY(${dy}px)` }, { transform: 'none' }], { duration: 460, delay: 150 + i * 22, fill: 'backwards', easing: 'cubic-bezier(.22,.8,.24,1)' }); });
+  });
+  if (linkKey) linkPaint();
 }
 const laneOf = name => laneEls().find(c => c.dataset.status === 'agent:' + name), gaugeOf = name => [...document.querySelectorAll('#load-strip .ls-g')].find(g => g.dataset.agent === name);
 const blockerOf = t => (t.blocked_by || []).find(id => { const b = byId.get(id); return b && b.status !== 'done'; });
@@ -2267,7 +2271,8 @@ document.addEventListener('click', e => {   // "holds 3" is a button: a click (o
 }, true);
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && linkPin) linkOff(true); });
 $('board').addEventListener('click', e => { const fold = e.target.closest('.col.acol.peek h2'); if (fold && !e.target.closest('.nm')) { lanePeek.delete(fold.closest('.col').dataset.status.slice(6)); render(); } }, true);
-function drawBoard() {
+function render() {
+  const laneSnap = laneSnapshot();   // Needs you / By agent: where the lanes stood, for the glide at the end
   const by = Object.fromEntries(COLUMNS.map(([k]) => [k, []]));
   const rawQ = ($('filter').value || '').trim(), q = rawQ.toLowerCase();
   $('filter').classList.toggle('on', tasks.length > 8 || !!q);
@@ -2450,6 +2455,7 @@ function drawBoard() {
   focusRestore(focusBack);
   // drop selections for cards that no longer exist (archived/deleted elsewhere), then reapply highlight
   [...selected].forEach(id => { if (!tasks.some(t => t.id === id)) selected.delete(id); });
+  laneSettle(laneSnap);   // the lanes glide from where the snapshot at the top found them
   renderSelection();
   if (hoverAgent) applyHover();
 }
