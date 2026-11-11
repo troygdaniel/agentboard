@@ -1446,67 +1446,44 @@
   }
 </style>
 <style>
-/* Needs you (Nov 11): the third arrangement of the same cards. By agent, with the agents waiting on the owner first and the rest off the
-   board; the gauges above are the map of every agent on all three tabs. One accent, --need, for what is the owner's to act on. */
+/* Needs you (Nov 11): the third tab, and what it shares with the other two. The gauges above are the map of every agent on all three
+   tabs; By agent says under a name what that agent is waiting for; a card lights the Todo cards it holds. One accent, --need, for what
+   is the owner's to act on. The pile itself is styled further down. */
 :root{--need:#e8590c}
 #tab-need #need-n{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:999px;background:var(--need);color:#fff;font-size:11px;font-weight:700}
 #tab-need #need-n:empty{display:none}
 #tab-need #need-n.pop{animation:mePop .45s cubic-bezier(.2,.9,.3,1.4)}
 @keyframes mePop{from{transform:scale(1.6)}to{transform:scale(1)}}
-/* the switch on: lanes that wait on you stand in front with a wait rule; the rest fold back into spines */
-.col.acol.first h2 .av{box-shadow:0 0 0 2px var(--card,#fff),0 0 0 3.5px var(--need);position:relative}
-.col.acol.first h2 .av::after{content:"";position:absolute;inset:-4px;border-radius:50%;border:1px solid var(--need);animation:mePing 2.6s ease-out infinite}
-@keyframes mePing{from{transform:scale(1);opacity:.9}to{transform:scale(2.4);opacity:0}}
-.wait-rule{position:relative;height:22px;margin:-2px 14px 8px;border-bottom:1px solid color-mix(in srgb,var(--text,#1c2430) 22%,transparent)}
-.wait-rule .tk{position:absolute;bottom:0;width:0;height:6px;border-left:1px solid color-mix(in srgb,var(--text,#1c2430) 38%,transparent)}
+.wait-rule{position:relative;height:22px;margin:-2px 14px 8px;border-bottom:1px solid color-mix(in srgb,var(--text) 22%,transparent)}
+.wait-rule .tk{position:absolute;bottom:0;width:0;height:6px;border-left:1px solid color-mix(in srgb,var(--text) 38%,transparent)}
 .wait-rule .run{position:absolute;left:0;bottom:-1px;height:0;border-bottom:3px solid var(--need);transform-origin:0 50%;animation:meGrow .7s cubic-bezier(.2,.7,.2,1) .25s both}
 .wait-rule .run.rev{border-bottom-width:1.5px}
-.wait-rule b{position:absolute;right:0;top:0;font-size:10px;font-weight:600;line-height:14px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted,#55616e)}
+.wait-rule b{position:absolute;right:0;top:0;font-size:10px;font-weight:600;line-height:14px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
 @keyframes meGrow{from{transform:scaleX(0)}to{transform:scaleX(1)}}
-.col.acol.back{cursor:pointer;min-width:0 !important;padding:0;overflow:hidden;border-top-width:1px;transform:rotateY(-22deg);transform-origin:0 50%;transition:transform .2s;background:linear-gradient(90deg,color-mix(in srgb,var(--c) 10%,#fff),#fff) !important;backdrop-filter:none}
-.col.acol.back:hover,.col.acol.back:focus-visible{transform:rotateY(-8deg) translateY(-4px)}
-.col.acol.back:focus-visible{outline:2px solid var(--need);outline-offset:2px}
-.col.acol.back{position:sticky;z-index:3;box-shadow:-10px 0 24px -14px rgba(28,36,48,.35)}
-.col.acol.back h2{writing-mode:vertical-rl;flex-direction:row;align-items:center;gap:10px;padding:14px 0;margin:0 auto;height:100%;box-sizing:border-box;white-space:nowrap}
-.col.acol.back h2 .nm{pointer-events:none}
-.col.acol.back h2 em{margin:0}
-.col.acol.back h2 .cnt,.col.acol.back h2 .av{writing-mode:horizontal-tb}
-.col.acol.back .cards{display:none}
-.col.acol.peek h2{cursor:pointer}
-.col.acol.peek{opacity:.96}
 @media (prefers-reduced-motion: reduce){.col.acol.first h2 .av::after,.wait-rule .run{animation:none}.col.acol.back{transition:none}}
 
-/* a waiting agent's other cards step back, so the card that needs you is the one you see */
-.col.acol.mine .cards > .card:not(.ask):not(.review){opacity:.5;transition:opacity .15s}
-.col.acol.mine .cards > .card:not(.ask):not(.review):hover,.col.acol.mine .cards > .card:not(.ask):not(.review):focus-within{opacity:1}
-/* the folded lane says how far along its agent is */
-.col.acol.back h2 .sp-bar{display:block;width:3px;height:120px;border-radius:2px;background:color-mix(in srgb,var(--text,#1c2430) 12%,transparent);position:relative;overflow:hidden;flex:none}
-.col.acol.back h2 .sp-bar i{position:absolute;left:0;right:0;top:0;background:var(--c);transition:height .4s}
-.col.acol.back h2 .sp-pct{writing-mode:horizontal-tb;font-size:10px;font-weight:600;color:var(--muted,#55616e)}
-/* nothing waits: the blueprint rings, turning slowly */
+/* nothing waits: the blueprint rings (still: a ring that turned repainted every frame) */
 .me-clear{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;min-height:420px;text-align:center;overflow:hidden;border-radius:18px}
 .me-clear strong{font-size:26px;font-weight:700;letter-spacing:-.01em;position:relative}
-.me-clear span{font-size:12px;color:var(--muted,#55616e);position:relative;max-width:30ch}
+.me-clear span{font-size:12px;color:var(--muted);position:relative;max-width:30ch}
 .me-clear .rings{position:absolute;left:50%;top:50%;width:0;height:0;transform:rotateX(62deg)}
 .me-clear .rings i{position:absolute;border-radius:50%;box-sizing:border-box}
-.me-clear .rings i:nth-child(1){left:-330px;top:-330px;width:660px;height:660px;border:1px solid color-mix(in srgb,var(--text,#1c2430) 16%,transparent)}
-.me-clear .rings i:nth-child(2){left:-352px;top:-352px;width:704px;height:704px;background:repeating-conic-gradient(color-mix(in srgb,var(--text,#1c2430) 55%,transparent) 0deg .2deg,transparent .2deg 5deg);-webkit-mask:radial-gradient(closest-side,transparent calc(100% - 20px),#000 calc(100% - 19px),#000 calc(100% - 8px),transparent calc(100% - 7px));mask:radial-gradient(closest-side,transparent calc(100% - 20px),#000 calc(100% - 19px),#000 calc(100% - 8px),transparent calc(100% - 7px));animation:meTurn 240s linear infinite}
-.me-clear .rings i:nth-child(3){left:-250px;top:-250px;width:500px;height:500px;border:1px solid transparent;border-left-color:color-mix(in srgb,var(--text,#1c2430) 22%,transparent);border-bottom-color:color-mix(in srgb,var(--text,#1c2430) 22%,transparent);animation:meTurn 180s linear infinite reverse}
-@keyframes meTurn{to{transform:rotate(360deg)}}
+.me-clear .rings i:nth-child(1){left:-330px;top:-330px;width:660px;height:660px;border:1px solid color-mix(in srgb,var(--text) 16%,transparent)}
+.me-clear .rings i:nth-child(2){left:-352px;top:-352px;width:704px;height:704px;background:repeating-conic-gradient(color-mix(in srgb,var(--text) 55%,transparent) 0deg .2deg,transparent .2deg 5deg);-webkit-mask:radial-gradient(closest-side,transparent calc(100% - 20px),#000 calc(100% - 19px),#000 calc(100% - 8px),transparent calc(100% - 7px));mask:radial-gradient(closest-side,transparent calc(100% - 20px),#000 calc(100% - 19px),#000 calc(100% - 8px),transparent calc(100% - 7px))}
+.me-clear .rings i:nth-child(3){left:-250px;top:-250px;width:500px;height:500px;border:1px solid transparent;border-left-color:color-mix(in srgb,var(--text) 22%,transparent);border-bottom-color:color-mix(in srgb,var(--text) 22%,transparent)}
 @media (prefers-reduced-motion: reduce){.me-clear .rings i,#tab-need #need-n.pop{animation:none}}
 
 .ls-g{transition:opacity .3s,filter .3s}
 .ls-g.away{filter:grayscale(1);opacity:.38}
 .ls-g.away:hover,.ls-g.away:focus-visible{opacity:.8}
-.col.acol.peek{outline:1px dashed color-mix(in srgb,var(--text,#1c2430) 30%,transparent);outline-offset:-1px}
 
 /* a lane in flight */
 .col.acol.moving{box-shadow:0 26px 50px -22px rgba(28,36,48,.45)}
 /* gauge and lane point at each other */
-.ls-g.lit{background:var(--chip,#f1efeb);border-color:var(--line,#e3e1dc)}
+.ls-g.lit{background:var(--chip);border-color:var(--line)}
 .col.acol.lit{box-shadow:0 0 0 2px var(--c,#1c2430)}
 /* a waiting card lights the Todo cards it holds */
-.wait-rule .holds-btn{all:unset;cursor:pointer;color:var(--text,#1c2430);border-bottom:1px dotted currentColor;padding:6px 2px;margin:-6px -2px}
+.wait-rule .holds-btn{all:unset;cursor:pointer;color:var(--text);border-bottom:1px dotted currentColor;padding:6px 2px;margin:-6px -2px}
 .wait-rule .holds-btn:focus-visible{outline:2px solid var(--need);outline-offset:2px;border-radius:3px}
 .wait-rule.pinned .holds-btn{border-bottom-style:solid;color:#c2410c}
 #board .col.todo .card{transition:opacity .18s ease}
@@ -1516,11 +1493,9 @@
 .col.acol{transition:box-shadow .2s ease}
 #tab-need{position:relative}
 #tab-need::before,#tab-need::after{content:"";position:absolute;left:12px;right:12px;bottom:3px;height:2px;border-radius:2px;pointer-events:none}
-#tab-need::before{background:color-mix(in srgb,var(--text,#1c2430) 10%,transparent)}
+#tab-need::before{background:color-mix(in srgb,var(--text) 10%,transparent)}
 #tab-need::after{background:var(--need);transform-origin:0 50%;transform:scaleX(var(--left,0));transition:transform .6s cubic-bezier(.22,.8,.24,1)}
 @media (prefers-reduced-motion: reduce){#tab-need::after,#board .col.todo .card,.col.acol{transition:none}}
-/* the seam: to its left agents to answer, to its right agents to sign off */
-.col.acol.seam::before{content:"";position:absolute;left:-7px;top:6px;bottom:6px;width:0;border-left:1px dashed color-mix(in srgb,var(--text,#1c2430) 35%,transparent);pointer-events:none}
 /* the reply row fits a lane: Send never leaves the card */
 .col.acol .card-reply .rr{flex-wrap:nowrap}
 .col.acol .card-reply .rr input{flex:1 1 0;width:0;min-width:0}
@@ -1535,6 +1510,105 @@
 @keyframes meClear{from{opacity:0}to{opacity:1}}
 @keyframes meRings{from{transform:rotateX(62deg) scale(.7);opacity:0}to{transform:rotateX(62deg) scale(1);opacity:1}}
 @media (prefers-reduced-motion: reduce){.me-clear,.me-clear .rings,.col.acol .card .replied::before{animation:none}#board.linking .col.todo .card:not(.held),#board .col.todo .card.held{transition:none}}
+
+/* Needs you: the pile you move through. One card open; strips above are the ones before it, strips below the ones after.
+   Each slot's look comes from three numbers the script sets: --a how far it is from the open card, --o how open it is, --e how much of it is left at the edge. */
+body.deckview .board{display:block !important;overflow:visible !important;padding:0}
+.deck{--dk-t:.62s;--dk-e:linear(0.0, 0.0224, 0.0795, 0.1582, 0.2488, 0.3438, 0.4379, 0.5273, 0.6097, 0.6837, 0.7488, 0.8048, 0.8521, 0.8914, 0.9234, 0.949, 0.969, 0.9842, 0.9956, 1.0036, 1.0091, 1.0126, 1.0144, 1.0151, 1.015, 1.0142, 1.0131, 1.0118, 1.0103, 1.0089, 1.0075, 1.0062, 1.0051, 1.0041, 1.0032, 1.0024, 1.0018, 1.0013, 1.0009, 1.0005, 1);position:relative;display:flex;flex-direction:column;gap:6px;padding:4px 28px 22px;overflow:hidden;min-height:calc(100vh - 250px)}
+.deck-rings{position:absolute;left:50%;top:400px;width:0;height:0;transform:rotateX(62deg);pointer-events:none;opacity:.7}
+.deck-rings i{position:absolute;border-radius:50%;box-sizing:border-box}
+.deck-rings i:nth-child(1){left:-620px;top:-620px;width:1240px;height:1240px;border:1px solid color-mix(in srgb,var(--text) 14%,transparent)}
+.deck-rings i:nth-child(2){left:-648px;top:-648px;width:1296px;height:1296px;background:repeating-conic-gradient(color-mix(in srgb,var(--text) 50%,transparent) 0deg .14deg,transparent .14deg 5deg);-webkit-mask:radial-gradient(closest-side,transparent calc(100% - 20px),#000 calc(100% - 19px),#000 calc(100% - 8px),transparent calc(100% - 7px));mask:radial-gradient(closest-side,transparent calc(100% - 20px),#000 calc(100% - 19px),#000 calc(100% - 8px),transparent calc(100% - 7px))}
+.deck-rings i:nth-child(3){left:-480px;top:-480px;width:960px;height:960px;border:1px solid transparent;border-left-color:color-mix(in srgb,var(--text) 20%,transparent);border-bottom-color:color-mix(in srgb,var(--text) 20%,transparent)}
+.deck-head{position:relative;display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;min-height:34px}
+.deck-head b{font-size:26px;font-weight:700;letter-spacing:-.01em}
+.deck-head b i{font-style:normal;font-weight:500;color:var(--muted);font-size:15px}
+.deck-head span,.deck-head em{font-style:normal;font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.deck-head em{margin-left:auto;font-weight:500}
+.deck-head em.armed{color:var(--need);font-weight:700}
+.deck-body{position:relative;display:flex;justify-content:center;align-items:flex-start}
+.deck-col{position:relative;flex:0 0 min(600px,calc(100% - 80px));min-width:0;display:flex;flex-direction:column;margin-left:26px;perspective:1400px}
+.deck-count{flex:none;align-self:center;height:28px;font:inherit;font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding:0 10px;border:0;background:none;border-radius:8px;cursor:pointer}
+.deck-count.end{cursor:default;opacity:.6}
+.deck-count:not(.end):hover{color:var(--text)}
+.deck-count:focus-visible{outline:2px solid var(--need);outline-offset:2px}
+.deck-spacer{flex:none;transition:height var(--dk-t) var(--dk-e)}
+.deck-slot{--a:0;--o:0;--e:1;--s:1;position:relative;flex:none;height:34px;overflow:clip;border-radius:12px;cursor:pointer;background:var(--panel),var(--bg);box-shadow:0 0 0 1px var(--line);
+  transform:rotateX(calc(var(--s) * min(var(--a),4) * 7deg)) scale(calc(1 - var(--a) * .042));opacity:calc((1 - var(--a) * .13) * var(--e));z-index:calc(10 - round(var(--a)));
+  transition:height var(--dk-t) var(--dk-e),transform var(--dk-t) var(--dk-e),opacity .32s ease,box-shadow .32s ease;transition-delay:calc(var(--a) * 14ms)}
+.deck-slot.up{transform-origin:50% 100%}
+.deck-slot.down{transform-origin:50% 0}
+.deck-slot.far{pointer-events:none}
+.deck-slot.front{cursor:auto;z-index:20;overflow-clip-margin:8px;box-shadow:0 0 0 1px transparent,0 34px 60px -32px rgba(0,0,0,.55)}
+.deck-slot:not(.front):not(.far):hover{opacity:1}
+.deck-slot > .card{width:100%;box-sizing:border-box;margin:0;animation:none;transform:translateY(calc((1 - var(--o)) * -11px));transition:transform var(--dk-t) var(--dk-e),border-color .3s ease,background-color .3s ease,box-shadow .3s ease}
+.deck-slot:not(.front) > .card{border-color:transparent;background:transparent;box-shadow:none;pointer-events:none}
+/* the body: gone early as a card closes, arriving late as it opens, settling upward */
+.deck-slot > .card > :not(.top){opacity:clamp(0,calc((var(--o) - .45) * 2.4),1);transform:translateY(calc((1 - var(--o)) * 12px));transition:opacity .26s ease,transform var(--dk-t) var(--dk-e)}
+.deck-slot > .card > .top .when,.deck-slot > .card > .top .report-link{opacity:clamp(0,calc((var(--o) - .6) * 3),1);transition:opacity .22s ease}
+.deck-line{position:absolute;left:190px;right:86px;top:0;line-height:34px;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text);opacity:clamp(0,calc(1 - var(--o) * 3.5),1);transition:opacity .22s ease;pointer-events:none}
+.deck-slot.ask .deck-line{font-weight:600}
+.deck-wait-n{position:absolute;right:14px;top:0;line-height:34px;font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);opacity:clamp(0,calc(1 - var(--o) * 3.5),1);transition:opacity .22s ease;pointer-events:none;display:flex;align-items:center;gap:6px}
+.deck-ok{font-style:normal;display:grid;place-items:center;width:15px;height:15px;border-radius:50%;background:#1a7f4b;color:#fff;font-size:10px;letter-spacing:0}
+/* on a key press the numbers jump to their targets, so the handover is timed here: a closing card loses its body at once and shows its
+   line a beat later; an opening card drops its line at once and gets its body a beat later. While dragging none of this applies. */
+.deck-slot:not(.front) .deck-line,.deck-slot:not(.front) .deck-wait-n{transition:opacity .22s ease .2s}
+.deck-slot.front .deck-line,.deck-slot.front .deck-wait-n{transition:opacity .07s ease}
+.deck-slot:not(.front) > .card > :not(.top){transition:opacity .15s ease,transform .3s ease}
+.deck-slot.front > .card > :not(.top){transition:opacity .28s ease .07s,transform var(--dk-t) var(--dk-e) .02s}
+.deck-slot.front > .card > .top .when,.deck-slot.front > .card > .top .report-link{transition:opacity .22s ease .2s}
+.deck-slot:not(.front) > .card > .top .when,.deck-slot:not(.front) > .card > .top .report-link{transition:opacity .07s ease}
+.deck.drag .deck-slot,.deck.drag .deck-slot *,.deck.drag .deck-spacer,.deck.drag .deck-cursor,.deck.drag .deck-toggle{transition:none !important}
+.deck.still,.deck.still *{transition:none !important}
+.deck-armed{outline:2px solid var(--need) !important;outline-offset:3px;animation:deckArm .9s ease-in-out infinite}
+@keyframes deckArm{50%{outline-offset:6px}}
+.deck-done{position:absolute;inset:0;display:grid;place-items:center;grid-auto-flow:column;justify-content:center;gap:10px;border-radius:14px;background:color-mix(in srgb,var(--bg) 82%,transparent);font-size:18px;font-weight:700;color:var(--text);animation:nyDoneIn .22s ease-out both}
+.deck-done i{font-style:normal;display:grid;place-items:center;width:30px;height:30px;border-radius:50%;background:#1a7f4b;color:#fff;font-size:17px;animation:meTick .4s cubic-bezier(.2,.9,.3,1.5) .05s both}
+@keyframes nyDoneIn{from{opacity:0}to{opacity:1}}
+.deck-toggle{position:absolute;right:-14px;top:250px;transform:translate(100%,-50%);font:inherit;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;min-height:44px;padding:0 12px;border:0;background:none;color:var(--muted);cursor:pointer;white-space:nowrap;transition:top var(--dk-t) var(--dk-e),opacity .2s;z-index:21}
+.deck.open .deck-toggle{right:8px;top:0 !important;transform:translate(100%,-10px)}
+.deck-toggle:hover{color:var(--text)}
+/* the details: always there, zero wide until asked for; the card makes room as they open */
+.deck-more{flex:0 1 0;width:0;min-width:0;max-width:560px;align-self:stretch;margin:130px 0 0 0;max-height:calc(100vh - 470px);min-height:240px;padding:20px 0;border-radius:14px;border:1px solid transparent;background:var(--panel),var(--bg);overflow:hidden;display:flex;flex-direction:column;gap:20px;color:var(--text);opacity:0;transform:translateX(-18px);
+  transition:flex-grow var(--dk-t) var(--dk-e),flex-basis var(--dk-t) var(--dk-e),margin var(--dk-t) var(--dk-e),padding var(--dk-t) var(--dk-e),opacity .3s ease,transform var(--dk-t) var(--dk-e),border-color .3s ease}
+.deck.open .deck-more{flex:1 1 420px;margin-left:120px;padding:20px 24px;border-color:var(--line);overflow-y:auto;opacity:1;transform:none}
+.deck-more > *{min-width:340px}
+.deck-more:focus-visible{outline:2px solid var(--need);outline-offset:2px}
+.deck-more h3{margin:0 0 8px;font-size:10px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.deck-more p{margin:0;font-size:14px;line-height:1.6}
+.deck-more .rich-body{margin-top:0}
+.deck-wait{color:var(--muted)}
+.deck-chips{display:flex;gap:8px;flex-wrap:wrap}
+.deck-log{list-style:none;margin:0;padding:0;display:grid;gap:6px;font-size:13px}
+.deck-log li{display:grid;grid-template-columns:44px 1fr;gap:10px}
+.deck-log time{color:var(--muted);font-variant-numeric:tabular-nums}
+.deck-log .you{font-weight:600}
+.deck-rail{flex:none;display:flex;flex-direction:column;align-items:center;gap:8px;width:44px;margin-top:92px}
+.deck-avs{position:relative;display:flex;flex-direction:column;gap:6px;align-items:center;padding:4px 0}
+.deck-avs::before{content:"";position:absolute;left:50%;top:0;bottom:0;width:0;border-left:1px solid color-mix(in srgb,var(--text) 22%,transparent)}
+.deck-cursor{position:absolute;left:50%;top:0;width:34px;height:34px;border-radius:50%;box-sizing:border-box;border:1.5px solid var(--text);transform:translate(-50%,0);transition:transform var(--dk-t) var(--dk-e);pointer-events:none}
+.deck-seam{position:relative;display:block;width:18px;height:0;border-top:1px dashed color-mix(in srgb,var(--text) 45%,transparent);margin:3px 0}
+.deck-av{position:relative;width:24px;height:24px;border-radius:50%;padding:0;font:inherit;font-size:10px;font-weight:700;line-height:1;cursor:pointer;color:var(--text);background:color-mix(in srgb,var(--c) 16%,var(--surface));border:1.5px solid var(--c);opacity:.62;transition:transform .2s,opacity .2s,box-shadow .2s}
+.deck-av.ask{box-shadow:0 0 0 2px var(--bg),0 0 0 3.5px var(--need)}
+.deck-av.on{opacity:1;transform:scale(1.12)}
+.deck-avs.many{gap:3px}
+.deck-avs.many .deck-av{width:12px;height:12px;font-size:0;border-width:1.5px}
+.deck-avs.many .deck-av.ask{box-shadow:0 0 0 1px var(--bg),0 0 0 2.5px var(--need)}
+.deck-avs.many .deck-cursor{width:22px;height:22px}
+.deck-avs.many .deck-av.on{transform:scale(1.25)}
+.deck-av:hover{opacity:1}
+.deck-nav{width:36px;height:36px;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:inherit;font-size:17px;line-height:1;cursor:pointer;display:grid;place-items:center;padding:5px 0 0}
+.deck-nav.down{transform:rotate(180deg)}
+.deck-nav:hover:not([disabled]){box-shadow:0 8px 20px -10px rgba(0,0,0,.5)}
+.deck-nav:focus-visible,.deck-av:focus-visible,.deck-held button:focus-visible,.deck-toggle:focus-visible{outline:2px solid var(--need);outline-offset:2px}
+.deck-nav[disabled]{opacity:.25;cursor:default}
+.deck-held{display:flex;flex-wrap:wrap;gap:8px}
+.deck-held button{font:inherit;font-size:13px;min-height:32px;padding:0 12px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:inherit;cursor:pointer}
+.deck-held button:hover{border-color:var(--need)}
+.deck-clear{min-height:calc(100vh - 260px)}
+.ls-g.deck-top{background:var(--chip);border-color:var(--line)}
+@media (max-width:860px){.deck{padding:4px 12px 16px}.deck-body{flex-wrap:wrap}.deck-col{flex-basis:calc(100% - 56px);margin-left:12px}.deck.open .deck-more{flex-basis:100%;max-width:none;margin:12px 0 0;max-height:none}.deck-toggle,.deck.open .deck-toggle{position:static;transform:none;align-self:flex-end}.deck-head em{display:none}.deck-rail{width:36px}}
+@media (prefers-reduced-motion: reduce){.deck,.deck *{transition:none !important}.deck-done,.deck-done i,.deck-armed{animation:none}}
 </style></head>
 <body>
 <div class="wrap">
@@ -1647,6 +1721,10 @@
     <dt><kbd>a</kbd></dt><dd>By agent / back to the board</dd>
     <dt><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></dt><dd>Board, By agent, Load</dd>
     <dt><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></dt><dd>Board, By agent, Needs you</dd>
+    <dt><kbd>↑</kbd> <kbd>↓</kbd></dt><dd>On Needs you: the card before, the card after (<kbd>Home</kbd>, <kbd>End</kbd>: the first, the last)</dd>
+    <dt><kbd>→</kbd> <kbd>←</kbd></dt><dd>On Needs you: show, hide the card's details</dd>
+    <dt><kbd>Enter</kbd></dt><dd>On Needs you: into the reply box</dd>
+    <dt><kbd>Space</kbd> <kbd>Space</kbd></dt><dd>On Needs you: send the card's first answer (the first press shows which, the second sends it)</dd>
     <dt><kbd>[</kbd> <kbd>]</kbd></dt><dd>Previous / next view: Board, By agent, Needs you</dd>
     <dt><kbd>↑ ↓ ← →</kbd></dt><dd>Move between cards (on Load: Todo and Doing)</dd>
     <dt><kbd>j</kbd> <kbd>k</kbd></dt><dd>Next / previous card</dd>
@@ -1771,7 +1849,7 @@ const BASE = window.AB_BASE || '';   // '' for the default board, '/b/<name>' fo
 { const nativeFetch = window.fetch.bind(window); window.fetch = (u, o) => nativeFetch(typeof u === 'string' && u.startsWith('/api/') ? BASE + u : u, o); }
 const SOLO = location.pathname.replace(/\/+$/, '').endsWith('/hud');
 let BYAGENT = location.pathname.replace(/\/+$/, '').endsWith('/agents');
-let MEFIRST = location.pathname.replace(/\/+$/, '').endsWith('/need'); if (MEFIRST) BYAGENT = true;   // Needs you: By agent, with the agents waiting on the owner first (see byAgentHtml)   // the by-agent view: same page, swimlane columns; setView() flips it in place
+let MEFIRST = location.pathname.replace(/\/+$/, '').endsWith('/need'); if (MEFIRST) BYAGENT = true;   // Needs you: the pile of cards waiting on the owner (see deckHtml); it sits on By agent's side of the view switch   // the by-agent view: same page, swimlane columns; setView() flips it in place
 // the left drawer: Later (parked ideas), the same on the Board and on By agent (Todo is a column in both)
 const LATER_EMPTY = 'Nothing parked. Ideas you are not ready to start live here, out of the way.';
 const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;   // HUD running in its own window
@@ -2043,25 +2121,14 @@ function byAgentHtml(by, filtered) {
   const names = new Set([...doingBy.keys()].filter(Boolean));
   const sorted = [...names].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base', numeric: true }));
   const active = sorted.filter(n => doingBy.has(n));
-  const sentRaw = t => t.needs_input && t.reply && t.reply.text && !t.reply.state;
-  const sentTo = t => { if (!sentRaw(t)) { sentSeen.delete(t.id); return false; } if (!sentSeen.has(t.id)) { sentSeen.set(t.id, Date.now()); setTimeout(render, SENT_HOLD + 60); } return Date.now() - sentSeen.get(t.id) >= SENT_HOLD; };   // answered, the agent has not read it yet: no longer yours
-  const wOf = t => sentTo(t) ? 2 : t.needs_input ? 0 : t.review ? 1 : 2, whenOf = t => { if (t.needs_input && t.reply && t.reply.text && whenKeep.has(t.id)) return whenKeep.get(t.id); const w = Date.parse(t.updated) || 0; whenKeep.set(t.id, w); return w; };   // an answer does not shuffle the lane while its tick shows
+  const wOf = t => t.needs_input ? 0 : t.review ? 1 : 2, whenOf = t => Date.parse(t.updated) || 0;   // what a card needs from the owner: an answer, a sign-off, nothing
   const laneW = n => Math.min(...doingBy.get(n).map(wOf));
-  if (MEFIRST) {   // Needs you: agents waiting on the owner first (asks, then sign-offs, longest wait first); inside a lane the waiting card on top
-    doingBy.forEach(list => list.sort((a, b) => wOf(a) - wOf(b) || (wOf(a) < 2 ? whenOf(a) - whenOf(b) : 0)));
-    const key = n => { const c = doingBy.get(n)[0]; return [wOf(c), wOf(c) < 2 ? whenOf(c) : 0]; };
-    active.sort((a, b) => { const x = key(a), y = key(b); return x[0] - y[0] || x[1] - y[1]; });
-  }
   if (doingBy.has('')) active.push('');   // Doing cards with no agent: an Unassigned lane last, so no card is shown nowhere
   const live = id => { const b = byId.get(id); return b && b.status !== 'done'; }, holds = new Map();
   tasks.forEach(t => { if (isKid(t) || t.status === 'done') return; const b = (t.blocked_by || []).find(live); if (b) holds.set(b, [...(holds.get(b) || []), t.id]); });
-  const pctOf = n => { const l = doingBy.get(n) || []; return l.length ? Math.round(l.reduce((a, t) => a + (t.progress || 0), 0) / l.length) : 0; };
-  const isBack = n => MEFIRST && laneW(n) === 2 && !lanePeek.has(n);
-  const laneCls = n => !MEFIRST ? '' : isBack(n) ? ' back' : laneW(n) < 2 ? ' mine' + (n === active[0] ? ' first' : '') + (n === seamOf() ? ' seam' : '') : ' peek';
-  const seamOf = () => { const sh = active.filter(a => !isBack(a)); return sh.some(a => laneW(a) === 0) ? sh.find(a => laneW(a) === 1) : null; };
   // the wait rule: a hairline ruler under the lane's name, an orange run as long as the lane's oldest wait (1 h, 4 h, 1 d, 3 d marks)
   const waitRule = n => {
-    if (laneW(n) === 2) return '';   // By agent shows the same rule, so it stays put when you flip to Needs you
+    if (laneW(n) === 2) return '';
     const c = doingBy.get(n).filter(t => wOf(t) < 2).sort((a, b) => wOf(a) - wOf(b) || whenOf(a) - whenOf(b))[0], m = Math.max(1, (Date.now() - whenOf(c)) / 60000);
     const pos = x => Math.max(0, Math.min(100, 100 * Math.log(Math.max(10, x) / 10) / Math.log(432)));
     const lab = m < 60 ? Math.round(m) + ' min' : m < 1440 ? (Math.round(m / 6) / 10) + ' h' : (Math.round(m / 144) / 10) + ' d';
@@ -2072,16 +2139,13 @@ function byAgentHtml(by, filtered) {
   const agentCol = n => {
     const st = stateFor(n), cards = doingBy.get(n) || [];
     const fresh = lanesKnown && !firstRender && !lanesBefore.has(n);   // Motion: a lane that was not up on the last By agent render slides in (a view switch is not that)
-    return `<section class="col acol${fresh ? ' enter' : ''}${laneCls(n)}" data-status="agent:${esc(n)}"${isBack(n) ? ` tabindex="0" role="button" aria-label="${esc(n || 'Unassigned')}: ${cards.length} card${cards.length === 1 ? '' : 's'}, not waiting on you. Open the lane"` : ''} style="--c:${colorFor(n)}${isBack(n) ? `;right:${(active.filter(isBack).length - 1 - active.filter(isBack).indexOf(n)) * 52}px` : ''}"><h2><span class="av" style="--c:${colorFor(n)}" aria-hidden="true">${esc(nodeGlyph(n))}</span>${n ? `<button class="nm" type="button" data-thread="${esc(n)}" title="Talk to ${esc(n)}">${esc(n)}</button>` : `<span class="nm" title="Unassigned">Unassigned</span>`}<span class="cnt">${cards.length}</span><em class="${st}">${esc(st)}</em>${isBack(n) ? `<i class="sp-bar" aria-hidden="true"><i style="height:${pctOf(n)}%"></i></i><span class="sp-pct">${pctOf(n)}%</span>` : ''}</h2>`
+    return `<section class="col acol${fresh ? ' enter' : ''}" data-status="agent:${esc(n)}" style="--c:${colorFor(n)}"><h2><span class="av" style="--c:${colorFor(n)}" aria-hidden="true">${esc(nodeGlyph(n))}</span>${n ? `<button class="nm" type="button" data-thread="${esc(n)}" title="Talk to ${esc(n)}">${esc(n)}</button>` : `<span class="nm" title="Unassigned">Unassigned</span>`}<span class="cnt">${cards.length}</span><em class="${st}">${esc(st)}</em></h2>`
       + waitRule(n) + `<div class="cards">${cards.map(card).join('')}</div></section>`;
   };
   const n = active.length;
-  const shownL = active.filter(a => !isBack(a)); laneAway.clear(); active.filter(isBack).forEach(a => laneAway.add(a));
-  $('board').style.setProperty('--tracks', MEFIRST && n ? 'var(--todo-w)' + (shownL.length ? ` repeat(${shownL.length}, ${laneWpx}px)` : '') : `var(--todo-w) repeat(${Math.max(1, n)}, minmax(220px, 1fr))`);
-  document.body.classList.toggle('me-first', MEFIRST);
-  const clear = MEFIRST && n && !active.some(a => laneW(a) < 2) ? `<div class="me-clear" role="status"><div class="rings" aria-hidden="true"><i></i><i></i><i></i></div><strong>Nothing needs you</strong><span>${n} agent${n === 1 ? ' is' : 's are'} working · you will see them here the moment one stops</span></div>` : '';
-  if (clear) $('board').style.setProperty('--tracks', 'var(--todo-w) minmax(360px, 1fr)' + (shownL.length ? ` repeat(${shownL.length}, ${laneWpx}px)` : ''));
-  return todoColHtml(by.todo, filtered) + clear + (n ? shownL.map(agentCol).join('') : `<div class="empty">${filtered ? 'No matches' : 'No agent is working'}</div>`);
+  laneAway.clear();   // every agent's lane is on show here; only the Needs you pile leaves agents out
+  $('board').style.setProperty('--tracks', `var(--todo-w) repeat(${Math.max(1, n)}, minmax(220px, 1fr))`);
+  return todoColHtml(by.todo, filtered) + (n ? active.map(agentCol).join('') : `<div class="empty">${filtered ? 'No matches' : 'No agent is working'}</div>`);
 }
 
 // --- By agent: a cue for the lanes past the edge (6+ agents scroll sideways, and the scrollbar can be hidden) ---
@@ -2189,12 +2253,11 @@ function quickEvents(root) {
 }
 
 
-// Needs you and By agent share their lanes. What is on show, what is away, and what an answer does to the order:
-const lanePeek = new Set(), laneAway = new Set(), sentSeen = new Map(), whenKeep = new Map(), SENT_HOLD = 1100; let needPeak = 0; let laneWpx = 240;
+const laneAway = new Set(); let needPeak = 0;   // agents with nothing in the Needs you pile (their gauges go grey there); the most that has waited, for the tab's hairline
 const laneEls = () => [...$('board').querySelectorAll('.col.acol')];
 const laneSig = () => laneEls().map(c => c.dataset.status).join(',');
 function gaugesSync() {   // the gauges are the map of every agent: the ones whose lane is not on show in Needs you go grey
-  document.querySelectorAll('#load-strip .ls-g').forEach(g => { const away = MEFIRST && laneAway.has(g.dataset.agent); g.classList.toggle('away', away); });
+  document.querySelectorAll('#load-strip .ls-g').forEach(g => { const away = MEFIRST && laneAway.has(g.dataset.agent); g.classList.toggle('away', away); g.classList.toggle('deck-top', MEFIRST && g.dataset.agent === deckAgent); });
 }
 new MutationObserver(gaugesSync).observe($('load-strip'), { childList: true, subtree: true });
 // Every redraw calls these two, before and after it rebuilds the board. Lanes that leave fade where they stood, lanes that stay slide to
@@ -2207,8 +2270,8 @@ function laneSnapshot() {
 }
 function laneSettle({ old, was, sig, cardWas }) {
   const now = laneEls();
-  if (BYAGENT && !MEFIRST && now[0]) laneWpx = Math.round(now[0].getBoundingClientRect().width);
   gaugesSync(); if (linkKey && laneSig() === sig) linkPaint();
+  if (MEFIRST) { deckSettle(); return; }   // Needs you is the pile: it has no lanes, and moves by its own rules
   if (!was.size || laneSig() === sig || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
   const keep = new Set(now.map(c => c.dataset.status)), br = $('board').getBoundingClientRect(), ease = 'cubic-bezier(.2,.8,.2,1)';
   old.forEach(c => {   // beat one: a lane that leaves fades and sinks where it stood
@@ -2218,7 +2281,6 @@ function laneSettle({ old, was, sig, cardWas }) {
   now.forEach((c, i) => {   // beat two: a lane that stays slides straight to its new place (same size, nothing else changes); a new one fades in
     const r = was.get(c.dataset.status), n = c.getBoundingClientRect();
     if (!r) { c.animate([{ opacity: 0, transform: 'translateY(16px) scale(.97)' }, { opacity: 1, transform: 'none' }], { duration: 340, delay: 240 + i * 22, fill: 'backwards', easing: ease });
-      if (MEFIRST && c.classList.contains('mine')) { c.classList.add('ls-ping'); setTimeout(() => c.classList.remove('ls-ping'), 1400); }   // an agent that has just stopped announces itself
       return; }
     const dx = r.left - n.left;
     if (Math.abs(dx) > 1) { const far = Math.min(1, Math.abs(dx) / 900), lift = 3 + 13 * far, dur = 460 + 200 * far, delay = 150 + i * 22;
@@ -2270,8 +2332,178 @@ document.addEventListener('click', e => {   // "holds 3" is a button: a click (o
   e.preventDefault(); e.stopPropagation(); const was = linkPin; linkOff(true); if (was) return; linkOn(b); linkPin = true; b.closest('.wait-rule').classList.add('pinned');
 }, true);
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && linkPin) linkOff(true); });
-$('board').addEventListener('click', e => { const fold = e.target.closest('.col.acol.peek h2'); if (fold && !e.target.closest('.nm')) { lanePeek.delete(fold.closest('.col').dataset.status.slice(6)); render(); } }, true);
+// ---- Needs you (Nov 11): a pile you move through. One card open in the middle; the ones before it are strips above, the ones after it
+// strips below. Every card is one element for as long as it is in the pile, and the whole layout is a function of one number, the
+// position `deckP` (2 is the third card open, 2.4 is 40% of the way to the fourth). A key press sets it to a whole number and the browser
+// carries everything there; a trackpad or a finger moves it continuously and lets go to the nearest card. It does not wrap. ----
+let deckTop = null, deckIds = [], deckAgent = '', deckGone = null, deckOpen = false, deckP = 0, deckH = [], deckArm = null, deckArmT = 0;
+try { deckOpen = localStorage.getItem('ab-deck-details') === '1'; } catch (e) {}
+const deckMore = new Map();   // card id -> [updated, html]: the open card's details, kept so a redraw never blanks them
+const DECK_NEAR = 3, DECK_STRIP = 34;   // strips shown each way before "+N more"; a strip's height
+const dkSent = t => t.needs_input && t.reply && t.reply.text && !t.reply.state;
+const dkKind = t => dkSent(t) ? 2 : t.needs_input ? 0 : t.review ? 1 : 2;
+const dkAge = t => { const m = Math.max(1, (Date.now() - (Date.parse(t.updated) || Date.now())) / 60000); return m < 60 ? Math.round(m) + ' min' : m < 1440 ? (Math.round(m / 6) / 10) + ' h' : (Math.round(m / 144) / 10) + ' d'; };
+const dkPassed = t => { const x = (t.result || '') + ' ' + (t.status_text || ''); return dkKind(t) === 1 && /\b\d+\s+tests?\s+pass/i.test(x) && !/\bfail/i.test(x); };   // a sign-off whose agent wrote down passing tests
+const dkClamp = (x, a, b) => Math.max(a, Math.min(b, x));
+function deckHtml(by, filtered) {
+  const list = by.doing.filter(t => dkKind(t) < 2).sort((a, b) => dkKind(a) - dkKind(b) || heldBy(b.id).length - heldBy(a.id).length || (Date.parse(a.updated) || 0) - (Date.parse(b.updated) || 0));
+  const had = deckIds, wasTop = deckTop; deckIds = list.map(t => t.id);
+  if (wasTop && !deckIds.includes(wasTop)) { deckGone = wasTop; const i = had.indexOf(wasTop); deckTop = had.slice(i + 1).find(id => deckIds.includes(id)) || had.slice(0, i).reverse().find(id => deckIds.includes(id)) || null; }   // the answered card leaves; the next one below opens (the one above, at the bottom)
+  if (!deckTop || !deckIds.includes(deckTop)) deckTop = deckIds[0] || null;
+  laneAway.clear(); new Set(by.doing.map(t => t.agent).filter(Boolean)).forEach(a => { if (!list.some(t => t.agent === a)) laneAway.add(a); });
+  const n = list.length, at = deckIds.indexOf(deckTop), top = list[at]; deckAgent = top ? top.agent || '' : ''; deckP = Math.max(0, at);
+  if (!n) return `<div class="me-clear deck-clear" role="status"><div class="rings" aria-hidden="true"><i></i><i></i><i></i></div><strong>Nothing needs you</strong><span>${by.doing.length} card${by.doing.length === 1 ? ' is' : 's are'} in progress · you will see them here the moment an agent stops</span></div>`;
+  const kept = deckMore.get(top.id), say = t => t.needs_input ? (t.question || t.status_text || t.title) : (t.result || t.status_text || t.title);
+  const slot = t => `<div class="deck-slot ${dkKind(t) ? 'rev' : 'ask'}" data-slot="${esc(t.id)}" data-deck-to="${esc(t.id)}">${card(t)}<span class="deck-line">${esc(say(t))}</span><span class="deck-wait-n">${dkPassed(t) ? '<i class="deck-ok" title="The agent wrote down passing tests">✓</i>' : ''}${dkAge(t)}</span></div>`;
+  const firstRev = list.findIndex(t => dkKind(t) === 1);
+  const rail = list.map((t, i) => (i === firstRev && i > 0 ? '<i class="deck-seam" title="Below this line: finished work to sign off"></i>' : '') + `<button type="button" class="deck-av ${dkKind(t) ? 'rev' : 'ask'}" style="--c:${colorOf(t)}" data-deck-to="${esc(t.id)}" title="${esc(t.agent || 'Unassigned')}: ${esc(t.title)}" aria-label="${esc(t.agent || 'Unassigned')}, ${esc(t.title)}">${esc(nodeGlyph(t.agent || ''))}</button>`).join('');
+  return `<section class="deck${deckOpen ? ' open' : ''}" data-status="deck" aria-label="Needs you, one card at a time">
+<div class="deck-rings" aria-hidden="true"><i></i><i></i><i></i></div>
+<div class="deck-head" aria-live="polite"></div>
+<div class="deck-body">
+<nav class="deck-rail" aria-label="Where you are in the cards that need you"><button type="button" class="deck-nav" data-deck="-1" aria-label="Previous card" title="Previous (↑)">⌃</button><div class="deck-avs${n > 12 ? ' many' : ''}"><i class="deck-cursor" aria-hidden="true"></i>${rail}</div><button type="button" class="deck-nav down" data-deck="1" aria-label="Next card" title="Next (↓)">⌃</button></nav>
+<div class="deck-col">
+<button type="button" class="deck-count up" data-deck="0"></button>
+<div class="deck-spacer"></div>
+${list.map(slot).join('')}
+<button type="button" class="deck-count down" data-deck="0"></button>
+<button type="button" class="deck-toggle" data-deck-details aria-expanded="${deckOpen}" title="${deckOpen ? 'Hide the details (←)' : 'Show the details (→)'}">${deckOpen ? '‹ Hide details' : 'Details ›'}</button>
+</div>
+<aside class="deck-more" id="deck-more" data-for="${esc(top.id)}" tabindex="${deckOpen ? 0 : -1}" aria-label="Details of this card"${deckOpen ? '' : ' aria-hidden="true"'}>${deckOpen ? (kept ? kept[1] : '<p class="deck-wait">Loading the details…</p>') : ''}</aside>
+</div></section>`;
+}
+const deckCounts = (at, n) => ({ up: at > DECK_NEAR ? [`${at - DECK_NEAR} more above`, -Math.min(DECK_NEAR + 1, at)] : [at === 0 ? 'Top of the pile' : '', 0],
+  down: n - 1 - at > DECK_NEAR ? [`${n - 1 - at - DECK_NEAR} more below`, Math.min(DECK_NEAR + 1, n - 1 - at)] : [at === n - 1 ? 'Last one' : '', 0] });
+function deckHeadHtml(top, at, n) { const held = heldBy(top.id).length, ask = dkKind(top) === 0, verb = ask ? 'Go ahead' : 'Mark done';
+  const hint = deckArm === top.id ? `<em class="armed">Space again to send “${verb}” · Esc cancels</em>` : `<em>↑ ↓ or scroll · → details · Enter to reply · Space, Space to ${ask ? 'go ahead' : 'sign off'}</em>`;
+  return `<b>${at + 1}<i> of ${n}</i></b><span>${esc(top.agent || 'Unassigned')} ${ask ? 'asks' : 'is ready for sign-off'} · waiting ${dkAge(top)}${held ? ` · ${ask ? 'holds' : 'frees'} ${held}` : ''}</span>${hint}`; }
+// The pose: everything the pile shows, from one number. mode 'glide' lets the browser carry it there (a key, a click, letting go);
+// 'drag' follows the hand with no easing; 'still' places it at once (a redraw). opts.closed draws the open card as a strip (used to open
+// it a moment later); opts.folded draws every card away (used to unfold the pile on arrival).
+function deckPose(p, mode = 'glide', opts = {}) {
+  const deck = $('board').querySelector('.deck'), col = deck?.querySelector('.deck-col'); if (!col) return;
+  const n = deckIds.length, slots = [...col.querySelectorAll('.deck-slot')];
+  deck.classList.toggle('still', mode === 'still'); deck.classList.toggle('drag', mode === 'drag');
+  if (mode === 'still' || deckH.length !== n) deckH = slots.map(el => el.firstElementChild.offsetHeight);   // each card's own height, measured when the pile is drawn
+  const at = dkClamp(Math.round(p), 0, n - 1); deckP = p;
+  let frontH = DECK_STRIP;
+  slots.forEach((el, i) => {
+    const d = i - p, a = Math.abs(d), o = opts.closed || opts.folded ? 0 : dkClamp(1 - a, 0, 1), edge = opts.folded ? 0 : dkClamp(DECK_NEAR + 1 - a, 0, 1);   // o: how open; edge: how much of a strip is left as it goes out of range
+    const h = (DECK_STRIP + (deckH[i] - DECK_STRIP) * o) * edge; if (i === at) frontH = DECK_STRIP + (deckH[i] - DECK_STRIP) * (opts.closed || opts.folded ? 0 : 1);
+    el.style.height = h.toFixed(1) + 'px'; el.style.setProperty('--a', a.toFixed(3)); el.style.setProperty('--o', o.toFixed(3)); el.style.setProperty('--e', edge.toFixed(3)); el.style.setProperty('--s', d < 0 ? 1 : -1);
+    el.classList.toggle('front', o > .5); el.classList.toggle('up', d < 0); el.classList.toggle('down', d >= 0); el.classList.toggle('far', edge === 0);
+  });
+  col.querySelector('.deck-spacer').style.height = ((DECK_NEAR - dkClamp(p, 0, DECK_NEAR)) * DECK_STRIP).toFixed(1) + 'px';
+  const c = deckCounts(at, n); [['.deck-count.up', c.up], ['.deck-count.down', c.down]].forEach(([q, v]) => { const b = col.querySelector(q); if (b.textContent !== v[0]) b.textContent = v[0]; b.dataset.deck = v[1]; b.classList.toggle('end', !v[1]); });
+  col.querySelector('.deck-toggle').style.top = (28 + DECK_NEAR * DECK_STRIP + (deckH[at] || 200) / 2) + 'px';
+  const avs = [...deck.querySelectorAll('.deck-av')], lo = dkClamp(Math.floor(p), 0, n - 1), hi = dkClamp(lo + 1, 0, n - 1), f = dkClamp(p - lo, 0, 1), mid = b => b.offsetTop + b.offsetHeight / 2;
+  avs.forEach((b, i) => { b.classList.toggle('on', i === at); if (i === at) b.setAttribute('aria-current', 'true'); else b.removeAttribute('aria-current'); });
+  if (avs.length) { const cur = deck.querySelector('.deck-cursor'); cur.style.transform = `translate(-50%, ${(mid(avs[lo]) * (1 - f) + mid(avs[hi]) * f - cur.offsetHeight / 2).toFixed(1)}px)`; }   // the ring slides between the circles with the pile
+  const navs = deck.querySelectorAll('.deck-rail .deck-nav'); navs[0].disabled = at === 0; navs[1].disabled = at === n - 1;
+  const top = byId.get(deckIds[at]);
+  if (top && (deckIds[at] !== deckTop || !deck.querySelector('.deck-head').firstChild || mode === 'still')) {
+    if (deckIds[at] !== deckTop && deckArm) deckDisarm(true);
+    deckTop = deckIds[at]; deck.querySelector('.deck-head').innerHTML = deckHeadHtml(top, at, n); deckAgent = top.agent || ''; gaugesSync();
+    const m = $('deck-more'); if (m && m.dataset.for !== deckTop) { m.dataset.for = deckTop; if (deckOpen) { const k = deckMore.get(deckTop); m.innerHTML = k ? k[1] : '<p class="deck-wait">Loading the details…</p>'; deckFill(); } }
+    if (mode !== 'still') touch('step');   // one soft step per card, when the Touch sounds are on
+  }
+  if (mode === 'still') { void deck.offsetHeight; deck.classList.remove('still'); }
+}
+function deckMoreHtml(d) {   // what you need to decide, beside the card: what it holds, the agent's own report, the task, the last things that happened
+  const held = heldBy(d.id).map(id => byId.get(id)).filter(Boolean), ask = !!d.needs_input, checks = d.checks || [];
+  const chips = checks.slice(0, 3).map(c => `<span class="dchip ${/fail/i.test(c) ? 'bad' : 'ok'}">${esc(c)}${/fail/i.test(c) ? '' : ' ✓'}</span>`).join('');
+  const log = (d.log || []).filter(e => e.text).slice(-5).reverse().map(e => `<li><time>${esc((e.at || '').slice(11, 16))}</time><span${e.by ? ' class="you"' : ''}>${esc(e.text)}</span></li>`).join('');
+  return (held.length ? `<section><h3>${ask ? 'Holds' : 'Signing off frees'} ${held.length} in Todo</h3><div class="deck-held">${held.map(h => `<button type="button" data-open="${esc(h.id)}">${esc(h.title)}</button>`).join('')}</div></section>` : '')
+    + (chips ? `<section><h3>Checked</h3><div class="deck-chips">${chips}</div></section>` : '')
+    + (d.body_html ? `<section><h3>From ${esc(d.agent || 'the agent')}</h3><div class="rich-body">${d.body_html}</div></section>` : '')
+    + (d.description ? `<section><h3>The task</h3><p>${esc(d.description)}</p></section>` : '')
+    + (log ? `<section><h3>Lately</h3><ol class="deck-log">${log}</ol></section>` : '')
+    || '<p class="deck-wait">Nothing more on this card.</p>';
+}
+async function deckFill() {
+  const el = $('deck-more'); if (!el || !deckOpen) return; const id = el.dataset.for, t = byId.get(id), kept = deckMore.get(id);
+  if (kept && t && kept[0] === t.updated) { if (!el.firstChild) el.innerHTML = kept[1]; return; }
+  try { const d = await (await fetch(BASE + '/api/task?id=' + encodeURIComponent(id), { cache: 'no-store' })).json(); const html = deckMoreHtml(d); deckMore.set(id, [d.updated, html]); const now = $('deck-more'); if (now && now.dataset.for === id && deckOpen) now.innerHTML = html; }
+  catch (e) { el.innerHTML = '<p class="deck-wait">The details could not be loaded.</p>'; }
+}
+let deckWas = null, deckWasFront = null, deckWasView = false;
+function deckBefore() {   // before a redraw: was the pile on show, and where did its open card stand
+  deckWasView = document.body.classList.contains('deckview') && !!$('board').querySelector('.deck-col');
+  deckWasFront = deckWasView ? $('board').querySelector('.deck-slot.front') : null; deckWas = deckWasFront ? deckWasFront.getBoundingClientRect() : null;
+}
+function deckSettle() {   // after every redraw of the pile
+  const gone = deckGone, old = deckWasFront, r = deckWas, arrived = !deckWasView; deckGone = null; deckWas = null; deckWasFront = null;
+  const at = Math.max(0, deckIds.indexOf(deckTop)), clear = $('board').querySelector('.deck-clear');
+  $('board').querySelectorAll('.deck .card').forEach(c => c.getAnimations().forEach(a => { if (!(a instanceof CSSAnimation)) a.cancel(); }));   // the pile moves its own cards
+  if (RM) { deckPose(at, 'still'); deckFill(); return; }
+  if (gone && old && r) {   // the card you just answered: a tick lands on it, it leaves to the right, and the next one opens where it stood
+    const t = byId.get(gone), word = !t || t.status === 'done' ? 'Signed off' : 'Sent';
+    old.style.cssText += `;position:fixed;left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px;margin:0;z-index:40;pointer-events:none;transition:none`;
+    old.insertAdjacentHTML('beforeend', `<div class="deck-done"><i>✓</i>${word}</div>`); document.body.appendChild(old);
+    old.animate([{ opacity: 1, transform: 'none' }, { opacity: 1, transform: 'scale(.985)', offset: .42 }, { opacity: 0, transform: 'translateX(140px) rotate(2deg) scale(.94)' }], { duration: 780, easing: 'cubic-bezier(.5,0,.3,1)', fill: 'forwards' }).onfinish = () => old.remove();
+    if (clear) { clear.animate([{ opacity: 0 }, { opacity: 0, offset: .45 }, { opacity: 1 }], { duration: 1100, easing: 'ease-out' }); return; }   // that was the last one: the pile is gone, the rings come up
+    deckPose(at, 'still', { closed: true }); setTimeout(() => { if ($('board').querySelector('.deck-col')) deckPose(Math.max(0, deckIds.indexOf(deckTop))); }, 300); deckFill(); return;
+  }
+  if (arrived && !clear) { deckPose(at, 'still', { folded: true }); requestAnimationFrame(() => requestAnimationFrame(() => deckPose(Math.max(0, deckIds.indexOf(deckTop))))); deckFill(); return; }   // arriving on the tab: the pile unfolds from the middle
+  deckPose(at, 'still'); deckFill();
+}
+function deckGo(to) { const i = deckIds.indexOf(to); if (i < 0) return; deckPose(i); }   // no redraw: the pile itself moves
+function deckStep(d) {
+  if (!d) return;
+  const i = Math.round(deckP), j = Math.abs(d) > 1 ? dkClamp(i + d, 0, deckIds.length - 1) : i + d;
+  if (j < 0 || j >= deckIds.length) { const f = $('board').querySelector('.deck-slot.front'); if (f) f.animate([{ transform: 'none' }, { transform: `translateY(${d * 9}px)` }, { transform: 'none' }], { duration: 240, easing: 'ease-out' }); return; }   // the end of the pile: a small bump, no wrap
+  deckPose(j);
+}
+function deckJump(agent) { const i = deckIds.findIndex(id => (byId.get(id) || {}).agent === agent); if (i >= 0) deckPose(i); }
+function deckDetails(on) {   // the details slide out beside the card; the card makes room, nothing is redrawn
+  if (on === deckOpen) return; deckOpen = on; try { localStorage.setItem('ab-deck-details', on ? '1' : '0'); } catch (e) {}
+  const deck = $('board').querySelector('.deck'), m = $('deck-more'), b = deck?.querySelector('.deck-toggle'); if (!deck) return;
+  deck.classList.toggle('open', on); b.textContent = on ? '‹ Hide details' : 'Details ›'; b.setAttribute('aria-expanded', on); b.title = on ? 'Hide the details (←)' : 'Show the details (→)';
+  m.tabIndex = on ? 0 : -1; if (on) { m.removeAttribute('aria-hidden'); m.dataset.for = deckTop; const k = deckMore.get(deckTop); m.innerHTML = k ? k[1] : '<p class="deck-wait">Loading the details…</p>'; deckFill(); } else m.setAttribute('aria-hidden', 'true');
+}
+function deckDisarm(quiet) { clearTimeout(deckArmT); const was = deckArm; deckArm = null; document.querySelectorAll('.deck-armed').forEach(x => x.classList.remove('deck-armed')); if (was && !quiet) { const t = byId.get(deckTop), d = $('board').querySelector('.deck-head'); if (t && d) d.innerHTML = deckHeadHtml(t, deckIds.indexOf(deckTop), deckIds.length); } }
+function deckSpace() {   // Space arms the card's first answer and shows which; Space again within three seconds sends it. One key never answers.
+  const t = byId.get(deckTop), slot = $('board').querySelector('.deck-slot.front'); if (!t || !slot) return;
+  const btn = dkKind(t) === 0 ? slot.querySelector('[data-quick][data-text="Go ahead"]') : slot.querySelector('[data-done]'); if (!btn) return;
+  if (deckArm === t.id) { deckDisarm(true); btn.click(); return; }
+  deckArm = t.id; btn.classList.add('deck-armed'); $('board').querySelector('.deck-head').innerHTML = deckHeadHtml(t, deckIds.indexOf(deckTop), deckIds.length);
+  clearTimeout(deckArmT); deckArmT = setTimeout(() => deckDisarm(false), 3000);
+}
+document.addEventListener('click', e => {
+  const nav = e.target.closest?.('[data-deck]'), det = e.target.closest?.('[data-deck-details]'), to = e.target.closest?.('[data-deck-to]');
+  if (nav) deckStep(+nav.dataset.deck); else if (det) deckDetails(!deckOpen); else if (to && !to.classList.contains('front')) { e.preventDefault(); e.stopPropagation(); deckGo(to.dataset.deckTo); }
+}, true);
+document.addEventListener('keydown', e => {
+  if (!MEFIRST || e.metaKey || e.ctrlKey || e.altKey) return;
+  const t = e.target, typing = t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable);
+  if (document.querySelector('#panel.open, #tour.open')) return;
+  if (typing) { if (e.key === 'Escape') t.blur(); return; }
+  if (e.key === 'Escape' && deckArm) { e.preventDefault(); e.stopPropagation(); deckDisarm(false); return; }
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { if (t && t.closest && t.closest('.deck-more') && t.scrollHeight > t.clientHeight) return;   // inside the details the arrows scroll them
+    e.preventDefault(); e.stopPropagation(); deckStep(e.key === 'ArrowDown' ? 1 : -1); }
+  else if (e.key === 'Home' || e.key === 'End') { e.preventDefault(); e.stopPropagation(); deckStep(e.key === 'Home' ? -999 : 999); }
+  else if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') { e.preventDefault(); e.stopPropagation(); deckDetails(e.key === 'ArrowRight'); }
+  else if (e.key === ' ' && !(t && t.closest && t.closest('button, a, [role="button"]'))) { e.preventDefault(); e.stopPropagation(); deckSpace(); }
+  else if (e.key === 'Enter' && !(t && t.closest && t.closest('button, a'))) { const inp = $('board').querySelector('.deck-slot.front input[name="text"]'); if (inp) { e.preventDefault(); e.stopPropagation(); inp.focus(); } }   // Enter puts you in the reply box: it never answers by itself
+}, true);
+{ // The hand. A trackpad's two-finger scroll or a finger on a touch screen moves the pile continuously, one card per DECK_PULL pixels,
+  // with a little give past either end; when it stops, the pile settles on the nearest card. A mouse wheel's notches step one card each.
+  const DECK_PULL = 150; let idle = 0, raf = 0, want = null, ty = null, p0 = 0, vy = 0, tLast = 0, yLast = 0;
+  const lim = p => { const n = deckIds.length - 1; return p < 0 ? p * .3 : p > n ? n + (p - n) * .3 : p; };   // rubber at the ends
+  const follow = p => { want = p; if (!raf) raf = requestAnimationFrame(() => { raf = 0; if (want != null) deckPose(lim(want), 'drag'); }); };
+  const letGo = (extra = 0) => { const p = want == null ? deckP : want; want = null; deckPose(dkClamp(Math.round(p + extra), 0, deckIds.length - 1)); };
+  $('board').addEventListener('wheel', e => {
+    if (!MEFIRST || !e.target.closest?.('.deck') || e.target.closest('.deck-more, input, textarea') || !deckIds.length) return;
+    e.preventDefault();
+    if (e.deltaMode !== 0 || (Math.abs(e.deltaY) >= 90 && Number.isInteger(e.deltaY))) { clearTimeout(idle); want = null; deckStep(e.deltaY > 0 ? 1 : -1); return; }   // a wheel notch
+    const from = want == null ? deckP : want, n = deckIds.length - 1; follow(dkClamp(from + e.deltaY / DECK_PULL, -.8, n + .8));
+    clearTimeout(idle); idle = setTimeout(() => letGo(), 110);
+  }, { passive: false });
+  $('board').addEventListener('touchstart', e => { ty = MEFIRST && e.target.closest?.('.deck-col') && !e.target.closest('input, textarea, button, a') ? e.touches[0].clientY : null; p0 = deckP; vy = 0; tLast = e.timeStamp; yLast = ty; }, { passive: true });
+  $('board').addEventListener('touchmove', e => { if (ty == null) return; const y = e.touches[0].clientY, dt = Math.max(1, e.timeStamp - tLast); vy = .7 * vy + .3 * ((yLast - y) / dt); tLast = e.timeStamp; yLast = y; if (Math.abs(y - ty) > 6) { e.preventDefault(); follow(p0 + (ty - y) / DECK_PULL); } }, { passive: false });
+  $('board').addEventListener('touchend', () => { if (ty == null) return; ty = null; if (want != null) letGo(dkClamp(vy * 1.1, -1.2, 1.2)); }, { passive: true }); }
 function render() {
+  deckBefore();
   const laneSnap = laneSnapshot();   // Needs you / By agent: where the lanes stood, for the glide at the end
   const by = Object.fromEntries(COLUMNS.map(([k]) => [k, []]));
   const rawQ = ($('filter').value || '').trim(), q = rawQ.toLowerCase();
@@ -2359,7 +2591,8 @@ function render() {
   if (!firstRender) document.querySelectorAll('.col').forEach(c => cntBefore.set(colKey(c), [+c.querySelector('.cnt')?.textContent, !!c.querySelector('.empty')]));
   $('board').style.setProperty('--tracks', cols.map(([k]) => k === 'todo' ? 'var(--todo-w)' : k === 'doing' ? 'minmax(0, 1.4fr)' : 'minmax(0, 1fr)').join(' '));
   $('board').classList.remove('hl');   // a re-render drops the hover highlight with the cards it lit
-  $('board').innerHTML = BYAGENT ? byAgentHtml(by, q || flagFilter) : cols.map(([k, label]) => {
+  document.body.classList.toggle('deckview', MEFIRST);   // Needs you is the pile; the Board and By agent are columns
+  $('board').innerHTML = MEFIRST ? deckHtml(by, q || flagFilter) : BYAGENT ? byAgentHtml(by, q || flagFilter) : cols.map(([k, label]) => {
     if (k === 'todo') return todoColHtml(by.todo, q || flagFilter);
     let list = by[k], more = '', ribbon = '';
     if (k === 'done') {
@@ -4385,9 +4618,8 @@ addEventListener('resize', stripFade);
 $('load-strip').addEventListener('click', e => {
   if (e.target.closest('#ls-more')) { e.preventDefault(); if (!hudIsOpen()) openHud(); return; }
   const g = e.target.closest('.ls-g'); if (!g) return; const who = g.dataset.agent;
+  if (MEFIRST) { deckJump(who); return; }   // on Needs you a gauge moves the pile to that agent's card
   if (!BYAGENT) goView(1);   // from the Board a gauge takes you to that agent's lane
-  else if (MEFIRST && lanePeek.has(who)) { lanePeek.delete(who); render(); return; }
-  else if (MEFIRST && laneAway.has(who)) { lanePeek.add(who); render(); }
   requestAnimationFrame(() => stripJump(who));
 });
 
@@ -4756,9 +4988,8 @@ function extendSelectionVertical(dir) {
 function applyView() { document.body.classList.toggle('byagent', BYAGENT); litTab(); stripSync(); }
 function setView(agents, push = true, need = false) {
   if (SOLO || (agents === BYAGENT && need === MEFIRST)) return;
-  BYAGENT = agents; MEFIRST = need; lanePeek.clear();
+  BYAGENT = agents; MEFIRST = need;
   if (push) history.pushState({ view: need ? 'need' : agents ? 'agents' : 'board' }, '', BASE + (need ? '/need' : agents ? '/agents' : '/') + location.hash);
-  if (need) requestAnimationFrame(() => { const first = $('board').querySelector('.col.acol'); $('board').scrollLeft = matchMedia('(max-width: 900px)').matches && first ? first.getBoundingClientRect().left - $('board').getBoundingClientRect().left + $('board').scrollLeft - 12 : 0; });   // on a phone Needs you opens on the first agent that needs you, not on Todo
   applyView(); renderKeepingCardFocus(); futScan();
   if (layerOn('motion') && !RM) $('board').animate([{ opacity: .3 }, { opacity: 1 }], { duration: 220, easing: 'ease-out' });   // Motion: the view crossfades for the swish
 }

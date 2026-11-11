@@ -47,7 +47,7 @@ class MotionTests(unittest.TestCase):
         self.assertIn("const revIn = reviewing && !firstRender && seen.has(t.id) && !revBefore.has(t.id);", body("card"))
         self.assertIn("${revIn ? 'rev-in' : ''}", body("card"))
         self.assertIn("const fresh = lanesKnown && !firstRender && !lanesBefore.has(n);", body("byAgentHtml"))
-        self.assertIn("<section class=\"col acol${fresh ? ' enter' : ''}${laneCls(n)}\"", body("byAgentHtml"))   # laneCls: Needs you marks the lanes that wait on the owner
+        self.assertIn("<section class=\"col acol${fresh ? ' enter' : ''}\"", body("byAgentHtml"))
         # the sounds are the ones already there: the Motion settle on a column change, the review chime from the HUD poll
         self.assertIn("if (c && was !== undefined && c.closest('.col')?.dataset.status !== was) landed(c);", r)
         self.assertIn("else if (fresh.some(e => /^Ready for review:/.test(e.text))) cue.review();", HTML)
