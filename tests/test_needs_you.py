@@ -47,9 +47,9 @@ class ViewSwitchTests(unittest.TestCase):
 
 class PileTests(unittest.TestCase):
     def test_asks_first_then_sign_offs_and_an_answered_card_has_left(self):
-        self.assertIn("const dkKind = t => dkSent(t) ? 2 : t.needs_input ? 0 : t.review ? 1 : 2;", PAGE)
+        self.assertIn("const dkKind = t => dkSent(t) ? 9 : t.needs_input ? 0 : t.review ? 1 : dkDog(t.id) ? 2 : 9;", PAGE)
         d = body("deckHtml")
-        self.assertIn("by.doing.filter(t => dkKind(t) < 2)", d)
+        self.assertIn("by.doing.filter(t => dkKind(t) < 3)", d)
         self.assertIn("dkKind(a) - dkKind(b) || heldBy(b.id).length - heldBy(a.id).length", d)   # then the one holding the most Todo cards
 
     def test_the_whole_layout_comes_from_one_position_and_a_move_redraws_nothing(self):
@@ -98,6 +98,27 @@ class PileTests(unittest.TestCase):
     def test_no_motion_under_reduced_motion(self):
         self.assertIn("if (RM) { deckPose(at, 'still'); deckFill(); return; }", body("deckSettle"))
         self.assertIn("@media (prefers-reduced-motion: reduce){.deck,.deck *{transition:none !important}", PAGE)
+
+
+class StuckAndClearedTests(unittest.TestCase):
+    def test_a_stuck_card_is_the_watchdogs_finding_and_its_fix_is_the_watchdogs(self):
+        # only what the watchdog calls stuck (quiet past the threshold with nothing to wake it), never every quiet card
+        self.assertIn("const dkDog = id => (boardDog || []).find(f => f.id === id && (f.kind === 'stuck' || f.kind === 'claimed-idle'));", PAGE)
+        head = body("deckHeadHtml")
+        self.assertIn('class="deck-fix" data-dog-action="${esc(dog.fix.action)}" data-dog-id="${esc(dog.fix.id)}"', head)   # the board's own fix button and route
+        self.assertIn("'has gone quiet'", head)
+        self.assertIn("$('board').querySelector('.deck-head .deck-fix')", body("deckSpace"))   # Space, Space does the same, still two presses
+        self.assertIn("working.filter(t => !t.needs_input && !t.review && dkDog(t.id)).length", body("render"))   # and the tab counts it
+
+    def test_what_you_cleared_is_ticked_and_only_the_last_sign_off_can_be_undone(self):
+        h = body("deckClearedHtml")
+        self.assertIn("can = i === last && c.undo", h)
+        self.assertIn("deckCleared.slice(-5)", h)
+        self.assertIn("' · an answer cannot be unsent'", h)
+        self.assertIn("undo: word === 'Signed off' && undoInfo && undoInfo.prev && undoInfo.prev.id === gone ?", body("deckSettle"))
+        self.assertIn("await api('/api/restore', c.undo);", PAGE)   # the same restore the toast's Undo uses
+        for part in ("esc(c.word)", "esc(c.title)"):
+            self.assertIn(part, h)
 
 
 class SoundTests(unittest.TestCase):
