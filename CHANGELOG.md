@@ -19,7 +19,9 @@
   a quiet agent that is still listening is not one). The line above the pile says so and carries the watchdog's own fix, **Release to Todo**; `Space` twice does
   the same. The tab's count includes them.
 - An agent that left several stuck cards behind gets a second button on any of them, **Release all N of its**: one press sends every stuck one back to
-  Todo and ticks each. Its open questions and sign-offs stay where they are.
+  Todo and ticks each. Its open questions, sign-offs and finished cards stay where they are.
+- The same group takes every card the board marks "abandoned?" (no update past the stale threshold), also when its agent still has a wait running, which the
+  watchdog does not flag. A card at 100% that was never handed in offers **Mark done** first.
 - What you cleared this session shows as ticks above the map, with a tally. The last sign-off can be undone from its tick (the same restore as the toast's
   Undo, without the seven seconds); an answer or a release cannot. The ticks stay on "Nothing needs you".
 - Details: `→` (or "Details ›") opens a panel beside the card with the Todo cards it holds, the tests the agent wrote down, the agent's own report, the task and

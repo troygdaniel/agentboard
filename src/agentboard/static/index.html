@@ -2364,9 +2364,13 @@ try { deckOpen = localStorage.getItem('ab-deck-details') === '1'; } catch (e) {}
 const deckMore = new Map();   // card id -> [updated, html]: the open card's details, kept so a redraw never blanks them
 const DECK_NEAR = 3, DECK_STRIP = 34;   // strips shown each way before "+N more"; a strip's height
 const dkSent = t => t.needs_input && t.reply && t.reply.text && !t.reply.state;
-const dkDog = id => (boardDog || []).find(f => f.id === id && (f.kind === 'stuck' || f.kind === 'claimed-idle'));   // the watchdog's finding for this card, if it is stuck: its agent went quiet and nothing will wake it
+const dkStale = t => !!t && t.status === 'doing' && !isKid(t) && ago(t.updated).min >= (cfg.stale_minutes || DEFAULT_STALE_MIN);   // the board's own "abandoned?": the same rule the card's red line and the header count use
+// Why a quiet card is in the pile: the watchdog's finding when it has one (nothing will wake its agent), and otherwise the board's own
+// "abandoned?" mark (no update past the stale threshold while its agent still listens). The second carries the same release, the watchdog's.
+const dkDog = id => (boardDog || []).find(f => f.id === id && (f.kind === 'stuck' || f.kind === 'claimed-idle'))
+  || (dkStale(byId.get(id)) ? { id, kind: 'abandoned', what: 'No update past the stale threshold. Its agent still has a wait running.', fix: { action: 'release', id, label: 'Release to Todo' } } : null);
 const dkKind = t => dkSent(t) ? 9 : t.needs_input ? 0 : t.review ? 1 : dkDog(t.id) ? 2 : 9;   // 0 answer, 1 sign off, 2 check on, 9 not yours
-const dkMates = t => deckIds.map(id => byId.get(id)).filter(c => c && c.agent === t.agent && dkKind(c) === 2);   // the stuck cards one agent left behind: its asks and sign-offs are not among them
+const dkMates = t => deckIds.map(id => byId.get(id)).filter(c => c && c.agent === t.agent && dkKind(c) === 2 && (c.progress || 0) < 100);   // the unfinished cards one agent left behind: its asks, its sign-offs and its finished work are not among them
 const dkCls = t => ['ask', 'rev', 'chk'][dkKind(t)] || '';
 const dkAge = t => { const m = Math.max(1, (Date.now() - (Date.parse(t.updated) || Date.now())) / 60000); return m < 60 ? Math.round(m) + ' min' : m < 1440 ? (Math.round(m / 6) / 10) + ' h' : (Math.round(m / 144) / 10) + ' d'; };
 const dkPassed = t => { const x = (t.result || '') + ' ' + (t.status_text || ''); return dkKind(t) === 1 && /\b\d+\s+tests?\s+pass/i.test(x) && !/\bfail/i.test(x); };   // a sign-off whose agent wrote down passing tests
@@ -2401,13 +2405,14 @@ ${list.map(slot).join('')}
 const deckCounts = (at, n) => ({ up: at > DECK_NEAR ? [`${at - DECK_NEAR} more above`, -Math.min(DECK_NEAR + 1, at)] : [at === 0 ? 'Top of the pile' : '', 0],
   down: n - 1 - at > DECK_NEAR ? [`${n - 1 - at - DECK_NEAR} more below`, Math.min(DECK_NEAR + 1, n - 1 - at)] : [at === n - 1 ? 'Last one' : '', 0] });
 function deckHeadHtml(top, at, n) {   // the line above the pile: where you are, what this card is waiting for, and for a stuck card the watchdog's one fix
-  const held = heldBy(top.id).length, k = dkKind(top), ask = k === 0, dog = k === 2 ? dkDog(top.id) : null, verb = ask ? 'Go ahead' : k === 1 ? 'Mark done' : (dog && dog.fix ? dog.fix.label : 'Release to Todo');
-  const hint = deckArm === top.id ? `<em class="armed">Space again to ${k === 2 ? 'do' : 'send'} “${esc(verb)}” · Esc cancels</em>` : `<em>↑ ↓ or scroll · → details · Enter to reply · Space, Space to ${ask ? 'go ahead' : k === 1 ? 'sign off' : 'release it'}</em>`;
+  const held = heldBy(top.id).length, k = dkKind(top), ask = k === 0, dog = k === 2 ? dkDog(top.id) : null, full = k === 2 && (top.progress || 0) >= 100, verb = ask ? 'Go ahead' : k === 1 || full ? 'Mark done' : (dog && dog.fix ? dog.fix.label : 'Release to Todo');   // a quiet card at 100% is finished work nobody handed in: Mark done comes first
+  const hint = deckArm === top.id ? `<em class="armed">Space again to ${k === 2 ? 'do' : 'send'} “${esc(verb)}” · Esc cancels</em>` : `<em>↑ ↓ or scroll · → details · Enter to reply · Space, Space to ${ask ? 'go ahead' : k === 1 || full ? 'sign off' : 'release it'}</em>`;
   const what = ask ? 'asks' : k === 1 ? 'is ready for sign-off' : 'has gone quiet';
   const fix = dog && dog.fix ? `<button type="button" class="deck-fix" data-dog-action="${esc(dog.fix.action)}" data-dog-id="${esc(dog.fix.id)}" title="${esc(dog.what)}">${esc(dog.fix.label)}</button>` : '';
-  const mates = dog && dog.fix && dog.fix.action === 'release' ? dkMates(top) : [];
-  const all = mates.length > 1 ? `<button type="button" class="deck-fix all" data-deck-all="${esc(top.agent)}" title="Every stuck card ${esc(top.agent)} left behind goes back to Todo. Its questions and sign-offs stay.">Release all ${mates.length} of ${esc(top.agent)}’s</button>` : '';
-  return `<b>${at + 1}<i> of ${n}</i></b><span>${esc(top.agent || 'Unassigned')} ${what} · ${k === 2 ? 'no update for' : 'waiting'} ${dkAge(top)}${held ? ` · ${k === 1 ? 'frees' : 'holds'} ${held}` : ''}${k === 2 ? ' · nothing will wake it' : ''}</span>${fix}${all}${hint}`; }
+  const fin = full ? `<button type="button" class="deck-fix" data-done="${esc(top.id)}" title="Every step is at 100%. Close it as done.">Mark done</button>` : '';
+  const mates = !full && dog && dog.fix && dog.fix.action === 'release' ? dkMates(top) : [];
+  const all = mates.length > 1 ? `<button type="button" class="deck-fix all" data-deck-all="${esc(top.agent)}" title="Every unfinished card ${esc(top.agent)} left behind goes back to Todo. Its questions, sign-offs and finished cards stay.">Release all ${mates.length} of ${esc(top.agent)}’s</button>` : '';
+  return `<b>${at + 1}<i> of ${n}</i></b><span>${esc(top.agent || 'Unassigned')} ${what} · ${k === 2 ? 'no update for' : 'waiting'} ${dkAge(top)}${held ? ` · ${k === 1 ? 'frees' : 'holds'} ${held}` : ''}${k === 2 ? (dog && dog.kind === 'abandoned' ? ' · its agent still listens' : ' · nothing will wake it') : ''}</span>${fin}${fix}${all}${hint}`; }
 // The pose: everything the pile shows, from one number. mode 'glide' lets the browser carry it there (a key, a click, letting go);
 // 'drag' follows the hand with no easing; 'still' places it at once (a redraw). opts.closed draws the open card as a strip (used to open
 // it a moment later); opts.folded draws every card away (used to unfold the pile on arrival).

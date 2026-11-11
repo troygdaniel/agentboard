@@ -103,7 +103,7 @@ class PileTests(unittest.TestCase):
 class StuckAndClearedTests(unittest.TestCase):
     def test_a_stuck_card_is_the_watchdogs_finding_and_its_fix_is_the_watchdogs(self):
         # only what the watchdog calls stuck (quiet past the threshold with nothing to wake it), never every quiet card
-        self.assertIn("const dkDog = id => (boardDog || []).find(f => f.id === id && (f.kind === 'stuck' || f.kind === 'claimed-idle'));", PAGE)
+        self.assertIn("const dkDog = id => (boardDog || []).find(f => f.id === id && (f.kind === 'stuck' || f.kind === 'claimed-idle'))\n", PAGE)
         head = body("deckHeadHtml")
         self.assertIn('class="deck-fix" data-dog-action="${esc(dog.fix.action)}" data-dog-id="${esc(dog.fix.id)}"', head)   # the board's own fix button and route
         self.assertIn("'has gone quiet'", head)
@@ -112,7 +112,7 @@ class StuckAndClearedTests(unittest.TestCase):
 
     def test_an_agent_that_left_several_cards_behind_is_released_in_one_press(self):
         # only its stuck cards, each by the watchdog's own single release: release-all would take its questions and sign-offs too
-        self.assertIn("const dkMates = t => deckIds.map(id => byId.get(id)).filter(c => c && c.agent === t.agent && dkKind(c) === 2);", PAGE)
+        self.assertIn("const dkMates = t => deckIds.map(id => byId.get(id)).filter(c => c && c.agent === t.agent && dkKind(c) === 2 && (c.progress || 0) < 100);", PAGE)
         head = body("deckHeadHtml")
         self.assertIn("mates.length > 1 ?", head)                       # one stuck card has its own button and needs no second
         self.assertIn('data-deck-all="${esc(top.agent)}"', head)
@@ -121,6 +121,18 @@ class StuckAndClearedTests(unittest.TestCase):
         self.assertIn("await api('/api/watchdog-fix', { action: 'release', id: c.id });", PAGE)
         self.assertNotIn("action: 'release-all'", PAGE)
         self.assertIn("if (c.id !== deckTop) deckCleared.push({ id: c.id, title: c.title, agent: c.agent, word: 'Released', undo: null });", PAGE)
+
+    def test_a_card_the_board_marks_abandoned_is_in_the_pile_even_when_its_agent_still_listens(self):
+        # the watchdog skips a holder with a wait running, so its finding alone left out cards the board itself shows as "abandoned?"
+        self.assertIn("const dkStale = t => !!t && t.status === 'doing' && !isKid(t) && ago(t.updated).min >= (cfg.stale_minutes || DEFAULT_STALE_MIN);", PAGE)
+        self.assertIn("|| (dkStale(byId.get(id)) ? { id, kind: 'abandoned',", PAGE)
+        self.assertIn("fix: { action: 'release', id, label: 'Release to Todo' } } : null);", PAGE)   # the same release, the watchdog's
+        head = body("deckHeadHtml")
+        self.assertIn("' · its agent still listens' : ' · nothing will wake it'", head)
+        self.assertIn("full = k === 2 && (top.progress || 0) >= 100", head)        # finished work nobody handed in: Mark done comes first
+        self.assertIn('class="deck-fix" data-done="${esc(top.id)}"', head)
+        self.assertLess(head.index("${fin}"), head.index("${fix}"))
+        self.assertIn("const mates = !full && dog", head)                          # and release-all never takes a finished card
 
     def test_what_you_cleared_is_ticked_and_only_the_last_sign_off_can_be_undone(self):
         h = body("deckClearedHtml")
