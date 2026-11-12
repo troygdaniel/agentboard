@@ -118,7 +118,7 @@ class EveryWritePath(unittest.TestCase):
         self.cli("add", "sub", "--parent", "cli1", "--id", "cli1-s")
         self.cli("update", "cli1-s", "30", f"status {k}")
         self.cli("ask", "cli1", f"which {k}?")
-        self.cli("review", "cli1", f"result {k}", "--body", f"## Changed\n- {k}")
+        self.cli("review", "cli1", f"result {k}", "--body", f"## Changed\n- {k}", "--next", "nothing")
         self.cli("edit", "cli1", "--title", f"new title {k}")
         self.assert_clean("cli")
 

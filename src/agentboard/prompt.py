@@ -52,6 +52,9 @@ Write the `--body` in this shape; the board lays it out on the finished card (ke
 
 A ```flow block is a small diagram: `A -> B -> C` draws boxes and arrows, `label: 12` draws a bar. A card without this
 still shows what the board knows (subtasks, tests it can find, commits).
+
+Every review says what {owner} does next: `--next "<one line>"`, or a `## Next` section in the body. If nothing is needed, say
+`--next nothing`. The board puts that line at the top of the card, and refuses a review that has neither.
 """
 
 # The block ORCH copies into every card description and assignment it writes.
@@ -97,7 +100,7 @@ expected (it can go down):
 
     {ab} update <subtask id> 50 "<what you are doing>"
     {ab} update <subtask id> 100 "<one-line result>"     # a subtask at 100% closes itself
-    {ab} review {task_id} "<one-line result>"
+    {ab} review {task_id} "<one-line result>" --next "<what {owner} must do, or: nothing>"
 
 Finish with `review` — {owner} signs off and moves the card to done. {wake_review}
 {never_done}
@@ -148,7 +151,7 @@ updated whenever your estimate changes (it can go down). The parent's % is compu
 A subtask at 100% closes itself: there is no review step for a subtask, so do NOT run `review` or `done` on it.
 When the whole deliverable is ready (this and its sibling subtasks), review the PARENT:
 
-    {ab} review {parent_id} "<one-line result>"
+    {ab} review {parent_id} "<one-line result>" --next "<what {owner} must do, or: nothing>"
 
 {Owner} signs off on the parent and moves the card to done. {wake_review}
 {never_done}
@@ -180,7 +183,7 @@ Keep the subtasks honest, updated whenever your estimate changes (it can go down
 
 `update {task_id} 0 "<text>"` only sets this task's status line. When the whole deliverable is ready:
 
-    {ab} review {task_id} "<one-line result>"
+    {ab} review {task_id} "<one-line result>" --next "<what {owner} must do, or: nothing>"
 
 Any subtask still open closes with it. {Owner} signs off and moves the card to done. {wake_review}
 {never_done}

@@ -502,7 +502,7 @@ class NotifyTests(unittest.TestCase):
         with unittest.mock.patch("agentboard.cli._store", return_value=s), \
              unittest.mock.patch("agentboard.cli.subprocess.run") as run:
             cli.cmd_ask(argparse.Namespace(id="ship-it", question="Staging or prod?", body=None, body_file=None))
-            cli.cmd_review(argparse.Namespace(id="ship-it", text="All green", body=None, body_file=None))
+            cli.cmd_review(argparse.Namespace(id="ship-it", text="All green", body=None, body_file=None, next="nothing"))
         self.assertEqual(run.call_count, 2)
         self.assertIn("Staging or prod?", run.call_args_list[0].args[0][2])
         self.assertIn("All green", run.call_args_list[1].args[0][2])

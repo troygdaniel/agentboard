@@ -91,5 +91,5 @@ class HoldTests(unittest.TestCase):
         self.assertIsNone(code)
         code, out, err = self.run_cli("ask", "export-pipeline", "which?")   # no name: a plain shell, the owner's hand
         self.assertIsNone(code)
-        code, out, err = self.run_cli("review", "export-pipeline", "done", name="ORCH")
+        code, out, err = self.run_cli("review", "export-pipeline", "done", "--next", "nothing", name="ORCH")
         self.assertIsNone(code)

@@ -107,7 +107,7 @@ class CliTests(Base):
 
     def test_review_without_subtasks_warns_but_still_goes_through(self):
         self.run_cli("claim", "solo", "--name", "atlas")
-        code, out, err = self.run_cli("review", "solo", "done")
+        code, out, err = self.run_cli("review", "solo", "done", "--next", "nothing")
         self.assertEqual(code, 0)
         self.assertIn("warning: solo has no subtasks", err)
         self.assertIn("ready for review", out)
@@ -117,7 +117,7 @@ class CliTests(Base):
         self.run_cli("claim", "big", "--name", "atlas")
         _, _, err = self.run_cli("review", "one", "done")        # a subtask: no review step, so nothing to warn about
         self.assertEqual(err, "")
-        _, _, err = self.run_cli("review", "big", "done")
+        _, _, err = self.run_cli("review", "big", "done", "--next", "nothing")
         self.assertEqual(err, "")
 
     def test_add_a_top_level_card_reminds_on_stderr_and_leaves_stdout_alone(self):

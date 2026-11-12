@@ -30,7 +30,7 @@ if mode == "commit":
     subprocess.run(["git", "add", "."], check=True)
     subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "work"], check=True)
 if mode == "review":
-    subprocess.run([sys.executable, "-m", "agentboard", "review", card, "Self report"], check=True)
+    subprocess.run([sys.executable, "-m", "agentboard", "review", card, "Self report", "--next", "nothing"], check=True)
 if mode == "fail":
     sys.stderr.write("first line\\nboom: something broke\\n")
     sys.exit(3)

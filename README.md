@@ -110,7 +110,7 @@ Then give your agents the protocol. Paste the output of this into your project's
     ID=$(agentboard start "Refactor billing" --name atlas)   # prints the task id, e.g. refactor-billing
     agentboard update "$ID" 50 "Extracted BillingService"                 # prints: refactor-billing: 50%
     agentboard ask "$ID" "Deploy to staging or prod?"                     # blocked on the user
-    agentboard review "$ID" "All call sites migrated"                     # work complete -> handed to the user
+    agentboard review "$ID" "All call sites migrated" --next "nothing"    # work complete -> handed to the user; --next says what they do
 
 Or, for a task that already exists on the board: `agentboard claim <id> --name atlas`.
 
@@ -240,7 +240,7 @@ another agent's lane refuses it (red outline, no insertion line, a toast says wh
 **Needs you** (the third tab, the key `3`, `/need`) is the cards waiting on you, one at a time: the card open in the middle, the ones before it as strips
 above and the ones after it as strips below, asks first and then sign-offs. `↑` `↓` (or a scroll, or a click on a strip) moves through the pile, `→` opens the
 card's details beside it, `Enter` goes to the reply box, and `Space` twice sends the card's first answer. An answered card leaves and the next one opens.
-`1`, `2`, `3` switch between Board, By agent and Needs you. On By agent, a line under a waiting agent's name says what it is waiting for and how long.
+`1`, `2`, `3` switch between Board, By agent and Needs you. Every card in Doing carries one **You** line saying what you owe it: Answer, Sign off, Close it, Check on it, or Nothing. On By agent, a rule under a waiting agent's name shows how long it has waited and how many Todo cards it holds.
 
 **Story** (`/story`, linked from the Done column) is the work in plain words, five scenes you scroll: a sentence and a ring (finished this week, in progress, waiting);
 a flow from Waiting to Working to Done with every card a dot, one colour per theme; one card per theme with a one-line sentence and "n of m done"; only what
@@ -325,7 +325,7 @@ Split a big card into subtasks (one level deep). A subtask is a normal task with
     agentboard start "Title" --name atlas --parent <parent_id>   # an agent adding one mid-flight
     agentboard claim <parent_id> --name atlas                    # takes the parent AND all its open subtasks
     agentboard update <sub_id> 60 "wiring it up"                 # each subtask has its own %, status line and log
-    agentboard review <parent_id> "result"                       # the deliverable is ready; open subtasks close with it
+    agentboard review <parent_id> "result" --next "nothing"      # the deliverable is ready; open subtasks close with it
 
 - Subtasks follow their parent: an open subtask can only be claimed or updated while the parent is in Doing, so
   claim the parent first. Finished subtasks stay done if the parent later moves back.

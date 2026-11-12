@@ -1012,7 +1012,7 @@ This project tracks agent work on a shared board (`agentboard`). When you begin 
 
     ID=$(agentboard start "<short title>" --name "<your session name>")
     agentboard update "$ID" <0-100> "<one-line status>"     # your REAL % done, updated every time it changes
-    agentboard review "$ID" "<one-line result>"                # work complete -> the USER signs off and marks it done
+    agentboard review "$ID" "<one-line result>" --next "<what the user must do, or: nothing>"   # work complete -> the USER signs off
     agentboard ask "$ID" "<one-line question>"                 # ONLY if blocked on the user; keep working after they answer
 
 The percentage is what the list and HUD show at a glance: your real % done. Call `update` whenever
@@ -1037,6 +1037,9 @@ On `review`, write the body in this shape; the board lays it out on the finished
 
 A ```flow block is a small diagram (`A -> B -> C` is boxes and arrows, `label: 12` a bar). A card without the shape still
 shows what the board knows: subtasks, the tests it can find, commits.
+
+Every `review` says what {owner} does next: `--next "<one line>"`, or a `## Next` section in the body. If nothing is needed, say
+`--next nothing`. The board puts that line at the top of the card, and refuses a review that has neither.
 
 @@WAIT_BLOCK@@
 
@@ -1064,7 +1067,7 @@ The board flags a Doing card with no subtasks, and `review` warns about one. `cl
 subtask with it. Work the subtasks, not the parent (updating a subtask before its parent is in Doing is refused):
 
     agentboard update <sub_id> <0-100> "<one-line status>"     # a subtask at 100% closes itself: no review step
-    agentboard review <parent_id> "<one-line result>"          # the deliverable is ready; open subtasks close with it
+    agentboard review <parent_id> "<one-line result>" --next "<what the user must do, or: nothing>"   # the deliverable is ready; open subtasks close with it
 
 The parent's % is computed (the mean of its subtasks, shown with a Σ), so `update <parent>` only sets its
 status line. Never call `review` or `done` on a subtask. Finished subtasks stay in their parent's card, shown as
@@ -1136,7 +1139,7 @@ When ORCH or the owner ends the day, a reply on your card starts with "End of da
 The note is what the next agent starts from if the card goes back to Todo tonight, so say where it stands:
 
     agentboard checkpoint "$ID" "<done so far · the next step · what you learned>"      # --body-file for more
-    agentboard review "$ID" "<one-line result>" --body-file <file>                       # a card at 100%: hand it in, with a ## Learned section
+    agentboard review "$ID" "<one-line result>" --next "<...>" --body-file <file>        # a card at 100%: hand it in, with a ## Learned section
 """.replace("@@WAIT_BLOCK@@", _WAIT_BLOCK).replace("@@WORKING_RULES@@", rules.WORKING_RULES)
 
 
@@ -1298,12 +1301,31 @@ def cmd_ask(a):
     print(f"{t['id']}: waiting on user — {a.question}")
 
 
+_NEXT_SECTION = re.compile(r"(?im)^##[ \t]*Next[ \t]*\n+[ \t]*\S")   # a "## Next" heading with a line under it
+
+
+def _with_next(text, body, nxt):
+    """The body a review is stored with: every review says what the owner does next. `--next "<line>"` becomes a `## Next` section unless the
+    report already has one; a review with neither is refused, so the card can always lead with the action ("nothing" is an answer)."""
+    report = "\n".join(x for x in (text or "", body or "") if x)
+    if _NEXT_SECTION.search(report + "\n"):
+        return body
+    nxt = " ".join((nxt or "").split())
+    if not nxt:
+        raise BoardError('say what the user does next: add --next "<what they must do>" (or --next nothing), or a "## Next" section in the body')
+    return ((body.rstrip() + "\n\n") if body and body.strip() else "") + "## Next\n- " + nxt
+
+
 def cmd_review(a):
     s = _store()
     if _lacks_subtasks(s.load(), a.id):   # a warning, not a refusal: a tiny card must still be able to finish
         print(f"warning: {a.id} has no subtasks. Every card gets them as soon as it starts; add them next time "
               f'(agentboard add "<step>" --parent {a.id}).', file=sys.stderr)
-    t = s.review(a.id, a.text, _read_body(a), by=os.environ.get("AGENTBOARD_NAME"))
+    body = _read_body(a)
+    task = Store.get(s.load(), a.id)
+    if not (task.get("parent_id") and any(x["id"] == task["parent_id"] for x in s.load())):   # a subtask has no review step, so nothing to state
+        body = _with_next(a.text, body, a.next)
+    t = s.review(a.id, a.text, body, by=os.environ.get("AGENTBOARD_NAME"))
     if t.get("parent_id"):
         print(f"{t['id']}: subtask finished (100%) — subtasks have no review step; review the parent, {t['parent_id']}, when the deliverable is ready")
         return
@@ -2072,6 +2094,7 @@ def main(argv=None):
     sp = add("review", cmd_review, "agent: work complete — hand to the user for sign-off")
     sp.add_argument("id")
     sp.add_argument("text", help="one-line result")
+    sp.add_argument("--next", help='what the user must do next, one line; "nothing" if nothing. Required unless the body has a "## Next" section')
     g = sp.add_mutually_exclusive_group()
     g.add_argument("--body", help="markdown body (recap/diff/report) shown in the detail panel")
     g.add_argument("--body-file", help="read --body from a file instead (handles multi-line content)")

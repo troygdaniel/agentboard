@@ -65,7 +65,7 @@ class TheTableIsTrue(unittest.TestCase):
         # way wherever the suite runs, so the scripted day is given a session id of its own
         self.s.env["CLAUDE_CODE_SESSION_ID"] = "test-session-for-the-signoff-table"
         self.s.run("init", "add 'A card' -d 'words' --status todo --id a-card", "claim a-card --name AGENT-1", "add 'step' --parent a-card",
-                   "update step 50 working", "ask a-card 'a question?'", "review a-card 'a result' --body 'a body'",
+                   "update step 50 working", "ask a-card 'a question?'", "review a-card 'a result' --next nothing --body 'a body'",
                    "chat send 'hello' --name AGENT-1 --to 'the user'", "backup", "hooks install")
 
     def written(self):

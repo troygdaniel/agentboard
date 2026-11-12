@@ -4,7 +4,7 @@ This project tracks agent work on a shared board (`agentboard`). When you begin 
 
     ID=$(agentboard start "<short title>" --name "<your session name>")
     agentboard update "$ID" <0-100> "<one-line status>"     # your REAL % done, updated every time it changes
-    agentboard review "$ID" "<one-line result>"                # work complete -> the USER signs off and marks it done
+    agentboard review "$ID" "<one-line result>" --next "<what the user must do, or: nothing>"   # work complete -> the USER signs off
     agentboard ask "$ID" "<one-line question>"                 # ONLY if blocked on the user; keep working after they answer
 
 The percentage is what the list and HUD show at a glance: your real % done. Call `update` whenever
@@ -29,6 +29,9 @@ On `review`, write the body in this shape; the board lays it out on the finished
 
 A ```flow block is a small diagram (`A -> B -> C` is boxes and arrows, `label: 12` a bar). A card without the shape still
 shows what the board knows: subtasks, the tests it can find, commits.
+
+Every `review` says what the user does next: `--next "<one line>"`, or a `## Next` section in the body. If nothing is needed, say
+`--next nothing`. The board puts that line at the top of the card, and refuses a review that has neither.
 
 NEVER mark your own task done: run `agentboard done "$ID"` ONLY if the user explicitly tells you to. Finish with `review`, then wait (below).
 
@@ -81,7 +84,7 @@ The board flags a Doing card with no subtasks, and `review` warns about one. `cl
 subtask with it. Work the subtasks, not the parent (updating a subtask before its parent is in Doing is refused):
 
     agentboard update <sub_id> <0-100> "<one-line status>"     # a subtask at 100% closes itself: no review step
-    agentboard review <parent_id> "<one-line result>"          # the deliverable is ready; open subtasks close with it
+    agentboard review <parent_id> "<one-line result>" --next "<what the user must do, or: nothing>"   # the deliverable is ready; open subtasks close with it
 
 The parent's % is computed (the mean of its subtasks, shown with a Σ), so `update <parent>` only sets its
 status line. Never call `review` or `done` on a subtask. Finished subtasks stay in their parent's card, shown as
@@ -153,7 +156,7 @@ When ORCH or the owner ends the day, a reply on your card starts with "End of da
 The note is what the next agent starts from if the card goes back to Todo tonight, so say where it stands:
 
     agentboard checkpoint "$ID" "<done so far · the next step · what you learned>"      # --body-file for more
-    agentboard review "$ID" "<one-line result>" --body-file <file>                       # a card at 100%: hand it in, with a ## Learned section
+    agentboard review "$ID" "<one-line result>" --next "<...>" --body-file <file>        # a card at 100%: hand it in, with a ## Learned section
 
 ## This repo is public: before you commit or push
 
