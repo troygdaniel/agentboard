@@ -335,6 +335,103 @@
   .card.review { border-color: var(--ok); animation: revpulse 3s ease-in-out infinite; }
   @keyframes revpulse { 50% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--ok) 13%, transparent); } }
   .ask-flag.rev { color: var(--ok); }
+  /* A calmer board: each fact is said once, and words appear only where you act */
+  .you u { text-decoration: none; color: var(--muted); font-weight: 500; letter-spacing: .04em; margin-left: auto; text-transform: none; font-size: 11px; }
+  .col.acol h2 em { display: none; }                                   /* the lane's state word: the You line on the card says it */
+  .ls-g .ls-tx span { display: none; }                                 /* "ask · 100%": the ring's colour and fill say it */
+  .card .qr:has(.qr-ch.opt) .qr-ch:not(.opt), .card .qr-ch.hold, .card .qr-ch:not(.opt):not(.ok) { display: none; }   /* the agent's own options, or one Go ahead */
+  .card[data-status=doing] .said { white-space: normal !important; overflow: hidden; display: -webkit-box !important; -webkit-box-orient: vertical; -webkit-line-clamp: 3; font-size: 16px !important; text-transform: none !important; letter-spacing: 0 !important; color: var(--text) !important; }
+  .card.y-ask .title, .card.y-rev .title, .card.y-fin .title, .card.y-quiet .title { font-size: var(--fs-sm); color: var(--muted); font-weight: 500; }   /* the action leads; the card's name follows */
+  .card.y-none { opacity: .78; } .card.y-none:hover, .card.y-none:focus-within { opacity: 1; }
+  .card[data-status=doing] .note .pct { display: none; }               /* the bar and the count say how far */
+  .card .card-reply .rr { opacity: .75; } .card .card-reply:focus-within .rr { opacity: 1; }
+  #summary { display: flex; gap: 14px; align-items: center; }
+  /* the panel's fold, the Todo column and the top bar */
+  .p-you:is(.quiet, .fin) + .lat { display: none; } .p-you:is(.quiet, .fin) ~ .p-sec .p-pct:has(span[style*="--err"]) { display: none; }   /* the block above already says it */
+  .p-you { border-radius: 18px; border-width: 0; border-left-width: 0; background: radial-gradient(130% 120% at 0 0, color-mix(in srgb, var(--y) 18%, transparent), transparent 65%), var(--surface); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--y) 35%, var(--line)), 0 16px 36px -20px color-mix(in srgb, var(--y) 60%, transparent); }
+  .p-you .py-h b { border-radius: 999px; } .p-you.joined { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--y) 35%, var(--line)); border-radius: 18px 18px 0 0; } .p-you.joined + .lat { border-radius: 0 0 18px 18px; border-color: color-mix(in srgb, var(--y, var(--line)) 35%, var(--line)); }
+  .p-fold { margin-top: 22px; border-top: 1px solid var(--line); padding-top: 14px; } .p-fold summary { cursor: pointer; list-style: none; font-size: 12px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); display: flex; gap: 12px; align-items: baseline; }
+  .p-fold summary::-webkit-details-marker { display: none; } .p-fold summary::before { content: '▸'; } .p-fold[open] summary::before { content: '▾'; } .p-fold summary small { font-weight: 400; letter-spacing: 0; text-transform: none; opacity: .7; } .p-fold[open] summary { margin-bottom: 16px; } .p-fold summary:hover { color: var(--text); }
+  .lat .lat-h + .fmt, .lat .fmt { text-wrap: balance; }
+  /* a blocked Todo card: a lock and a dimmer card; the blocker's name on hover */
+  @media (hover: hover) { .card[data-status=todo] .blocked-row { position: absolute; right: 10px; top: 10px; margin: 0; padding: 0 !important; opacity: .8; } .card[data-status=todo] .blocked-row .blocked-link { max-width: 0; overflow: hidden; white-space: nowrap; transition: max-width .2s; display: inline-block; vertical-align: bottom; }
+    .card[data-status=todo]:is(:hover, :focus-within) .blocked-row .blocked-link { max-width: 160px; } .card[data-status=todo]:has(.blocked-row) .title { opacity: .55; } .card[data-status=todo]:has(.blocked-row):hover .title { opacity: 1; } }
+  .card[data-status=todo] { border-color: transparent !important; background: color-mix(in srgb, var(--surface) 55%, transparent) !important; box-shadow: none !important; border-radius: 14px; } .card[data-status=todo]:hover { background: var(--surface) !important; }
+  .col[data-status=todo], .col.doing, .col[data-status=done] { border-color: color-mix(in srgb, var(--line) 50%, transparent) !important; }
+  /* the strip's caption: the line draws it; one number is enough */
+  .ls-trend .cap span { display: none; } .ls-trend .cap b { font-weight: 500; color: var(--muted); font-size: 12px; }
+  /* top bar: quieter buttons */
+  header .btn:not(.primary) { border-color: transparent; background: none; box-shadow: none; color: var(--muted); } header .btn:not(.primary):hover { color: var(--text); background: color-mix(in srgb, var(--surface) 80%, transparent); }
+  header .icon-btn, header #bell, header [id$=-btn].icon { border-color: transparent !important; background: none !important; box-shadow: none !important; }
+  .wait-rule b:empty { display: none; }
+  .segs:has(i:nth-child(9)) { gap: 2px; }
+  .card[data-status=doing] .title { text-wrap: balance; }
+  /* cards: one wash of colour for the state, subtasks as segments, a quiet reply line */
+  .segs { display: flex; gap: 5px; flex: 1; min-width: 0; }
+  .segs i { flex: 1; height: 6px; border-radius: 99px; background: linear-gradient(90deg, var(--c) var(--p), color-mix(in srgb, var(--c) 16%, transparent) var(--p)); transition: background .4s; }
+  .segs i.dn { box-shadow: 0 0 10px -2px color-mix(in srgb, var(--c) 70%, transparent); } .segs i.lv { animation: segbreathe 2.4s ease-in-out infinite; }
+  @keyframes segbreathe { 50% { filter: brightness(1.35); } } @media (prefers-reduced-motion: reduce) { .segs i.lv { animation: none; } }
+  .card[data-status=doing] .subs-count, .card[data-status=doing] .subs-toggle .chev { opacity: 0; transition: opacity .15s; } .card[data-status=doing]:is(:hover, :focus-within) :is(.subs-count, .chev), .subs-toggle[aria-expanded=true] :is(.subs-count, .chev) { opacity: 1; }
+  .subs-toggle { margin-top: 12px !important; }
+  .card[data-status=doing] .subs-toggle { gap: 0; } .card[data-status=doing] .subs-toggle :is(.subs-count, .chev) { max-width: 0; overflow: hidden; transition: max-width .15s, opacity .15s, margin .15s; }
+  .card[data-status=doing]:is(:hover, :focus-within) .subs-toggle :is(.subs-count, .chev), .card[data-status=doing] .subs-toggle[aria-expanded=true] :is(.subs-count, .chev) { max-width: 40px; margin-left: 10px; }
+  .card[data-status=doing] .top { margin-bottom: 6px !important; }
+  /* a card says its state with one soft wash of colour from the corner, not a red box */
+  .card.y-ask { --y: var(--err); } .card.y-rev { --y: var(--ok); } .card.y-fin, .card.y-quiet { --y: var(--need); }
+  :is(.col.doing, .col.acol, .h-one, .deck) .card[data-status=doing] { border: 0 !important; border-radius: 18px; padding: 16px 18px 16px 20px; animation: none !important; transition: box-shadow .25s, transform .25s, opacity .25s;
+    background: radial-gradient(130% 90% at 0% 0%, color-mix(in srgb, var(--y, transparent) 15%, transparent), transparent 62%), var(--surface) !important;
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--y, var(--line)) 30%, var(--line)), inset 0 1px 0 color-mix(in srgb, #fff 6%, transparent), 0 14px 34px -18px color-mix(in srgb, var(--y, #000) 60%, transparent) !important; }
+  :is(.col.doing, .col.acol, .h-one) .card[data-status=doing]:not(.y-none):hover { transform: translateY(-2px); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--y) 55%, var(--line)), 0 20px 40px -18px color-mix(in srgb, var(--y) 75%, transparent) !important; }
+  :is(.col.doing, .col.acol, .h-one) .card.y-none { background: transparent !important; box-shadow: inset 0 0 0 1px var(--line) !important; opacity: .7; padding-top: 12px; padding-bottom: 12px; }
+  .card[data-status=doing]::after, .card[data-status=doing]::before { display: none !important; }
+  .card[data-status=doing] .said { font-size: 17px !important; font-weight: 650; line-height: 1.28; letter-spacing: -.01em !important; margin: 8px 0 4px; text-wrap: balance; }
+  .card.ask .said, .card.review .said { color: var(--text) !important; }
+  .you { margin: 8px 0 0; gap: 9px; } .you b { border-radius: 999px; padding: 3px 9px 2px; background: linear-gradient(180deg, color-mix(in srgb, var(--y) 82%, #fff), var(--y)); box-shadow: 0 2px 10px -3px var(--y); }
+  .you.none b { background: none; box-shadow: inset 0 0 0 1px var(--line); } .you.none { margin-bottom: 4px; }
+  .card .top { margin-bottom: 0; } .card.y-none .title { font-size: var(--fs-md); margin-top: 4px; }
+  /* the reply box is a quiet line until you use it */
+  .card .card-reply { margin-top: 10px; } .card .card-reply .rr { opacity: 1; gap: 0; } .card .card-reply .rr input { background: none !important; border: 0 !important; border-bottom: 1px solid var(--line) !important; border-radius: 0 !important; padding-left: 0 !important; box-shadow: none !important; min-height: 32px; }
+  .card .card-reply .rr .btn { max-width: 0; padding: 0; opacity: 0; overflow: hidden; border: 0; min-width: 0; transition: max-width .2s, opacity .2s, padding .2s; } .card .card-reply:focus-within .rr .btn { max-width: 90px; padding: 0 14px; opacity: 1; margin-left: 8px; }
+  .card .card-reply:focus-within .rr input { border-bottom-color: var(--y, var(--text)) !important; }
+  .card .qr { margin-top: 12px; } .card .markdone { margin-top: 12px; border-radius: 999px; }
+  /* quiet and finished cards: their two choices are small pills on one row */
+  .you-btns { gap: 6px; margin: 4px 0 6px; } .you-b { border: 0 !important; border-radius: 999px !important; background: color-mix(in srgb, var(--need) 14%, transparent) !important; color: var(--text) !important; font-weight: 600; } .you-b:hover { background: color-mix(in srgb, var(--need) 28%, transparent) !important; }
+  .you-b.primary { background: var(--need) !important; color: #fff !important; }
+  .you-say { margin: 6px 0 8px; font-size: 15px; color: var(--text); font-weight: 600; }
+  /* lanes: no boxes inside boxes */
+  .col.acol { border-color: transparent !important; background: color-mix(in srgb, var(--surface) 35%, transparent) !important; }
+  .ls-g.calm:not(.away) { opacity: .5; } .ls-g.calm:hover { opacity: 1; }
+  .sum-ok { color: var(--ok); font-weight: 600; }
+  .dog-fold summary { border: 0; padding: 4px 6px; opacity: .7; }
+  /* the watchdog's one line, Todo cards on hover, the joined panel block, the pile's header */
+  .dog-fold { margin: 0 0 8px; } .dog-fold summary { cursor: pointer; list-style: none; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); padding: 6px 10px; border: 1px dashed var(--line); border-radius: 8px; }
+  .dog-fold summary::-webkit-details-marker { display: none; } .dog-fold summary::after { content: ' ▸'; } .dog-fold[open] summary::after { content: ' ▾'; } .dog-fold[open] summary { margin-bottom: 6px; } .dog-fold summary:hover { color: var(--text); }
+  @media (hover: hover) { .card[data-status=todo] .meta, .card[data-status=backlog] .meta { max-height: 0; opacity: 0; overflow: hidden; margin: 0; transition: max-height .18s ease, opacity .18s ease, margin .18s ease; }
+    .card[data-status=todo]:is(:hover, :focus-within) .meta, .card[data-status=backlog]:is(:hover, :focus-within) .meta, .card[data-status=todo] .meta:has(.copied) { max-height: 80px; opacity: 1; margin-top: 8px; } }
+  .p-you.has-next ~ .dgrid .dsec.next { display: none; }   /* the block at the top already leads with the next step */
+  .p-you.joined { border-bottom-left-radius: 0; border-bottom-right-radius: 0; border-bottom: 0; margin-bottom: 0; padding-bottom: 10px; }
+  .p-you.joined + .lat { border-top-left-radius: 0; border-top-right-radius: 0; border-top: 0; margin-top: 0; } .p-you.joined + .lat .lat-h { display: none; }
+  .py-h u { text-decoration: none; margin-left: auto; color: var(--muted); text-transform: none; letter-spacing: 0; font-weight: 500; }
+  .deck-head span.you { margin: 0; align-self: center; } .deck-head span.you b { color: var(--bg); font-size: 11px; letter-spacing: .1em; } .deck-head span.you i { color: var(--y); }
+  .deck-head em.keys { display: flex; gap: 6px; opacity: .55; } .deck-head em.keys:hover { opacity: 1; }
+  .deck-head em.keys kbd { font: inherit; font-size: 12px; letter-spacing: 0; border: 1px solid var(--line); border-radius: 6px; padding: 2px 7px; min-width: 26px; text-align: center; }
+  /* the You line */
+  .you { display: flex; align-items: center; gap: 8px; margin: 2px 0 6px; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; --y: var(--muted); }
+  .you b { font-weight: 700; color: var(--bg); background: var(--y); border-radius: 4px; padding: 2px 6px; letter-spacing: .1em; }
+  .you i { font-style: normal; font-weight: 700; color: var(--y); }
+  .you.ask, .p-you.ask { --y: var(--err); } .you.rev, .p-you.rev { --y: var(--ok); } .you.fin, .you.quiet, .p-you.fin, .p-you.quiet { --y: var(--need); }
+  .you.none b { background: none; color: var(--muted); box-shadow: inset 0 0 0 1px var(--line); } .you.none i { font-weight: 500; }
+  .you-say { font-size: var(--fs-sm); color: var(--muted); margin: -2px 0 8px; overflow-wrap: anywhere; }
+  .you-btns { display: flex; gap: 8px; flex-wrap: wrap; margin: 0 0 10px; }
+  .you-b { min-height: 28px; padding: 0 10px; font-size: 12px; white-space: nowrap; } .you-btns { flex-wrap: nowrap; } .you u { white-space: nowrap; } .you i { white-space: nowrap; }
+  .you-b[data-dog-action] { font-size: 0; } .you-b[data-dog-action]::after { content: 'Release'; font-size: 12px; }
+  .p-you { --y: var(--muted); border: 1px solid color-mix(in srgb, var(--y) 55%, var(--line)); border-left: 4px solid var(--y); border-radius: 12px; padding: 14px 16px; margin: 0 0 16px; background: color-mix(in srgb, var(--y) 7%, var(--surface)); }
+  .py-h { display: flex; align-items: center; gap: 10px; font-size: 12px; letter-spacing: .1em; text-transform: uppercase; margin-bottom: 8px; }
+  .py-h b { font-weight: 700; color: var(--bg); background: var(--y); border-radius: 5px; padding: 3px 8px; }
+  .py-h i { font-style: normal; font-weight: 700; color: var(--y); }
+  .p-you.none .py-h b { background: none; color: var(--muted); box-shadow: inset 0 0 0 1px var(--line); }
+  .py-say { font-size: 17px; font-weight: 600; line-height: 1.35; overflow-wrap: anywhere; } .p-you.none .py-say { font-size: 14px; font-weight: 500; color: var(--muted); }
+  .py-sub { font-size: 12px; color: var(--muted); margin-top: 6px; } .p-you .you-btns { margin: 12px 0 0; }
   .said { font-size: 18px; font-weight: 600; line-height: 1.3; margin: 6px 0 10px; letter-spacing: var(--tr-tight); overflow-wrap: anywhere; }   /* the agent's one sentence, first and large */
   .card.ask .said { color: var(--err); } .card.review .said { color: var(--ok); }
   /* the report is a quiet chip in the card's top row, next to the agent: clearly a link, never a button that shouts */
@@ -2065,6 +2162,32 @@ function parentLine(t) {
   return `${k.title} · ${k.status_text}`;
 }
 
+// The You line: the one line every Doing card carries, in the same place: what you owe this card. The board works it out; the agent's words fill it in.
+function youNext(md) { const m = /(?:^|\n)##\s*Next\s*\n([\s\S]*?)(?=\n##|\n```|$)/.exec(md || ''); if (!m) return ''; const l = (m[1].split('\n').map(x => x.replace(/^\s*[-*]\s*/, '').trim()).find(Boolean)) || ''; return /^(nothing|none|n\/a)\b/i.test(l) ? '' : l; }
+function youOf(t) {
+  if (!t || t.status !== 'doing' || isKid(t)) return null;
+  const a = ago(t.updated), old = a.min >= (cfg.stale_minutes || DEFAULT_STALE_MIN), full = (t.progress || 0) >= 100, n = a.text.replace(' ago', '');
+  if (t.needs_input) return { k: 'ask', verb: 'Answer', say: t.question || t.status_text || '' };
+  if (t.review) { const nx = youNext(t.details); return { k: 'rev', verb: nx ? 'Do this, then sign off' : 'Sign off', say: nx || t.result || t.status_text || '', sub: nx ? (t.result || '') : '' }; }
+  if (old && full) return { k: 'fin', verb: 'Close it', say: `Finished ${a.text}, never handed in` };
+  if (old) return { k: 'quiet', verb: 'Check on it', say: `Quiet for ${n}, stopped at ${t.progress || 0}%` };
+  return { k: 'none', verb: 'Nothing', say: 'working' };
+}
+function youBtns(t, y, panel) {
+  const nudge = t.agent ? `<button class="btn you-b" type="button" data-thread="${esc(t.agent)}" title="Write to ${esc(t.agent)}">Nudge</button>` : '';
+  const done = panel ? `<button class="btn you-b primary" type="button" id="p-lat-done">Mark done</button>` : `<button class="btn you-b primary" type="button" data-done="${esc(t.id)}">Mark done</button>`;
+  const rel = `<button class="btn you-b" type="button" data-dog-action="release" data-dog-id="${esc(t.id)}" title="Back to Todo, holder cleared">Release to Todo</button>`;
+  return y.k === 'fin' ? done + nudge : y.k === 'quiet' ? nudge + rel : '';
+}
+function youCard(t) { const y = youOf(t); if (!y) return '';
+  const b = youBtns(t, y);
+  const age = y.k === 'fin' || y.k === 'quiet' ? '' : `<u>${esc(y.k === 'none' ? ago(t.updated).text : 'for ' + ago(t.updated).text.replace(' ago', '').replace('just now', 'a moment'))}</u>`;
+  return `<div class="you ${y.k}"><b>You</b><i>${esc(y.verb)}</i>${age}</div>` + (y.k === 'fin' || y.k === 'quiet' ? `<div class="you-say">${esc(y.say)}</div><div class="you-btns">${b}</div>` : ''); }
+function youPanel(t) { const y = youOf(byId.get(t.id) || t); if (!y) return '';   // the list's copy carries the report's text, where the Next line is
+  const say = y.k === 'none' ? `${esc(t.agent || 'The agent')} is working and has not asked for anything. Last update ${esc(ago(t.updated).text)}.` : esc(y.say);
+  const b = youBtns(t, y, true);
+  const join = y.k === 'ask' || (y.k === 'rev' && !y.sub);   // the box just below already carries this sentence: the block is its heading
+  return `<div class="p-you ${y.k}${y.k === 'ask' || y.k === 'rev' ? ' joined' : ''}${y.sub ? ' has-next' : ''}"><div class="py-h"><b>You</b><i>${esc(y.verb)}</i><u>${y.k === 'none' ? '' : esc(ago(t.updated).text)}</u></div>${join ? '' : `<div class="py-say">${say}</div>`}${b ? `<div class="you-btns">${b}</div>` : ''}</div>`; }
 function card(t) {
   const a = ago(t.updated);
   const doing = t.status === 'doing', done = t.status === 'done';
@@ -2078,8 +2201,8 @@ function card(t) {
   const who = t.agent
     ? `<button class="who" data-agent="${esc(t.agent)}" data-tip="Show only ${esc(t.agent)}" aria-label="Show only ${esc(t.agent)}"><span class="av ${live ? 'live' : ''}" style="--c:${colorOf(t)}" aria-hidden="true">${esc(nodeGlyph(t.agent))}</span><span class="nm">${esc(t.agent)}</span></button>` : '';
   const checkIcon = done ? `<svg class="check" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-label="Done"><path d="M3.5 8.5l3 3 6-7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>` : '';
-  const whenText = a.text ? `${abandoned ? '⚠ abandoned? no update ' : stale ? 'no update ' : ''}${a.text}` : '';
-  const when = a.text ? `<span class="when ${abandoned ? 'abandoned' : stale ? 'stale' : ''}" title="${esc(whenText)}">${whenText}</span>` : '';
+  const whenText = a.text ? (doing ? '' : `${abandoned ? '⚠ abandoned? no update ' : stale ? 'no update ' : ''}${a.text}`) : '';   // on a Doing card the You line says how long and why; the corner is left empty
+  const when = a.text ? `<span class="when ${doing ? '' : abandoned ? 'abandoned' : stale ? 'stale' : ''}" title="${esc(whenText)}">${whenText}</span>` : '';
   const runChip = t.run && t.run.status === 'running' && t.run.alive !== false ? `<span class="run-chip" title="A one-shot run is working on this card">▶ run</span>` : '';
   const todo = t.status === 'todo', backlog = t.status === 'backlog';
   const laterBtn = todo ? `<button class="card-act" data-later="${esc(t.id)}" title="Move to Later (backlog)"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 3v7m0 0L5 7m3 3l3-3M3 13h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>Later</button>` : '';
@@ -2112,10 +2235,10 @@ function card(t) {
   const reviewing = !!t.review && doing && !asking;
   const reportLink = t.report ? `<a class="report-link" href="${BASE}/reports/${esc(t.report.file)}" target="_blank" rel="noopener" title="Open this card's report in a new tab" aria-label="Open report"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 1.5h5.5L12.5 5v9.5H4z"/><path d="M9.5 1.5V5h3M6 8.5h4.5M6 11h4.5"/></svg>Report</a>` : '';
   const top = who ? `<div class="top">${who}${runChip}${reportLink}${todo ? '' : when}</div>` : `<div class="top">${todo || backlog ? '' : '<span class="unas">Unassigned</span>'}</div>`;   // the holder is always the first row, same place on every card
-  const askFlag = asking ? `<div class="ask-flag"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 2a4 4 0 0 0-4 4v3L2.8 11h10.4L12 9V6a4 4 0 0 0-4-4z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M6.5 13a1.5 1.5 0 0 0 3 0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>Needs your input</div>` : reviewing ? `<div class="ask-flag rev"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>Ready for review</div>` : '';
   // ask / review: the agent's one sentence is the card's first line, large, with a reply box the owner can answer in (stored on the card; the agent reads it with `agentboard answer`)
-  const said = (asking || reviewing) ? (t.question || t.result || t.status_text || '') : '';
-  const saidRow = said ? `<div class="said" title="${esc(said)}">${esc(said)}</div>` : '';
+  const you = youOf(t), askFlag = youCard(t);
+  const said = (asking || reviewing) ? (you ? you.say : (t.question || t.result || t.status_text || '')) : '';
+  const saidRow = said ? `<div class="said" title="${esc(said)}">${esc(said)}</div>${you && you.sub ? `<div class="you-say">${esc(you.sub)}</div>` : ''}` : '';
   // everything past the one sentence waits behind a collapsed Details fold
   const foldRow = t.details ? `<details class="fold"><summary>Details</summary><div class="fold-body">${esc(t.details)}</div></details>` : '';
   const quick = asking ? quickHtml(t, false) : '';
@@ -2126,14 +2249,14 @@ function card(t) {
   const flash = !firstRender && seen.has(t.id) && lastUpdated.get(t.id) !== t.updated;
   const revIn = reviewing && !firstRender && seen.has(t.id) && !revBefore.has(t.id);   // Motion: just reached review; the edge bar draws itself in
   seen.add(t.id); lastUpdated.set(t.id, t.updated);
-  return `<div class="card ${done ? 'done' : ''} ${asking ? 'ask' : ''} ${reviewing ? 'review' : ''} ${revIn ? 'rev-in' : ''} ${abandoned && !asking && !reviewing ? 'abandoned' : ''} ${live && !asking && !reviewing ? 'livebar' : ''} ${fresh ? 'enter' : ''} ${flash ? 'flash' : ''} ${selected.has(t.id) ? 'selected' : ''} " style="--c:${colorOf(t)}" data-agent="${esc(t.agent || '')}" draggable="${backlog ? 'false' : 'true'}" tabindex="0" data-id="${esc(t.id)}" data-status="${t.status}"
+  return `<div class="card ${you ? 'y-' + you.k : ''} ${done ? 'done' : ''} ${asking ? 'ask' : ''} ${reviewing ? 'review' : ''} ${revIn ? 'rev-in' : ''} ${abandoned && !asking && !reviewing ? 'abandoned' : ''} ${live && !asking && !reviewing ? 'livebar' : ''} ${fresh ? 'enter' : ''} ${flash ? 'flash' : ''} ${selected.has(t.id) ? 'selected' : ''} " style="--c:${colorOf(t)}" data-agent="${esc(t.agent || '')}" draggable="${backlog ? 'false' : 'true'}" tabindex="0" data-id="${esc(t.id)}" data-status="${t.status}"
       aria-label="${esc(t.title)}, ${t.status}${asking ? ', needs your input' : reviewing ? ', ready for review' : abandoned ? ', no update in a long time, possibly abandoned' : ''}${t.agent ? ', ' + esc(t.agent) : ''}${blockers.length ? ', blocked by ' + blockers.map(b => esc(b.title)).join(', ') : ''}">
     ${top}${askFlag}${saidRow}${foldRow}${blockedRow}${todo && t._q ? `<span class="qnum" aria-label="Queue position ${t._q}">${t._q}</span>` : ''}<div class="title ${done ? 'has-check' : ''}" title="${esc((done ? t.result : t.status_text) || '')}">${checkIcon}${done ? `<span>${esc(t.title)}</span>` : esc(t.title)}</div>${desc}${resume}${AB.chips(t)}${asking || reviewing ? '' : note}${bar}${noSubs}${meta}${who ? '' : reportLink}${replyRow}${reviewing ? `<button class="btn markdone" data-done="${esc(t.id)}">Mark done</button>` : ''}</div>`;
 }
 
 // the parent's segmented bar (one cell per subtask), which doubles as the expand toggle, plus its quiet rows
 function subsBlock(t, live) {
-  const open = hudPane ? false : subsOpen.has(t.id) ? subsOpen.get(t.id) : t.status === 'doing';   // on Load the subtasks stay folded: the bar says how far
+  const open = hudPane ? false : subsOpen.has(t.id) ? subsOpen.get(t.id) : false;   // on Load the subtasks stay folded: the bar says how far
   const rows = kidsMap.get(t.id) || [];
   // count from the server's slot list, so subtasks archived out of the task list still count as done
   const slots = t.subs && t.subs.length ? t.subs : rows;
@@ -2151,7 +2274,7 @@ function subsBlock(t, live) {
   const sid = 'subs-' + t.id;
   const dUp = !firstRender && lastSubCount.has(t.id) && lastSubCount.get(t.id) !== d; subCountNow.set(t.id, d);   // Lively: the count pops when it changes
   return `<button class="subs-toggle" type="button" data-toggle-subs="${esc(t.id)}" aria-expanded="${open}" aria-controls="${esc(sid)}" aria-label="${d} of ${n} subtasks done, ${open ? 'hide' : 'show'} subtasks">` +
-    `<span class="bar" aria-hidden="true"><b class="${!firstRender && lastPct.has(t.id) && lastPct.get(t.id) !== (t.progress || 0) ? 'pop' : ''}" style="width:${t.progress || 0}%;background:${t.status === 'done' ? 'var(--ok)' : colorOf(t)}"></b></span><span class="subs-count ${d === n ? 'all' : ''}${dUp ? ' pop' : ''}">${d}/${n}</span>` +
+    `<span class="segs" aria-hidden="true" title="${d} of ${n} steps done">${slots.map(sl => { const k = byId.get(sl.id) || sl, dn = subDone(k); return `<i class="${dn ? 'dn' : (k.progress || 0) > 0 ? 'lv' : ''}" style="--p:${dn ? 100 : (k.progress || 0)}%"></i>`; }).join('')}</span><span class="subs-count ${d === n ? 'all' : ''}${dUp ? ' pop' : ''}">${d}/${n}</span>` +
     `<svg class="chev" width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M3 1l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6"/></svg></button>` +
     `<div class="subs" id="${esc(sid)}" ${open ? '' : 'hidden'}>${html}</div>`;
 }
@@ -2210,7 +2333,7 @@ function byAgentHtml(by, filtered) {
     const c = doingBy.get(n).filter(t => wOf(t) < 2).sort((a, b) => wOf(a) - wOf(b) || whenOf(a) - whenOf(b))[0], m = Math.max(1, (Date.now() - whenOf(c)) / 60000);
     const pos = x => Math.max(0, Math.min(100, 100 * Math.log(Math.max(10, x) / 10) / Math.log(432)));
     const lab = m < 60 ? Math.round(m) + ' min' : m < 1440 ? (Math.round(m / 6) / 10) + ' h' : (Math.round(m / 144) / 10) + ' d';
-    return `<div class="wait-rule" data-for="${esc(c.id)}" aria-label="Waiting on you for ${lab}${holds.get(c.id) ? ', holds ' + holds.get(c.id).length + ' cards in Todo' : ''}"><i class="run ${wOf(c) ? 'rev' : 'ask'}" style="width:${pos(m).toFixed(1)}%"></i>${[60, 240, 1440].map(x => `<i class="tk" style="left:${pos(x).toFixed(1)}%"></i>`).join('')}<b>${wOf(c) ? 'sign off' : 'answer'} · ${lab}${holds.get(c.id) ? ` · <button type="button" class="holds-btn" title="Show the cards in Todo that wait behind this one">${wOf(c) ? 'frees' : 'holds'} ${holds.get(c.id).length}</button>` : ''}</b></div>`;
+    return `<div class="wait-rule" data-for="${esc(c.id)}" aria-label="Waiting on you for ${lab}${holds.get(c.id) ? ', holds ' + holds.get(c.id).length + ' cards in Todo' : ''}"><i class="run ${wOf(c) ? 'rev' : 'ask'}" style="width:${pos(m).toFixed(1)}%"></i>${[60, 240, 1440].map(x => `<i class="tk" style="left:${pos(x).toFixed(1)}%"></i>`).join('')}<b>${holds.get(c.id) ? `<button type="button" class="holds-btn" title="Show the cards in Todo that wait behind this one">${wOf(c) ? 'frees' : 'holds'} ${holds.get(c.id).length}</button>` : ''}</b></div>`;
   };
   const colorFor = n => { const t = (doingBy.get(n) || [])[0]; return t ? colorOf(t) : 'var(--neutral)'; };
   const stateFor = n => agentState(doingBy.get(n) || []);
@@ -2461,13 +2584,13 @@ const deckCounts = (at, n) => ({ up: at > DECK_NEAR ? [`${at - DECK_NEAR} more a
   down: n - 1 - at > DECK_NEAR ? [`${n - 1 - at - DECK_NEAR} more below`, Math.min(DECK_NEAR + 1, n - 1 - at)] : [at === n - 1 ? 'Last one' : '', 0] });
 function deckHeadHtml(top, at, n) {   // the line above the pile: where you are, what this card is waiting for, and for a stuck card the watchdog's one fix
   const held = heldBy(top.id).length, k = dkKind(top), ask = k === 0, dog = k === 2 ? dkDog(top.id) : null, full = k === 2 && (top.progress || 0) >= 100, verb = ask ? 'Go ahead' : k === 1 || full ? 'Mark done' : (dog && dog.fix ? dog.fix.label : 'Release to Todo');   // a quiet card at 100% is finished work nobody handed in: Mark done comes first
-  const hint = deckArm === top.id ? `<em class="armed">Space again to ${k === 2 ? 'do' : 'send'} “${esc(verb)}” · Esc cancels</em>` : `<em>↑ ↓ or scroll · → details · Enter to reply · Space, Space to ${ask ? 'go ahead' : k === 1 || full ? 'sign off' : 'release it'}</em>`;
+  const hint = deckArm === top.id ? `<em class="armed">Space again to ${k === 2 ? 'do' : 'send'} “${esc(verb)}” · Esc cancels</em>` : `<em class="keys"><kbd title="Up and down, or scroll: move through the pile">↑↓</kbd><kbd title="Right arrow: details">→</kbd><kbd title="Enter: reply">↵</kbd><kbd title="Space twice: ${ask ? 'go ahead' : k === 1 || full ? 'sign off' : 'release it'}">␣␣</kbd></em>`;
   const what = ask ? 'asks' : k === 1 ? 'is ready for sign-off' : 'has gone quiet';
   const fix = dog && dog.fix ? `<button type="button" class="deck-fix" data-dog-action="${esc(dog.fix.action)}" data-dog-id="${esc(dog.fix.id)}" title="${esc(dog.what)}">${esc(dog.fix.label)}</button>` : '';
   const fin = full ? `<button type="button" class="deck-fix" data-done="${esc(top.id)}" title="Every step is at 100%. Close it as done.">Mark done</button>` : '';
   const mates = !full && dog && dog.fix && dog.fix.action === 'release' ? dkMates(top) : [];
   const all = mates.length > 1 ? `<button type="button" class="deck-fix all" data-deck-all="${esc(top.agent)}" title="Every unfinished card ${esc(top.agent)} left behind goes back to Todo. Its questions, sign-offs and finished cards stay.">Release all ${mates.length} of ${esc(top.agent)}’s</button>` : '';
-  return `<b>${at + 1}<i> of ${n}</i></b><span>${esc(top.agent || 'Unassigned')} ${what} · ${k === 2 ? 'no update for' : 'waiting'} ${dkAge(top)}${held ? ` · ${k === 1 ? 'frees' : 'holds'} ${held}` : ''}${k === 2 ? (dog && dog.kind === 'abandoned' ? ' · its agent still listens' : ' · nothing will wake it') : ''}</span>${fin}${fix}${all}${hint}`; }
+  return `<b>${at + 1}<i> of ${n}</i></b><span class="you ${(youOf(top) || {}).k || ''}" title="${esc(top.agent || 'Unassigned')} ${what}${k === 2 ? (dog && dog.kind === 'abandoned' ? ' · its agent still listens' : ' · nothing will wake it') : ''}"><b>You</b><i>${esc((youOf(top) || {}).verb || '')}</i></span><span>${esc(top.agent || 'Unassigned')} · ${dkAge(top)}${held ? ` · ${k === 1 ? 'frees' : 'holds'} ${held}` : ''}</span>${fin}${fix}${all}${hint}`; }
 // The pose: everything the pile shows, from one number. mode 'glide' lets the browser carry it there (a key, a click, letting go);
 // 'drag' follows the hand with no easing; 'still' places it at once (a redraw). opts.closed draws the open card as a strip (used to open
 // it a moment later); opts.folded draws every card away (used to unfold the pile on arrival).
@@ -2787,10 +2910,13 @@ function render() {
   renderLater(parked);
   const quiet = working.filter(t => ago(t.updated).min >= STALE_MIN && ago(t.updated).min < (cfg.stale_minutes || DEFAULT_STALE_MIN)).length;
   const abandoned = working.filter(t => ago(t.updated).min >= (cfg.stale_minutes || DEFAULT_STALE_MIN)).length;
-  $('summary').innerHTML = (abandoned ? `<span class="err">⚠ ${abandoned} abandoned</span> · ` : '')
-    + (asks ? `<span class="warn sum-link ${flagFilter === 'needs_input' ? 'active' : ''}" data-flag="needs_input" role="button" tabindex="0" title="Show only ${asks} needs-input card${asks === 1 ? '' : 's'}">⚠ ${asks} needs input</span> · ` : '')
-    + (revs ? `<span class="ok sum-link ${flagFilter === 'review' ? 'active' : ''}" data-flag="review" role="button" tabindex="0" title="Show only ${revs} card${revs === 1 ? '' : 's'} ready for review">✓ ${revs} to review</span> · ` : '')
-    + (working.length ? `<b>${working.length}</b> working` + (quiet ? ` · <span class="warn">${quiet} quiet</span>` : '') : '');
+  { const needAg = new Set(working.filter(t => { const y = youOf(t); return y && y.k !== 'none'; }).map(t => t.agent)); requestAnimationFrame(() => document.querySelectorAll('.ls-g').forEach(g => g.classList.toggle('calm', !needAg.has(g.dataset.agent)))); }
+  // The header keeps two numbers, each a filter: what to answer and what to sign off. The cards say the rest (how long, how stuck), the strip
+  // says who is working, and the Needs you tab carries the total. With nothing waiting it says so in two words.
+  { const needN = working.filter(t => { const y = youOf(t); return y && y.k !== 'none'; }).length;
+    $('summary').innerHTML = (asks ? `<span class="warn sum-link ${flagFilter === 'needs_input' ? 'active' : ''}" data-flag="needs_input" role="button" tabindex="0" title="${asks} card${asks === 1 ? '' : 's'} to answer · click to show only ${asks === 1 ? 'it' : 'them'}" aria-label="${asks} to answer">⚠ ${asks}</span>` : '')
+    + (revs ? `<span class="ok sum-link ${flagFilter === 'review' ? 'active' : ''}" data-flag="review" role="button" tabindex="0" title="${revs} card${revs === 1 ? '' : 's'} to sign off · click to show only ${revs === 1 ? 'it' : 'them'}" aria-label="${revs} to sign off">✓ ${revs}</span>` : '')
+    + (needN ? '' : '<span class="sum-ok">All clear</span>'); }
   livelySummary({ needs_input: asks, review: revs, working: working.length });
   document.title = (abandoned ? `⚠ ${abandoned} abandoned · ` : '') + (asks ? `⚠ ${asks} input · ` : '') + (revs ? `✓ ${revs} review · ` : '') + (working.length ? `${APP} · ${working.length} working${quiet ? ' · ' + quiet + ' quiet' : ''}` : APP) + (BYAGENT ? ' · by agent' : '');
   // restore focus after the innerHTML rebuild above — preventScroll because this runs on every
@@ -3662,13 +3788,14 @@ function panelHtml(t) {
   if (tabs && panelTab === 'chat') return `${agentHead}${tabs}<div id="p-conv">${panelConvHtml(t)}</div>`;
   if (tabs && panelTab === 'term') return `${agentHead}${tabs}<div id="p-term"></div>`;
   if ((t.status === 'done' || rv) && !t.parent_id) {   // finished work, done or up for review, reads top down: result, what changed, the picture, the ticks; everything else under Details
-    return `${headTop}${tabs}${doneHtml(t, parsed, sawText, kids, head, rv ? btns : '')}
+    return `${headTop}${tabs}${youPanel(t)}${doneHtml(t, parsed, sawText, kids, head, rv ? btns : '')}
     ${desc}${tl}${details}${prompt}</details>
     <div class="p-actions">${copy}<button class="btn danger" id="p-del">Delete</button></div>`;
   }
-  return `${headTop}${tabs}${askC}${revC}${prog}${carried}${result}
-    <div class="p-actions">${copy}<button class="btn danger" id="p-del">Delete</button></div>
-    ${par}${subsList}${blocked}${tl}${desc}${details}${prompt}`;
+  return `${headTop}${tabs}${youPanel(t)}${askC}${revC}${prog}${carried}${result}
+    ${par}${subsList}
+    <details class="p-fold"${pFoldOpen ? ' open' : ''}><summary data-p-fold>More<small>activity · description · blockers · prompt</small></summary>
+    ${blocked}${tl}${desc}${details}${prompt}<div class="p-actions">${copy}<button class="btn danger" id="p-del">Delete</button></div></details>`;
 }
 
 async function refreshPanel() {
@@ -5005,7 +5132,10 @@ function dogRowsHtml(items) {
     + `</div>`).join('');
 }
 function dogHtml(items) {   // the Board page: the strip under the Doing header, nothing at all when the board is clean
-  return (items || []).length ? `<div class="h-dog board-dog" aria-label="Stuck between agents">${dogRowsHtml(items)}</div>` : '';
+  if (!(items || []).length) return '';
+  const n = {}; items.forEach(f => n[f.kind] = (n[f.kind] || 0) + 1);
+  const words = Object.entries(n).map(([k, c]) => `${c} ${k.replace('-', ' ')}`).join(' · ');
+  return `<details class="dog-fold"${dogOpen ? ' open' : ''}><summary data-dog-fold>Between agents: ${hh(words)}</summary><div class="h-dog board-dog" aria-label="Stuck between agents">${dogRowsHtml(items)}</div></details>`;
 }
 function dogRender(items) {
   const box = $('h-dog'); if (!box) return;
@@ -5025,6 +5155,8 @@ document.addEventListener('click', async e => {   // an agent that left several 
   } catch (err) { showError(`Released ${n} of ${cards.length}: ` + err.message); }
   dogKey = ''; raw = ''; hudLoad(); load();
 });
+let dogOpen = false, pFoldOpen = false;   // the two folds stay as you left them across redraws
+document.addEventListener('click', e => { if (e.target.closest?.('[data-dog-fold]')) dogOpen = !dogOpen; if (e.target.closest?.('[data-p-fold]')) pFoldOpen = !pFoldOpen; });
 document.addEventListener('click', async e => {
   const b = e.target.closest('[data-dog-action]'); if (!b) return;
   b.disabled = true;
