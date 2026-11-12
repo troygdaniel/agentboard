@@ -86,7 +86,7 @@ class PileTests(unittest.TestCase):
     def test_the_details_open_beside_the_card_from_the_feed_the_panel_reads(self):
         self.assertIn("fetch(BASE + '/api/task?id=' + encodeURIComponent(id)", body("deckFill"))
         more = body("deckMoreHtml")
-        for part in ("esc(h.title)", "esc(c)", "esc(d.description)", "esc(e.text)", "d.body_html"):   # everything escaped but the report the server already made safe
+        for part in ("esc(h.title)", "esc(c)", "d.description_html", "fmt(d.description)", "esc(e.text)", "d.body_html"):   # everything escaped but what the server already made safe
             self.assertIn(part, more)
         self.assertNotIn("render()", body("deckDetails"))
 
