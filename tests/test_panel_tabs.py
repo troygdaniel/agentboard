@@ -36,7 +36,7 @@ class TabStripTests(unittest.TestCase):
         self.assertIn("if (tabs && panelTab === 'term') return `${agentHead}${tabs}<div id=\"p-term\"></div>`;", ph)
         self.assertIn("const headTop = tabs ? (panelEdit === 'title' ? titleHtml : agentHead) : `${titleHtml}${who}`;", ph)   # one head on every tab of a held card
         self.assertIn("return `${headTop}${tabs}${doneHtml(", ph)
-        self.assertIn("return `${headTop}${tabs}${askC}${revC}${prog}${result}", ph)
+        self.assertIn("return `${headTop}${tabs}${askC}${revC}${prog}${carried}${result}", ph)
         self.assertIn("const panelHasTabs = t => !!(t && t.agent && !t.parent_id);", HTML)   # subtasks and unheld cards: the plain view
         strip = body("panelTabsHtml")
         for piece in ("tab('summary', 'Summary')", "tab('chat', 'Conversation', panelTab !== 'chat' && convDot(t))", "tab('term', 'Terminal')", '<kbd>t</kbd> next tab'):

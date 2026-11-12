@@ -20,6 +20,7 @@ from . import transcript as transcriptlib
 from . import plugins, reports, runs, serverstate, settingsview, story, summary, voice
 from . import markdown as mdlib
 from . import prompt as promptlib
+from . import wrapup as wrapuplib
 from .store import BoardError, Store, subtask_counts, subtask_list
 
 STATIC = Path(__file__).parent / "static"
@@ -318,6 +319,8 @@ def make_handler(default_store, port):
                     self._send(404, {"error": "no such report"})
             elif url.path == "/api/boards":
                 self._send(200, board_list(default_store, self.base))
+            elif url.path == "/api/wrapup":   # the newest saved end-of-day page, for the Start of day sheet
+                self._send(200, wrapuplib.last_data(self.store) or {"none": True})
             elif url.path == "/api/tasks":
                 def slim_tasks():
                     # list view stays light; history, prompt and the rich body come from /api/task

@@ -401,6 +401,7 @@ class Store:
             t.pop("review", None)
             t.pop("reply", None)
             t.pop("body_md", None)
+            t.pop("checkpoint_at", None)
             t.pop("archived", None)   # claiming a cleared task (--force) puts it back on the board
             t["status_text"] = f"Claimed by {name}"
             _log(t, f"Claimed by {name}")
@@ -653,6 +654,31 @@ class Store:
             _must_hold(tasks, t, by, self.owner)
             return self._update(tasks, t, progress, text, status, body_md)
 
+    def checkpoint(self, task_id, text, body_md=None, by=None):
+        """The hand-off note on a card its agent still holds: where it stands (done so far, the next step, what it learned), written so the
+        card can go back to Todo tonight and be picked up tomorrow. Progress and the column do not change; the note becomes the card's
+        status line and, when given, its account (body_md), which a release keeps as what the agent learned. It is a sign of life (the
+        card's clock restarts) and the board remembers when it was written, so the end-of-day wrap-up can tell a card that has one from a
+        card that does not. A card waiting on the owner (an ask or a review) has nothing to hand off."""
+        text, body_md = split_report(text, body_md) if text is not None else (text, body_md)
+        text, body_md = _cap(self._scrub(text, STATUS_MAX), STATUS_MAX), _cap(self._scrub(body_md, BODY_MAX), BODY_MAX)
+        if not (text or "").strip():
+            raise BoardError("say where it stands: what is done, what is next, what you learned")
+        with self.transaction() as tasks:
+            t = self.get(tasks, task_id)
+            _not_a_subtask(t, "checkpoint")
+            _must_hold(tasks, t, by, self.owner)
+            _require_doing(t, "checkpoint")
+            if t.get("needs_input") or t.get("review"):
+                raise BoardError(f"{task_id} is waiting on {self.owner} ({'a question' if t.get('needs_input') else 'a review'}): there is nothing to hand off until they answer")
+            t["status_text"] = text.strip()
+            if body_md:
+                t["body_md"] = body_md
+            _drop_read_reply(t)
+            _log(t, f"Checkpoint: {t['status_text']}", by=by)
+            t["updated"] = t["checkpoint_at"] = _now()
+            return t
+
     def _update(self, tasks, t, progress, text, status, body_md=None):
         text, body_md = _cap(self._scrub(text, STATUS_MAX), STATUS_MAX), _cap(self._scrub(body_md, BODY_MAX), BODY_MAX)
         _parent_must_be_doing(_parent_of(tasks, t), t, "update")
@@ -722,6 +748,8 @@ class Store:
             tasks.remove(t)
             if t["status"] != status:
                 was, holder = t["status"], t.get("agent")
+                if was == "doing" and status in ("todo", "backlog"):
+                    _keep_learned(t)   # the agent's account, last status and progress outlive its claim: the next agent starts from them
                 _set_status(tasks, t, status)
                 self._tell_holder(t, was, holder)
                 _log(t, f"Moved to {status}")
@@ -1411,10 +1439,40 @@ def _insert(tasks, t, before_id):
     tasks.insert(idx, t)
 
 
+LEARNED_NOTES_MAX = 4000
+_CLAIM_LINE = re.compile(r"^(Claimed|Started) by |^Released from ")
+
+
+def _keep_learned(t):
+    """A card leaves Doing for Todo or Later: write down what its agent had learned, so it outlives the claim. The agent, its progress,
+    its last status line, the question it was waiting on and its account (body_md, which a move to Todo drops) go in `learned`; the
+    card's history stays in its log as ever. A card moved back again keeps the earlier account when this agent left none. Nothing is
+    written for a card that had nothing to say (a bare claim). Dropped when the card is done."""
+    status = (t.get("status_text") or "").strip()
+    if _CLAIM_LINE.match(status):
+        status = ""   # the board's own line, not something an agent learned
+    notes = (t.get("body_md") or "").strip()[:LEARNED_NOTES_MAX]
+    asking = (t.get("question") or "").strip() if t.get("needs_input") else ""
+    pct = int(t.get("progress") or 0)
+    prev = t.get("learned") if isinstance(t.get("learned"), dict) else {}
+    if not (status or notes or asking) and pct <= 5:
+        return
+    t["learned"] = {
+        "by": t.get("agent") or prev.get("by") or "",
+        "at": _now(),
+        "progress": pct,
+        "status": status or prev.get("status", ""),
+        "asking": asking,
+        "notes": notes or prev.get("notes", ""),
+    }
+
+
 def _apply_status(t, status):
     if status not in STATUSES:
         raise BoardError(f"status must be one of {STATUSES}")
     t["status"] = status
+    if status != "doing":
+        t.pop("checkpoint_at", None)   # a hand-off note belongs to the claim it was written in
     if status != "done":
         t.pop("result", None)
         t.pop("archived", None)   # reopened work must not stay hidden

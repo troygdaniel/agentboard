@@ -353,6 +353,7 @@ def scrub(text, board_dir=None, conf=None, found=None, bound=None):
 
 
 TASK_TEXT_FIELDS = ("title", "description", "result", "status_text", "question", "body_md")
+LEARNED_TEXT_FIELDS = ("status", "asking", "notes")   # the text inside a card's `learned` note (store._keep_learned)
 
 
 def scrub_task(task, board_dir):
@@ -364,6 +365,8 @@ def scrub_task(task, board_dir):
     for f in TASK_TEXT_FIELDS:
         if isinstance(out.get(f), str):
             out[f] = scrub(out[f], conf=conf)
+    if isinstance(out.get("learned"), dict):   # what an agent learned, kept when a card went back to Todo, is agent prose like body_md
+        out["learned"] = {k: scrub(v, conf=conf) if k in LEARNED_TEXT_FIELDS and isinstance(v, str) else v for k, v in out["learned"].items()}
     if isinstance(out.get("log"), list):
         out["log"] = [dict(e, text=scrub(e.get("text"), conf=conf)) if isinstance(e, dict) else e for e in out["log"]]
     return out
@@ -388,6 +391,9 @@ def scrub_data(data, board_dir, apply=False, owner=None):
     for t in data.get("tasks", []):
         for f in TASK_TEXT_FIELDS:
             one(f"card {t.get('id')} {f}", t, f)
+        if isinstance(t.get("learned"), dict):
+            for f in LEARNED_TEXT_FIELDS:
+                one(f"card {t.get('id')} learned {f}", t["learned"], f)
         for i, e in enumerate(t.get("log", [])):
             if isinstance(e, dict) and not (owner and e.get("by") == owner):
                 one(f"card {t.get('id')} log #{i + 1}", e, "text")
