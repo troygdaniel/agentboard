@@ -1750,7 +1750,6 @@ body.deckview .board{display:block !important;overflow:visible !important;paddin
     <dt><kbd>u</kbd></dt><dd id="key-undo">Undo what the toast offers: a move, a done, a delete, Archive or Clear, a bulk change</dd>
     <dt><kbd>h</kbd></dt><dd>Load</dd>
     <dt><kbd>a</kbd></dt><dd>By agent / back to the board</dd>
-    <dt><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></dt><dd>Board, By agent, Load</dd>
     <dt><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></dt><dd>Board, By agent, Needs you</dd>
     <dt><kbd>↑</kbd> <kbd>↓</kbd></dt><dd>On Needs you: the card before, the card after (<kbd>Home</kbd>, <kbd>End</kbd>: the first, the last)</dd>
     <dt><kbd>→</kbd> <kbd>←</kbd></dt><dd>On Needs you: show, hide the card's details</dd>
@@ -5120,7 +5119,6 @@ document.addEventListener('keydown', e => {
   if (typing) return;
   if (e.altKey) return;
   if ((e.key === '[' || e.key === ']') && !SOLO) { e.preventDefault(); goView((curView() + (e.key === ']' ? 1 : VIEWS - 1)) % VIEWS); return; }   // SOLO: the Load window has no board to flip to
-  if ('123'.includes(e.key) && e.key && !SOLO) { e.preventDefault(); goView(+e.key - 1); return; }   // 1 Board, 2 By agent, 3 Load: the same ring, by number; the view you are on stays as it is
   if (e.key === '/' && mixIsOpen()) { e.preventDefault(); $('mix-search').focus(); return; }   // in the Settings sheet the slash is the search box
   if (e.key === 'm') { toggleMix(); return; }
   if (e.key === 's') { toggleSound(); return; }   // sound on or off, on every view

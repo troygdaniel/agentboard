@@ -450,7 +450,7 @@ Every pick here is a setting that defaults to the current look, and every new so
 - **Settings > Effects > Future sound** (off, silent while the look is off): a sweep and a rising chord as the page boots (with the first click or key), a scan blip on a view change, a holographic shhk as a card opens and the reverse as it closes.
 - **Fixed**: a page opened straight at `#/hud` or at a card's hash threw on its first render (a variable declared after it), which also left Load's Agents column empty until a later tick.
 - **Settings and the shortcuts sheet have a close button**: on a phone the only way out was Esc or a tap on the dim edge.
-- **`1`, `2` and `3` open Board, By agent and Load**, the same ring `[` and `]` walk, by number. Not while typing, and not in the pop-out Load window (it has no board). On the `?` list.
+- **`1`, `2` and `3` open Board, By agent and Needs you** (Load while that was the third view), the same ring `[` and `]` walk, by number. Not while typing, and not in the pop-out Load window (it has no board). On the `?` list.
 
 ### Drag and drop on By agent and Load (Nov 4)
 - **Cards drag on every view**, with Board's own lift, drop line, sounds, glide and Undo toast (one set of handlers now): By agent's Todo column and agent lanes, Load's Todo column and Doing pane. A lane is Doing.
