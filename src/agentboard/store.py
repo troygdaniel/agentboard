@@ -722,6 +722,8 @@ class Store:
             tasks.remove(t)
             if t["status"] != status:
                 was, holder = t["status"], t.get("agent")
+                if was == "doing" and status in ("todo", "backlog"):
+                    _keep_learned(t)   # the agent's account, last status and progress outlive its claim: the next agent starts from them
                 _set_status(tasks, t, status)
                 self._tell_holder(t, was, holder)
                 _log(t, f"Moved to {status}")
@@ -1409,6 +1411,34 @@ def _insert(tasks, t, before_id):
         last = max((i for i, x in enumerate(tasks) if x["status"] == t["status"]), default=-1)
         idx = last + 1
     tasks.insert(idx, t)
+
+
+LEARNED_NOTES_MAX = 4000
+_CLAIM_LINE = re.compile(r"^(Claimed|Started) by |^Released from ")
+
+
+def _keep_learned(t):
+    """A card leaves Doing for Todo or Later: write down what its agent had learned, so it outlives the claim. The agent, its progress,
+    its last status line, the question it was waiting on and its account (body_md, which a move to Todo drops) go in `learned`; the
+    card's history stays in its log as ever. A card moved back again keeps the earlier account when this agent left none. Nothing is
+    written for a card that had nothing to say (a bare claim). Dropped when the card is done."""
+    status = (t.get("status_text") or "").strip()
+    if _CLAIM_LINE.match(status):
+        status = ""   # the board's own line, not something an agent learned
+    notes = (t.get("body_md") or "").strip()[:LEARNED_NOTES_MAX]
+    asking = (t.get("question") or "").strip() if t.get("needs_input") else ""
+    pct = int(t.get("progress") or 0)
+    prev = t.get("learned") if isinstance(t.get("learned"), dict) else {}
+    if not (status or notes or asking) and pct <= 5:
+        return
+    t["learned"] = {
+        "by": t.get("agent") or prev.get("by") or "",
+        "at": _now(),
+        "progress": pct,
+        "status": status or prev.get("status", ""),
+        "asking": asking,
+        "notes": notes or prev.get("notes", ""),
+    }
 
 
 def _apply_status(t, status):

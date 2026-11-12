@@ -86,7 +86,7 @@ def search_cards(tasks, ws):
         text_born = untrusted.is_text_card(t)
         title = untrusted.one_line(t.get("title"), 200)
         fields = [(WEIGHTS["title"], title), (WEIGHTS["result"], t.get("result")), (1, t.get("description")), (1, t.get("status_text")),
-                  (1, t.get("body_md"))] + [(1, e.get("text")) for e in t.get("log", []) if isinstance(e, dict)]
+                  (1, t.get("body_md")), (1, (t.get("learned") or {}).get("notes") if isinstance(t.get("learned"), dict) else None)] + [(1, e.get("text")) for e in t.get("log", []) if isinstance(e, dict)]
         score, i = score_fields(fields, ws)
         if not score:
             continue

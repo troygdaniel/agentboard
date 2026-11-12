@@ -244,7 +244,8 @@ def flow_svg(code):
 
 _NAMES = (('changed', ('changed', 'did', 'built', 'done', 'what changed')),
           ('checked', ('checked', 'tested', 'verified', 'tests', 'checks', 'proof')),
-          ('next', ('next', 'then', 'for you', 'action', 'to do')))
+          ('next', ('next', 'then', 'for you', 'action', 'to do')),
+          ('learned', ('learned', 'lessons', 'lesson', 'lessons learned', 'what i learned', 'what we learned', 'gotchas', 'for next time')))
 _SEC_HEAD = re.compile(r'^(?:#{1,6}\s*(.+?)\s*#*|\*\*(.+?)\*\*:?)\s*$')
 _ARW_LINE = re.compile(r'^(ACTION|STATUS|WHY)\s+\S')
 
@@ -254,7 +255,7 @@ def sections(md):
     {'changed', 'checked', 'next': html of that section, 'flow': the first ```flow block as SVG, 'rest': html of everything
     else, 'has': whether any of the three was found}. A body without the headings is all `rest`, so an agent that skips the
     template still gets a sensible card."""
-    buckets = {'changed': [], 'checked': [], 'next': [], 'rest': []}
+    buckets = {'changed': [], 'checked': [], 'next': [], 'learned': [], 'rest': []}
     cur, flow, fence, arw = 'rest', None, None, []
     lines = (md or '').replace('\r\n', '\n').replace('\r', '\n').split('\n')
     while lines and (_ARW_LINE.match(lines[0]) or (arw and not lines[0].strip())):   # STATUS / WHY lines of a multi-line summary belong with the sentence
@@ -290,5 +291,5 @@ def sections(md):
     out = {k: to_html('\n'.join(v).strip()) for k, v in buckets.items()}
     out['flow'] = flow_svg(flow) if flow else ''
     out['arw'] = '\n'.join(arw)   # plain text, for the panel's ACTION / STATUS / WHY reader (it escapes)
-    out['has'] = any(out[k] for k in ('changed', 'checked', 'next'))
+    out['has'] = any(out[k] for k in ('changed', 'checked', 'next', 'learned'))
     return out

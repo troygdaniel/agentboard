@@ -288,6 +288,32 @@ def _subtask_nudge(task_id):
             f'  agentboard add "<step>" --parent {task_id}')
 
 
+def cmd_rollup(a):
+    """agentboard rollup: the whole board in one page for ORCH or the owner (what waits on a person, what each agent holds, what is stuck,
+    the Todo queue with what earlier agents learned, what finished and what it learned, and the moves that follow). Read-only."""
+    from . import rollup
+    data = rollup.build(_store(), since_hours=a.hours)
+    print(json.dumps(data, indent=1, default=str) if a.json else rollup.render(data))
+
+
+def cmd_release(a):
+    """agentboard release ID [ID ...] | --agent NAME: send Doing cards back to the top of Todo. Progress, the history and what the agent
+    learned stay on the card (the next agent's prompt carries them); a held card tells its agent it is no longer theirs."""
+    s = _store()
+    ids = list(a.ids)
+    if a.agent:
+        ids += [t["id"] for t in s.load() if t.get("agent") == a.agent and t["status"] == "doing" and not t.get("parent_id") and not t.get("archived")]
+    if not ids:
+        raise BoardError("give a card id, or --agent NAME for every Doing card that agent holds")
+    for i in dict.fromkeys(ids):
+        first = next((t["id"] for t in s.load() if t["status"] == "todo" and not t.get("parent_id") and t["id"] != i), None)
+        t = s.get(s.load(), i)
+        if t["status"] != "doing":
+            raise BoardError(f"{i} is in {t['status']}, not Doing: only a Doing card is released")
+        s.move(i, "todo", first)
+        print(f"{i}: back in Todo at {t.get('progress', 0)}%, what {t.get('agent') or 'its agent'} learned kept")
+
+
 def cmd_move(a):
     """Move a card to a column, as a drag on the board would (a held card tells its agent, as a drag does)."""
     t = _store().move(a.id, a.status)
@@ -1854,6 +1880,12 @@ def main(argv=None):
     sp.add_argument("--parent", metavar="ID", help="make this a subtask of that task (one level deep)")
     sp.add_argument("--blocked-by", action="append", dest="blocked_by", metavar="ID",
                      help="task id this depends on; repeat for multiple")
+    sp = add("rollup", cmd_rollup, "the whole board in one page for ORCH: what waits on a person, each agent's cards, what is stuck, the Todo queue, what finished and what it learned")
+    sp.add_argument("--hours", type=float, default=24, help="how far back 'finished' looks (default 24)")
+    sp.add_argument("--json", action="store_true")
+    sp = add("release", cmd_release, "send Doing cards back to the top of Todo, keeping their progress, history and what the agent learned")
+    sp.add_argument("ids", nargs="*", metavar="ID")
+    sp.add_argument("--agent", help="every Doing card this agent holds")
     sp = add("move", cmd_move, "move a task to a column (ORCH, on the owner's word: 'move … to Later')")
     sp.add_argument("id")
     sp.add_argument("status", choices=["backlog", "todo", "doing", "done"], help="the column: backlog is Later")
