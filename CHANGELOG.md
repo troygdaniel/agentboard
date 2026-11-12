@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Back to Todo keeps what the agent learned; done cards teach; a roll-up for ORCH (Nov 12)
+- **A card sent back to Todo or Later keeps what its agent had learned.** The progress, the history and the last status line were kept already; the agent's account of the work (its body, which a move to Todo used to drop), the question it was waiting on and who had it now stay on the card as a `learned` note. A card that bounces more than once keeps the earlier account when the new agent left none. A bare claim that learned nothing writes nothing. An undo puts the card back exactly as it was; the watchdog's release keeps it too.
+- **The next agent starts from it.** The card's prompt gains an "Earlier work on this card" section (the last agent, its %, its last status, the question it waited on, its notes quoted as data, and `agentboard recall --card <id>` for the whole history). A custom prompt template gets it as `{earlier}` and is otherwise left alone. The card says "Resumes at 70% · atlas" in Todo, and its panel shows a "Carried over" block.
+- **Easier to send back.** `b` sends the card you point at, or have focused, or have open, back to the top of Todo (next up), with an Undo toast; the open card's panel has a Back to Todo button; `Alt` + `←` and a drag still work and now keep the same notes. Not for a subtask (it goes with its parent) or a card not in Doing. On the `?` list.
+- **Done cards are worth learning from.** A review body is asked for a `## Learned` section (a decision and why, a trap hit, where the work lives); the done card shows it as its own row, and a card that was sent back on the way shows what each earlier agent learned. `recall` searches both.
+- **`agentboard rollup`** is the whole board in one page for ORCH or the owner: who waits on a person, what each agent holds (with %, subtasks and how long quiet), what is stuck, the Todo queue with what earlier agents learned ("↩ resumes at 60%"), what finished lately and what it learned, and the moves that follow. `--hours N`, `--json`. Read-only.
+- **`agentboard release ID ... | --agent NAME`** sends Doing cards back to the top of Todo with their progress and notes (a held card tells its agent it is no longer theirs, as a drag does). The ORCH boot prompt now has a Roll up, redistribute section (rollup, release, hand Todo cards to idle agents on the owner's word, rollup again) and both commands in its cheat-sheet.
+
 ### Needs you: a third tab, the cards waiting on you as a pile you move through (Nov 11)
 - The tab row is now **Board**, **By agent**, **Needs you**, and the keys `1`, `2`, `3` open them (`[`, `]` and `a` still work). The address is `/need`, and Back
   and Forward follow it. The count on the tab is what is waiting on you; a hairline under it runs down as you clear it.

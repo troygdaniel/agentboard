@@ -72,6 +72,7 @@ is the developer's.
 | `statefile.py` | One way to write the small JSON state files beside tasks.json: atomic replace, flock'd read-modify-write, a sweep of stale temp files. |
 | `settingsview.py` | What Settings > Security and Backup and data show: `GET /api/settings`, booleans, counts and minutes only (no path, pattern, name or secret), read-only, behind the Host check. |
 | `tomlread.py` | `loads()`/`load()` for config.toml and pyproject: tomllib when Python has it, a hand parser on 3.9 and 3.10. |
+| `rollup.py` | The roll-up: the whole board in one page for ORCH or the owner (who waits on a person, what each agent holds, what is stuck, the Todo queue with what earlier agents learned, what finished and what it learned, the moves that follow). `agentboard rollup`; read-only. |
 | `watchdog.py` | The agent protocol's watchdog: the ways a board is stuck between agents, each with its one fix (`agentboard watchdog`, the Load strip, a doctor line). |
 | `listeners.py` | Who is listening: `chat-listeners.json`, one entry per `chat inbox --wait` process, written under a file lock. |
 | `chatwake.py` | The chat wake file `chat-wake.json`: a counter, a time and who a line was for (never its words), moved on every post, so a wait watches one small file and reads the board only when it moved. |

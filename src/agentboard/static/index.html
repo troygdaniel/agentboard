@@ -415,12 +415,18 @@
     background: linear-gradient(180deg, color-mix(in srgb, var(--glow1) 70%, var(--surface)), var(--surface) 65%);
     border-color: color-mix(in srgb, var(--text) 9%, var(--line));
   }
-  .card[data-status="todo"] .top, .card[data-status="todo"] .title, .card[data-status="todo"] .desc, .card[data-status="todo"] .srcrow,
+  .card[data-status="todo"] .top, .card[data-status="todo"] .title, .card[data-status="todo"] .desc, .card[data-status="todo"] .resume, .card[data-status="todo"] .srcrow,
   .card[data-status="todo"] .blocked-row { padding-left: 28px; }
   .card[data-status="todo"] .top:not(:has(.who)) { position: absolute; top: 15px; right: 12px; margin: 0; padding: 0; min-height: 0; }
   .card[data-status="todo"] .title { padding-right: 0; font-size: var(--fs-base); }
   .card[data-status="todo"] .meta { flex-wrap: wrap; gap: 6px 8px; margin-top: 10px; }
   .card[data-status="todo"] .meta .when { margin-left: 0; }
+  /* a card that went back to Todo (or Later) keeps what its agent learned: one quiet line says so, and the panel carries the notes */
+  .resume { display: flex; align-items: center; gap: 6px; margin-top: 6px; font-size: var(--fs-sm); color: var(--muted); min-width: 0; }
+  .resume svg { flex: none; color: var(--c, var(--neutral)); }
+  .resume span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .resume b { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .carried { border-left: 3px solid var(--c, var(--neutral)); }
   .qnum {
     position: absolute; top: 12px; left: 12px; width: 20px; height: 20px; border-radius: 6px;
     display: grid; place-items: center; font-size: var(--fs-xs); font-weight: 600; font-variant-numeric: tabular-nums;
@@ -1739,6 +1745,7 @@ body.deckview .board{display:block !important;overflow:visible !important;paddin
     <dt><kbd>l</kbd></dt><dd id="key-later">Later list</dd>
     <dt><kbd>c</kbd></dt><dd id="key-copy">Copy a card's prompt: the one you pointed at or focused last, else the selected or open one</dd>
     <dt><kbd>d</kbd></dt><dd id="key-done">Mark that same card done</dd>
+    <dt><kbd>b</kbd></dt><dd id="key-back">Send that same card back to Todo, to the top: its progress and what the agent learned stay on it</dd>
     <dt><kbd>u</kbd></dt><dd id="key-undo">Undo what the toast offers: a move, a done, a delete, Archive or Clear, a bulk change</dd>
     <dt><kbd>h</kbd></dt><dd>Load</dd>
     <dt><kbd>a</kbd></dt><dd>By agent / back to the board</dd>
@@ -2044,6 +2051,8 @@ function card(t) {
   const noSubs = doing && !nSubs && !t.needs_input && !t.review ? `<div class="nosubs" title="Agents add subtasks as soon as they start a card">No subtasks yet</div>` : '';
   const desc = t.status === 'todo' || t.status === 'backlog'
     ? (t.description ? `<div class="desc">${esc(t.description)}</div>` : '') : '';
+  const L = (todo || backlog) && t.learned && typeof t.learned === 'object' ? t.learned : null;   // went back from Doing with its progress and notes kept
+  const resume = L ? `<div class="resume" style="--c:${agentColor(L.by)}" title="${esc(`${L.by || 'An agent'} had it at ${L.progress || 0}%${L.status ? ': ' + L.status : ''}. Its notes go to the next agent.`)}"><svg width="11" height="11" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M6 3L2.5 6.5 6 10M3 6.5h6.5a4 4 0 0 1 0 8H7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Resumes at <b>${L.progress || 0}%</b>${L.by ? ' · ' + esc(L.by) : ''}</span></div>` : '';
   // One control in one place: "Copy prompt", which after a successful copy becomes the green "Copied" state; clicking that undoes it.
   // Doing cards: the copy button is in the detail panel instead.
   const copiedLabel = todo ? copied.get(t.id) : null;
@@ -2073,7 +2082,7 @@ function card(t) {
   seen.add(t.id); lastUpdated.set(t.id, t.updated);
   return `<div class="card ${done ? 'done' : ''} ${asking ? 'ask' : ''} ${reviewing ? 'review' : ''} ${revIn ? 'rev-in' : ''} ${abandoned && !asking && !reviewing ? 'abandoned' : ''} ${live && !asking && !reviewing ? 'livebar' : ''} ${fresh ? 'enter' : ''} ${flash ? 'flash' : ''} ${selected.has(t.id) ? 'selected' : ''} " style="--c:${colorOf(t)}" data-agent="${esc(t.agent || '')}" draggable="${backlog ? 'false' : 'true'}" tabindex="0" data-id="${esc(t.id)}" data-status="${t.status}"
       aria-label="${esc(t.title)}, ${t.status}${asking ? ', needs your input' : reviewing ? ', ready for review' : abandoned ? ', no update in a long time, possibly abandoned' : ''}${t.agent ? ', ' + esc(t.agent) : ''}${blockers.length ? ', blocked by ' + blockers.map(b => esc(b.title)).join(', ') : ''}">
-    ${top}${askFlag}${saidRow}${foldRow}${blockedRow}${todo && t._q ? `<span class="qnum" aria-label="Queue position ${t._q}">${t._q}</span>` : ''}<div class="title ${done ? 'has-check' : ''}" title="${esc((done ? t.result : t.status_text) || '')}">${checkIcon}${done ? `<span>${esc(t.title)}</span>` : esc(t.title)}</div>${desc}${AB.chips(t)}${asking || reviewing ? '' : note}${bar}${noSubs}${meta}${who ? '' : reportLink}${replyRow}${reviewing ? `<button class="btn markdone" data-done="${esc(t.id)}">Mark done</button>` : ''}</div>`;
+    ${top}${askFlag}${saidRow}${foldRow}${blockedRow}${todo && t._q ? `<span class="qnum" aria-label="Queue position ${t._q}">${t._q}</span>` : ''}<div class="title ${done ? 'has-check' : ''}" title="${esc((done ? t.result : t.status_text) || '')}">${checkIcon}${done ? `<span>${esc(t.title)}</span>` : esc(t.title)}</div>${desc}${resume}${AB.chips(t)}${asking || reviewing ? '' : note}${bar}${noSubs}${meta}${who ? '' : reportLink}${replyRow}${reviewing ? `<button class="btn markdone" data-done="${esc(t.id)}">Mark done</button>` : ''}</div>`;
 }
 
 // the parent's segmented bar (one cell per subtask), which doubles as the expand toggle, plus its quiet rows
@@ -3432,6 +3441,14 @@ function pathStrip(t) {   // the card's path, one dot per state it passed throug
     <div class="dp-labels">${st.map(s => `<span>${s.label} ${esc(hhmm(s.at))}</span>`).join('')}</div></div>`;
 }
 const PALETTE = ['--a1', '--a2', '--a4', '--a3', '--a6', '--a5'];
+// What an agent had learned when its card went back to Todo or Later (the store's `learned`): shown on the card until it is done, where it
+// reads as the trail that led there. The next agent's prompt carries the same words.
+function carriedHtml(t) {
+  const L = t.learned; if (!L || typeof L !== 'object') return '';
+  return `<div class="lat carried" style="--c:${agentColor(L.by)}"><div class="lat-h"><b>${t.status === 'done' ? 'On the way, it learned' : 'Carried over'}${L.by ? ' from ' + esc(L.by) : ''}</b><span>${L.progress || 0}% · ${ago(L.at).text}</span></div>`
+    + (L.status ? `<div class="fmt"><p>${inlineFmt(L.status)}</p></div>` : '') + (L.asking ? `<div class="arw-why fmt">It was waiting on: ${inlineFmt(L.asking)}</div>` : '')
+    + (L.notes ? `<div class="fmt">${fmt(L.notes)}</div>` : '') + (t.status === 'done' ? '' : `<div class="arw-why">The next agent's prompt includes this.</div>`) + `</div>`;
+}
 function doneHtml(t, parsed, sawText, kids, head, btns) {   // the finished-work layout; a card in review gets it too, with its Mark done / Reply controls
   const sec = t.sections || {}, checks = t.checks || [], g = t.git || {};
   if (sec.arw) parsed = parseArw(sawText + '\n' + sec.arw);   // STATUS / WHY lines of a multi-line summary sit with the sentence
@@ -3443,7 +3460,7 @@ function doneHtml(t, parsed, sawText, kids, head, btns) {   // the finished-work
   if (g.commits) chips.push(`<span class="dchip">${g.commits} commit${g.commits === 1 ? '' : 's'} · ${g.files} file${g.files === 1 ? '' : 's'}</span>`);
   const sentence = parsed.has ? arwHtml(parsed) : sawText ? `<div class="said">${esc(sawText)}</div>` : '';
   const row = (k, label, html) => html ? `<div class="dsec ${k}"><span class="dlab">${label}</span><div class="dbody rich-body">${html}</div></div>` : '';
-  const grid = sec.has ? `<div class="dgrid">${row('changed', 'Changed', sec.changed)}${row('checked', 'Checked', sec.checked)}${row('next', 'Next', sec.next)}</div>`
+  const grid = sec.has ? `<div class="dgrid">${row('changed', 'Changed', sec.changed)}${row('checked', 'Checked', sec.checked)}${row('next', 'Next', sec.next)}${row('learned', 'Learned', sec.learned)}</div>`
     : t.body_html ? `<div class="rich-body dfree">${t.body_html}</div>` : '';
   const diagram = sec.flow ? `<div class="dsec-h"><span>How it works</span></div>${sec.flow}` : '';
   const ticks = kids.length ? `<div class="dsec-h"><span>Subtasks</span><span class="n">${kids.filter(subDone).length}/${kids.length}</span></div><ul class="p-subs dticks">${kids.map(k =>
@@ -3455,7 +3472,7 @@ function doneHtml(t, parsed, sawText, kids, head, btns) {   // the finished-work
     <div class="dlegend">${groups.map(([k, n], i) => `<span style="--c:var(${PALETTE[i % PALETTE.length]})">${esc(k)} ${n}</span>`).join('')}</div>` : '';
   const rest = sec.has && sec.rest ? `<div class="rich-body">${sec.rest}</div>` : (!sec.has && t.body_html ? `<div class="rich-body">${t.body_html}</div>` : '');
   return `<div class="lat${t.status === 'done' ? '' : ' rev'}"><div class="lat-h">${head}</div>${sentence}${chips.length ? `<div class="dchips">${chips.join('')}</div>` : ''}${btns || ''}</div>
-    ${grid}${diagram}${ticks}${qa}${where}${pathStrip(t)}`
+    ${grid}${diagram}${ticks}${qa}${where}${carriedHtml(t)}${pathStrip(t)}`
     + `<details class="dfold"><summary>Details<small>${[rest ? 'full note' : '', t.description ? 'description' : '', 'activity', 'prompt'].filter(Boolean).join(' · ')}</small></summary>${rest}`;
 }
 
@@ -3570,7 +3587,9 @@ function panelHtml(t) {
   const ctx = (t.ctx || []).length ? `<dt>Context</dt><dd>${t.ctx.map(c => `<code>${esc(c)}</code>`).join(' ')}</dd>` : '';
   const details = `<div class="p-sec"><h3>Details</h3><dl><dt>ID</dt><dd><code>${esc(t.id)}</code></dd><dt>Created</dt><dd>${stamp(t.created)}</dd><dt>Updated</dt><dd>${stamp(t.updated)}</dd>${ctx}</dl></div>`;
   const prompt = !cfg.dispatch ? '' : `<div class="p-sec"><details id="pd" ${promptOpen ? 'open' : ''}><summary>Prompt</summary><pre id="pre">${esc(promptText || 'Loading…')}</pre></details></div>`;
-  const copy = (cfg.dispatch ? `<button class="btn" id="p-copy" title="Copy this task's instructions, to paste into an agent's terminal to start it (c)">Copy prompt</button>` : '') + (t.run && t.run.status === 'running' && t.run.alive !== false ? `<button class="btn danger" id="p-run-stop" title="Stop the one-shot run (the card moves to ask)">Stop run</button>` : '');
+  const carried = carriedHtml(t);   // what the agent had learned when the card went back to Todo
+  const back = t.status === 'doing' && !t.parent_id ? `<button class="btn" id="p-back" title="Send this card back to Todo. Its progress and what the agent learned stay on it (b)">Back to Todo</button>` : '';
+  const copy = back + (cfg.dispatch ? `<button class="btn" id="p-copy" title="Copy this task's instructions, to paste into an agent's terminal to start it (c)">Copy prompt</button>` : '') + (t.run && t.run.status === 'running' && t.run.alive !== false ? `<button class="btn danger" id="p-run-stop" title="Stop the one-shot run (the card moves to ask)">Stop run</button>` : '');
   const par = t.parent_id && byId.get(t.parent_id)
     ? `<div class="p-sec"><h3>Subtask of</h3><ul class="p-subs"><li data-sub-id="${esc(t.parent_id)}"><span class="sn">${esc(byId.get(t.parent_id).title)}</span></li></ul></div>` : '';
   const kids = kidsMap.get(t.id) || [];
@@ -3601,7 +3620,7 @@ function panelHtml(t) {
     ${desc}${tl}${details}${prompt}</details>
     <div class="p-actions">${copy}<button class="btn danger" id="p-del">Delete</button></div>`;
   }
-  return `${headTop}${tabs}${askC}${revC}${prog}${result}
+  return `${headTop}${tabs}${askC}${revC}${prog}${carried}${result}
     <div class="p-actions">${copy}<button class="btn danger" id="p-del">Delete</button></div>
     ${par}${subsList}${blocked}${tl}${desc}${details}${prompt}`;
 }
@@ -3814,6 +3833,7 @@ $('p-body').addEventListener('click', async e => {
   }
   if (b.dataset.more) { const k = b.dataset.more; openEntries.has(k) ? openEntries.delete(k) : openEntries.add(k); if (lastDetail) renderPanel(lastDetail); return; }
   if (b.id === 'p-lat-done') { $('p-move').click(); return; }
+  if (b.id === 'p-back') { backToTodo(openId); return; }
   if (b.id === 'p-reply-toggle') { replyOpen = !replyOpen; if (lastDetail) renderPanel(lastDetail); if (replyOpen) $('p-reply-text')?.focus(); return; }
   if (b.id === 'p-reply-send') { sendReply(); return; }
   if (b.id === 'p-desc-more') { descOpen = !descOpen; if (lastDetail) renderPanel(lastDetail); return; }
@@ -5105,6 +5125,7 @@ document.addEventListener('keydown', e => {
   if (e.key === 't' && openId && panelHasTabs(lastDetail)) { e.preventDefault(); setPanelTab(PANEL_TABS[(PANEL_TABS.indexOf(panelTab) + 1) % PANEL_TABS.length]); return; }   // the open card's next tab
   if (e.key === 'c') { copyPromptByKey(); return; }   // any card, on every view
   if (e.key === 'd') { markDoneByKey(); return; }     // the same card as c
+  if (e.key === 'b') { backToTodoByKey(); return; }   // and back to Todo, with what it learned
   if (e.key === 'u') { undoByKey(); return; }
   if (hudIsOpen()) {
     if (e.key === 'f') { toggleHudFull(); return; }
@@ -5395,6 +5416,26 @@ async function markDoneByKey() {
     touch.after('drop', 'done', t.agent);
     if (id === openId) closePanel();   // as the panel's Mark done does
   }
+}
+// b: send a card back to Todo, on the card c and d aim at. Progress, the log and what the agent learned stay on it (the store keeps them,
+// the next agent's prompt carries them); the card goes to the top of Todo, next up, and the toast offers Undo. The panel's Back to Todo
+// button, the key and Alt+left all make the same move.
+async function backToTodo(id) {
+  const t = byId.get(id);
+  if (!t) return false;
+  if (t.parent_id) { toast('A subtask goes back with its parent: aim at the parent card'); return false; }
+  if (t.status === 'todo') { toast(`“${t.title}” is already in Todo`); return false; }
+  if (t.status !== 'doing') { toast(`“${t.title}” is in ${LABELS[t.status]}: only a card in Doing goes back to Todo`); return false; }
+  const first = tasks.find(x => x.status === 'todo' && !isKid(x) && x.id !== id);   // next up: it was already started
+  const ok = await move(id, 'todo', first?.id, ` · ${t.progress || 0}%${t.agent ? ' and what ' + t.agent + ' learned' : ''} stay on the card`);
+  if (ok) touch.after('drop', 'todo', t.agent);
+  return ok;
+}
+async function backToTodoByKey() {
+  if ($('keys').classList.contains('on') || mixIsOpen() || tourIsOpen()) return;   // not behind an open sheet
+  const id = aimedCard();
+  if (!id) { toast('Point at a card, or open one, then press b to send it back to Todo'); return; }
+  await backToTodo(id);
 }
 // u: the toast's Undo, while its toast shows. Nothing on offer: nothing happens, quietly.
 function undoByKey() { if (undoInfo && $('toast').classList.contains('on')) undoLast(); }

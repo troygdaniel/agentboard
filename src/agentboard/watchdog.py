@@ -19,7 +19,7 @@ follow (a subtask takes its parent's column). two-sessions and no-session have n
 from datetime import datetime
 
 from . import hooks, hud, listeners, prompt
-from .store import BoardError, _apply_status, _kids, _log, _now, _recompute, merge_twin, twins
+from .store import BoardError, _apply_status, _keep_learned, _kids, _log, _now, _recompute, merge_twin, twins
 
 ACTIONS = ("release", "release-all", "merge", "hand", "adopt", "follow")
 FMT = "%Y-%m-%dT%H:%M:%S"
@@ -192,6 +192,7 @@ def heal(store, action, target, by=None):
 def _release(tasks, t, who):
     """Back to Todo with its history: the holder is cleared, the question or review flag goes, open subtasks come along."""
     was = t.get("agent")
+    _keep_learned(t)   # before the flags and the account are dropped below: the next agent reads what this one had learned
     for f in ("needs_input", "question", "ask_child", "review", "reply", "body_md"):
         t.pop(f, None)
     _apply_status(t, "todo")
