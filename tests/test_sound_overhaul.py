@@ -64,7 +64,8 @@ class Balance(unittest.TestCase):
         self.assertIn("let cueLvl = 1;", PAGE)
         self.assertIn("localStorage.getItem('agentboard-cues')", PAGE)
         self.assertIn("cueLvl = Math.min(1, Math.max(0, +v));", body("setCues"))                      # 0 to 100%, never above today's level: the volume does that
-        self.assertIn("cueMul = cueLvl; try { f(agent); } finally { panNow = 0; cueMul = 1; } }; });", PAGE)
+        self.assertIn("cueMul = cueLvl;", PAGE)
+        self.assertIn("try { f(agent); } finally { panNow = 0; cueMul = 1; quietPass = false; } }; });", PAGE)
         self.assertIn("vol *= cueMul;", body("tone"))
         self.assertIn("panNow = 0; cueMul = 1;", re.search(r"function fx\(kind, agent\) \{.*", PAGE).group(0))   # a layer's own sound is never scaled by it
 
@@ -85,6 +86,43 @@ class Balance(unittest.TestCase):
         self.assertIn("getFloatTimeDomainData", f)
         self.assertIn("startMeter(); } else stopDemo();", PAGE)
         self.assertIn("el.classList.toggle('hot', shown > -9); el.classList.toggle('lim', shown > -3);", f)
+
+
+class QuietHours(unittest.TestCase):
+    def test_it_is_off_until_chosen_and_the_default_window_is_the_usual_night(self):
+        self.assertIn("let quiet = { on: false, from: '22:00', to: '07:00', until: 0, skip: 0 }", PAGE)
+        self.assertIn("if (!quiet.on || now < quiet.skip) return false;", body("quietActive"))
+        self.assertIn("return a === b ? false : a < b ? (m >= a && m < b) : (m >= a || m < b);", body("quietActive"))   # a window across midnight is the usual one
+        self.assertIn("const d = new Date(now), m =", body("quietActive"))                                             # one clock for the whole decision
+
+    def test_only_a_valid_time_is_kept(self):
+        self.assertIn("const HHMM = /^([01]\\d|2[0-3]):[0-5]\\d$/;", PAGE)
+        self.assertIn("if (!HHMM.test(quiet.from)) quiet.from = '22:00';", PAGE)
+        self.assertIn("if (HHMM.test(e.target.value)) { quiet[k] = e.target.value;", PAGE)                            # a half-typed time input is empty: ignored
+
+    def test_every_sound_goes_through_the_gate_and_only_an_ask_passes_it_softly_and_rarely(self):
+        self.assertIn("function sndNow() { if (!sndOn) return null; if (quietNow() && !quietPass) return null;", PAGE)
+        self.assertIn("if (k === 'ask' && quietActive() && Date.now() >= hearUntil) { if (Date.now() - quietAskAt < 15 * 60000) return; quietAskAt = Date.now(); quietPass = true; cueMul *= .3; }", PAGE)
+        self.assertIn("try { f(agent); } finally { panNow = 0; cueMul = 1; quietPass = false; } }; });", PAGE)
+        self.assertIn("const quietNow = () => Date.now() >= hearUntil && quietActive();", PAGE)                        # Hear it is let through for a few seconds
+        self.assertIn("hearUntil = Date.now() + 7000;", body("hearLayer"))
+
+    def test_the_bed_leaves_and_returns_with_the_window_and_notifications_go_silent(self):
+        self.assertIn("if (quietActive()) return;   // Quiet hours: no bed until the window ends", body("startAmb"))
+        q = body("quietTick")
+        self.assertIn("if (q !== wasQuiet) { wasQuiet = q; if (q) stopAmb(); else startAmb(); }", q)
+        self.assertIn("setInterval(quietTick, 20000);", PAGE)
+        self.assertIn("silent: !sndOn || quietActive() });", PAGE)
+
+    def test_the_chip_and_the_settings_rows(self):
+        self.assertIn('<button class="status quiet" id="quiet-chip" type="button" hidden></button>', PAGE)
+        self.assertIn("$('quiet-chip').addEventListener('click', endQuiet);", PAGE)
+        e = body("endQuiet")
+        self.assertIn("if (quiet.until && Date.now() < quiet.until) quiet.until = 0; else quiet.skip = nextAt(quiet.to);", e)   # a hand-started window ends; a scheduled one is skipped
+        r = body("renderQuiet")
+        self.assertIn('<label for="cfg-quiet-on">Quiet hours</label>', r)
+        self.assertIn("<label>Quiet until morning</label>", r)                                                       # labels: Settings search indexes them
+        self.assertIn('<h3>Quiet hours</h3><div id="cfg-quiet"></div>\n  <h3>Sound</h3><div id="cfg-sound"></div>\n  <h3>Touch', PAGE)
 
 
 if __name__ == "__main__":

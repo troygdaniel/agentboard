@@ -121,6 +121,9 @@
   .summary b { color: var(--text); font-weight: 500; }
   .summary .warn { color: var(--warn); }
   /* the connection chip (Nov 3): shows only while the server is unreachable; nothing when all is well */
+  .status.quiet { background: none; font: inherit; font-size: var(--fs-sm); color: var(--info); border-color: color-mix(in srgb, var(--info) 45%, transparent); cursor: pointer; }
+  .status.quiet:hover { background: var(--chip); }
+  .status.quiet[hidden] { display: none; }
   .status { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-sm); color: var(--warn); border: 1px solid color-mix(in srgb, var(--warn) 45%, transparent); border-radius: 999px; padding: 3px 10px; white-space: nowrap; }
   .status[hidden] { display: none; }
   .status i { width: 6px; height: 6px; border-radius: 50%; background: var(--warn); }
@@ -999,6 +1002,9 @@
   .mix-row > input[type=checkbox] { width: 16px; height: 16px; margin: 0; }
   .mix-row.cfg-vol { grid-template-columns: 18px 1fr 160px auto; }   /* the volume slider gets room; its number sits where Hear it would */
   .mix-row.cfg-vol b { font-variant-numeric: tabular-nums; min-width: 4ch; text-align: right; font-weight: 500; }
+  .mix-row.qh .qt { grid-column: 3 / -1; justify-self: end; display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: var(--fs-sm); }
+  .mix-row.qh .qt input[type=time] { font: inherit; font-size: var(--fs-md); color: var(--text); background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 3px 6px; min-height: 28px; }
+  .mix-row.qh .qt .btn { min-height: 28px; padding: 2px 12px; }
   .meter { --lv: 0%; position: relative; height: 8px; border-radius: 4px; background: var(--chip); box-shadow: inset 0 0 0 1px var(--line); overflow: hidden; align-self: center; }
   .meter i { position: absolute; inset: 0 auto 0 0; width: var(--lv); border-radius: 4px; background: var(--ok); }
   .meter.hot i { background: var(--warn); } .meter.lim i { background: var(--err); }
@@ -1679,6 +1685,7 @@ body.deckview .board{display:block !important;overflow:visible !important;paddin
     <span class="fut-ro" id="fut-ro" aria-hidden="true"></span>
     <span class="hicons">
     <span class="status off" id="status" role="status" hidden><i></i><span>Disconnected; retrying</span></span>
+    <button class="status quiet" id="quiet-chip" type="button" hidden></button>
     <button class="btn off" id="notif-btn" aria-label="Desktop notifications: off. Press to turn on." aria-pressed="false" title="Desktop notifications: off"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 2a4 4 0 0 0-4 4v3L2.8 11h10.4L12 9V6a4 4 0 0 0-4-4z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M6.5 13a1.5 1.5 0 0 0 3 0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
     <button class="btn" id="theme" aria-label="Color theme: auto. Press to change." title="Color theme: auto (follows the system)"></button>
     <button class="btn" id="help-btn" type="button" aria-label="Help: keyboard shortcuts and a 60-second tour (?)" title="Help and keyboard shortcuts (?)" aria-controls="keys">?</button>
@@ -1825,6 +1832,7 @@ body.deckview .board{display:block !important;overflow:visible !important;paddin
       </div>
       <div class="pane" id="pane-sound" role="tabpanel" aria-labelledby="stab-sound" data-tab="sound" hidden>
   <p class="mix-note">Sound and look, for every view. The usual sound is the default: the volume can go above it through a limiter, and the layers are extras, each off until you switch it on; Touch, the sounds of using the board, starts on. Hear one first; the level is yours too.</p>
+  <h3>Quiet hours</h3><div id="cfg-quiet"></div>
   <h3>Sound</h3><div id="cfg-sound"></div>
   <h3>Touch (what your hands do, on every view)</h3><div id="mix-touch"></div>
   <h3>Ambience (plays with the ambient bed, on every view)</h3><div id="mix-amb"></div>
@@ -3958,7 +3966,28 @@ function ac() {
   if (audio.state === 'suspended') audio.resume().catch(() => {});
   return audio;
 }
-function sndNow() { if (!sndOn) return null; const c = ac(); return c && c.state === 'running' ? c.currentTime : null; }
+// Quiet hours (Nov 12): a sleep schedule, off until chosen. Inside the window every sound is silent, the bed fades out and comes back after, and the one thing
+// that still plays is a card asking you something: softly, and at most once every 15 minutes, so a real question can wake you but a long ask does not nag.
+// "Quiet until morning" starts a window now that ends at the schedule's end time; the header chip ends a window early (until the next one).
+const QUIET_KEY = 'agentboard-quiet';
+let quiet = { on: false, from: '22:00', to: '07:00', until: 0, skip: 0 }, quietPass = false, quietAskAt = 0, hearUntil = 0, wasQuiet = false;
+try { const q = JSON.parse(localStorage.getItem(QUIET_KEY) || '{}'); if (q && typeof q === 'object') quiet = { ...quiet, ...q }; } catch (e) {}
+const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;
+if (!HHMM.test(quiet.from)) quiet.from = '22:00';
+if (!HHMM.test(quiet.to)) quiet.to = '07:00';
+const saveQuiet = () => { try { localStorage.setItem(QUIET_KEY, JSON.stringify(quiet)); } catch (e) {} };
+const minOf = hhmm => { const [h, m] = hhmm.split(':').map(Number); return h * 60 + m; };
+function nextAt(hhmm) { const [h, m] = hhmm.split(':').map(Number), d = new Date(); d.setHours(h, m, 0, 0); if (d.getTime() <= Date.now()) d.setDate(d.getDate() + 1); return d.getTime(); }
+function quietActive() {   // is it quiet now: a window started by hand, or the schedule (unless ended early)
+  const now = Date.now();
+  if (quiet.until && now < quiet.until) return true;
+  if (!quiet.on || now < quiet.skip) return false;
+  const d = new Date(now), m = d.getHours() * 60 + d.getMinutes(), a = minOf(quiet.from), b = minOf(quiet.to);
+  return a === b ? false : a < b ? (m >= a && m < b) : (m >= a || m < b);   // a window that crosses midnight is the usual one
+}
+const quietNow = () => Date.now() >= hearUntil && quietActive();   // Hear it is let through for a few seconds
+const quietEnds = () => quiet.until && Date.now() < quiet.until ? new Date(quiet.until).toTimeString().slice(0, 5) : quiet.to;
+function sndNow() { if (!sndOn) return null; if (quietNow() && !quietPass) return null; const c = ac(); return c && c.state === 'running' ? c.currentTime : null; }
 // State the cue and Touch wrappers set around the notes they play, read by tone(): where a sound sits in the stereo field (Stage), and the level
 // the cues share (Cues). Both rest at neutral, so a sound that is not a cue or a drop is exactly what it was.
 let panNow = 0, cueMul = 1;
@@ -4000,6 +4029,7 @@ const cue = {
 function soundReady() { return audio ? audio.state === 'running' : !!navigator.userActivation?.hasBeenActive; }   // browsers keep a fresh page silent until a gesture
 function startAmb(force) {
   if (force) bedYielded = false;   // a click or key on this page: it takes the bed
+  if (quietActive()) return;   // Quiet hours: no bed until the window ends (quietTick brings it back)
   if (ambNodes || !ambOn || !sndOn || bedYielded) return;
   if (!force && !soundReady()) return;   // a fresh page: wait for the first click or key (wakeSound below)
   const ctx = ac(); if (!ctx) return;
@@ -4348,7 +4378,9 @@ Object.keys(cue).forEach(k => { const f = cue[k]; cue[k] = agent => { f(agent); 
 // Stage: where each cue sits. Start leans left (work arriving), done leans right (work leaving), an agent's update has the agent's own place.
 const CUE_PAN = { start: -.35, added: -.2, review: .2, done: .45, quiet: .3 };
 const agentPan = a => ((hashOf(a) % 7) - 3) / 3 * .6;
-Object.keys(cue).forEach(k => { const f = cue[k]; cue[k] = agent => { panNow = k === 'update' ? agentPan(agent) : (CUE_PAN[k] || 0); cueMul = cueLvl; try { f(agent); } finally { panNow = 0; cueMul = 1; } }; });
+Object.keys(cue).forEach(k => { const f = cue[k]; cue[k] = agent => { panNow = k === 'update' ? agentPan(agent) : (CUE_PAN[k] || 0); cueMul = cueLvl;
+  if (k === 'ask' && quietActive() && Date.now() >= hearUntil) { if (Date.now() - quietAskAt < 15 * 60000) return; quietAskAt = Date.now(); quietPass = true; cueMul *= .3; }   // Quiet hours: an ask, softly, now and then
+  try { f(agent); } finally { panNow = 0; cueMul = 1; quietPass = false; } }; });
 setInterval(() => { if (sndOn) LAYERS.forEach(L => { if (L.tick && layerOn(L.id)) L.tick(layerLvl(L.id)); }); }, 1000);
 
 // --- Touch: the sounds of using the board. A thin layer for what your hands do (focus, open, drag, switch, toggle, select),
@@ -4437,6 +4469,7 @@ function applyLayer(L) {                        // a switch or level moved: foll
 }
 function stopDemo() { if (demoTimer) { clearTimeout(demoTimer); demoTimer = null; } if (demoNodes) { fadeOut(demoNodes); demoNodes = null; } }
 function hearLayer(L) {                         // the Hear button: the layer alone, for a few seconds, whether or not it is on
+  hearUntil = Date.now() + 7000;   // and through Quiet hours: you asked to hear it
   const ctx = ac(); if (!ctx) return;
   stopDemo();
   if (L.demo) { L.demo(ctx); return; }
@@ -4449,6 +4482,7 @@ function renderMix() {
   const row = L => L.levels ? `<div class="mix-row plain lv"><span></span><label>${L.name}</label><span class="seg" role="group" aria-label="${L.name}">${L.levels.map((n, i) => `<button class="btn" type="button" data-level="${L.id}" data-val="${i / (L.levels.length - 1)}" aria-pressed="${levelAt(L) === i}">${n}</button>`).join('')}</span><span class="mix-about">${L.about}</span></div>` : `<div class="mix-row${L.plain ? ' plain' : ''}"><input type="checkbox" id="lyr-${L.id}" data-mix="${L.id}"${layerOn(L.id) ? ' checked' : ''}><label for="lyr-${L.id}">${L.name}</label>`
     + (L.plain ? '<span></span><span></span>' : `<input type="range" min="0" max="100" value="${Math.round(layerLvl(L.id) * 100)}" data-lvl="${L.id}" aria-label="${L.name} level">`   // a look switch has no level and nothing to hear
     + `<button class="btn" data-hear="${L.id}">Hear it</button>`) + `<span class="mix-about">${L.about}</span></div>`;
+  renderQuiet();
   $('cfg-sound').innerHTML = `<div class="mix-row"><input type="checkbox" id="cfg-snd"${sndOn ? ' checked' : ''}><label for="cfg-snd">Sound</label><span class="mix-about">the cues, Touch and the layers; <kbd>s</kbd> flips it on any view</span></div>`
     + `<div class="mix-row"><input type="checkbox" id="cfg-amb"${ambOn ? ' checked' : ''}><label for="cfg-amb">Ambient bed</label><span class="mix-about">the quiet bed under everything, on every view</span></div>`
     + `<div class="mix-row cfg-vol"><span></span><label for="cfg-vol">Volume</label><input type="range" id="cfg-vol" min="100" max="${VOL_MAX * 100}" step="5" value="${Math.round(vol * 100)}" aria-label="Volume"><b id="cfg-vol-n">${Math.round(vol * 100)}%</b>`
@@ -4486,6 +4520,27 @@ function meterFrame() {
   meterRaf = RM || $('pane-sound').hidden ? setTimeout(() => { meterRaf = 0; startMeter(); }, RM ? 200 : 400) : requestAnimationFrame(meterFrame);   // slower when reduced motion asks, and while another Settings tab is showing
 }
 function startMeter() { if (!meterRaf) meterRaf = requestAnimationFrame(meterFrame); }
+function renderQuiet() {   // the two rows in Settings, and the header chip, from the saved schedule
+  const now = quietActive();
+  if ($('cfg-quiet')) $('cfg-quiet').innerHTML = `<div class="mix-row qh"><input type="checkbox" id="cfg-quiet-on"${quiet.on ? ' checked' : ''}><label for="cfg-quiet-on">Quiet hours</label>`
+      + `<span class="qt"><input type="time" id="cfg-quiet-from" value="${quiet.from}" aria-label="Quiet from"> to <input type="time" id="cfg-quiet-to" value="${quiet.to}" aria-label="Quiet until"></span>`
+      + `<span class="mix-about">for sleep: silent inside the window, the bed fades out. A card asking you still sounds, softly, at most every 15 minutes.</span></div>`
+    + `<div class="mix-row qh"><span></span><label>Quiet until morning</label><span class="qt"><button class="btn" type="button" id="cfg-quiet-now">${now ? 'End quiet' : 'Start now'}</button></span>`
+      + `<span class="mix-about">${now ? 'Quiet until ' + quietEnds() + '. End quiet brings the sound back until the next window.' : 'Starts a quiet window now that ends at ' + quiet.to + ' (the end time above).'}</span></div>`;
+  const c = $('quiet-chip');
+  if (c) { c.hidden = !now; if (now) { c.textContent = 'Quiet until ' + quietEnds(); c.title = 'Quiet hours: the board is silent except a soft chime for a card that asks you something. Click to end it until the next window.'; } }
+}
+function quietTick() {   // every 20 s and after any change: the bed leaves when the window starts and returns when it ends, and the chip follows
+  const q = quietActive();
+  if (q !== wasQuiet) { wasQuiet = q; if (q) stopAmb(); else startAmb(); }
+  renderQuiet();
+}
+function endQuiet() {   // the chip: a hand-started window ends now; a scheduled one is skipped until its end
+  if (quiet.until && Date.now() < quiet.until) quiet.until = 0; else quiet.skip = nextAt(quiet.to);
+  saveQuiet(); quietTick(); toast('Quiet hours ended: the sound is back until the next window');
+}
+setInterval(quietTick, 20000);
+quietTick();
 const mixIsOpen = () => $('mix').classList.contains('on');
 function toggleMix(on, tabId) {
   const open = on ?? !mixIsOpen();
@@ -4689,6 +4744,10 @@ $('mix').addEventListener('click', e => {
   if (e.target.id === 'mix' || e.target.closest('#mix-close')) { toggleMix(false); return; }
   const ts = e.target.closest('[data-theme-set]'); if (ts) { setTheme(ts.dataset.themeSet); return; }
   const h = e.target.closest('[data-hear]'); if (h) hearLayer(LAYERS.find(L => L.id === h.dataset.hear));
+  if (e.target.closest('#cfg-quiet-now')) {   // start a window now that ends at the schedule's end time, or end the one that is on
+    if (quietActive()) { if (quiet.until && Date.now() < quiet.until) quiet.until = 0; else quiet.skip = nextAt(quiet.to); } else quiet.until = nextAt(quiet.to);
+    saveQuiet(); quietTick();   // the bed leaves with the tick
+  }
   const lv = e.target.closest('[data-level]');   // Off / Subtle / Full: one click each way
   if (lv) {
     const id = lv.dataset.level, val = +lv.dataset.val; mix[id] = { on: val > 0, lvl: val > 0 ? val : (mix[id]?.lvl ?? 1) };
@@ -4697,12 +4756,19 @@ $('mix').addEventListener('click', e => {
   }
 });
 $('mix').addEventListener('change', e => { if (e.target.id === 'cfg-vol') cue.added(); });
-$('mix').addEventListener('change', e => { if (e.target.id === 'cfg-cues') cue.review(); });   // let go of the slider: hear the main sounds at the new level once   // let go of the slider: hear the new level once
+$('mix').addEventListener('change', e => { if (e.target.id === 'cfg-cues') cue.review(); });
+$('quiet-chip').addEventListener('click', endQuiet);   // let go of the slider: hear the main sounds at the new level once   // let go of the slider: hear the new level once
 $('mix').addEventListener('input', e => {
   if (e.target.id === 'cfg-snd') { toggleSound(); return; }
   if (e.target.id === 'cfg-amb') { touch('toggle', e.target.checked); setAmb(e.target.checked); return; }
   if (e.target.id === 'cfg-vol') { setVol(e.target.value / 100); return; }
   if (e.target.id === 'cfg-cues') { setCues(e.target.value / 100); return; }
+  if (e.target.id === 'cfg-quiet-on') { touch('toggle', e.target.checked); quiet.on = e.target.checked; quiet.skip = 0; saveQuiet(); quietTick(); return; }
+  if (e.target.id === 'cfg-quiet-from' || e.target.id === 'cfg-quiet-to') {   // a time input is empty while it is half typed: only a whole HH:MM counts
+    const k = e.target.id === 'cfg-quiet-from' ? 'from' : 'to';
+    if (HHMM.test(e.target.value)) { quiet[k] = e.target.value; quiet.skip = 0; saveQuiet(); quietTick(); }
+    return;
+  }
   const id = e.target.dataset.mix || e.target.dataset.lvl; if (!id) return;
   mix[id] = mix[id] || {};
   if (e.target.dataset.mix) mix[id].on = e.target.checked; else mix[id].lvl = e.target.value / 100;
@@ -5423,7 +5489,7 @@ function notify(id, kind, t) {
   const title = kind === 'ask' ? `${who} needs your input` : kind === 'rev' ? `${who} is ready for review` : `${who} went quiet`;
   const body = kind === 'ask' ? (t.question || t.status_text || t.title) : kind === 'rev' ? (t.result || t.status_text || t.title) : `${t.title} · no update for ${ago(t.updated).text.replace(' ago', '')}`;
   try {
-    const n = new Notification(title, { body: String(body).slice(0, 200), tag: 'agentboard-' + id, renotify: true, silent: !sndOn });
+    const n = new Notification(title, { body: String(body).slice(0, 200), tag: 'agentboard-' + id, renotify: true, silent: !sndOn || quietActive() });
     n.onclick = () => { try { window.focus(); } catch (e) {} if (SOLO) window.open(BASE + '/#' + encodeURIComponent(id), 'agentboard-board'); else openPanel(id); n.close(); };
     notifiedAt.set(id, Date.now());
   } catch (e) { /* a browser that refuses is just quiet */ }
