@@ -60,7 +60,7 @@ class EverythingTheBoardMakesIsPrivate(unittest.TestCase):
     def a_whole_day(self):
         self.s.run("init", "add 'A card' -d 'private words' --status todo --id a-card", "claim a-card --name AGENT-1",
                    "add 'step' --parent a-card", "update step 50 working", "ask a-card 'a question?'",
-                   "review a-card 'a result' --body 'a body with private words'", "chat send 'hello' --name AGENT-1", "backup")
+                   "review a-card 'a result' --next nothing --body 'a body with private words'", "chat send 'hello' --name AGENT-1", "backup")
 
     def test_every_file_is_0600_and_every_folder_0700_under_a_normal_umask(self):
         self.a_whole_day()

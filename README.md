@@ -110,7 +110,7 @@ Then give your agents the protocol. Paste the output of this into your project's
     ID=$(agentboard start "Refactor billing" --name atlas)   # prints the task id, e.g. refactor-billing
     agentboard update "$ID" 50 "Extracted BillingService"                 # prints: refactor-billing: 50%
     agentboard ask "$ID" "Deploy to staging or prod?"                     # blocked on the user
-    agentboard review "$ID" "All call sites migrated"                     # work complete -> handed to the user
+    agentboard review "$ID" "All call sites migrated" --next "nothing"    # work complete -> handed to the user; --next says what they do
 
 Or, for a task that already exists on the board: `agentboard claim <id> --name atlas`.
 
@@ -325,7 +325,7 @@ Split a big card into subtasks (one level deep). A subtask is a normal task with
     agentboard start "Title" --name atlas --parent <parent_id>   # an agent adding one mid-flight
     agentboard claim <parent_id> --name atlas                    # takes the parent AND all its open subtasks
     agentboard update <sub_id> 60 "wiring it up"                 # each subtask has its own %, status line and log
-    agentboard review <parent_id> "result"                       # the deliverable is ready; open subtasks close with it
+    agentboard review <parent_id> "result" --next "nothing"      # the deliverable is ready; open subtasks close with it
 
 - Subtasks follow their parent: an open subtask can only be claimed or updated while the parent is in Doing, so
   claim the parent first. Finished subtasks stay done if the parent later moves back.
