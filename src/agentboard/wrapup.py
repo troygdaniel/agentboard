@@ -11,6 +11,7 @@ import json
 from datetime import datetime
 
 from . import hud, listeners, prompt, rollup
+from .backup import write_atomic
 
 ASK_MARK = "End of day:"   # every nudge starts with this, so a second `--ask` does not repeat one the agent has not read
 
@@ -168,8 +169,8 @@ def apply(store, p):
     d = store.dir / "wrapups"
     d.mkdir(exist_ok=True)
     path = d / f"{p['date']}.md"
-    path.write_text(text + "\n")
-    (d / f"{p['date']}.json").write_text(json.dumps(data(p, applied=order), indent=1, default=str) + "\n")   # what the board's Start of day sheet reads
+    write_atomic(path, text + "\n", keep_previous=False)   # a kill mid-write leaves the old page or the new one, never half of either
+    write_atomic(d / f"{p['date']}.json", json.dumps(data(p, applied=order), indent=1, default=str) + "\n", keep_previous=False)   # what the board's Start of day sheet reads
     return order, path
 
 
