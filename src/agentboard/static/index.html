@@ -1716,7 +1716,14 @@ body.deckview .board{display:block !important;overflow:visible !important;paddin
 .deck-more:focus-visible{outline:2px solid var(--need);outline-offset:2px}
 .deck-more h3{margin:0 0 8px;font-size:10px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
 .deck-more p{margin:0;font-size:14px;line-height:1.6}
-.deck-more .rich-body{margin-top:0}
+.deck-more .rich-body{margin-top:0;font-size:14px;line-height:1.6;overflow-wrap:anywhere}
+.deck-more .rich-body :is(h1,h2,h3,h4,h5,h6){margin:14px 0 6px;font-size:14px;font-weight:700;letter-spacing:0;text-transform:none;color:var(--text)}
+.deck-more .rich-body > :first-child{margin-top:0} .deck-more .rich-body > :last-child{margin-bottom:0}
+.deck-more .rich-body :is(ul,ol){margin:6px 0;padding-left:20px} .deck-more .rich-body li{margin:3px 0} .deck-more .rich-body p{margin:0 0 8px}
+.deck-more .rich-body pre{overflow:auto;max-width:100%;font-size:12px}
+.deck-task .rich-body{max-height:230px;overflow:hidden} .deck-task.long:not(.all) .rich-body{-webkit-mask-image:linear-gradient(#000 70%,transparent);mask-image:linear-gradient(#000 70%,transparent)}
+.deck-task.all .rich-body{max-height:none}
+.deck-task-more{margin-top:8px;padding:0;border:0;background:none;font:inherit;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer} .deck-task-more:hover{color:var(--text)}
 .deck-wait{color:var(--muted)}
 .deck-chips{display:flex;gap:8px;flex-wrap:wrap}
 .deck-log{list-style:none;margin:0;padding:0;display:grid;gap:6px;font-size:13px}
@@ -2630,14 +2637,14 @@ function deckMoreHtml(d) {   // what you need to decide, beside the card: what i
   return (held.length ? `<section><h3>${ask ? 'Holds' : 'Signing off frees'} ${held.length} in Todo</h3><div class="deck-held">${held.map(h => `<button type="button" data-open="${esc(h.id)}">${esc(h.title)}</button>`).join('')}</div></section>` : '')
     + (chips ? `<section><h3>Checked</h3><div class="deck-chips">${chips}</div></section>` : '')
     + (d.body_html ? `<section><h3>From ${esc(d.agent || 'the agent')}</h3><div class="rich-body">${d.body_html}</div></section>` : '')
-    + (d.description ? `<section><h3>The task</h3><p>${esc(d.description)}</p></section>` : '')
+    + (d.description ? `<section class="deck-task"><h3>The task</h3>${d.description_html ? `<div class="rich-body">${d.description_html}</div>` : `<div class="rich-body fmt">${fmt(d.description)}</div>`}<button type="button" class="deck-task-more" data-deck-task hidden>Show all</button></section>` : '')
     + (log ? `<section><h3>Lately</h3><ol class="deck-log">${log}</ol></section>` : '')
     || '<p class="deck-wait">Nothing more on this card.</p>';
 }
 async function deckFill() {
   const el = $('deck-more'); if (!el || !deckOpen) return; const id = el.dataset.for, t = byId.get(id), kept = deckMore.get(id);
-  if (kept && t && kept[0] === t.updated) { if (!el.firstChild) el.innerHTML = kept[1]; return; }
-  try { const d = await (await fetch(BASE + '/api/task?id=' + encodeURIComponent(id), { cache: 'no-store' })).json(); const html = deckMoreHtml(d); deckMore.set(id, [d.updated, html]); const now = $('deck-more'); if (now && now.dataset.for === id && deckOpen) now.innerHTML = html; }
+  if (kept && t && kept[0] === t.updated) { if (!el.firstChild) el.innerHTML = kept[1]; deckTaskFit(); setTimeout(deckTaskFit, 700); return; }   // again once the panel has opened to its width
+  try { const d = await (await fetch(BASE + '/api/task?id=' + encodeURIComponent(id), { cache: 'no-store' })).json(); const html = deckMoreHtml(d); deckMore.set(id, [d.updated, html]); const now = $('deck-more'); if (now && now.dataset.for === id && deckOpen) { now.innerHTML = html; deckTaskFit(); setTimeout(deckTaskFit, 700); } }
   catch (e) { el.innerHTML = '<p class="deck-wait">The details could not be loaded.</p>'; }
 }
 let deckFlipAt = 0; const deckCleared = [];   // what left the pile because of you this session, newest last: { id, title, agent, word, undo }
@@ -2673,6 +2680,11 @@ function deckClearedHtml() {
     return `<button type="button" class="deck-tick${can ? ' can' : ''}" ${can ? `data-deck-undo="${i}"` : 'disabled'} title="${esc(c.word)}: ${esc(c.title)}${can ? ' · click to undo' : c.word === 'Sent' ? ' · an answer cannot be unsent' : ''}" aria-label="${esc(c.word)}: ${esc(c.title)}${can ? '. Undo' : ''}">${can ? '<span>Undo</span>' : ''}<i>✓</i></button>`; }).join('')
     + (deckCleared.length ? `<span class="deck-tally">${deckCleared.length} cleared</span>` : '');
 }
+function deckTaskFit() {   // a long task is cut with a fade and a "Show all"; a short one shows whole, with no button
+  document.querySelectorAll('.deck-task').forEach(s => { const b = s.querySelector('.rich-body'), more = s.querySelector('[data-deck-task]'); if (!b || !more) return;
+    const long = s.classList.contains('all') || b.scrollHeight > b.clientHeight + 4; s.classList.toggle('long', long); more.hidden = !long; });
+}
+document.addEventListener('click', e => { const b = e.target.closest?.('[data-deck-task]'); if (!b) return; const s = b.closest('.deck-task'), all = s.classList.toggle('all'); b.textContent = all ? 'Show less' : 'Show all'; });
 function deckClearedDraw() { document.querySelectorAll('.deck-cleared').forEach(el => { el.innerHTML = deckClearedHtml(); }); }
 document.addEventListener('click', async e => {
   const b = e.target.closest?.('[data-deck-undo]'); if (!b) return; const c = deckCleared[+b.dataset.deckUndo]; if (!c || !c.undo) return;

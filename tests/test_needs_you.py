@@ -145,6 +145,32 @@ class StuckAndClearedTests(unittest.TestCase):
             self.assertIn(part, h)
 
 
+class TaskTextTests(_Http):
+    """The details panel's "The task" was the description as one escaped paragraph: a blurb. It is rendered like an agent's report."""
+    def test_the_server_renders_the_description_safely_and_the_panel_uses_it(self):
+        import json
+        self.s.add("Pilot hosting", status="todo", task_id="host",
+                   description="Find hosting.\n\n## What we need\n- one web process\n- a database\n\n1. under 20 dollars\n\n<script>alert(1)</script> <img src=x onerror=alert(1)>")
+        d = json.loads(self.get("/api/task?id=host")[1])
+        html = d["description_html"]
+        self.assertIn("What we need</h", html)                  # a heading, not "## What we need"
+        self.assertEqual(html.count("<li>"), 3)
+        self.assertNotIn("<script", html)                       # never raw HTML
+        self.assertNotIn("<img", html)
+        self.assertIn("&lt;script&gt;", html)
+        self.s.add("No text", status="todo", task_id="bare")
+        self.assertNotIn("description_html", json.loads(self.get("/api/task?id=bare")[1]))
+
+    def test_the_panel_draws_it_as_rich_text_and_cuts_a_long_one(self):
+        m = body("deckMoreHtml")
+        self.assertIn('<section class="deck-task"><h3>The task</h3>${d.description_html ? `<div class="rich-body">${d.description_html}</div>`', m)
+        self.assertIn('`<div class="rich-body fmt">${fmt(d.description)}</div>`', m)   # an older server: the board's own formatter, still escaped
+        self.assertNotIn("<p>${esc(d.description)}</p>", PAGE)
+        self.assertIn(".deck-task .rich-body{max-height:230px;overflow:hidden}", PAGE)
+        self.assertIn("more.hidden = !long;", body("deckTaskFit"))                     # a short task has no button
+        self.assertIn(".deck-more .rich-body :is(h1,h2,h3,h4,h5,h6){", PAGE)           # a heading in the text is not styled as the panel's own label
+
+
 class SoundTests(unittest.TestCase):
     """The pile sounds through the board's Touch layer: nothing plays with sound off or that layer off, and every cue obeys its limits."""
     def test_each_move_has_its_cue_in_the_touch_vocabulary(self):
