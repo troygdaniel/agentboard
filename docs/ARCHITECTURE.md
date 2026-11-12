@@ -72,6 +72,7 @@ is the developer's.
 | `statefile.py` | One way to write the small JSON state files beside tasks.json: atomic replace, flock'd read-modify-write, a sweep of stale temp files. |
 | `settingsview.py` | What Settings > Security and Backup and data show: `GET /api/settings`, booleans, counts and minutes only (no path, pattern, name or secret), read-only, behind the Host check. |
 | `tomlread.py` | `loads()`/`load()` for config.toml and pyproject: tomllib when Python has it, a hand parser on 3.9 and 3.10. |
+| `wrapup.py` | The end-of-day wrap-up: sorts every Doing card into finish / needs / carry / running, nudges agents for a checkpoint or a review (`--ask`), releases the carry cards best first and saves `.agentboard/wrapups/<date>.md` and `.json` (`--apply`; the board's Start of day sheet reads the JSON through `GET /api/wrapup`). `agentboard wrapup`; plans are read-only. |
 | `rollup.py` | The roll-up: the whole board in one page for ORCH or the owner (who waits on a person, what each agent holds, what is stuck, the Todo queue with what earlier agents learned, what finished and what it learned, the moves that follow). `agentboard rollup`; read-only. |
 | `watchdog.py` | The agent protocol's watchdog: the ways a board is stuck between agents, each with its one fix (`agentboard watchdog`, the Load strip, a doctor line). |
 | `listeners.py` | Who is listening: `chat-listeners.json`, one entry per `chat inbox --wait` process, written under a file lock. |

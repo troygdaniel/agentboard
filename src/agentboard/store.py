@@ -401,6 +401,7 @@ class Store:
             t.pop("review", None)
             t.pop("reply", None)
             t.pop("body_md", None)
+            t.pop("checkpoint_at", None)
             t.pop("archived", None)   # claiming a cleared task (--force) puts it back on the board
             t["status_text"] = f"Claimed by {name}"
             _log(t, f"Claimed by {name}")
@@ -652,6 +653,31 @@ class Store:
             t = self.get(tasks, task_id)
             _must_hold(tasks, t, by, self.owner)
             return self._update(tasks, t, progress, text, status, body_md)
+
+    def checkpoint(self, task_id, text, body_md=None, by=None):
+        """The hand-off note on a card its agent still holds: where it stands (done so far, the next step, what it learned), written so the
+        card can go back to Todo tonight and be picked up tomorrow. Progress and the column do not change; the note becomes the card's
+        status line and, when given, its account (body_md), which a release keeps as what the agent learned. It is a sign of life (the
+        card's clock restarts) and the board remembers when it was written, so the end-of-day wrap-up can tell a card that has one from a
+        card that does not. A card waiting on the owner (an ask or a review) has nothing to hand off."""
+        text, body_md = split_report(text, body_md) if text is not None else (text, body_md)
+        text, body_md = _cap(self._scrub(text, STATUS_MAX), STATUS_MAX), _cap(self._scrub(body_md, BODY_MAX), BODY_MAX)
+        if not (text or "").strip():
+            raise BoardError("say where it stands: what is done, what is next, what you learned")
+        with self.transaction() as tasks:
+            t = self.get(tasks, task_id)
+            _not_a_subtask(t, "checkpoint")
+            _must_hold(tasks, t, by, self.owner)
+            _require_doing(t, "checkpoint")
+            if t.get("needs_input") or t.get("review"):
+                raise BoardError(f"{task_id} is waiting on {self.owner} ({'a question' if t.get('needs_input') else 'a review'}): there is nothing to hand off until they answer")
+            t["status_text"] = text.strip()
+            if body_md:
+                t["body_md"] = body_md
+            _drop_read_reply(t)
+            _log(t, f"Checkpoint: {t['status_text']}", by=by)
+            t["updated"] = t["checkpoint_at"] = _now()
+            return t
 
     def _update(self, tasks, t, progress, text, status, body_md=None):
         text, body_md = _cap(self._scrub(text, STATUS_MAX), STATUS_MAX), _cap(self._scrub(body_md, BODY_MAX), BODY_MAX)
@@ -1445,6 +1471,8 @@ def _apply_status(t, status):
     if status not in STATUSES:
         raise BoardError(f"status must be one of {STATUSES}")
     t["status"] = status
+    if status != "doing":
+        t.pop("checkpoint_at", None)   # a hand-off note belongs to the claim it was written in
     if status != "done":
         t.pop("result", None)
         t.pop("archived", None)   # reopened work must not stay hidden

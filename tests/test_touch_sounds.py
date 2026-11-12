@@ -139,7 +139,7 @@ class TouchSoundTests(unittest.TestCase):
         # the filter: nothing per keystroke, a tick when the match count changes
         self.assertIn("$('filter').oninput = () => { const was = shownCards(); render(); if (shownCards() !== was) touch('match'); };", PAGE)
         # copy: a confirm blip once the clipboard has it; with warnings the message's tone speaks instead
-        self.assertEqual(PAGE.count("touch.after('copy')"), 3)   # the one prompt-copy path (card button, panel button, c key), ORCH, the little copy buttons
+        self.assertEqual(PAGE.count("touch.after('copy')"), 4)   # the one prompt-copy path (card button, panel button, c key), ORCH, the little copy buttons, and the End of day line sent to ORCH
         self.assertIn("if (d.warnings.length) showError(d.warnings.join(' · ')); else touch.after('copy');", PAGE)
         # select: a semitone up per card, in the card's voice; down when one leaves or the selection clears
         self.assertIn("select: (t, n, agent, added) => { const f = agentPitch(agent) / 2 * Math.pow(2, Math.min(n, 12) / 12);", TOUCH)

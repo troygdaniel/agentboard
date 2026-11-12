@@ -423,6 +423,15 @@ When {owner} asks you to get organised (or an agent goes quiet, or an agent fini
 3. Hand Todo cards to idle agents: message the agent to `claim` it. Never claim for them, and only assign on {owner}'s word while they are awake.
 4. `{ab} rollup` again to check the board matches what you told {owner}. A finished card's "learned" lines are worth passing on to the next agent that gets related work.
 
+## End of day
+
+When {owner} says the day is ending (or presses End of day in the board, which sends you that line):
+
+1. `{ab} wrapup`: where every Doing card stands tonight. Tell {owner} the one sentence at the top of it, nothing more.
+2. `{ab} wrapup --ask`: each agent that owes a hand-off gets a note on its card (a checkpoint, or a review for a card at 100%). Give them a few minutes, then run `wrapup` again.
+3. Release nothing until {owner} says go. Then `{ab} wrapup --apply` sends the Back in Todo cards there, the one nearest done first, and saves the page. A card waiting on {owner}, and an agent still running overnight, stay where they are (`--all` releases the running ones too).
+4. Tell {owner} in one sentence what is waiting on them and what tomorrow starts with. `{ab} wrapup --last` prints the saved page; read it first thing next morning.
+
 ## CLI cheat-sheet
 
     {ab} add "<title>" -d "<description>" --status todo     # new card (--parent <id> splits a card)
@@ -431,6 +440,7 @@ When {owner} asks you to get organised (or an agent goes quiet, or an agent fini
     {ab} done <id>                                          # only when {owner} says so
     {ab} list                                               # all open cards (--status doing, --stale)
     {ab} rollup                                             # the whole board in one page: who waits on {owner}, what each agent holds, what is stuck, Todo, what finished and what it learned
+    {ab} wrapup [--ask | --apply | --all | --last]          # end of day: where each card stands; --ask nudges agents for a checkpoint, --apply releases (on {owner}'s word)
     {ab} release <id> | --agent NAME                        # Doing card(s) back to the top of Todo; progress, history and what the agent learned stay on the card
     {ab} watchdog                                           # a card looks stuck? every way the board is stuck between agents, each with its fix (--fix N)
 
