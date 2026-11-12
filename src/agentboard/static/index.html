@@ -1002,6 +1002,14 @@
   .mix-row > input[type=checkbox] { width: 16px; height: 16px; margin: 0; }
   .mix-row.cfg-vol { grid-template-columns: 18px 1fr 160px auto; }   /* the volume slider gets room; its number sits where Hear it would */
   .mix-row.cfg-vol b { font-variant-numeric: tabular-nums; min-width: 4ch; text-align: right; font-weight: 500; }
+  .mix-row.sc > label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }   /* for Settings search and screen readers; the cards say it */
+  .mix-row.sc .scene-grid { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 2px 0 2px; }
+  @media (max-width: 520px) { .mix-row.sc .scene-grid { grid-template-columns: minmax(0, 1fr); } }
+  .scene { text-align: left; display: grid; gap: 2px; padding: 9px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); color: var(--text); font: inherit; cursor: pointer; }
+  .scene b { font-size: var(--fs-md); font-weight: 600; }
+  .scene span { font-size: var(--fs-sm); color: var(--muted); line-height: 1.35; }
+  .scene:hover { border-color: var(--neutral); }
+  .scene[aria-pressed="true"] { border-color: var(--accent); background: var(--chip); box-shadow: inset 0 0 0 1px var(--accent); }
   .mix-row.qh .qt { grid-column: 3 / -1; justify-self: end; display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: var(--fs-sm); }
   .mix-row.qh .qt input[type=time] { font: inherit; font-size: var(--fs-md); color: var(--text); background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 3px 6px; min-height: 28px; }
   .mix-row.qh .qt .btn { min-height: 28px; padding: 2px 12px; }
@@ -1832,6 +1840,7 @@ body.deckview .board{display:block !important;overflow:visible !important;paddin
       </div>
       <div class="pane" id="pane-sound" role="tabpanel" aria-labelledby="stab-sound" data-tab="sound" hidden>
   <p class="mix-note">Sound and look, for every view. The usual sound is the default: the volume can go above it through a limiter, and the layers are extras, each off until you switch it on; Touch, the sounds of using the board, starts on. Hear one first; the level is yours too.</p>
+  <h3>Scenes</h3><div id="cfg-scenes"></div>
   <h3>Quiet hours</h3><div id="cfg-quiet"></div>
   <h3>Sound</h3><div id="cfg-sound"></div>
   <h3>Touch (what your hands do, on every view)</h3><div id="mix-touch"></div>
@@ -4482,7 +4491,7 @@ function renderMix() {
   const row = L => L.levels ? `<div class="mix-row plain lv"><span></span><label>${L.name}</label><span class="seg" role="group" aria-label="${L.name}">${L.levels.map((n, i) => `<button class="btn" type="button" data-level="${L.id}" data-val="${i / (L.levels.length - 1)}" aria-pressed="${levelAt(L) === i}">${n}</button>`).join('')}</span><span class="mix-about">${L.about}</span></div>` : `<div class="mix-row${L.plain ? ' plain' : ''}"><input type="checkbox" id="lyr-${L.id}" data-mix="${L.id}"${layerOn(L.id) ? ' checked' : ''}><label for="lyr-${L.id}">${L.name}</label>`
     + (L.plain ? '<span></span><span></span>' : `<input type="range" min="0" max="100" value="${Math.round(layerLvl(L.id) * 100)}" data-lvl="${L.id}" aria-label="${L.name} level">`   // a look switch has no level and nothing to hear
     + `<button class="btn" data-hear="${L.id}">Hear it</button>`) + `<span class="mix-about">${L.about}</span></div>`;
-  renderQuiet();
+  refreshScenes(); renderQuiet();
   $('cfg-sound').innerHTML = `<div class="mix-row"><input type="checkbox" id="cfg-snd"${sndOn ? ' checked' : ''}><label for="cfg-snd">Sound</label><span class="mix-about">the cues, Touch and the layers; <kbd>s</kbd> flips it on any view</span></div>`
     + `<div class="mix-row"><input type="checkbox" id="cfg-amb"${ambOn ? ' checked' : ''}><label for="cfg-amb">Ambient bed</label><span class="mix-about">the quiet bed under everything, on every view</span></div>`
     + `<div class="mix-row cfg-vol"><span></span><label for="cfg-vol">Volume</label><input type="range" id="cfg-vol" min="100" max="${VOL_MAX * 100}" step="5" value="${Math.round(vol * 100)}" aria-label="Volume"><b id="cfg-vol-n">${Math.round(vol * 100)}%</b>`
@@ -4520,6 +4529,35 @@ function meterFrame() {
   meterRaf = RM || $('pane-sound').hidden ? setTimeout(() => { meterRaf = 0; startMeter(); }, RM ? 200 : 400) : requestAnimationFrame(meterFrame);   // slower when reduced motion asks, and while another Settings tab is showing
 }
 function startMeter() { if (!meterRaf) meterRaf = requestAnimationFrame(meterFrame); }
+// Scenes (Nov 12): a whole mix in one click. A scene sets which sound layers are on and how loud each is, the ambient bed and the Cues level; it never
+// touches Volume, Quiet hours or the looks. Classic is today's sound and is what a fresh browser already is. Any layer not named is off. Change anything
+// by hand afterwards and the picker reads Your own mix.
+const SCENES = [
+  { id: 'classic', name: 'Classic', about: "today's sound: the cues, Touch and the ambient bed, nothing extra", amb: true, cues: 1, layers: { touch: 1 } },
+  { id: 'focus', name: 'Focus', about: 'no bed; light Touch and a soft chime for what finishes', amb: false, cues: .7, layers: { touch: .6, chimes: .7 } },
+  { id: 'control', name: 'Control room', about: "the whole instrument: the bed, a heartbeat, each agent's call, echo, chimes, a stereo stage and the bed ducking under a cue", amb: true, cues: 1, layers: { touch: 1, pulse: .8, sig: 1, echo: .6, chimes: 1, stage: 1, duck: .6 } },
+  { id: 'night', name: 'Night', about: 'low and warm: rain and a slow tide under quiet cues, no Touch, the bed dipping under what matters', amb: true, cues: .5, layers: { rain: .5, tide: .6, duck: .8, human: .6 } },
+];
+const soundLayers = () => LAYERS.filter(L => !L.look);   // the looks (Calm, Lively, From the future, Motion) are not sound and no scene moves them
+function sceneNow() {   // the scene the current mix equals, or null: the Bed, the Cues level and every sound layer's switch and level
+  return (SCENES.find(sc => ambOn === sc.amb && Math.abs(cueLvl - sc.cues) < .02 && soundLayers().every(L => {
+    const want = sc.layers[L.id];
+    return want == null ? !layerOn(L.id) : layerOn(L.id) && Math.abs(layerLvl(L.id) - want) < .03;
+  })) || {}).id || null;
+}
+function applyScene(sc) {
+  soundLayers().forEach(L => { const want = sc.layers[L.id]; mix[L.id] = { on: want != null, lvl: want != null ? want : layerLvl(L.id) }; });
+  saveMix(); soundLayers().forEach(applyLayer);   // layers start and stop live, the bed's with them
+  setCues(sc.cues); setAmb(sc.amb);
+  renderMix(); $('cfg-scenes').querySelector('[aria-pressed="true"]')?.focus({ preventScroll: true });
+}
+function scenesHtml() {
+  const cur = sceneNow();
+  return `<div class="mix-row plain sc"><span></span><label>Scene: ${SCENES.map(x => x.name).join(', ')}</label><div class="scene-grid" role="group" aria-label="Scene">`
+    + SCENES.map(sc => `<button type="button" class="scene" data-scene="${sc.id}" aria-pressed="${cur === sc.id}"><b>${sc.name}</b><span>${sc.about}</span></button>`).join('')
+    + `</div><span class="mix-about">${cur ? '' : 'Your own mix: you changed something since a scene. '}One click sets the layers, the bed and the Cues level together. Volume, Quiet hours and the looks stay as they are.</span></div>`;
+}
+const refreshScenes = () => { if ($('cfg-scenes')) $('cfg-scenes').innerHTML = scenesHtml(); };
 function renderQuiet() {   // the two rows in Settings, and the header chip, from the saved schedule
   const now = quietActive();
   if ($('cfg-quiet')) $('cfg-quiet').innerHTML = `<div class="mix-row qh"><input type="checkbox" id="cfg-quiet-on"${quiet.on ? ' checked' : ''}><label for="cfg-quiet-on">Quiet hours</label>`
@@ -4744,6 +4782,8 @@ $('mix').addEventListener('click', e => {
   if (e.target.id === 'mix' || e.target.closest('#mix-close')) { toggleMix(false); return; }
   const ts = e.target.closest('[data-theme-set]'); if (ts) { setTheme(ts.dataset.themeSet); return; }
   const h = e.target.closest('[data-hear]'); if (h) hearLayer(LAYERS.find(L => L.id === h.dataset.hear));
+  const sc = e.target.closest('[data-scene]');
+  if (sc) { applyScene(SCENES.find(x => x.id === sc.dataset.scene)); touch('toggle', true); cue.added(); }   // the click, then the main sound at the scene's level
   if (e.target.closest('#cfg-quiet-now')) {   // start a window now that ends at the schedule's end time, or end the one that is on
     if (quietActive()) { if (quiet.until && Date.now() < quiet.until) quiet.until = 0; else quiet.skip = nextAt(quiet.to); } else quiet.until = nextAt(quiet.to);
     saveQuiet(); quietTick();   // the bed leaves with the tick
@@ -4757,7 +4797,8 @@ $('mix').addEventListener('click', e => {
 });
 $('mix').addEventListener('change', e => { if (e.target.id === 'cfg-vol') cue.added(); });
 $('mix').addEventListener('change', e => { if (e.target.id === 'cfg-cues') cue.review(); });
-$('quiet-chip').addEventListener('click', endQuiet);   // let go of the slider: hear the main sounds at the new level once   // let go of the slider: hear the new level once
+$('quiet-chip').addEventListener('click', endQuiet);
+$('mix').addEventListener('input', () => setTimeout(refreshScenes, 0));   // once the handler that takes the change has run: the picker says Your own mix when it no longer matches   // let go of the slider: hear the main sounds at the new level once   // let go of the slider: hear the new level once
 $('mix').addEventListener('input', e => {
   if (e.target.id === 'cfg-snd') { toggleSound(); return; }
   if (e.target.id === 'cfg-amb') { touch('toggle', e.target.checked); setAmb(e.target.checked); return; }

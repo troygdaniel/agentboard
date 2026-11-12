@@ -1,6 +1,6 @@
 """The sound overhaul (Nov 12): more layers, a better balance and the settings and UI around them. Every new sound or look is off until
 chosen, today's sound (Classic) stays the default, and the cues, the volume limiter and the per-view switch sounds are not touched.
-This file grows with each step: layers (Stage, Humanize, Day bookends), then balance (a Cues level and a live output meter)."""
+This file grows with each step: layers (Stage, Humanize, Day bookends), then balance (a Cues level and a live output meter), Quiet hours and Scenes."""
 import re
 import unittest
 from pathlib import Path
@@ -123,6 +123,36 @@ class QuietHours(unittest.TestCase):
         self.assertIn('<label for="cfg-quiet-on">Quiet hours</label>', r)
         self.assertIn("<label>Quiet until morning</label>", r)                                                       # labels: Settings search indexes them
         self.assertIn('<h3>Quiet hours</h3><div id="cfg-quiet"></div>\n  <h3>Sound</h3><div id="cfg-sound"></div>\n  <h3>Touch', PAGE)
+
+
+class Scenes(unittest.TestCase):
+    def test_four_scenes_and_classic_is_todays_sound(self):
+        self.assertEqual(re.findall(r"\{ id: '(\w+)', name: '([^']+)', about:", PAGE[PAGE.index("const SCENES = ["):PAGE.index("const soundLayers")]),
+                         [("classic", "Classic"), ("focus", "Focus"), ("control", "Control room"), ("night", "Night")])
+        self.assertIn("{ id: 'classic', name: 'Classic', about: \"today's sound: the cues, Touch and the ambient bed, nothing extra\", amb: true, cues: 1, layers: { touch: 1 } }", PAGE)
+        self.assertEqual(re.search(r"const LAYER_ON = \{([^}]*)\}", PAGE).group(1).strip(), "touch: true")       # so a fresh browser already reads as Classic
+
+    def test_a_scene_never_touches_volume_quiet_hours_or_the_looks(self):
+        a = body("applyScene")
+        self.assertIn("soundLayers().forEach(L =>", a)
+        self.assertIn("const soundLayers = () => LAYERS.filter(L => !L.look);", PAGE)                    # Calm, Lively, From the future and Motion are looks
+        for word in ("setVol", "quiet", "vol "):
+            self.assertNotIn(word, a)
+        self.assertIn("setCues(sc.cues); setAmb(sc.amb);", a)
+
+    def test_an_unnamed_layer_is_off_and_the_current_scene_is_found_by_comparing_everything(self):
+        self.assertIn("mix[L.id] = { on: want != null, lvl: want != null ? want : layerLvl(L.id) };", body("applyScene"))   # off, but its own level is kept for later
+        n = body("sceneNow")
+        self.assertIn("ambOn === sc.amb && Math.abs(cueLvl - sc.cues) < .02", n)
+        self.assertIn("want == null ? !layerOn(L.id) : layerOn(L.id) && Math.abs(layerLvl(L.id) - want) < .03", n)
+
+    def test_the_picker_sits_above_quiet_hours_and_sound_and_follows_every_change(self):
+        self.assertIn('<h3>Scenes</h3><div id="cfg-scenes"></div>\n  <h3>Quiet hours</h3><div id="cfg-quiet"></div>\n  <h3>Sound</h3><div id="cfg-sound"></div>\n  <h3>Touch', PAGE)
+        self.assertIn("$('mix').addEventListener('input', () => setTimeout(refreshScenes, 0));", PAGE)       # after the handler that takes the change
+        self.assertIn("aria-pressed=\"${cur === sc.id}\"", body("scenesHtml"))
+        self.assertIn("Your own mix", body("scenesHtml"))
+        self.assertIn("<label>Scene: ${SCENES.map(x => x.name).join(', ')}</label>", body("scenesHtml"))    # Settings search finds a scene by name
+        self.assertIn("applyScene(SCENES.find(x => x.id === sc.dataset.scene)); touch('toggle', true); cue.added();", PAGE)
 
 
 if __name__ == "__main__":
