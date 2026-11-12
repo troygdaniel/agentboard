@@ -999,6 +999,9 @@
   .mix-row > input[type=checkbox] { width: 16px; height: 16px; margin: 0; }
   .mix-row.cfg-vol { grid-template-columns: 18px 1fr 160px auto; }   /* the volume slider gets room; its number sits where Hear it would */
   .mix-row.cfg-vol b { font-variant-numeric: tabular-nums; min-width: 4ch; text-align: right; font-weight: 500; }
+  .meter { --lv: 0%; position: relative; height: 8px; border-radius: 4px; background: var(--chip); box-shadow: inset 0 0 0 1px var(--line); overflow: hidden; align-self: center; }
+  .meter i { position: absolute; inset: 0 auto 0 0; width: var(--lv); border-radius: 4px; background: var(--ok); }
+  .meter.hot i { background: var(--warn); } .meter.lim i { background: var(--err); }
   .mix-row.lv .seg { grid-column: 3 / -1; justify-self: end; display: inline-flex; gap: 2px; padding: 2px; border: 1px solid var(--line); border-radius: 8px; }   /* Off / Subtle / Full */
   .mix-row.lv .seg .btn { min-height: 26px; padding: 2px 10px; border: 0; font-size: var(--fs-sm); color: var(--muted); }
   .mix-row.lv .seg .btn[aria-pressed="true"] { background: var(--chip); color: var(--text); box-shadow: inset 0 0 0 1px var(--line); }
@@ -3938,6 +3941,7 @@ function ac() {
     const ceil = audio.createWaveShaper(), curve = new Float32Array(4097), k = .6, top = .95;
     for (let i = 0; i < curve.length; i++) { const x = (i / 2048) - 1, a = Math.abs(x); curve[i] = Math.sign(x) * (a <= k ? a : k + (top - k) * Math.tanh((a - k) / (top - k))); }
     ceil.curve = curve; ceil.oversample = '2x';
+    meterNode = audio.createAnalyser(); meterNode.fftSize = 512; master.connect(meterNode);   // the Settings meter reads this: what is about to go out, before the limiter
     master.connect(volDirect); volDirect.connect(audio.destination);
     master.connect(volLimited); volLimited.connect(lim); lim.connect(ceil); ceil.connect(audio.destination);
     volDirect.gain.value = vol > 1 ? 0 : 1; volLimited.gain.value = vol > 1 ? 1 : 0;
@@ -4074,7 +4078,16 @@ function setAmb(on, silent) {
 function toggleSound() { if (sndOn) touch('toggle', false); setSnd(!sndOn, true); if (sndOn) cue.added(); }   // off: the down click, then silence; on: the added cue says so
 // the volume: 1 is the default, today's level; up to VOL_MAX through the limiter. Nothing changes until it is raised
 const VOL_MAX = 3;
-let master = null, volDirect = null, volLimited = null;
+let master = null, volDirect = null, volLimited = null, meterNode = null;
+// Cues (Nov 12): a level for the main sounds on their own (a card asking, starting, finishing, the added and quiet cues), so they can be turned
+// down against the bed and the layers without touching either. 100% is today's level and the default; Touch and every layer keep their own.
+let cueLvl = 1;
+try { const c = localStorage.getItem('agentboard-cues'); if (c != null && c !== '') cueLvl = Math.min(1, Math.max(0, +c)); if (isNaN(cueLvl)) cueLvl = 1; } catch (e) {}
+function setCues(v) {
+  cueLvl = Math.min(1, Math.max(0, +v)); if (isNaN(cueLvl)) cueLvl = 1;
+  try { localStorage.setItem('agentboard-cues', String(cueLvl)); } catch (e) {}
+  const n = $('cfg-cues-n'); if (n) n.textContent = Math.round(cueLvl * 100) + '%';
+}
 function setVol(v) {
   vol = Math.min(VOL_MAX, Math.max(1, +v || 1));
   try { localStorage.setItem('agentboard-vol', String(vol)); } catch (e) {}
@@ -4335,7 +4348,7 @@ Object.keys(cue).forEach(k => { const f = cue[k]; cue[k] = agent => { f(agent); 
 // Stage: where each cue sits. Start leans left (work arriving), done leans right (work leaving), an agent's update has the agent's own place.
 const CUE_PAN = { start: -.35, added: -.2, review: .2, done: .45, quiet: .3 };
 const agentPan = a => ((hashOf(a) % 7) - 3) / 3 * .6;
-Object.keys(cue).forEach(k => { const f = cue[k]; cue[k] = agent => { panNow = k === 'update' ? agentPan(agent) : (CUE_PAN[k] || 0); try { f(agent); } finally { panNow = 0; } }; });
+Object.keys(cue).forEach(k => { const f = cue[k]; cue[k] = agent => { panNow = k === 'update' ? agentPan(agent) : (CUE_PAN[k] || 0); cueMul = cueLvl; try { f(agent); } finally { panNow = 0; cueMul = 1; } }; });
 setInterval(() => { if (sndOn) LAYERS.forEach(L => { if (L.tick && layerOn(L.id)) L.tick(layerLvl(L.id)); }); }, 1000);
 
 // --- Touch: the sounds of using the board. A thin layer for what your hands do (focus, open, drag, switch, toggle, select),
@@ -4439,17 +4452,45 @@ function renderMix() {
   $('cfg-sound').innerHTML = `<div class="mix-row"><input type="checkbox" id="cfg-snd"${sndOn ? ' checked' : ''}><label for="cfg-snd">Sound</label><span class="mix-about">the cues, Touch and the layers; <kbd>s</kbd> flips it on any view</span></div>`
     + `<div class="mix-row"><input type="checkbox" id="cfg-amb"${ambOn ? ' checked' : ''}><label for="cfg-amb">Ambient bed</label><span class="mix-about">the quiet bed under everything, on every view</span></div>`
     + `<div class="mix-row cfg-vol"><span></span><label for="cfg-vol">Volume</label><input type="range" id="cfg-vol" min="100" max="${VOL_MAX * 100}" step="5" value="${Math.round(vol * 100)}" aria-label="Volume"><b id="cfg-vol-n">${Math.round(vol * 100)}%</b>`
-    + `<span class="mix-about">100% is the usual level; above it the sound goes through a limiter at -3 dB, so it cannot clip</span></div>`;
+    + `<span class="mix-about">100% is the usual level; above it the sound goes through a limiter at -3 dB, so it cannot clip</span></div>`
+    + `<div class="mix-row cfg-vol"><span></span><label for="cfg-cues">Cues</label><input type="range" id="cfg-cues" min="0" max="100" step="5" value="${Math.round(cueLvl * 100)}" aria-label="Cues level"><b id="cfg-cues-n">${Math.round(cueLvl * 100)}%</b>`
+    + `<span class="mix-about">the main sounds on their own (a card asking, starting, finishing); 100% is the usual level. Touch and each layer have their own</span></div>`
+    + `<div class="mix-row cfg-vol cfg-meter"><span></span><label>Output</label><div class="meter" id="cfg-meter" role="meter" aria-label="Output level" aria-valuemin="-60" aria-valuemax="0" aria-valuenow="-60"><i></i></div><b id="cfg-meter-n">${sndOn ? '–' : 'off'}</b>`
+    + `<span class="mix-about">what you hear, live, before the limiter: green is comfortable, amber is close to full scale, red is where the limiter works</span></div>`;
   $('mix-touch').innerHTML = LAYERS.filter(L => L.ui).map(row).join('');
   $('mix-amb').innerHTML = LAYERS.filter(L => L.kind === 'amb').map(row).join('');
   $('mix-fx').innerHTML = LAYERS.filter(L => L.kind === 'fx' && !L.ui && !L.look).map(row).join('');
   $('mix-look').innerHTML = LAYERS.filter(L => L.look).map(row).join('');
 }
+// The meter: one analyser on the master bus, read once a frame while the Settings sheet is open and its Sound tab is showing, and not at all otherwise.
+// Reduced motion: five readings a second instead of sixty.
+let meterRaf = 0, meterBuf = null, meterHold = -90;
+function meterFrame() {
+  meterRaf = 0;
+  if (!mixIsOpen() || document.hidden) return;
+  const el = $('cfg-meter'), n = $('cfg-meter-n');
+  if (el && !$('pane-sound').hidden) {
+    let db = -90;
+    if (meterNode && audio && audio.state === 'running') {
+      meterBuf = meterBuf || new Float32Array(meterNode.fftSize || 512); meterNode.getFloatTimeDomainData(meterBuf);
+      let pk = 0; for (let i = 0; i < meterBuf.length; i++) { const a = Math.abs(meterBuf[i]); if (a > pk) pk = a; }
+      db = pk > 0 ? 20 * Math.log10(pk) : -90;
+    }
+    meterHold = Math.max(db, meterHold - 1.2);   // the peak falls away slowly, so a short sound still shows
+    const shown = Math.max(-60, meterHold);
+    el.style.setProperty('--lv', ((shown + 60) / 60 * 100).toFixed(1) + '%');
+    el.classList.toggle('hot', shown > -9); el.classList.toggle('lim', shown > -3);
+    el.setAttribute('aria-valuenow', String(Math.round(shown)));
+    n.textContent = !sndOn ? 'off' : shown <= -60 ? '–' : Math.round(shown) + ' dB';
+  }
+  meterRaf = RM || $('pane-sound').hidden ? setTimeout(() => { meterRaf = 0; startMeter(); }, RM ? 200 : 400) : requestAnimationFrame(meterFrame);   // slower when reduced motion asks, and while another Settings tab is showing
+}
+function startMeter() { if (!meterRaf) meterRaf = requestAnimationFrame(meterFrame); }
 const mixIsOpen = () => $('mix').classList.contains('on');
 function toggleMix(on, tabId) {
   const open = on ?? !mixIsOpen();
   if (open !== mixIsOpen()) touch('slide', open);
-  if (open) { renderMix(); renderSettingsPanes(); } else stopDemo();
+  if (open) { renderMix(); renderSettingsPanes(); startMeter(); } else stopDemo();
   $('mix').classList.toggle('on', open);
   if (open) { setSearch(''); wantSettingsTab(tabId || hashTab(), { focus: true }); }
   else { if (/^#settings(\/|$)/.test(location.hash)) history.replaceState(null, '', location.pathname + location.search); $('cfg-btn').focus(); }
@@ -4655,11 +4696,13 @@ $('mix').addEventListener('click', e => {
     lv.parentElement.querySelectorAll('[data-level]').forEach(b => b.setAttribute('aria-pressed', String(b === lv)));
   }
 });
-$('mix').addEventListener('change', e => { if (e.target.id === 'cfg-vol') cue.added(); });   // let go of the slider: hear the new level once
+$('mix').addEventListener('change', e => { if (e.target.id === 'cfg-vol') cue.added(); });
+$('mix').addEventListener('change', e => { if (e.target.id === 'cfg-cues') cue.review(); });   // let go of the slider: hear the main sounds at the new level once   // let go of the slider: hear the new level once
 $('mix').addEventListener('input', e => {
   if (e.target.id === 'cfg-snd') { toggleSound(); return; }
   if (e.target.id === 'cfg-amb') { touch('toggle', e.target.checked); setAmb(e.target.checked); return; }
   if (e.target.id === 'cfg-vol') { setVol(e.target.value / 100); return; }
+  if (e.target.id === 'cfg-cues') { setCues(e.target.value / 100); return; }
   const id = e.target.dataset.mix || e.target.dataset.lvl; if (!id) return;
   mix[id] = mix[id] || {};
   if (e.target.dataset.mix) mix[id].on = e.target.checked; else mix[id].lvl = e.target.value / 100;

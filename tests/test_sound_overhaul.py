@@ -1,6 +1,6 @@
 """The sound overhaul (Nov 12): more layers, a better balance and the settings and UI around them. Every new sound or look is off until
 chosen, today's sound (Classic) stays the default, and the cues, the volume limiter and the per-view switch sounds are not touched.
-This file grows with each step: layers first (Stage, Humanize, Day bookends)."""
+This file grows with each step: layers (Stage, Humanize, Day bookends), then balance (a Cues level and a live output meter)."""
 import re
 import unittest
 from pathlib import Path
@@ -57,6 +57,34 @@ class NewLayers(unittest.TestCase):
         self.assertIn("kind === 'dusk' ? [784, 659, 523, 392] : [392, 523, 659, 784, 1047]", d)
         vols = [float(v) for v in re.findall(r"\(kind === 'dusk' \? (\.\d+) : (\.\d+)\) \* lvl", d)[0]]
         self.assertTrue(max(vols) <= .02, vols)                                                      # under the quietest cue but the update one, by design soft
+
+
+class Balance(unittest.TestCase):
+    def test_cues_have_their_own_level_that_starts_at_todays(self):
+        self.assertIn("let cueLvl = 1;", PAGE)
+        self.assertIn("localStorage.getItem('agentboard-cues')", PAGE)
+        self.assertIn("cueLvl = Math.min(1, Math.max(0, +v));", body("setCues"))                      # 0 to 100%, never above today's level: the volume does that
+        self.assertIn("cueMul = cueLvl; try { f(agent); } finally { panNow = 0; cueMul = 1; } }; });", PAGE)
+        self.assertIn("vol *= cueMul;", body("tone"))
+        self.assertIn("panNow = 0; cueMul = 1;", re.search(r"function fx\(kind, agent\) \{.*", PAGE).group(0))   # a layer's own sound is never scaled by it
+
+    def test_the_default_cue_wrapper_and_the_volume_chain_are_as_they_were(self):
+        self.assertIn("Object.keys(cue).forEach(k => { const f = cue[k]; cue[k] = agent => { f(agent); fx(k, agent); }; });", PAGE)
+        self.assertIn("master.connect(volDirect); volDirect.connect(audio.destination);", PAGE)
+        self.assertIn("master.connect(volLimited); volLimited.connect(lim); lim.connect(ceil); ceil.connect(audio.destination);", PAGE)
+        self.assertIn("meterNode = audio.createAnalyser(); meterNode.fftSize = 512; master.connect(meterNode);", PAGE)   # a tap on the bus, not a link in it
+
+    def test_the_settings_rows_are_searchable_and_the_meter_is_cheap(self):
+        r = body("renderMix")
+        self.assertIn('<label for="cfg-cues">Cues</label>', r)
+        self.assertIn("<label>Output</label>", r)                                                      # a label: Settings search indexes it
+        f = body("meterFrame")
+        self.assertIn("if (!mixIsOpen() || document.hidden) return;", f)                              # nothing runs while the sheet is shut or the tab hidden
+        self.assertIn("if (el && !$('pane-sound').hidden) {", f)                                      # and nothing is read while another tab is showing
+        self.assertIn("RM || $('pane-sound').hidden ? setTimeout(", f)                                # slower for reduced motion and a hidden pane
+        self.assertIn("getFloatTimeDomainData", f)
+        self.assertIn("startMeter(); } else stopDemo();", PAGE)
+        self.assertIn("el.classList.toggle('hot', shown > -9); el.classList.toggle('lim', shown > -3);", f)
 
 
 if __name__ == "__main__":
