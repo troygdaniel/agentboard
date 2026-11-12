@@ -162,7 +162,7 @@ class SoundTests(unittest.TestCase):
 class SharedTests(unittest.TestCase):
     def test_by_agent_says_what_a_waiting_agent_waits_for(self):
         lanes = body("byAgentHtml")
-        self.assertIn("wOf(c) ? 'sign off' : 'answer'", lanes)
+        self.assertNotIn("wOf(c) ? 'sign off' : 'answer'", lanes)   # the card's You line says the verb and the time; the rule keeps its bar and what it holds
         self.assertIn("wOf(c) ? 'frees' : 'holds'", lanes)   # an ask holds its Todo cards until the card is done; a sign-off frees them
         self.assertIn('class="holds-btn"', lanes)
         self.assertIn("if (doingBy.has('')) active.push('');", lanes)

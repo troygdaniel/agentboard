@@ -240,7 +240,7 @@ another agent's lane refuses it (red outline, no insertion line, a toast says wh
 **Needs you** (the third tab, the key `3`, `/need`) is the cards waiting on you, one at a time: the card open in the middle, the ones before it as strips
 above and the ones after it as strips below, asks first and then sign-offs. `↑` `↓` (or a scroll, or a click on a strip) moves through the pile, `→` opens the
 card's details beside it, `Enter` goes to the reply box, and `Space` twice sends the card's first answer. An answered card leaves and the next one opens.
-`1`, `2`, `3` switch between Board, By agent and Needs you. On By agent, a line under a waiting agent's name says what it is waiting for and how long.
+`1`, `2`, `3` switch between Board, By agent and Needs you. Every card in Doing carries one **You** line saying what you owe it: Answer, Sign off, Close it, Check on it, or Nothing. On By agent, a rule under a waiting agent's name shows how long it has waited and how many Todo cards it holds.
 
 **Story** (`/story`, linked from the Done column) is the work in plain words, five scenes you scroll: a sentence and a ring (finished this week, in progress, waiting);
 a flow from Waiting to Working to Done with every card a dot, one colour per theme; one card per theme with a one-line sentence and "n of m done"; only what

@@ -29,7 +29,7 @@ class LoadSameCardsTests(unittest.TestCase):
         self.assertIn("$('h-cards-n').textContent = by.doing.length;", r)
         self.assertNotIn("c.draggable = false", r)   # Nov 4: Load's cards drag between its Todo and Doing panes, as Board's do
         # subtasks stay folded on Load
-        self.assertIn("const open = hudPane ? false : subsOpen.has(t.id) ? subsOpen.get(t.id) : t.status === 'doing';", HTML)
+        self.assertIn("const open = hudPane ? false : subsOpen.has(t.id) ? subsOpen.get(t.id) : false;", HTML)   # folded everywhere now: the segments say how far
         self.assertIn("    hudPane = true;\n    todoPaneHtml = todoColHtml(by.todo, q || flagFilter);", r)
         self.assertIn("paneHtml = by.doing.length ? by.doing.map(card).join('')", r)
 
