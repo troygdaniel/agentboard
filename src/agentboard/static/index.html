@@ -1126,7 +1126,8 @@
   #tour .tour-dots i { width: 7px; height: 7px; border-radius: 50%; background: var(--line); }
   #tour .tour-dots i.on { background: var(--accent, var(--text)); }
   #tour .sheet-x { position: absolute; top: 12px; right: 12px; }
-  body.no-dispatch .orch-copy, body.no-dispatch #eod-btn { display: none; }   /* [ui] dispatch = false: a board that runs no ORCH shows no prompt to copy */
+  body.no-dispatch .orch-copy { display: none; }   /* [ui] dispatch = false: a board that runs no ORCH shows no prompt to copy */
+  body.no-dispatch #eod-btn { display: none; }   /* ... and no End of day button either */   /* [ui] dispatch = false: a board that runs no ORCH shows no prompt to copy */
   /* ----- the agent thread (Nov 6): one conversation with one agent, outside any card. Opens on the right, where the card panel
      opens, from the agent pill at the top of an open card or a lane's name on By agent. A card question shows inline, answered on the card ----- */
   #thread { width: min(520px, 94vw); }

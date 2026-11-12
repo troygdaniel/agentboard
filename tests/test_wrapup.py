@@ -123,7 +123,8 @@ class Sorting(Base):
         self.doing("tie-b", "AGENT-8", 70)
         self.s.checkpoint("tie-b", "where it stands", by="AGENT-8")
         order = self.ids(wrapup.plan(self.s), "carry")
-        self.assertEqual(order[:3], ["tie-b", "high", "tie-a"])      # 70% first, the checkpointed one ahead of the others at 70% ...
+        self.assertEqual(order[0], "tie-b")                          # 70% first, the checkpointed one ahead of the others at 70% ...
+        self.assertEqual(set(order[1:3]), {"high", "tie-a"})         # (their own order is by how recently each was touched: not asserted, a minute can tick between them)
         self.assertEqual(order[-2:], ["live", "low"])                # ... then 50%, 20%
 
     def test_the_first_sentence_says_the_one_thing_to_do_first(self):
@@ -209,7 +210,7 @@ class TheProtocolAndThePage(unittest.TestCase):
 
     def test_the_drawer_has_an_end_of_day_button_that_sends_orch_one_line(self):
         self.assertIn('id="eod-btn"', PAGE)
-        self.assertIn("body.no-dispatch .orch-copy, body.no-dispatch #eod-btn { display: none; }", PAGE)
+        self.assertIn("body.no-dispatch #eod-btn { display: none; }", PAGE)
         self.assertIn("await api('/api/chat', { text: EOD_TEXT, to: 'ORCH' });", PAGE)
         text = re.search(r"const EOD_TEXT = '(.*?)';", PAGE).group(1)
         self.assertTrue(text.startswith("End of day. Run `agentboard wrapup`"))
