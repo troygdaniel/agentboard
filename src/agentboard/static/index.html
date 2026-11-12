@@ -3955,8 +3955,16 @@ function ac() {
   return audio;
 }
 function sndNow() { if (!sndOn) return null; const c = ac(); return c && c.state === 'running' ? c.currentTime : null; }
+// State the cue and Touch wrappers set around the notes they play, read by tone(): where a sound sits in the stereo field (Stage), and the level
+// the cues share (Cues). Both rest at neutral, so a sound that is not a cue or a drop is exactly what it was.
+let panNow = 0, cueMul = 1;
+const humanAmt = () => layerOn('human') ? layerLvl('human') : 0, stageAmt = () => layerOn('stage') ? layerLvl('stage') : 0;
 function tone(freq, t0, dur, { type = 'sine', vol = .05, glide, verb = .6, pan = 0, atk = .02 } = {}) {
   const ctx = ac(); if (!ctx) return;
+  const hu = humanAmt(), st = stageAmt();   // Humanize: a repeat is never the same note twice (pitch within about 1%, level within 12%, a few ms of timing); Stage: a cue or a drop leaves the middle
+  if (hu) { const r = () => Math.random() - .5; freq *= 1 + r() * .024 * hu; if (glide) glide *= 1 + r() * .024 * hu; vol *= 1 + r() * .24 * hu; t0 += Math.random() * .008 * hu; }
+  vol *= cueMul;
+  if (st && panNow) pan = panNow * st;   // only a sound that asked for a place; the rain's drops keep their own
   const o = ctx.createOscillator(), g = ctx.createGain();
   o.type = type; o.frequency.setValueAtTime(freq, t0);
   if (glide) o.frequency.exponentialRampToValueAtTime(glide, t0 + dur);
@@ -4228,6 +4236,21 @@ const LAYERS = [
       else if (kind === 'close') hush(t, .12, { from: 6000, to: 1500, q: 1.5, v: 1.3, verb: .5, lvl });
     },
     demo() { this.play('boot', layerLvl('futsnd')); } },
+  { id: 'stage', kind: 'fx', name: 'Stage', about: 'sounds are placed in the stereo field: work starting leans left and work finishing right, a card dropped in Todo sounds left and in Done right, each agent has its own place; the level is how wide',
+    demo(ctx) {
+      const t = ctx.currentTime + .05;
+      [['todo', 0], ['doing', .45], ['done', .9]].forEach(([c, d]) => TOUCH.drop(t + d, c, 'AGENT-2', 1));
+      setTimeout(() => { cue.start('AGENT-1'); setTimeout(() => cue.done('AGENT-1'), 600); }, 1500);
+    } },
+  { id: 'human', kind: 'fx', name: 'Humanize', about: 'a repeated sound is never exactly the same: its pitch, level and timing vary a little each time, so a busy board does not sound like a machine; the level is how much',
+    demo() { [0, 380, 760, 1140].forEach(d => setTimeout(() => cue.update('AGENT-2'), d)); } },
+  { id: 'daybook', kind: 'fx', name: 'Day bookends', about: 'a falling phrase when you press End of day and a rising one when Start of day opens, so the day has a beginning and an end you can hear',
+    play(kind, lvl) {
+      const t = sndNow(); if (t == null) return;
+      const notes = kind === 'dusk' ? [784, 659, 523, 392] : [392, 523, 659, 784, 1047];
+      notes.forEach((f, i) => tone(f, t + i * .26, kind === 'dusk' ? .7 : .6, { type: 'triangle', vol: (kind === 'dusk' ? .016 : .015) * lvl, verb: 1.5, atk: .05 }));
+    },
+    demo() { this.play('dawn', layerLvl('daybook')); setTimeout(() => this.play('dusk', layerLvl('daybook')), 2200); } },
   { id: 'hour', kind: 'fx', name: 'Hourly chime', about: 'two soft notes on the hour',
     tick(lvl) { const d = new Date(); if (d.getMinutes() || d.getSeconds() > 2 || this.last === d.getHours()) return; this.last = d.getHours(); this.ring(lvl); },
     ring(lvl) { const t = sndNow(); if (t == null) return; tone(1319, t, .5, { vol: .03 * lvl, verb: 1.3 }); tone(988, t + .5, .9, { vol: .028 * lvl, verb: 1.5 }); },
@@ -4296,7 +4319,7 @@ function landed(c) {   // Motion: the settle at the end of a card's glide into a
     const t = sndNow(); if (t != null && layerOn('motion')) TOUCH.drop(t, status, agent, layerLvl('motion'));
   }, RM ? 0 : 380);
 }
-function fx(kind, agent) { cueAt = Date.now(); if (!sndOn) return; LAYERS.forEach(L => { if (L.fx && layerOn(L.id)) L.fx(kind, agent, layerLvl(L.id)); }); }   // every cue passes here: Chimes reads cueAt
+function fx(kind, agent) { cueAt = Date.now(); panNow = 0; cueMul = 1; if (!sndOn) return; LAYERS.forEach(L => { if (L.fx && layerOn(L.id)) L.fx(kind, agent, layerLvl(L.id)); }); }   // every cue passes here: Chimes reads cueAt
 // Chimes: the small moments a render finds (a subtask finished, a % past 25/50/75, a column emptied, a count changed) queue up while
 // the cards are drawn and one plays once they are, the most telling first; a first render and your own moves queue nothing. A count
 // tick stays quiet when a cue played in the same breath (the cue said it). The toast's blip comes straight from toast().
@@ -4309,6 +4332,10 @@ function flushChimes() {
   setTimeout(() => { if (kind === 'count' && Date.now() - cueAt < 300) return; chime(kind, agent, n); }, 40);   // after checkAsks has had its say
 }
 Object.keys(cue).forEach(k => { const f = cue[k]; cue[k] = agent => { f(agent); fx(k, agent); }; });   // the default cue first, then any layer
+// Stage: where each cue sits. Start leans left (work arriving), done leans right (work leaving), an agent's update has the agent's own place.
+const CUE_PAN = { start: -.35, added: -.2, review: .2, done: .45, quiet: .3 };
+const agentPan = a => ((hashOf(a) % 7) - 3) / 3 * .6;
+Object.keys(cue).forEach(k => { const f = cue[k]; cue[k] = agent => { panNow = k === 'update' ? agentPan(agent) : (CUE_PAN[k] || 0); try { f(agent); } finally { panNow = 0; } }; });
 setInterval(() => { if (sndOn) LAYERS.forEach(L => { if (L.tick && layerOn(L.id)) L.tick(layerLvl(L.id)); }); }, 1000);
 
 // --- Touch: the sounds of using the board. A thin layer for what your hands do (focus, open, drag, switch, toggle, select),
@@ -4368,6 +4395,8 @@ const TOUCH = {                                          // kind: (t, ...) => th
   sent:  (t, agent) => { const p = agentPitch(agent); hush(t, .12, { from: 500, to: 3600, v: .8, verb: .7 }); tap(p, t + .05, .05, .9, { verb: .6 }); tap(p * 1.5, t + .12, .09, 1, { verb: .8 }); },
   clear: t => { tap(523, t, .12, .8, { atk: .01, verb: .9 }); tap(659, t + .09, .12, .8, { atk: .01, verb: .9 }); tap(784, t + .18, .12, .8, { atk: .01, verb: .9 }); tap(1047, t + .27, .12, .9, { atk: .01, verb: 1 }); },
 };
+const DROP_PAN = { todo: -.45, doing: 0, done: .45 };   // Stage: the column a card lands in
+{ const drop = TOUCH.drop; TOUCH.drop = (t, status, ...r) => { panNow = DROP_PAN[status] || 0; try { drop(t, status, ...r); } finally { panNow = 0; } }; }
 function touch(kind, ...args) { const t = touchAt(); if (t != null) TOUCH[kind](t, ...args); return t != null; }
 touch.after = (kind, ...args) => { const t = touchAt(true); if (t != null) TOUCH[kind](t, ...args); };   // what lands after an await (a copy, a failed save): the gesture is past, the action is still yours
 const agentOf = id => byId.get(id)?.agent;
@@ -5203,7 +5232,9 @@ function sodHtml(d) {
     + sec('Finished that day', d.finished || [], c => row({ ...c, status: c.result }, '✓', 'done'))
     + `<div class="sod-foot"><button class="btn primary" id="sod-done" type="button">Got it</button></div>`;
 }
+function dayBook(kind) { if (sndOn && layerOn('daybook')) LAYERS.find(L => L.id === 'daybook').play(kind, layerLvl('daybook')); }   // the Day bookends layer, when it is on
 function openSod(d) {
+  dayBook('dawn');
   $('sod-body').innerHTML = sodHtml(d);
   sodKey = d.date + ' ' + d.at;
   if (!$('sod').classList.contains('on')) touch('slide', true);
@@ -5592,7 +5623,7 @@ document.addEventListener('click', async e => {
 const EOD_TEXT = 'End of day. Run `agentboard wrapup` and tell me its first sentence, then `agentboard wrapup --ask` so each agent leaves a checkpoint. Release nothing until I say go.';
 $('eod-btn').addEventListener('click', async () => {
   const b = $('eod-btn'); b.disabled = true;
-  try { await api('/api/chat', { text: EOD_TEXT, to: 'ORCH' }); showError(''); b.textContent = 'Sent'; touch.after('copy'); loadChat(); }
+  try { await api('/api/chat', { text: EOD_TEXT, to: 'ORCH' }); showError(''); b.textContent = 'Sent'; touch.after('copy'); dayBook('dusk'); loadChat(); }
   catch (err) { b.textContent = 'Failed'; showError('Could not reach ORCH: ' + err.message); }
   setTimeout(() => { b.textContent = 'End of day'; b.disabled = false; }, 1800);
 });
