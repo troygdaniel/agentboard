@@ -1126,7 +1126,7 @@
   #tour .tour-dots i { width: 7px; height: 7px; border-radius: 50%; background: var(--line); }
   #tour .tour-dots i.on { background: var(--accent, var(--text)); }
   #tour .sheet-x { position: absolute; top: 12px; right: 12px; }
-  body.no-dispatch .orch-copy { display: none; }   /* [ui] dispatch = false: a board that runs no ORCH shows no prompt to copy */
+  body.no-dispatch .orch-copy, body.no-dispatch #eod-btn { display: none; }   /* [ui] dispatch = false: a board that runs no ORCH shows no prompt to copy */
   /* ----- the agent thread (Nov 6): one conversation with one agent, outside any card. Opens on the right, where the card panel
      opens, from the agent pill at the top of an open card or a lane's name on By agent. A card question shows inline, answered on the card ----- */
   #thread { width: min(520px, 94vw); }
@@ -1831,6 +1831,7 @@ body.deckview .board{display:block !important;overflow:visible !important;paddin
     <button class="icon-btn" id="chat-close" aria-label="Slide back to the board"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M10 3L5 8l5 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
     <strong id="chat-title"><span class="av" id="chat-av" aria-hidden="true">O</span>ORCH</strong><span class="spacer"></span>
     <button class="btn orch-copy" title="Copy a prompt that boots a fresh Claude session as ORCH, from the live board (paste it after /rename ORCH)">Copy prompt</button>
+    <button class="btn" id="eod-btn" type="button" title="Ask ORCH to wrap up the day: where every card stands, a checkpoint from each agent, and what goes back to Todo tonight. Nothing is released until you say go.">End of day</button>
     <div class="th-tabs" role="tablist" aria-label="View"><button type="button" role="tab" id="ch-tab-chat" aria-selected="true" data-th-tab="chat">Conversation</button><button type="button" role="tab" id="ch-tab-term" aria-selected="false" data-th-tab="term">Terminal</button></div>
   </div>
   <div class="p-body" id="chat-body"></div>
@@ -5505,6 +5506,16 @@ document.addEventListener('click', async e => {
     b.textContent = 'Copied'; touch.after('copy');
   } catch (err) { b.textContent = 'Failed'; showError('Copy failed: ' + err.message); }
   setTimeout(() => { b.textContent = 'Copy prompt'; }, 1800);
+});
+
+// End of day: one line to ORCH, the same path as typing in the drawer. ORCH runs `agentboard wrapup` (its boot prompt says how), tells you the
+// one sentence that comes first, asks each agent for a checkpoint, and releases nothing until you say go.
+const EOD_TEXT = 'End of day. Run `agentboard wrapup` and tell me its first sentence, then `agentboard wrapup --ask` so each agent leaves a checkpoint. Release nothing until I say go.';
+$('eod-btn').addEventListener('click', async () => {
+  const b = $('eod-btn'); b.disabled = true;
+  try { await api('/api/chat', { text: EOD_TEXT, to: 'ORCH' }); showError(''); b.textContent = 'Sent'; touch.after('copy'); loadChat(); }
+  catch (err) { b.textContent = 'Failed'; showError('Could not reach ORCH: ' + err.message); }
+  setTimeout(() => { b.textContent = 'End of day'; b.disabled = false; }, 1800);
 });
 
 // --- keyboard: Alt+arrows move the focused card ---
