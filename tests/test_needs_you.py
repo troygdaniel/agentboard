@@ -64,8 +64,8 @@ class PileTests(unittest.TestCase):
         step = body("deckStep")
         self.assertIn("if (j < 0 || j >= deckIds.length) {", step)   # past an end: a small bump, and you stay where you are
         self.assertNotIn("%", step)
-        self.assertIn("'Top of the pile'", PAGE)
-        self.assertIn("'Last one'", PAGE)
+        self.assertNotIn("'Top of the pile'", PAGE)   # the counter and the rail say where the ends are
+        self.assertNotIn("'Last one'", PAGE)
 
     def test_the_hand_moves_it_continuously_and_it_settles_on_a_card(self):
         self.assertIn("deckPose(lim(want), 'drag')", PAGE)
@@ -143,6 +143,31 @@ class StuckAndClearedTests(unittest.TestCase):
         self.assertIn("await api('/api/restore', c.undo);", PAGE)   # the same restore the toast's Undo uses
         for part in ("esc(c.word)", "esc(c.title)"):
             self.assertIn(part, h)
+
+
+class CalmPileTests(unittest.TestCase):
+    """The open card says who, what and how long. Everything around it says only what the card does not."""
+    def test_the_line_above_keeps_the_count_what_it_holds_and_a_quiet_cards_fix(self):
+        head = body("deckHeadHtml")
+        self.assertIn("return `<b title=\"${esc(top.agent || 'Unassigned')} ${what}\">${at + 1}<i> of ${n}</i></b>", head)
+        self.assertIn('<span class="deck-holds"', head)
+        self.assertIn("${fin}${fix}${all}${hint}", head)
+        self.assertNotIn('class="you ', head)                    # the You line is on the card, once
+        self.assertNotIn("dkAge(top)", head)
+
+    def test_what_the_open_card_hides_is_in_the_details(self):
+        self.assertIn(".deck-slot.front .card .title { display: none; }", PAGE)
+        self.assertIn('return `<h2 class="deck-name">${esc(d.title || \'\')}</h2>`', body("deckMoreHtml"))
+
+    def test_hints_and_arrows_wait_for_a_hover_or_focus_and_an_armed_send_always_shows(self):
+        self.assertIn(".deck-head em.keys:not(.armed) { opacity: 0 !important;", PAGE)
+        self.assertIn(".deck-head:focus-within em.keys { opacity: .8 !important; }", PAGE)
+        self.assertIn(".deck-rail .deck-nav:focus-visible { opacity: 1; }", PAGE)
+        self.assertIn(".deck-slot:not(.front) .who .nm { display: none; }", PAGE)   # a strip is a face and a sentence
+
+    def test_the_empty_pile_says_it_in_two_words(self):
+        self.assertIn("<strong>All clear</strong>", body("deckHtml"))
+        self.assertIn("<span>${by.doing.length} working</span>", body("deckHtml"))
 
 
 class TaskTextTests(_Http):

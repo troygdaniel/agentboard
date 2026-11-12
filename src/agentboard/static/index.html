@@ -335,6 +335,18 @@
   .card.review { border-color: var(--ok); animation: revpulse 3s ease-in-out infinite; }
   @keyframes revpulse { 50% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--ok) 13%, transparent); } }
   .ask-flag.rev { color: var(--ok); }
+  /* A calmer pile: the open card says who, what and how long, so the line above it keeps the count and what the card holds */
+  .deck-head { gap: 16px; align-items: center; } .deck-head b { font-size: 22px; } .deck-holds { color: var(--need) !important; font-weight: 700 !important; }
+  .deck-head em.keys:not(.armed) { opacity: 0 !important; transition: opacity .2s; } .deck-head:hover em.keys, .deck-head:focus-within em.keys { opacity: .8 !important; }
+  .deck-slot:not(.front) .who .nm { display: none; }                      /* a strip is a face and a sentence */
+  .deck-slot:not(.front) .deck-wait-n { opacity: 0; transition: opacity .15s; } .deck-slot:not(.front):hover .deck-wait-n { opacity: 1; }
+  .deck-slot:not(.front) .deck-line { font-weight: 500; }
+  .deck-rail .deck-nav { opacity: 0; transition: opacity .15s; } .deck-rail:hover .deck-nav, .deck-rail .deck-nav:focus-visible { opacity: 1; }
+  .deck-toggle { font-size: 20px !important; letter-spacing: 0 !important; opacity: .45; width: 36px; } .deck-toggle:hover, .deck-toggle:focus-visible { opacity: 1; }
+  .deck-count { text-transform: none !important; letter-spacing: 0 !important; opacity: .6; }
+  body.deckview #load-strip { opacity: .45; transition: opacity .2s; } body.deckview #load-strip:hover, body.deckview #load-strip:focus-within { opacity: 1; }
+  .deck-slot.front .card .title { display: none; }                         /* the open card leads with what to do; its name is in the details */
+  .deck-slot.front .card .you u { display: none; }
   /* A calmer board: each fact is said once, and words appear only where you act */
   .you u { text-decoration: none; color: var(--muted); font-weight: 500; letter-spacing: .04em; margin-left: auto; text-transform: none; font-size: 11px; }
   .col.acol h2 em { display: none; }                                   /* the lane's state word: the You line on the card says it */
@@ -1716,6 +1728,7 @@ body.deckview .board{display:block !important;overflow:visible !important;paddin
 .deck-more:focus-visible{outline:2px solid var(--need);outline-offset:2px}
 .deck-more h3{margin:0 0 8px;font-size:10px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
 .deck-more p{margin:0;font-size:14px;line-height:1.6}
+.deck-name{margin:0 0 4px;font-size:17px;font-weight:650;line-height:1.3;letter-spacing:-.01em;text-wrap:balance}
 .deck-more .rich-body{margin-top:0;font-size:14px;line-height:1.6;overflow-wrap:anywhere}
 .deck-more .rich-body :is(h1,h2,h3,h4,h5,h6){margin:14px 0 6px;font-size:14px;font-weight:700;letter-spacing:0;text-transform:none;color:var(--text)}
 .deck-more .rich-body > :first-child{margin-top:0} .deck-more .rich-body > :last-child{margin-bottom:0}
@@ -2567,7 +2580,7 @@ function deckHtml(by, filtered) {
   if (!deckTop || !deckIds.includes(deckTop)) deckTop = deckIds[0] || null;
   laneAway.clear(); new Set(by.doing.map(t => t.agent).filter(Boolean)).forEach(a => { if (!list.some(t => t.agent === a)) laneAway.add(a); });
   const n = list.length, at = deckIds.indexOf(deckTop), top = list[at]; deckAgent = top ? top.agent || '' : ''; deckP = Math.max(0, at);
-  if (!n) return `<div class="me-clear deck-clear" role="status"><div class="rings" aria-hidden="true"><i></i><i></i><i></i></div><strong>Nothing needs you</strong><div class="deck-cleared flat" aria-label="Cleared this session">${deckClearedHtml()}</div><span>${by.doing.length} card${by.doing.length === 1 ? ' is' : 's are'} in progress · you will see them here the moment an agent stops</span></div>`;
+  if (!n) return `<div class="me-clear deck-clear" role="status"><div class="rings" aria-hidden="true"><i></i><i></i><i></i></div><strong>All clear</strong><div class="deck-cleared flat" aria-label="Cleared this session">${deckClearedHtml()}</div><span>${by.doing.length} working</span></div>`;
   const kept = deckMore.get(top.id), say = t => dkKind(t) === 2 ? 'Gone quiet: ' + (t.status_text || t.title) : t.needs_input ? (t.question || t.status_text || t.title) : (t.result || t.status_text || t.title);
   const slot = t => `<div class="deck-slot ${dkCls(t)}" data-slot="${esc(t.id)}" data-deck-to="${esc(t.id)}">${card(t)}<span class="deck-line">${esc(say(t))}</span><span class="deck-wait-n">${dkPassed(t) ? '<i class="deck-ok" title="The agent wrote down passing tests">✓</i>' : ''}${dkAge(t)}</span></div>`;
   const firstRev = list.findIndex(t => dkKind(t) === 1), firstChk = list.findIndex(t => dkKind(t) === 2);
@@ -2582,13 +2595,13 @@ function deckHtml(by, filtered) {
 <div class="deck-spacer"></div>
 ${list.map(slot).join('')}
 <button type="button" class="deck-count down" data-deck="0"></button>
-<button type="button" class="deck-toggle" data-deck-details aria-expanded="${deckOpen}" title="${deckOpen ? 'Hide the details (←)' : 'Show the details (→)'}">${deckOpen ? '‹ Hide details' : 'Details ›'}</button>
+<button type="button" class="deck-toggle" data-deck-details aria-expanded="${deckOpen}" title="${deckOpen ? 'Hide the details (←)' : 'Show the details (→)'}">${deckOpen ? '‹' : '›'}</button>
 </div>
 <aside class="deck-more" id="deck-more" data-for="${esc(top.id)}" tabindex="${deckOpen ? 0 : -1}" aria-label="Details of this card"${deckOpen ? '' : ' aria-hidden="true"'}>${deckOpen ? (kept ? kept[1] : '<p class="deck-wait">Loading the details…</p>') : ''}</aside>
 </div></section>`;
 }
-const deckCounts = (at, n) => ({ up: at > DECK_NEAR ? [`${at - DECK_NEAR} more above`, -Math.min(DECK_NEAR + 1, at)] : [at === 0 ? 'Top of the pile' : '', 0],
-  down: n - 1 - at > DECK_NEAR ? [`${n - 1 - at - DECK_NEAR} more below`, Math.min(DECK_NEAR + 1, n - 1 - at)] : [at === n - 1 ? 'Last one' : '', 0] });
+const deckCounts = (at, n) => ({ up: at > DECK_NEAR ? [`${at - DECK_NEAR} more above`, -Math.min(DECK_NEAR + 1, at)] : ['', 0],
+  down: n - 1 - at > DECK_NEAR ? [`${n - 1 - at - DECK_NEAR} more below`, Math.min(DECK_NEAR + 1, n - 1 - at)] : ['', 0] });
 function deckHeadHtml(top, at, n) {   // the line above the pile: where you are, what this card is waiting for, and for a stuck card the watchdog's one fix
   const held = heldBy(top.id).length, k = dkKind(top), ask = k === 0, dog = k === 2 ? dkDog(top.id) : null, full = k === 2 && (top.progress || 0) >= 100, verb = ask ? 'Go ahead' : k === 1 || full ? 'Mark done' : (dog && dog.fix ? dog.fix.label : 'Release to Todo');   // a quiet card at 100% is finished work nobody handed in: Mark done comes first
   const hint = deckArm === top.id ? `<em class="armed">Space again to ${k === 2 ? 'do' : 'send'} “${esc(verb)}” · Esc cancels</em>` : `<em class="keys"><kbd title="Up and down, or scroll: move through the pile">↑↓</kbd><kbd title="Right arrow: details">→</kbd><kbd title="Enter: reply">↵</kbd><kbd title="Space twice: ${ask ? 'go ahead' : k === 1 || full ? 'sign off' : 'release it'}">␣␣</kbd></em>`;
@@ -2597,7 +2610,7 @@ function deckHeadHtml(top, at, n) {   // the line above the pile: where you are,
   const fin = full ? `<button type="button" class="deck-fix" data-done="${esc(top.id)}" title="Every step is at 100%. Close it as done.">Mark done</button>` : '';
   const mates = !full && dog && dog.fix && dog.fix.action === 'release' ? dkMates(top) : [];
   const all = mates.length > 1 ? `<button type="button" class="deck-fix all" data-deck-all="${esc(top.agent)}" title="Every unfinished card ${esc(top.agent)} left behind goes back to Todo. Its questions, sign-offs and finished cards stay.">Release all ${mates.length} of ${esc(top.agent)}’s</button>` : '';
-  return `<b>${at + 1}<i> of ${n}</i></b><span class="you ${(youOf(top) || {}).k || ''}" title="${esc(top.agent || 'Unassigned')} ${what}${k === 2 ? (dog && dog.kind === 'abandoned' ? ' · its agent still listens' : ' · nothing will wake it') : ''}"><b>You</b><i>${esc((youOf(top) || {}).verb || '')}</i></span><span>${esc(top.agent || 'Unassigned')} · ${dkAge(top)}${held ? ` · ${k === 1 ? 'frees' : 'holds'} ${held}` : ''}</span>${fin}${fix}${all}${hint}`; }
+  return `<b title="${esc(top.agent || 'Unassigned')} ${what}">${at + 1}<i> of ${n}</i></b>${held ? `<span class="deck-holds" title="${held} card${held === 1 ? '' : 's'} in Todo wait${held === 1 ? 's' : ''} behind this one">${k === 1 ? 'frees' : 'holds'} ${held}</span>` : ''}${k === 2 ? `<span>${dog && dog.kind === 'abandoned' ? ' · its agent still listens' : ' · nothing will wake it'}</span>`.replace(' · ', '') : ''}${fin}${fix}${all}${hint}`; }
 // The pose: everything the pile shows, from one number. mode 'glide' lets the browser carry it there (a key, a click, letting go);
 // 'drag' follows the hand with no easing; 'still' places it at once (a redraw). opts.closed draws the open card as a strip (used to open
 // it a moment later); opts.folded draws every card away (used to unfold the pile on arrival).
@@ -2634,12 +2647,13 @@ function deckMoreHtml(d) {   // what you need to decide, beside the card: what i
   const held = heldBy(d.id).map(id => byId.get(id)).filter(Boolean), ask = !!d.needs_input, checks = d.checks || [];
   const chips = checks.slice(0, 3).map(c => `<span class="dchip ${/fail/i.test(c) ? 'bad' : 'ok'}">${esc(c)}${/fail/i.test(c) ? '' : ' ✓'}</span>`).join('');
   const log = (d.log || []).filter(e => e.text).slice(-5).reverse().map(e => `<li><time>${esc((e.at || '').slice(11, 16))}</time><span${e.by ? ' class="you"' : ''}>${esc(e.text)}</span></li>`).join('');
-  return (held.length ? `<section><h3>${ask ? 'Holds' : 'Signing off frees'} ${held.length} in Todo</h3><div class="deck-held">${held.map(h => `<button type="button" data-open="${esc(h.id)}">${esc(h.title)}</button>`).join('')}</div></section>` : '')
+  return `<h2 class="deck-name">${esc(d.title || '')}</h2>`   // the open card leads with what to do; its name is here
+    + (held.length ? `<section><h3>${ask ? 'Holds' : 'Signing off frees'} ${held.length} in Todo</h3><div class="deck-held">${held.map(h => `<button type="button" data-open="${esc(h.id)}">${esc(h.title)}</button>`).join('')}</div></section>` : '')
     + (chips ? `<section><h3>Checked</h3><div class="deck-chips">${chips}</div></section>` : '')
     + (d.body_html ? `<section><h3>From ${esc(d.agent || 'the agent')}</h3><div class="rich-body">${d.body_html}</div></section>` : '')
     + (d.description ? `<section class="deck-task"><h3>The task</h3>${d.description_html ? `<div class="rich-body">${d.description_html}</div>` : `<div class="rich-body fmt">${fmt(d.description)}</div>`}<button type="button" class="deck-task-more" data-deck-task hidden>Show all</button></section>` : '')
     + (log ? `<section><h3>Lately</h3><ol class="deck-log">${log}</ol></section>` : '')
-    || '<p class="deck-wait">Nothing more on this card.</p>';
+    ;
 }
 async function deckFill() {
   const el = $('deck-more'); if (!el || !deckOpen) return; const id = el.dataset.for, t = byId.get(id), kept = deckMore.get(id);
