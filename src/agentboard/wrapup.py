@@ -7,6 +7,7 @@
   running  its agent is listening and has worked on it lately: left alone (`--all` releases it too)
 `--ask` leaves each agent that owes one a note on its card (a checkpoint, or a review); `--apply` releases the carry cards, best first, so
 tomorrow's top card is the one nearest done, and saves the page as `.agentboard/wrapups/<date>.md`; `--last` prints the newest one."""
+import json
 from datetime import datetime
 
 from . import hud, listeners, prompt, rollup
@@ -147,6 +148,14 @@ def ask(store, p, ab=None):
     return sent
 
 
+def data(p, applied=None):
+    """The page as data, for the board's Start of day sheet: the same four outcomes and what finished, every value plain text or a number."""
+    carry = p["carry"] if applied is None else [c for i in applied for c in p["carry"] if c["id"] == i]
+    return {"date": p["date"], "at": p["now"].strftime("%Y-%m-%d %H:%M"), "owner": p["owner"], "wrapped": applied is not None,
+            "headline": first_move(p) if applied is None else f"Wrapped up: {len(carry)} card{'s' if len(carry) != 1 else ''} back in Todo, best first.",
+            "finished": p["done_today"], "needs": p["needs"], "finish": p["finish"], "carry": carry, "running": p["running"]}
+
+
 def apply(store, p):
     """Release the carry cards (and the running ones when the plan was made with include_running), best first on top of Todo: they are moved
     in reverse, each to the front, so the card tomorrow starts with ends up first. Writes the page to `.agentboard/wrapups/<date>.md`.
@@ -160,7 +169,21 @@ def apply(store, p):
     d.mkdir(exist_ok=True)
     path = d / f"{p['date']}.md"
     path.write_text(text + "\n")
+    (d / f"{p['date']}.json").write_text(json.dumps(data(p, applied=order), indent=1, default=str) + "\n")   # what the board's Start of day sheet reads
     return order, path
+
+
+def last_data(store):
+    """The newest saved wrap-up as data (see `data`), or None when none was saved or its file cannot be read."""
+    d = store.dir / "wrapups"
+    for f in sorted(d.glob("*.json"), reverse=True) if d.is_dir() else []:
+        try:
+            v = json.loads(f.read_text())
+        except (OSError, ValueError):
+            continue
+        if isinstance(v, dict) and v.get("date"):
+            return v
+    return None
 
 
 def last(store):

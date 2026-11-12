@@ -960,6 +960,25 @@
   #thread.term #thread-goes, #chat.term #chat-goes { display: none; }
   #keys { position: fixed; inset: 0; z-index: 40; display: none; place-items: center; background: rgba(0,0,0,.35); }
   #keys.on { display: grid; }
+  /* Start of day (Nov 12): the wrap-up ORCH saved at the end of the last working day, opened by itself once on the first load of a new day, and by w.
+     A sheet like the shortcuts: the one sentence, what waits on you, the cards to start with (each opens its card) and what finished and taught. */
+  #sod { position: fixed; inset: 0; z-index: 40; display: none; place-items: center; background: rgba(0,0,0,.35); }
+  #sod.on { display: grid; }
+  #sod .sheet { position: relative; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 22px 26px; width: min(560px, calc(100vw - 32px)); max-height: calc(100vh - 32px); overflow: auto; box-shadow: 0 20px 60px rgba(0,0,0,.35); }
+  #sod h2 { font-size: var(--fs-lg); margin-bottom: 2px; padding-right: 36px; }
+  #sod .sod-when { color: var(--muted); font-size: var(--fs-sm); margin-bottom: 10px; }
+  #sod .sod-say { font-size: 17px; font-weight: 600; line-height: 1.35; letter-spacing: var(--tr-tight); margin-bottom: 4px; }
+  #sod h3 { font-size: var(--fs-xs); letter-spacing: var(--tr-label); text-transform: uppercase; color: var(--muted); margin: 16px 0 2px; }
+  #sod h3 .n { font-weight: 500; margin-left: 4px; letter-spacing: 0; }
+  .sod-row { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: 1px 10px; align-items: baseline; width: 100%; text-align: left; margin-top: 6px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); color: var(--text); font: inherit; font-size: var(--fs-md); }
+  button.sod-row { cursor: pointer; }
+  button.sod-row:hover { border-color: var(--neutral); background: var(--chip); }
+  .sod-n { color: var(--muted); font-variant-numeric: tabular-nums; font-size: var(--fs-sm); }
+  .sod-t { overflow-wrap: anywhere; font-weight: 550; }
+  .sod-m { color: var(--muted); font-size: var(--fs-sm); white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .sod-l { grid-column: 2 / -1; color: var(--muted); font-size: var(--fs-sm); overflow-wrap: anywhere; }
+  .sod-l.now { color: var(--warn); }
+  .sod-foot { display: flex; justify-content: flex-end; margin-top: 16px; }
   #keys .sheet { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 22px 26px; width: min(420px, calc(100vw - 32px)); box-shadow: 0 20px 60px rgba(0,0,0,.35); }
   #keys h2 { font-size: var(--fs-lg); margin-bottom: 14px; }
   /* a close button on both sheets (Nov 4): on a phone the only way out was Esc or a tap on the dim edge */
@@ -1747,6 +1766,7 @@ body.deckview .board{display:block !important;overflow:visible !important;paddin
     <dt><kbd>c</kbd></dt><dd id="key-copy">Copy a card's prompt: the one you pointed at or focused last, else the selected or open one</dd>
     <dt><kbd>d</kbd></dt><dd id="key-done">Mark that same card done</dd>
     <dt><kbd>b</kbd></dt><dd id="key-back">Send that same card back to Todo, to the top: its progress and what the agent learned stay on it</dd>
+    <dt><kbd>w</kbd></dt><dd id="key-wrap">Start of day: the last wrap-up ORCH saved (it opens by itself once, the first time you load the board on a new day)</dd>
     <dt><kbd>u</kbd></dt><dd id="key-undo">Undo what the toast offers: a move, a done, a delete, Archive or Clear, a bulk change</dd>
     <dt><kbd>h</kbd></dt><dd>Load</dd>
     <dt><kbd>a</kbd></dt><dd>By agent / back to the board</dd>
@@ -1782,6 +1802,11 @@ body.deckview .board{display:block !important;overflow:visible !important;paddin
   <p id="tour-p"></p>
   <div class="tour-viz" id="tour-viz" aria-hidden="true"></div>
   <div class="tour-nav"><button class="btn" id="tour-back" type="button">Back</button><span class="tour-dots" id="tour-dots" aria-hidden="true"></span><button class="btn primary" id="tour-next" type="button">Next</button></div>
+</div></div>
+
+<div id="sod" role="dialog" aria-label="Start of day"><div class="sheet">
+  <h2>Start of day</h2><button class="icon-btn sheet-x" id="sod-close" type="button" aria-label="Close"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>
+  <div id="sod-body"></div>
 </div></div>
 
 <div id="mix" role="dialog" aria-label="Settings"><div class="sheet">
@@ -5108,6 +5133,7 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
     if (e.tookPanel) return;   // that press closed the open card; Load under it stays
     if ($('keys').classList.contains('on')) { toggleKeys(false); return; }
+    if ($('sod').classList.contains('on')) { closeSod(); return; }
     if (mixIsOpen()) { toggleMix(false); return; }
     if ($('later').classList.contains('open')) { closeLater(); return; }   // the drawers open over Load, so they close first
     if ($('chat').classList.contains('open')) { closeChat(); return; }
@@ -5126,6 +5152,7 @@ document.addEventListener('keydown', e => {
   if (e.key === 'c') { copyPromptByKey(); return; }   // any card, on every view
   if (e.key === 'd') { markDoneByKey(); return; }     // the same card as c
   if (e.key === 'b') { backToTodoByKey(); return; }   // and back to Todo, with what it learned
+  if (e.key === 'w') { if ($('sod').classList.contains('on')) closeSod(); else startOfDay(false); return; }   // the last wrap-up
   if (e.key === 'u') { undoByKey(); return; }
   if (hudIsOpen()) {
     if (e.key === 'f') { toggleHudFull(); return; }
@@ -5152,6 +5179,59 @@ function toggleKeys(on) {   // the shortcuts sheet, with the same slide as the o
   if (open !== $('keys').classList.contains('on')) touch('slide', open);
   $('keys').classList.toggle('on', open);
 }
+
+// --- Start of day: the wrap-up ORCH saved when it last wrapped the day (`agentboard wrapup --apply`), read from /api/wrapup. It opens by itself once, on
+// the first load of a new day (nothing is open, nothing is being typed, the wrap-up is from an earlier day, and this browser has not shown it yet); w opens
+// it any time. A row opens its card, with where the card stands now: still in Todo, picked up by an agent since, or done.
+const SOD_KEY = 'agentboard-sod-seen';
+const localDay = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+let sodKey = '';
+function sodHtml(d) {
+  const row = (c, n, was) => {   // was: the column the wrap-up left the card in; the line under it says only when it has moved since
+    const now = byId.get(c.id), where = !now ? 'no longer on the board' : now.status === was ? '' : now.status === 'doing' ? `now with ${now.agent || 'an agent'}${now.progress ? ' · ' + now.progress + '%' : ''}` : `now in ${LABELS[now.status] || now.status}`;
+    const more = [c.resumes ? 'resumes where an agent left off' : '', c.status ? esc(c.status) : '', ...(c.learned || []).map(x => 'learned: ' + esc(x))].filter(Boolean);
+    const inner = `<span class="sod-n">${n}</span><span class="sod-t">${esc(c.title)}</span><span class="sod-m">${c.progress != null ? c.progress + '%' : ''}${c.agent ? ' · ' + esc(c.agent) : ''}</span>`
+      + more.map(m => `<span class="sod-l">${m}</span>`).join('') + (where ? `<span class="sod-l now">${esc(where)}</span>` : '');
+    return now ? `<button type="button" class="sod-row" data-sod-open="${esc(c.id)}">${inner}</button>` : `<div class="sod-row">${inner}</div>`;
+  };
+  const sec = (title, list, fn) => list.length ? `<h3>${title}<span class="n">${list.length}</span></h3>${list.map(fn).join('')}` : '';
+  const owner = d.owner && d.owner !== 'you' ? esc(d.owner) : 'you';
+  return `<div class="sod-when">Wrapped up ${esc(d.at)}</div><div class="sod-say">${esc(d.headline)}</div>`
+    + sec(`Waiting on ${owner}`, d.needs || [], c => row({ ...c, status: c.ask ? 'asks: ' + c.ask : c.review ? 'review: ' + c.review : '' }, '·', 'doing'))
+    + sec('Start here', d.carry || [], (c, i) => row(c, i + 1, 'todo'))
+    + sec('Still running', d.running || [], c => row(c, '·', 'doing'))
+    + sec('Finished that day', d.finished || [], c => row({ ...c, status: c.result }, '✓', 'done'))
+    + `<div class="sod-foot"><button class="btn primary" id="sod-done" type="button">Got it</button></div>`;
+}
+function openSod(d) {
+  $('sod-body').innerHTML = sodHtml(d);
+  sodKey = d.date + ' ' + d.at;
+  if (!$('sod').classList.contains('on')) touch('slide', true);
+  $('sod').classList.add('on');
+  $('sod-done').focus({ preventScroll: true });
+}
+function closeSod() {
+  if (!$('sod').classList.contains('on')) return;
+  touch('slide', false); $('sod').classList.remove('on');
+  try { localStorage.setItem(SOD_KEY, sodKey); } catch (e) {}   // seen: it will not open by itself again
+}
+async function startOfDay(auto) {
+  try {
+    const r = await fetch('/api/wrapup', { cache: 'no-store' }); const d = await r.json();
+    if (!d || d.none || !d.date) { if (!auto) toast('No wrap-up saved yet: ORCH saves one when you say go at the end of a day'); return; }
+    if (auto) {
+      let seen = ''; try { seen = localStorage.getItem(SOD_KEY) || ''; } catch (e) {}
+      const busy = isTyping() || openId || hudIsOpen() || $('keys').classList.contains('on') || mixIsOpen() || tourIsOpen();
+      if (d.date >= localDay() || seen === d.date + ' ' + d.at || busy) return;   // wrapped today, already seen, or something is in use: stay out of the way
+    }
+    openSod(d);
+  } catch (e) { /* the board's own poll says when it is unreachable */ }
+}
+$('sod').addEventListener('click', e => {
+  if (e.target.id === 'sod' || e.target.closest('#sod-close, #sod-done')) { closeSod(); return; }
+  const row = e.target.closest('[data-sod-open]');
+  if (row) { const id = row.dataset.sodOpen; e.stopPropagation(); closeSod(); openPanel(id); }   // stopped here: the page's click-outside rule would close the card it just opened
+});
 
 // --- first run: the header's New task and ? buttons, the empty board's three actions, and the 60-second tour ---
 $('new-btn').onclick = () => { if (hudIsOpen()) closeHud(); toggleAdd(true); };   // the same as n: the field is on the board, under Load
@@ -5331,7 +5411,7 @@ function isTyping() {   // a field that takes text; a checkbox, radio, slider or
   return !!el && (el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || (el.tagName === 'INPUT' && !/^(checkbox|radio|range|button|submit)$/.test(el.type)));
 }
 function maybeAutoOpen() {
-  if (!pendingAutoOpen.length || isTyping() || hudIsOpen() || $('keys').classList.contains('on')) return;
+  if (!pendingAutoOpen.length || isTyping() || hudIsOpen() || $('keys').classList.contains('on') || $('sod').classList.contains('on')) return;
   const id = pendingAutoOpen.shift();
   const t = tasks.find(x => x.id === id);
   if (t && t.status === 'doing' && (t.needs_input || t.review)) openPanel(id);
@@ -5625,6 +5705,7 @@ if (SOLO) {
 else if (location.hash === '#/hud') openHud();
 else if (/^#settings(\/|$)/.test(location.hash)) toggleMix(true, hashTab() || undefined);   // #settings and #settings/texts open the sheet, on that tab
 else if (location.hash.length > 1) openPanel(decodeURIComponent(location.hash.slice(1)));
+if (!SOLO && location.hash.length <= 1) setTimeout(() => startOfDay(true), 1500);   // the first load of a new day: yesterday's wrap-up, once
 
 // hover a name on any card: every card of that agent stays lit, the rest step back
 const boardEl = $('board');

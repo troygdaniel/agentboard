@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Start of day: yesterday's wrap-up opens by itself; one handler for 1, 2 and 3 (Nov 12)
+- **The wrap-up ORCH saved opens as a Start of day sheet, once, on the first load of a new day**: the one sentence, what waits on you, the cards to start with (numbered, best first, with the hand-off line), what is still running, and what finished and what it learned. A row opens its card and says where it stands now when it has moved since (picked up by an agent, done, gone). It never opens over something in use: a card or Load being open, a field being typed in, another sheet, a page opened at a card's link; a wrap-up from today, or one this browser already showed, stays shut. `Esc`, the × or Got it closes it (and marks it seen); **`w`** opens the last one any time (it says so when none was saved). `wrapup --apply` now saves the page as data beside the markdown, and `GET /api/wrapup` serves the newest.
+- **One handler for `1`, `2` and `3`.** An earlier one (Board, By agent, Load) and the newer one (Board, By agent, Needs you) both ran, and the `?` sheet listed the keys twice. The newer one stays, and the sheet lists them once.
+
 ### End of day: checkpoint, wrap up, start tomorrow with the right card (Nov 12)
 - **`agentboard wrapup`** (ORCH, read-only) says where every Doing card stands tonight and what happens to it, under one first sentence: the action first, then one fact. Each card is one of four: *finish* (at 100% but never handed in), *needs* (an ask or a review waiting on you: it stays), *carry* (goes back to Todo tonight, in the order to start tomorrow: nearest done first, a card with a checkpoint ahead of a tie) and *running* (its agent is listening and worked on it lately: left alone; `--all` counts these too). It also lists what finished today and what it learned.
 - **`wrapup --ask`** leaves each agent that owes something a note on its card, the reply `answer` prints, so a waiting agent wakes with it: a checkpoint for a card going back to Todo, a review (with a Learned section) for a card at 100%. One note per card, and none for a card that already has its hand-off.
