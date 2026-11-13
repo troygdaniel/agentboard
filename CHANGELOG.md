@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Starting the day: ORCH, one click away (Nov 13)
+Finding the ORCH prompt took a trip to the drawer, and nothing said that ORCH was not running.
+- **The board says when ORCH is away.** It already knows who is listening. When ORCH has not listened for 90 seconds, the line at the bottom reads "ORCH is not running" and shows **Start ORCH**. What you type there is still kept, and a note says ORCH will read it when it starts.
+- **Copy prompt, where you are.** Start ORCH opens a small panel over the line: **Copy prompt** (the same prompt as before), then paste it into a new agent session, whichever agent you use. The panel opens by itself once a day, unless the page already shows the offer. An empty Now or Watch carries the same button in the middle of the page.
+- **"ORCH is here"** shows the moment the pasted session starts listening, and the panel closes itself.
+- **`agentboard orch`** prints the same prompt in a terminal, so `claude -n ORCH "$(agentboard orch)"` starts Claude Code with it loaded. The panel offers that line as an extra.
+- The board starts nothing: it gives you words to paste. A board with `[ui] dispatch = false` shows none of this.
 ### Handed in, and said in one line (Nov 13)
 Two things kept sending the owner to an agent's terminal: work that was finished and never handed in, and a question or result that took a paragraph to say.
 - **The last step says "hand it in".** When an agent's update finishes a card's last subtask, the CLI prints the exact `review` command. Before that session goes quiet, the Stop hook says it once more if the card is still at 100% and not up for review. This is the commonest way a card ended up as "Close it" on the board.

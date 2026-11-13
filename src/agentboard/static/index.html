@@ -367,6 +367,22 @@
     .deck.watch { padding: 0 6px 110px; } .w-pages { margin-top: 8px; padding-top: 6px; } .w-page { padding: 0 8px; grid-auto-rows: 150px; gap: 12px; } .w-tile { padding: 14px 16px; grid-template-columns: 70px 1fr; } .w-ring { width: 70px; height: 70px; } .orb { width: 46px; height: 46px; margin: -23px 0 0 -23px; } .w-now { font-size: 15px; }
     .w-focus { top: 60px; width: calc(100vw - 20px); } #orch-line { bottom: 12px; } .greet b { font-size: 30px; }
   }
+  /* ORCH's presence: the line says when it is away, and offers the prompt that starts it */
+  .orch-go { display: none; border-radius: 999px; min-height: 34px; white-space: nowrap; opacity: 1 !important; border-color: color-mix(in srgb, var(--need) 60%, transparent); color: var(--text); }
+  body.orch-down #orch-line:not(:focus-within) button[type=submit] { display: none; }
+  body.orch-down #orch-line .orch-go { display: inline-flex; } body.orch-down #orch-line:focus-within .orch-go { display: none; }
+  body.orch-down #orch-line .orch-face { background: none; color: var(--muted); box-shadow: inset 0 0 0 1.5px var(--muted); }
+  body.orch-down #orch-line { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--need) 55%, var(--line)), 0 18px 44px -18px rgba(0,0,0,.55); }
+  .orch-start { position: absolute; left: 0; right: 0; bottom: calc(100% + 12px); padding: 20px 22px 16px; border-radius: 22px; background: color-mix(in srgb, var(--surface) 96%, transparent); backdrop-filter: blur(18px); box-shadow: inset 0 0 0 1px var(--line), 0 30px 70px -28px rgba(0,0,0,.7); animation: orchsay .45s cubic-bezier(.2,.9,.25,1) both; transform-origin: 40px 100%; }
+  .orch-start h3 { margin: 0 0 6px; font-size: 18px; font-weight: 700; letter-spacing: -.01em; } .orch-start p { margin: 0 0 14px; font-size: 14px; line-height: 1.5; color: var(--muted); }
+  .os-cmd { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px 12px 12px 16px; border-radius: 14px; background: color-mix(in srgb, var(--text) 6%, transparent); margin-bottom: 12px; }
+  .os-cmd small { font-size: 12px; color: var(--muted); flex: 1 1 100%; } .os-do { flex: 1; min-width: 0; font-size: 14px; font-weight: 600; line-height: 1.45; color: var(--text); } .os-cmd code { flex: 1; min-width: 0; font-size: 14px; font-weight: 600; line-height: 1.45; color: var(--text); background: none; padding: 0; white-space: normal; overflow-wrap: anywhere; } .os-cmd.two code { font-weight: 500; color: var(--muted); } .os-cmd .btn { border-radius: 999px; min-height: 34px; opacity: 1 !important; }
+  .os-wait { display: flex; align-items: center; gap: 10px; margin: 0 !important; font-size: 12px !important; letter-spacing: .08em; text-transform: uppercase; } .os-wait i { width: 8px; height: 8px; border-radius: 50%; background: var(--need); animation: oswait 1.4s ease-in-out infinite; } @keyframes oswait { 50% { opacity: .25; transform: scale(.7); } }
+  .os-x { position: absolute; right: 12px; top: 12px; width: 28px; height: 28px; border-radius: 50%; border: 0; background: none; color: var(--muted); cursor: pointer; font-size: 12px; } .os-x:hover { color: var(--text); }
+  .orch-start.here { padding: 16px 22px; } .os-here { margin: 0 !important; font-size: 17px !important; font-weight: 700; color: var(--ok) !important; display: flex; gap: 10px; align-items: center; } .orch-start.out { transition: opacity .4s, transform .4s; opacity: 0; transform: translateY(8px); }
+  .orch-offer { position: relative; max-width: 460px; margin: 44px auto 0; padding: 22px 24px; border-radius: 20px; text-align: center; display: flex; flex-direction: column; gap: 8px; align-items: center; background: color-mix(in srgb, var(--surface) 80%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--need) 40%, var(--line)); }
+  .orch-offer b { font-size: 17px; } .orch-offer span { font-size: 14px; color: var(--muted); margin-bottom: 8px; } .orch-offer .btn { border-radius: 999px; } .oo-btns { display: flex; gap: 10px; margin: 0; flex-wrap: wrap; justify-content: center; } .orch-offer small { font-size: 12px; color: var(--muted); }
+  @media (prefers-reduced-motion: reduce) { .orch-start, .os-wait i { animation: none; } }
   /* Step dots, one card per agent, the full card, writing to anyone, and the line that says what changed while you were away */
   .step-dots { display: inline-flex; gap: 4px; margin-left: 2px; } .step-dots s { width: 7px; height: 7px; border-radius: 50%; text-decoration: none; box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--y) 60%, transparent); } .step-dots s.dn { background: var(--y); } .step-dots s.at { box-shadow: inset 0 0 0 1.5px var(--y), 0 0 0 3px color-mix(in srgb, var(--y) 22%, transparent); }
   .w-more-n { font-style: normal; color: var(--c); font-weight: 600; }
@@ -1980,7 +1996,7 @@ body.deckview .board{display:block !important;overflow:visible !important;paddin
 <body>
 <div id="ribbon" aria-label="The last eight hours"></div>
 <div id="aura" aria-hidden="true"><i></i><i></i><i></i></div>
-<form id="orch-line" autocomplete="off"><span class="orch-face" aria-hidden="true">O</span><input name="text" maxlength="2000" placeholder="Tell ORCH what you need, or @ someone…" aria-label="Tell ORCH what you need, or type @ and a name to write to an agent"><button class="btn primary" type="submit">Send</button></form>
+<form id="orch-line" autocomplete="off"><span class="orch-face" aria-hidden="true">O</span><input name="text" maxlength="2000" placeholder="Tell ORCH what you need, or @ someone…" aria-label="Tell ORCH what you need, or type @ and a name to write to an agent"><button class="btn primary" type="submit">Send</button><button class="btn orch-go" type="button" data-orch-start="1">Start ORCH</button></form>
 <div class="wrap">
   <header>
     <h1><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="1.5" y="2" width="3.5" height="12" rx="1.2" fill="currentColor" opacity=".35"/><rect x="6.25" y="2" width="3.5" height="8" rx="1.2" fill="currentColor"/><rect x="11" y="2" width="3.5" height="5" rx="1.2" fill="currentColor" opacity=".6"/></svg>agentboard</h1>
@@ -2803,7 +2819,7 @@ function watchHtml(by, n) {   // The whole team. Working agents are tiles (alive
   return `<section class="deck watch deck-clear${focus ? ' focused' : ''}" data-status="deck" aria-label="Watch: the whole team">
 <div class="deck-rings live" aria-hidden="true"><i></i><i></i><i></i><b class="orbit o1"><u></u></b><b class="orbit o2"><u></u></b></div>${watchBurst ? '<div class="w-burst" aria-hidden="true"><i></i><i></i><i></i></div>' : ''}
 <div class="watch-head"><strong>${n ? '' : 'All clear'}</strong><div class="deck-cleared flat" aria-label="Cleared this session">${deckClearedHtml()}</div>${!n && clearTimes.length > 1 ? `<em class="w-stat">in ${(m => m < 1 ? 'under a minute' : m < 90 ? Math.round(m) + ' min' : (m / 60).toFixed(1) + ' h')((clearTimes[clearTimes.length - 1] - clearTimes[0]) / 60000)}</em>` : ''}</div>
-<div class="w-pages"><div class="w-track" style="transform:translateX(${-watchPage * 100}%)">${pages.map((pg, k) => `<div class="w-page${k === watchPage ? ' cur' : ''}" data-page="${k}"${k === watchPage ? '' : ' inert'}>${pg.join('')}</div>`).join('') || '<p class="w-none">Nobody is here yet.</p>'}</div></div>
+<div class="w-pages"><div class="w-track" style="transform:translateX(${-watchPage * 100}%)">${pages.map((pg, k) => `<div class="w-page${k === watchPage ? ' cur' : ''}" data-page="${k}"${k === watchPage ? '' : ' inert'}>${pg.join('')}</div>`).join('') || '<p class="w-none">Nobody is here yet.</p>'}</div></div>${live.length ? '' : orchOffer()}
 ${focus}${watchPages > 1 ? `<nav class="w-dots" aria-label="Pages"><button type="button" class="w-arrow" data-wpage="${watchPage - 1}" aria-label="Previous page"${watchPage ? '' : ' disabled'}>‹</button>${pages.map((_, k) => `<button type="button" class="w-dot${k === watchPage ? ' on' : ''}${pinged[k] ? ' ping' : ''}" data-wpage="${k}" aria-label="Page ${k + 1} of ${watchPages}"${k === watchPage ? ' aria-current="true"' : ''}></button>`).join('')}<button type="button" class="w-arrow" data-wpage="${watchPage + 1}" aria-label="Next page"${watchPage < watchPages - 1 ? '' : ' disabled'}>›</button></nav>` : ''}</section>`;
 }
 let watchPage = 0, watchPages = 1, watchOpenId = null, watchOpenNew = false, watchDimNew = false; const watchPing = new Set();
@@ -2890,7 +2906,7 @@ function deckHtml(by, filtered) {
   if (!n && (lastPileN > 0 || !nowPinned)) { nowWatch = true; nowPinned = false; }   // the last card left: Clear flows into Watch. Coming to an empty pile by name shows it empty
   lastPileN = n;
   if (nowWatch) return watchHtml(by, n);
-  if (!n) return `<section class="deck watch deck-clear" data-status="deck"><div class="watch-head"><strong>All clear</strong><div class="deck-cleared flat">${deckClearedHtml()}</div></div><p class="w-none" style="margin-top:80px">Nothing needs you. Press 2 to watch the agents work.</p></section>`;
+  if (!n) return `<section class="deck watch deck-clear" data-status="deck"><div class="watch-head"><strong>All clear</strong><div class="deck-cleared flat">${deckClearedHtml()}</div></div><p class="w-none" style="margin-top:80px">Nothing needs you. Press 2 to watch the agents work.</p>${orchOffer()}</section>`;
   const kept = deckMore.get(top.id), say = t => dkKind(t) === 2 ? 'Gone quiet: ' + (t.status_text || t.title) : t.needs_input ? (t.question || t.status_text || t.title) : (t.result || t.status_text || t.title);
   const slot = t => `<div class="deck-slot ${dkCls(t)}" data-slot="${esc(t.id)}" data-deck-to="${esc(t.id)}">${card(t)}<span class="deck-line">${esc(say(t))}</span><span class="deck-wait-n">${dkPassed(t) ? '<i class="deck-ok" title="The agent wrote down passing tests">✓</i>' : ''}${dkAge(t)}</span></div>`;
   const firstRev = list.findIndex(t => dkKind(t) === 1), firstChk = list.findIndex(t => dkKind(t) === 2);
@@ -5532,7 +5548,7 @@ document.addEventListener('click', e => {   // a step done, a card opened on Wat
 document.addEventListener('keydown', e => { if (e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey || mixIsOpen() || /INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName || '') || document.activeElement?.isContentEditable) return; e.preventDefault(); e.stopImmediatePropagation(); document.querySelector('#orch-line input')?.focus(); }, true);
 document.addEventListener('submit', async e => { const f = e.target.closest?.('#orch-line'); if (!f) return; e.preventDefault(); const i = f.querySelector('input'), text = i.value.trim(); if (!text) return;
   try { const ghost = document.createElement('span'); ghost.className = 'orch-ghost'; ghost.textContent = text; f.appendChild(ghost); ghost.addEventListener('animationend', () => ghost.remove());
-    await api('/api/chat', /^@[\w-]+\s/.test(text) ? { text } : { text, to: 'ORCH' }); i.value = ''; orchWho(); showError(''); f.classList.add('sent'); setTimeout(() => f.classList.remove('sent'), 1600); loadChat(); } catch (err) { showError('Could not send: ' + err.message); } });
+    await api('/api/chat', /^@[\w-]+\s/.test(text) ? { text } : { text, to: 'ORCH' }); i.value = ''; orchWho(); showError(''); if (orchUp === false && !/^@[\w-]+\s/.test(text)) toast('ORCH is not running. It will read this when it starts.'); f.classList.add('sent'); setTimeout(() => f.classList.remove('sent'), 1600); loadChat(); } catch (err) { showError('Could not send: ' + err.message); } });
 document.addEventListener('pointermove', e => {   // a card leans a little toward the pointer, and a soft light follows it
   if (RM || e.pointerType === 'touch') return; const el = e.target.closest?.('.w-page.cur .w-tile:not(.w-idling), .deck-slot.front .card');
   document.querySelectorAll('.tilt').forEach(x => { if (x !== el) { x.classList.remove('tilt'); x.style.removeProperty('--rx'); x.style.removeProperty('--ry'); } });
@@ -5590,6 +5606,36 @@ function awayShow() { const was = awaySnap, now = awayState(); awaySnap = null; 
   el.innerHTML = `<span>While you were away · ${mins} min</span><p>${parts.join(' · ')}</p>${need ? '<button type="button" class="btn primary" data-away-go>Show me</button>' : ''}<button type="button" class="backline-x" data-away-x aria-label="Dismiss">✕</button>`; document.body.appendChild(el);
   setTimeout(() => { el.classList.add('out'); setTimeout(() => el.remove(), 500); }, 14000); }
 document.addEventListener('click', e => { if (e.target.closest?.('[data-away-go]')) { goTab(0); document.querySelector('.backline')?.remove(); } else if (e.target.closest?.('[data-away-x]')) document.querySelector('.backline')?.remove(); const fc = e.target.closest?.('[data-full]'); if (fc) { const id = fc.dataset.full; setTimeout(() => openPanel(id), 0); } });
+// Is ORCH here? The board knows who has a wait running. When ORCH has none, the line you talk to it on says so and offers the prompt
+// that starts it, to copy; the same offer sits in the middle of an empty Now or Watch. Typing still works: ORCH reads it when it arrives.
+let orchUp = null, orchSince = 0, orchAsked = false, orchGraceMs = 90000;   // ORCH between two waits is not gone
+const ORCH_CLAUDE = 'claude -n ORCH "$(agentboard orch)"';   // the board starts nothing itself: it only gives you the words, and you paste them
+function orchSync() { if (chatFirstLoad || !cfg || !cfg.dispatch) return; const up = !!nameKey(chatReceipts.listening, 'ORCH'), was = orchUp;
+  if (up) orchSince = Date.now(); const down = !up && Date.now() - orchSince > orchGraceMs;
+  orchUp = !down; document.body.classList.toggle('orch-down', down);
+  const f = $('orch-line'), i = f?.querySelector('input'); if (i) i.placeholder = down ? 'ORCH is not running' : 'Tell ORCH what you need, or @ someone…';
+  if (was === false && orchUp) orchArrived();
+  if (down && !orchAsked) { orchAsked = true; let seen = ''; try { seen = localStorage.getItem('ab-orch-asked') || ''; } catch (e) {} const today = new Date().toDateString();
+    if (seen !== today) { try { localStorage.setItem('ab-orch-asked', today); } catch (e) {} setTimeout(() => { if (orchUp === false && !document.querySelector('.orch-offer')) orchStart(true); }, 4200); } }   // once a day, after the greeting, it offers by itself
+  if (was !== orchUp && MEFIRST) render();
+}
+setInterval(orchSync, 1000);
+function orchStart(on) { const f = $('orch-line'); if (!f) return; f.querySelector('.orch-start')?.remove(); if (!on) return;
+  const todo = tasks.filter(t => t.status === 'todo' && !isKid(t)).length, box = document.createElement('div'); box.className = 'orch-start'; box.setAttribute('role', 'dialog'); box.setAttribute('aria-label', 'Start ORCH');
+  box.innerHTML = `<button type="button" class="os-x" data-orch-start="0" aria-label="Close">✕</button><h3>Start ORCH</h3>
+<p>ORCH is the agent session that runs this board for you. It hands out the work${todo ? ` (${todo} card${todo === 1 ? ' is' : 's are'} waiting in Todo)` : ''} and answers you on this line.</p>
+<div class="os-cmd"><b class="os-do">Copy the prompt, then paste it into a new agent session: Claude Code, Devin, Copilot, Codex…</b><button type="button" class="btn primary orch-copy">Copy prompt</button></div>
+<div class="os-cmd two"><small>Or, in a terminal, start Claude Code with the prompt already loaded:</small><code>${esc(ORCH_CLAUDE)}</code><button type="button" class="btn" data-orch-copy="claude">Copy</button></div>
+<p class="os-wait" role="status"><i></i>Waiting for ORCH to arrive…</p>`;
+  f.appendChild(box); }
+function orchArrived() { const f = $('orch-line'), box = f?.querySelector('.orch-start');
+  if (box) { box.classList.add('here'); box.innerHTML = '<p class="os-here"><b>✓</b>ORCH is here</p>'; setTimeout(() => { box.classList.add('out'); setTimeout(() => box.remove(), 450); }, 2200); }
+  if (f) { f.classList.add('sent'); setTimeout(() => f.classList.remove('sent'), 1600); const r = f.getBoundingClientRect(); sparkle(r.left + 26, r.top + r.height / 2, ['var(--ok)', 'var(--text)']); } }
+document.addEventListener('click', async e => {
+  const st = e.target.closest?.('[data-orch-start]'); if (st) { e.preventDefault(); orchStart(st.dataset.orchStart !== '0' && !$('orch-line').querySelector('.orch-start')); return; }
+  const cp = e.target.closest?.('[data-orch-copy]'); if (cp) { try { await navigator.clipboard.writeText(ORCH_CLAUDE); cp.textContent = 'Copied'; touch.after('copy'); } catch (err) { cp.textContent = 'Select it'; const c = cp.parentElement.querySelector('code'), r = document.createRange(); r.selectNodeContents(c); getSelection().removeAllRanges(); getSelection().addRange(r); } setTimeout(() => { cp.textContent = 'Copy'; }, 1800); }
+});
+const orchOffer = () => { const todo = tasks.filter(t => t.status === 'todo' && !isKid(t)).length; return orchUp === false ? `<div class="orch-offer"><b>ORCH is not running</b><span>${todo ? `${todo} card${todo === 1 ? ' is' : 's are'} waiting in Todo and nobody is handing ${todo === 1 ? 'it' : 'them'} out.` : 'Nobody is handing out work.'}</span><p class="oo-btns"><button type="button" class="btn primary orch-copy">Copy prompt</button><button type="button" class="btn" data-orch-start="1">How to start it</button></p><small>Paste it into a new agent session.</small></div>` : ''; };
 let dogOpen = false, pFoldOpen = false;   // the two folds stay as you left them across redraws
 document.addEventListener('click', e => { if (e.target.closest?.('[data-dog-fold]')) dogOpen = !dogOpen; if (e.target.closest?.('[data-p-fold]')) pFoldOpen = !pFoldOpen; });
 document.addEventListener('click', async e => {
