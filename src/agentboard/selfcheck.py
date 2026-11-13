@@ -556,6 +556,7 @@ class Audit:
         aid, bid, cid, did = card("Selfcheck one"), card("Selfcheck two"), card("Selfcheck three"), card("Selfcheck four")
         go("/api/edit", {"id": aid, "description": "made by the selfcheck"})
         go("/api/move", {"id": aid, "status": "doing"})
+        go("/api/owner-mark", {"id": aid, "step": 1, "later": True})   # the owner's own marks, on a card in Doing
         go("/api/move", {"id": aid, "status": "done"})          # a finished card: its report and, outside the profile, its git line
         with contextlib.suppress(Exception):
             S.review(bid, "ready")                               # (set up through the store: the throwaway board)

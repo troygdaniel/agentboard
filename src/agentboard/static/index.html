@@ -408,7 +408,11 @@
   @media (prefers-reduced-motion: reduce) { .w-ring .tip, .w-tile.fresh .w-now, .segs i.lv::after, .w-ring .zz, .w-idling .w-ring span, .deck-armed::after, .orch-say { animation: none !important; } .w-tile.fresh .w-now { color: var(--text); background: none; } .w-ring .zz { display: none; } }
   /* Everything comes from somewhere and goes somewhere */
   ::view-transition-group(*) { animation-duration: .55s; animation-timing-function: cubic-bezier(.2,.85,.25,1); }
-  ::view-transition-old(root) { animation: vtout .28s ease both; } ::view-transition-new(root) { animation: vtin .5s cubic-bezier(.2,.85,.25,1) both; }
+  /* the frame holds still while the cards travel: only the board's own area slides; the top bar, the agent strip and the line to ORCH stay in
+     the page's one snapshot, which fades onto an identical copy of itself, so nothing in them moves */
+  #board { view-transition-name: ab-main; }
+  ::view-transition-old(root) { display: none; } ::view-transition-new(root) { animation: none; mix-blend-mode: normal; }   /* no cross-fade of the frame onto itself: for a few frames the two copies added up to a bolder, shimmering top bar */
+  ::view-transition-old(ab-main) { animation: vtout .28s ease both; } ::view-transition-new(ab-main) { animation: vtin .5s cubic-bezier(.2,.85,.25,1) both; }
   @keyframes vtout { to { opacity: 0; transform: translateX(var(--vt-out, -28px)); } } @keyframes vtin { from { opacity: 0; transform: translateX(var(--vt-in, 28px)); } }
   :root[data-vtdir=back] { --vt-out: 28px; --vt-in: -28px; }
   ::view-transition-old(*):not(::view-transition-old(root)), ::view-transition-new(*):not(::view-transition-new(root)) { height: 100%; width: 100%; object-fit: fill; }

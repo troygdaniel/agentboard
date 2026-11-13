@@ -200,6 +200,13 @@ class Life(unittest.TestCase):
         for fn in ("sparkle", "greet"):
             self.assertIn("if (RM", body(fn) if fn == "sparkle" else PAGE[PAGE.index("function greet("):][:700])
 
+    def test_the_frame_holds_still_while_the_cards_travel(self):
+        # the top bar shimmered for a few frames on every tab change: the page's snapshot was cross-fading onto a copy of itself
+        self.assertIn("#board { view-transition-name: ab-main; }", PAGE)                 # only the board's own area slides
+        self.assertIn("::view-transition-old(root) { display: none; } ::view-transition-new(root) { animation: none; mix-blend-mode: normal; }", PAGE)
+        self.assertIn("::view-transition-old(ab-main) { animation: vtout .28s ease both; }", PAGE)
+        self.assertNotIn("::view-transition-old(root) { animation: vtout", PAGE)
+
     def test_the_greeting_is_once_a_day_and_the_tab_icon_follows_the_badge(self):
         g = PAGE[PAGE.index("function greet("):][:900]
         self.assertIn("localStorage.setItem('ab-greeted', today)", g)
