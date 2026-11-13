@@ -369,8 +369,8 @@
   }
   /* ORCH's presence: the line says when it is away, and offers the prompt that starts it */
   .orch-go { display: none; border-radius: 999px; min-height: 34px; white-space: nowrap; opacity: 1 !important; border-color: color-mix(in srgb, var(--need) 60%, transparent); color: var(--text); }
-  body.orch-down #orch-line:not(:focus-within) button[type=submit] { display: none; }
-  body.orch-down #orch-line .orch-go { display: inline-flex; } body.orch-down #orch-line:focus-within .orch-go { display: none; }
+  body.orch-down #orch-line:not(:has(input:focus)) button[type=submit] { display: none; }   /* the INPUT's focus, not the line's: pressing Start ORCH focuses that button, and a button that hides on its own mousedown never gets its click */
+  body.orch-down #orch-line .orch-go { display: inline-flex; } body.orch-down #orch-line:has(input:focus) .orch-go { display: none; }
   body.orch-down #orch-line .orch-face { background: none; color: var(--muted); box-shadow: inset 0 0 0 1.5px var(--muted); }
   body.orch-down #orch-line { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--need) 55%, var(--line)), 0 18px 44px -18px rgba(0,0,0,.55); }
   .orch-start { position: absolute; left: 0; right: 0; bottom: calc(100% + 12px); padding: 20px 22px 16px; border-radius: 22px; background: color-mix(in srgb, var(--surface) 96%, transparent); backdrop-filter: blur(18px); box-shadow: inset 0 0 0 1px var(--line), 0 30px 70px -28px rgba(0,0,0,.7); animation: orchsay .45s cubic-bezier(.2,.9,.25,1) both; transform-origin: 40px 100%; }
@@ -618,8 +618,12 @@
   /* the watchdog's one line, Todo cards on hover, the joined panel block, the pile's header */
   .dog-fold { margin: 0 0 8px; } .dog-fold summary { cursor: pointer; list-style: none; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); padding: 6px 10px; border: 1px dashed var(--line); border-radius: 8px; }
   .dog-fold summary::-webkit-details-marker { display: none; } .dog-fold summary::after { content: ' ▸'; } .dog-fold[open] summary::after { content: ' ▾'; } .dog-fold[open] summary { margin-bottom: 6px; } .dog-fold summary:hover { color: var(--text); }
-  @media (hover: hover) { .card[data-status=todo] .meta, .card[data-status=backlog] .meta { max-height: 0; opacity: 0; overflow: hidden; margin: 0; transition: max-height .18s ease, opacity .18s ease, margin .18s ease; }
-    .card[data-status=todo]:is(:hover, :focus-within) .meta, .card[data-status=backlog]:is(:hover, :focus-within) .meta, .card[data-status=todo] .meta:has(.copied) { max-height: 80px; opacity: 1; margin-top: 8px; } }
+  /* A Todo card keeps its height: its actions (Copy prompt, Later, queued time) lie over the right end of the title on hover or focus, and take no room of their own */
+  @media (hover: hover) { .card[data-status=todo] .meta, .card[data-status=backlog] .meta { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); z-index: 1; margin: 0 !important; padding: 4px 4px 4px 22px; flex-wrap: nowrap !important; max-width: calc(100% - 44px); border-radius: 10px; background: linear-gradient(90deg, transparent, var(--surface) 20px); opacity: 0; pointer-events: none; transition: opacity .15s ease; }
+    .card[data-status=todo]:has(.blocked-row) .meta { right: 34px; max-width: calc(100% - 70px); }
+    .card[data-status=todo] .meta .copy:not(.copied) { font-size: 0; } .card[data-status=todo] .meta .copy:not(.copied)::before { content: 'Copy'; font-size: var(--fs-xs); }   /* short, so the title stays readable under them; the tooltip and the c key say the rest */
+    .card[data-status=todo] .meta [data-later] { font-size: 0; gap: 0; } .card[data-status=todo] .meta .when { display: none; }
+    .card[data-status=todo]:is(:hover, :focus-within) .meta, .card[data-status=backlog]:is(:hover, :focus-within) .meta, .card[data-status=todo] .meta:has(.copied) { opacity: 1; pointer-events: auto; } }
   .p-you.has-next ~ .dgrid .dsec.next { display: none; }   /* the block at the top already leads with the next step */
   .p-you.joined { border-bottom-left-radius: 0; border-bottom-right-radius: 0; border-bottom: 0; margin-bottom: 0; padding-bottom: 10px; }
   .p-you.joined + .lat { border-top-left-radius: 0; border-top-right-radius: 0; border-top: 0; margin-top: 0; } .p-you.joined + .lat .lat-h { display: none; }
@@ -2112,7 +2116,7 @@ body.deckview .board{display:block !important;overflow:visible !important;paddin
   <dl>
     <dt><kbd>n</kbd></dt><dd id="key-new">New task (leaves Load; not in the pop-out window, nor <kbd>l</kbd>)</dd>
     <dt><kbd>l</kbd></dt><dd id="key-later">Later list</dd>
-    <dt><kbd>c</kbd></dt><dd id="key-copy">Copy a card's prompt: the one you pointed at or focused last, else the selected or open one</dd>
+    <dt><kbd>c</kbd></dt><dd id="key-copy">Copy a card's prompt: on Now and Watch the card in front of you; on Map the one you pointed at or focused last, else the selected or open one</dd>
     <dt><kbd>d</kbd></dt><dd id="key-done">Mark that same card done</dd>
     <dt><kbd>b</kbd></dt><dd id="key-back">Send that same card back to Todo, to the top: its progress and what the agent learned stay on it</dd>
     <dt><kbd>w</kbd></dt><dd id="key-wrap">Start of day: the last wrap-up ORCH saved (it opens by itself once, the first time you load the board on a new day)</dd>
@@ -5225,10 +5229,10 @@ function renderStatusRows() {   // read-only: each row says what it is and names
   $('cfg-security').innerHTML = ro('Lockdown', I.lockdown ? 'on' : 'off', 'On a locked-down machine the board starts no program, reaches no network and copies no data out. Set <code>AGENTBOARD_LOCKDOWN</code> in the shell that starts it.')
     + ro('Work profile', I.profile ? 'on' : 'off', 'Loopback-only networking, no program started by the board, plugins refused. <code>agentboard profile work</code> turns it on.')
     + ro('Secret masking', I.redact.enabled ? 'on' : 'OFF', mask, !I.redact.enabled)
-    + ro('Plugins', I.plugins.allowed ? `${n(I.plugins.loaded)} loaded` + (n(I.plugins.failed) ? `, ${n(I.plugins.failed)} failed` : '') : 'off', I.plugins.allowed ? 'Plugins may add a tab and a page script. Set <code>AGENTBOARD_PLUGINS</code> to change it.' : 'This machine does not allow plugins. Set <code>AGENTBOARD_PLUGINS=1</code> to allow them.')
+    + ro('Plugins', I.plugins.allowed ? `${n(I.plugins.loaded)} loaded` + (n(I.plugins.failed) ? `, ${n(I.plugins.failed)} failed` : '') : 'off', I.plugins.allowed ? 'Plugins may add a tab and a page script. Set <code>AGENTBOARD_PLUGINS</code> to change it.' : I.lockdown || I.profile ? 'Locked off on this machine: nothing is looked up or loaded, whatever a config file says.' : 'This machine does not allow plugins. Set <code>AGENTBOARD_PLUGINS=1</code> to allow them.')
     + ro('Self-check', 'on request', 'Run <code>agentboard selfcheck</code> to prove the guards. It starts a throwaway server, so it is not run from this page.');
   $('cfg-backup').innerHTML = ro('Last backup', agoMin(minOrNull(I.backup.last_min)), `${n(I.backup.snapshots)} kept. The board copies its data before a risky change; <code>agentboard backup</code> makes one now.`)
-    + ro('Sync copy', I.backup.sync ? (I.backup.last_sync_min == null ? 'on' : 'on · ' + agoMin(n(I.backup.last_sync_min))) : 'off', 'A nightly copy of the newest backup to a folder you name in <code>[backup] sync_dir</code> in config.toml.')
+    + ro('Sync copy', I.backup.sync ? (I.backup.last_sync_min == null ? 'on' : 'on · ' + agoMin(n(I.backup.last_sync_min))) : 'off', I.lockdown && !I.backup.sync ? 'Locked off on this machine: the board copies no data out of its own folder. Backups stay beside the board.' : 'A nightly copy of the newest backup to a folder you name in <code>[backup] sync_dir</code> in config.toml.')
     + ro('Data folder', I.data_private ? 'private' : 'readable by others', I.data_private ? "Only you can read the board's data (mode 700)." : 'Other accounts on this machine can read it. <code>agentboard doctor</code> shows the fix.', !I.data_private);
 }
 function renderSettingsPanes() { renderThemeRow(); renderBoardRows(); renderAgentsPane(); loadSettingsInfo(); }
@@ -5565,7 +5569,7 @@ function sparkle(x, y, colours) {   // a handful of specks in the card's colours
 }
 let greeted = false;
 function greet(n) {   // once, when you arrive: who you are, what time of day it is, and the one number that matters
-  const today = new Date().toDateString(); let seen = ''; try { seen = localStorage.getItem('ab-greeted') || ''; } catch (e) {}
+  const today = new Date().toDateString(); let seen = ''; try { seen = localStorage.getItem('ab-greeted') || ''; } catch (e) { seen = today; }   // a browser that blocks site storage cannot remember today: no greeting, rather than one on every load
   if (RM || greeted || seen === today) { greeted = true; return; } greeted = true; try { localStorage.setItem('ab-greeted', today); } catch (e) {}   // once a day, on the first board you open
   const h = new Date().getHours(), part = h < 5 ? 'Still up' : h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening', who = OWNER && OWNER !== 'you' ? ', ' + OWNER.split(' ')[0] : '';
   const g = document.createElement('div'); g.className = 'greet'; g.innerHTML = `<b>${esc(part + who)}</b><span>${n ? `${n} thing${n === 1 ? '' : 's'} need${n === 1 ? 's' : ''} you` : 'Nothing needs you'}</span>`; document.body.appendChild(g); document.body.classList.add('greeting'); setTimeout(() => document.body.classList.remove('greeting'), 2700); g.addEventListener('animationend', e => { if (e.animationName === 'greetout') g.remove(); });
@@ -5615,8 +5619,8 @@ function orchSync() { if (chatFirstLoad || !cfg || !cfg.dispatch) return; const 
   orchUp = !down; document.body.classList.toggle('orch-down', down);
   const f = $('orch-line'), i = f?.querySelector('input'); if (i) i.placeholder = down ? 'ORCH is not running' : 'Tell ORCH what you need, or @ someone…';
   if (was === false && orchUp) orchArrived();
-  if (down && !orchAsked) { orchAsked = true; let seen = ''; try { seen = localStorage.getItem('ab-orch-asked') || ''; } catch (e) {} const today = new Date().toDateString();
-    if (seen !== today) { try { localStorage.setItem('ab-orch-asked', today); } catch (e) {} setTimeout(() => { if (orchUp === false && !document.querySelector('.orch-offer')) orchStart(true); }, 4200); } }   // once a day, after the greeting, it offers by itself
+  if (down && !orchAsked) { orchAsked = true; let seen = '', blind = false; try { seen = localStorage.getItem('ab-orch-asked') || ''; } catch (e) { blind = true; } const today = new Date().toDateString();   // blind: site storage is blocked, so "once a day" cannot be kept. It stays shut; the line still says ORCH is away
+    if (!blind && seen !== today) { try { localStorage.setItem('ab-orch-asked', today); } catch (e) {} setTimeout(() => { const busy = isTyping() || openId || hudIsOpen() || $('keys').classList.contains('on') || mixIsOpen() || tourIsOpen(); if (orchUp === false && !busy && !document.querySelector('.orch-offer')) orchStart(true); }, 4200); } }   // once a day, after the greeting, it offers by itself
   if (was !== orchUp && MEFIRST) render();
 }
 setInterval(orchSync, 1000);
@@ -6023,7 +6027,7 @@ async function startOfDay(auto) {
     const r = await fetch('/api/wrapup', { cache: 'no-store' }); const d = await r.json();
     if (!d || d.none || !d.date) { if (!auto) toast('No wrap-up saved yet: ORCH saves one when you say go at the end of a day'); return; }
     if (auto) {
-      let seen = ''; try { seen = localStorage.getItem(SOD_KEY) || ''; } catch (e) {}
+      let seen = ''; try { seen = localStorage.getItem(SOD_KEY) || ''; } catch (e) { return; }   // site storage blocked: it cannot know you have seen it, so it does not open by itself (w still opens it)
       const busy = isTyping() || openId || hudIsOpen() || $('keys').classList.contains('on') || mixIsOpen() || tourIsOpen();
       if (d.date >= localDay() || seen === d.date + ' ' + d.at || busy) return;   // wrapped today, already seen, or something is in use: stay out of the way
     }
@@ -6284,6 +6288,8 @@ function aimedCard() {
   const under = idOf([...document.querySelectorAll('.card:hover')].pop());
   const focused = idOf(document.activeElement);
   const picked = selected.size === 1 ? [...selected][0] : null;
+  const front = MEFIRST && !hudIsOpen() ? (nowWatch ? (watchOpenId || watchSel) : deckTop) : null;   // Now and Watch have one card in front of you: c, d and b act on it, wherever the pointer rests
+  if (front && byId.has(front)) return front;
   return (aimedBy === 'pointer' ? [under, focused, picked, openId] : [focused, picked, under, openId]).find(Boolean) || null;
 }
 // d: what the Done button does (the same move), on the card c would copy. One settle sound once it has landed.
@@ -6386,7 +6392,7 @@ document.addEventListener('click', async e => {
     if (!r.ok) throw new Error(d.error);
     await navigator.clipboard.writeText(d.prompt);
     b.textContent = 'Copied'; touch.after('copy');
-  } catch (err) { b.textContent = 'Failed'; showError('Copy failed: ' + err.message); }
+  } catch (err) { b.textContent = 'Failed'; showError('Copy failed: ' + String(err.message).replace(/\.$/, '') + '. In a terminal, "agentboard orch" prints the same prompt.'); }   // a browser that refuses the clipboard still leaves a way
   setTimeout(() => { b.textContent = 'Copy prompt'; }, 1800);
 });
 

@@ -80,9 +80,58 @@ class OrchOnThePage(unittest.TestCase):
     def test_a_board_with_no_orch_offers_nothing(self):
         self.assertIn("if (chatFirstLoad || !cfg || !cfg.dispatch) return;", PAGE)
 
+    def test_start_orch_does_not_hide_under_its_own_press(self):
+        self.assertIn("body.orch-down #orch-line:has(input:focus) .orch-go { display: none; }", PAGE)
+        self.assertNotIn("#orch-line:focus-within .orch-go", PAGE)
+
     def test_orch_arriving_is_shown(self):
         self.assertIn("ORCH is here", PAGE)
         self.assertIn("if (was === false && orchUp) orchArrived();", PAGE)
+
+    def test_a_browser_that_refuses_the_clipboard_is_told_the_other_way(self):
+        self.assertIn("""In a terminal, "agentboard orch" prints the same prompt.""", PAGE)
+
+
+class SettingsOnALockedMachine(unittest.TestCase):
+    """Work-computer audit (Nov 13): a locked machine's Settings must not tell you to switch on what the lock refuses."""
+
+    def test_plugins_row_does_not_offer_the_switch_under_the_lock(self):
+        self.assertIn("I.lockdown || I.profile ? 'Locked off on this machine: nothing is looked up or loaded, whatever a config file says.'", PAGE)
+
+    def test_sync_row_does_not_offer_the_folder_under_the_lock(self):
+        self.assertIn("I.lockdown && !I.backup.sync ? 'Locked off on this machine: the board copies no data out of its own folder.", PAGE)
+
+
+class StorageBlocked(unittest.TestCase):
+    """A managed browser can block site storage. "Once a day" cannot be kept then, so nothing opens by itself on every load."""
+
+    def test_the_start_orch_panel_stays_shut_and_keeps_out_of_the_way(self):
+        self.assertIn("catch (e) { blind = true; }", PAGE)
+        self.assertIn("if (!blind && seen !== today) {", PAGE)
+        self.assertIn("if (orchUp === false && !busy && !document.querySelector('.orch-offer')) orchStart(true);", PAGE)
+
+    def test_the_greeting_and_start_of_day_do_not_repeat(self):
+        self.assertIn("localStorage.getItem('ab-greeted') || ''; } catch (e) { seen = today; }", PAGE)
+        self.assertIn("localStorage.getItem(SOD_KEY) || ''; } catch (e) { return; }", PAGE)
+
+    def test_every_storage_call_is_guarded(self):
+        for line in PAGE.splitlines():
+            if "localStorage." in line or "sessionStorage." in line:
+                self.assertIn("try", line, line.strip()[:120])
+
+
+class MinorFixes(unittest.TestCase):
+    """Nov 13: d (and c, b) reach the card in front of you on Now and Watch; a Todo card on Map keeps its height on hover."""
+
+    def test_the_card_keys_aim_at_the_front_card_on_now_and_watch(self):
+        fn = PAGE[PAGE.index("function aimedCard()"):PAGE.index("async function markDoneByKey()")]
+        self.assertIn("const front = MEFIRST && !hudIsOpen() ? (nowWatch ? (watchOpenId || watchSel) : deckTop) : null;", fn)
+        self.assertIn("if (front && byId.has(front)) return front;", fn)
+
+    def test_a_todo_card_does_not_grow_on_hover(self):
+        self.assertNotIn(".card[data-status=todo] .meta, .card[data-status=backlog] .meta { max-height: 0;", PAGE)
+        self.assertIn(".card[data-status=todo] .meta, .card[data-status=backlog] .meta { position: absolute;", PAGE)
+        self.assertNotIn("max-height: 80px; opacity: 1; margin-top: 8px;", PAGE)
 
 
 if __name__ == "__main__":
