@@ -367,6 +367,20 @@
     .deck.watch { padding: 0 6px 110px; } .w-pages { margin-top: 8px; padding-top: 6px; } .w-page { padding: 0 8px; grid-auto-rows: 150px; gap: 12px; } .w-tile { padding: 14px 16px; grid-template-columns: 70px 1fr; } .w-ring { width: 70px; height: 70px; } .orb { width: 46px; height: 46px; margin: -23px 0 0 -23px; } .w-now { font-size: 15px; }
     .w-focus { top: 60px; width: calc(100vw - 20px); } #orch-line { bottom: 12px; } .greet b { font-size: 30px; }
   }
+  /* Step dots, one card per agent, the full card, writing to anyone, and the line that says what changed while you were away */
+  .step-dots { display: inline-flex; gap: 4px; margin-left: 2px; } .step-dots s { width: 7px; height: 7px; border-radius: 50%; text-decoration: none; box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--y) 60%, transparent); } .step-dots s.dn { background: var(--y); } .step-dots s.at { box-shadow: inset 0 0 0 1.5px var(--y), 0 0 0 3px color-mix(in srgb, var(--y) 22%, transparent); }
+  .w-more-n { font-style: normal; color: var(--c); font-weight: 600; }
+  .deck-full { display: block; margin-top: 20px; padding: 0; border: 0; background: none; font: inherit; font-size: 12px; font-weight: 600; color: var(--muted); cursor: pointer; } .deck-full:hover { color: var(--text); text-decoration: underline; text-underline-offset: 3px; }
+  .orch-say { border: 0; text-align: left; cursor: pointer; font: inherit; color: inherit; } .orch-say p b { display: block; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 700; margin-bottom: 1px; }
+  #orch-line.direct .orch-face { background: var(--need); color: #fff; }
+  .orch-who { position: absolute; left: 6px; bottom: calc(100% + 10px); display: flex; flex-wrap: wrap; gap: 6px; max-width: 96%; padding: 8px; border-radius: 16px; background: color-mix(in srgb, var(--surface) 94%, transparent); backdrop-filter: blur(14px); box-shadow: inset 0 0 0 1px var(--line), 0 18px 44px -18px rgba(0,0,0,.6); animation: orchsay .3s cubic-bezier(.2,.9,.25,1) both; }
+  .orch-who button { font: inherit; font-size: 13px; display: inline-flex; align-items: center; gap: 7px; padding: 4px 12px 4px 4px; border-radius: 999px; border: 0; background: color-mix(in srgb, var(--text) 7%, transparent); color: var(--text); cursor: pointer; } .orch-who button:hover, .orch-who button.first { background: color-mix(in srgb, var(--text) 16%, transparent); }
+  .orch-who i { font-style: normal; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; font-weight: 700; background: var(--text); color: var(--bg); }
+  .backline { position: fixed; z-index: 58; left: 50%; top: 208px; transform: translateX(-50%); display: flex; align-items: center; gap: 16px; padding: 12px 14px 12px 22px; border-radius: 999px; background: color-mix(in srgb, var(--surface) 94%, transparent); backdrop-filter: blur(16px); box-shadow: inset 0 0 0 1px var(--line), 0 24px 60px -24px rgba(0,0,0,.65); animation: awayin .6s cubic-bezier(.2,.9,.25,1) both; }
+  .backline span { font-size: 11px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); white-space: nowrap; } .backline p { margin: 0; font-size: 15px; font-weight: 600; white-space: nowrap; } .backline .need { color: var(--need); }
+  .backline .btn { border-radius: 999px; min-height: 32px; } .backline-x { border: 0; background: none; color: var(--muted); cursor: pointer; font-size: 12px; width: 28px; height: 28px; border-radius: 50%; } .backline-x:hover { color: var(--text); }
+  @keyframes awayin { from { opacity: 0; transform: translateX(-50%) translateY(-16px) scale(.96); } } .backline.out { transition: opacity .45s, transform .45s; opacity: 0; transform: translateX(-50%) translateY(-10px); }
+  @media (prefers-reduced-motion: reduce) { .backline, .orch-who { animation: none; } }
   /* Agent orbs, batch sign-off, Later, the day along the bottom */
   .orb { position: absolute; left: 50%; top: 50%; width: 54px; height: 54px; margin: -27px 0 0 -27px; border-radius: 50%; overflow: hidden; display: grid; place-items: center; background: color-mix(in srgb, var(--c) 34%, var(--surface)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c) 45%, transparent), inset 0 -8px 14px color-mix(in srgb, #000 22%, transparent); }
   .orb::before { content: ''; position: absolute; inset: -30%; background: conic-gradient(from var(--spin), transparent 0 55%, color-mix(in srgb, var(--c) 55%, transparent) 78%, transparent 100%); opacity: .7; }   /* one soft band of its own colour, turning while it works */
@@ -1966,7 +1980,7 @@ body.deckview .board{display:block !important;overflow:visible !important;paddin
 <body>
 <div id="ribbon" aria-label="The last eight hours"></div>
 <div id="aura" aria-hidden="true"><i></i><i></i><i></i></div>
-<form id="orch-line" autocomplete="off"><span aria-hidden="true">O</span><input name="text" maxlength="2000" placeholder="Tell ORCH what you need…" aria-label="Tell ORCH what you need"><button class="btn primary" type="submit">Send</button></form>
+<form id="orch-line" autocomplete="off"><span class="orch-face" aria-hidden="true">O</span><input name="text" maxlength="2000" placeholder="Tell ORCH what you need, or @ someone…" aria-label="Tell ORCH what you need, or type @ and a name to write to an agent"><button class="btn primary" type="submit">Send</button></form>
 <div class="wrap">
   <header>
     <h1><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="1.5" y="2" width="3.5" height="12" rx="1.2" fill="currentColor" opacity=".35"/><rect x="6.25" y="2" width="3.5" height="8" rx="1.2" fill="currentColor"/><rect x="11" y="2" width="3.5" height="5" rx="1.2" fill="currentColor" opacity=".6"/></svg>agentboard</h1>
@@ -2378,7 +2392,7 @@ function youBtns(t, y, panel) {
 function youCard(t) { const y = youOf(t); if (!y) return '';
   const b = youBtns(t, y);
   const age = y.k === 'fin' || y.k === 'quiet' ? '' : `<u>${esc(y.k === 'none' ? ago(t.updated).text : 'for ' + ago(t.updated).text.replace(' ago', '').replace('just now', 'a moment'))}</u>`;
-  return `<div class="you ${y.k}"><b>You</b><i>${esc(y.verb)}</i>${age}</div>` + (y.k === 'fin' || y.k === 'quiet' ? `<div class="you-say">${esc(y.say)}</div><div class="you-btns">${b}</div>` : ''); }
+  return `<div class="you ${y.k}"><b>You</b><i>${esc(y.verb)}</i>${y.steps ? `<span class="step-dots" aria-hidden="true">${Array.from({ length: y.steps }, (_, k) => `<s class="${k < y.step ? 'dn' : k === y.step ? 'at' : ''}"></s>`).join('')}</span>` : ''}${age}</div>` + (y.k === 'fin' || y.k === 'quiet' ? `<div class="you-say">${esc(y.say)}</div><div class="you-btns">${b}</div>` : ''); }
 function youPanel(t) { const y = youOf(byId.get(t.id) || t); if (!y) return '';   // the list's copy carries the report's text, where the Next line is
   const say = y.k === 'none' ? `${esc(t.agent || 'The agent')} is working and has not asked for anything. Last update ${esc(ago(t.updated).text)}.` : esc(y.say);
   const b = youBtns(t, y, true);
@@ -2763,7 +2777,7 @@ function watchHtml(by, n) {   // The whole team. Working agents are tiles (alive
     const slotsNow = t.subs && t.subs.length ? t.subs : (kidsMap.get(t.id) || []), dn = slotsNow.filter(sl => subDone(byId.get(sl.id) || sl)).length, sparkAt = was && dn > (was.dn || 0) ? dn - 1 : -1;
     return `<article class="w-tile w-nav${alive ? ' fresh' : ''}${moved ? ' moved' : ''}${isNew ? ' new' : ''}${watchSel === t.id ? ' sel' : ''}${watchOpenId === t.id ? ' lifted' : ''}" style="--c:${colorOf(t)}" data-watch="${esc(t.id)}" data-wid="${esc(t.id)}" data-p="${p}" data-was="${was ? was.p : p}" data-dn="${dn}" data-spark="${sparkAt}" data-line="${esc(line)}" tabindex="0" role="button" aria-label="${esc(name(t))}, ${esc(line)}, ${p}%">
 <div class="w-ring"><svg viewBox="0 0 80 80" aria-hidden="true"><circle class="tr" cx="40" cy="40" r="34"/><circle class="fg" cx="40" cy="40" r="34" pathLength="100" stroke-dasharray="${was ? was.p : p} 100"/>${p > 0 && p < 100 ? `<circle class="tip" r="3.2" cx="${(40 + 34 * Math.cos(p / 100 * 2 * Math.PI)).toFixed(2)}" cy="${(40 + 34 * Math.sin(p / 100 * 2 * Math.PI)).toFixed(2)}"/>` : ''}</svg>${orb(t.agent)}<em>${was ? was.p : p}</em>${dp > 0 ? `<u class="w-delta">+${dp}%</u>` : ''}</div>
-<div class="w-tx"><b>${esc(name(t))}</b><span class="w-now${was && was.line !== line ? ' swap' : ''}" title="${esc(line)}">${esc(line)}</span>${was && was.line !== line ? `<span class="w-was" aria-hidden="true">${esc(was.line)}</span>` : ''}<span class="w-card">${esc(t.title)}</span></div>
+<div class="w-tx"><b>${esc(name(t))}</b><span class="w-now${was && was.line !== line ? ' swap' : ''}" title="${esc(line)}">${esc(line)}</span>${was && was.line !== line ? `<span class="w-was" aria-hidden="true">${esc(was.line)}</span>` : ''}<span class="w-card">${esc(t.title)}${(t._more || []).length ? `<i class="w-more-n" title="${esc(t._more.map(x => x.title).join(' · '))}"> · +${t._more.length} more</i>` : ''}</span></div>
 <span class="segs">${segsOf(t)}</span><i class="w-age">${alive ? 'now' : secs < 90 ? Math.round(secs) + 's ago' : esc(ago(t.updated).text)}</i></article>`; };
   const liveNames = new Set(live.map(name));
   const rank = { ask: 0, rev: 1, fin: 2, quiet: 3 }, groups = new Map(); wait.forEach(t => { const g = groups.get(name(t)) || []; g.push(t); groups.set(name(t), g); });   // one card per agent: its most pressing card, and how many
@@ -2772,7 +2786,9 @@ function watchHtml(by, n) {   // The whole team. Working agents are tiles (alive
 <div class="w-ring">${orb(t.agent)}${g.length > 1 ? `<em class="n">${g.length}</em>` : ''}</div>
 <div class="w-tx"><b>${esc(name(t))}</b><span class="w-now">${esc(y.say || verb)}</span><span class="w-card"><i class="w-verb">You · ${esc(verb)}</i></span></div><i class="w-age">waiting</i></article>`; };
   const idleTile = a => `<article class="w-tile w-nav w-idling${watchSel === 'idle:' + a ? ' sel' : ''}" data-wid="${esc('idle:' + a)}" tabindex="0" aria-label="${esc(a)} is idle"><div class="w-ring">${orb(a)}<i class="zz" aria-hidden="true">z</i><i class="zz" aria-hidden="true">z</i><i class="zz" aria-hidden="true">z</i></div><div class="w-tx"><b>${esc(a)}</b><span class="w-now">Resting</span><span class="w-card">Nothing in hand</span></div></article>`;
-  const cards = [...live.map(tile), ...[...groups.values()].map(waitTile), ...idle.map(idleTile)], per = watchPer(), pages = []; for (let k = 0; k < cards.length; k += per) pages.push(cards.slice(k, k + per));
+  const liveBy = new Map(); live.forEach(t => { const g = liveBy.get(name(t)) || []; g.push(t); liveBy.set(name(t), g); });   // one card per agent: the card it last reported on, and how many more it holds
+  const mains = [...liveBy.values()].map(g => { g.sort((a, b) => (Date.parse(b.updated) || 0) - (Date.parse(a.updated) || 0)); g[0]._more = g.slice(1); return g[0]; });
+  const cards = [...mains.map(tile), ...[...groups.values()].map(waitTile), ...idle.map(idleTile)], per = watchPer(), pages = []; for (let k = 0; k < cards.length; k += per) pages.push(cards.slice(k, k + per));
   watchPages = Math.max(1, pages.length); watchPage = Math.min(watchPage, watchPages - 1);
   pages.forEach((pg, k) => { if (k !== watchPage && pg.some(h => h.includes(' moved'))) watchPing.add(k); }); watchPing.delete(watchPage);
   const pinged = pages.map((_, k) => watchPing.has(k));   // something changed on a page you have not looked at since
@@ -2951,6 +2967,7 @@ function deckMoreHtml(d) {   // what you need to decide, beside the card: what i
     + (d.body_html ? `<section><h3>From ${esc(d.agent || 'the agent')}</h3><div class="rich-body">${d.body_html}</div></section>` : '')
     + (d.description ? `<section class="deck-task"><h3>The task</h3>${d.description_html ? `<div class="rich-body">${d.description_html}</div>` : `<div class="rich-body fmt">${fmt(d.description)}</div>`}<button type="button" class="deck-task-more" data-deck-task hidden>Show all</button></section>` : '')
     + (log ? `<section><h3>Lately</h3><ol class="deck-log">${log}</ol></section>` : '')
+    + `<button type="button" class="deck-full" data-full="${esc(d.id)}">Everything on this card ›</button>`
     ;
 }
 async function deckFill() {
@@ -5515,7 +5532,7 @@ document.addEventListener('click', e => {   // a step done, a card opened on Wat
 document.addEventListener('keydown', e => { if (e.key !== '/' || e.metaKey || e.ctrlKey || e.altKey || mixIsOpen() || /INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName || '') || document.activeElement?.isContentEditable) return; e.preventDefault(); e.stopImmediatePropagation(); document.querySelector('#orch-line input')?.focus(); }, true);
 document.addEventListener('submit', async e => { const f = e.target.closest?.('#orch-line'); if (!f) return; e.preventDefault(); const i = f.querySelector('input'), text = i.value.trim(); if (!text) return;
   try { const ghost = document.createElement('span'); ghost.className = 'orch-ghost'; ghost.textContent = text; f.appendChild(ghost); ghost.addEventListener('animationend', () => ghost.remove());
-    await api('/api/chat', { text, to: 'ORCH' }); i.value = ''; showError(''); f.classList.add('sent'); setTimeout(() => f.classList.remove('sent'), 1600); loadChat(); } catch (err) { showError('Could not send: ' + err.message); } });
+    await api('/api/chat', /^@[\w-]+\s/.test(text) ? { text } : { text, to: 'ORCH' }); i.value = ''; orchWho(); showError(''); f.classList.add('sent'); setTimeout(() => f.classList.remove('sent'), 1600); loadChat(); } catch (err) { showError('Could not send: ' + err.message); } });
 document.addEventListener('pointermove', e => {   // a card leans a little toward the pointer, and a soft light follows it
   if (RM || e.pointerType === 'touch') return; const el = e.target.closest?.('.w-page.cur .w-tile:not(.w-idling), .deck-slot.front .card');
   document.querySelectorAll('.tilt').forEach(x => { if (x !== el) { x.classList.remove('tilt'); x.style.removeProperty('--rx'); x.style.removeProperty('--ry'); } });
@@ -5546,8 +5563,33 @@ function favSync(n) {   // the browser tab says it too: a number while cards wai
 new MutationObserver(() => { const b = $('need-n'); if (!b) return; favSync(+b.textContent || 0); if (b.dataset.v === b.textContent) return; const up = (+b.textContent || 0) > (+b.dataset.v || 0); b.dataset.v = b.textContent; if (!RM) b.animate([{ transform: `translateY(${up ? 70 : -70}%)`, opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: 380, easing: 'cubic-bezier(.2,.8,.2,1)' }); }).observe($('need-n'), { childList: true, characterData: true, subtree: true });
 setTimeout(() => favSync(+($('need-n')?.textContent) || 0), 3000);
 let orchSeen = null;   // ORCH's answer rises out of the line you wrote to it
-setInterval(() => { const last = [...chatMsgs].reverse().find(m => (m.sender || '').toUpperCase() === 'ORCH' && m.text); if (!last) { if (orchSeen === null && !chatFirstLoad) orchSeen = 0; return; } if (orchSeen === null) { orchSeen = last.seq; return; } if (last.seq <= orchSeen) return; orchSeen = last.seq;
-  document.querySelectorAll('.orch-say').forEach(x => x.remove()); const f = $('orch-line'); if (!f) return; const bub = document.createElement('div'); bub.className = 'orch-say'; bub.innerHTML = `<span aria-hidden="true">O</span><p>${esc(last.text)}</p>`; f.appendChild(bub); setTimeout(() => { bub.classList.add('out'); setTimeout(() => bub.remove(), 500); }, 8000); }, 700);
+const toMe = m => { const to = String(m.to || '').toLowerCase(); return m.kind === 'agent' && m.text && (to === 'you' || to === String(OWNER || '').toLowerCase()); };   // a line an agent wrote to you
+setInterval(() => { const last = [...chatMsgs].reverse().find(toMe); if (!last) { if (orchSeen === null && !chatFirstLoad) orchSeen = 0; return; } if (orchSeen === null) { orchSeen = last.seq; return; } if (last.seq <= orchSeen) return; orchSeen = last.seq;
+  document.querySelectorAll('.orch-say').forEach(x => x.remove()); const f = $('orch-line'); if (!f) return; const bub = document.createElement('button'); bub.type = 'button'; bub.className = 'orch-say'; bub.title = 'Answer ' + last.sender; bub.innerHTML = `<span aria-hidden="true">${esc(nodeGlyph(last.sender))}</span><p><b>${esc(last.sender)}</b>${esc(last.text)}</p>`;
+  bub.onclick = () => { const i = f.querySelector('input'); i.value = last.sender.toUpperCase() === 'ORCH' ? '' : '@' + last.sender + ' '; i.focus(); orchWho(); bub.remove(); };   // a click answers them
+  f.appendChild(bub); setTimeout(() => { bub.classList.add('out'); setTimeout(() => bub.remove(), 500); }, 9000); }, 700);
+// The line talks to anyone: plain words go to ORCH; "@" offers the names, and the line shows whose face you are talking to
+function orchNames() { return [...new Set(['ORCH', ...tasks.map(t => t.agent).filter(Boolean), ...(chatNames || [])])].sort((a, b) => a.localeCompare(b, undefined, { numeric: true })); }
+function orchWho() { const f = $('orch-line'); if (!f) return; const i = f.querySelector('input'), v = i.value, m = /^@([\w-]*)$/.exec(v), full = /^@([\w-]+)\s/.exec(v), names = orchNames();
+  const who = full && names.find(n => n.toLowerCase() === full[1].toLowerCase()); f.querySelector('.orch-face').textContent = who ? nodeGlyph(who) : 'O'; f.classList.toggle('direct', !!who && who.toUpperCase() !== 'ORCH');
+  let box = f.querySelector('.orch-who'); const list = m ? names.filter(n => n.toLowerCase().startsWith(m[1].toLowerCase())).slice(0, 8) : [];
+  if (!list.length) { box?.remove(); return; } if (!box) { box = document.createElement('div'); box.className = 'orch-who'; f.appendChild(box); }
+  box.innerHTML = list.map((n, k) => `<button type="button" data-who="${esc(n)}"${k ? '' : ' class="first"'}><i>${esc(nodeGlyph(n))}</i>${esc(n)}</button>`).join(''); }
+document.addEventListener('input', e => { if (e.target.closest?.('#orch-line')) orchWho(); });
+document.addEventListener('click', e => { const b = e.target.closest?.('#orch-line [data-who]'); if (!b) return; const i = $('orch-line').querySelector('input'); i.value = '@' + b.dataset.who + ' '; i.focus(); orchWho(); });
+window.addEventListener('keydown', e => { if (e.key !== 'Tab' || !e.target.closest?.('#orch-line')) return; const first = $('orch-line').querySelector('.orch-who button'); if (!first) return; e.preventDefault(); e.stopImmediatePropagation(); first.click(); }, true);   // on the window, ahead of any sheet's own Tab handling
+// While you were away: when you come back to the tab after a minute or more, one line says what changed
+let awaySnap = null, awayAt = 0, backAfterMs = 60000;   // shorter than a minute away is not away
+const awayState = () => new Map(tasks.filter(t => !isKid(t)).map(t => [t.id, { st: t.status, k: (youOf(t) || {}).k || '', p: t.progress || 0, agent: t.agent || '' }]));
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') { awaySnap = awayState(); awayAt = Date.now(); } else if (awaySnap && Date.now() - awayAt >= backAfterMs) setTimeout(awayShow, 1500); });
+function awayShow() { const was = awaySnap, now = awayState(); awaySnap = null; if (!was) return; let need = 0, done = 0, moved = 0; const who = new Set();
+  now.forEach((n, id) => { const w = was.get(id); const waits = k => k && k !== 'none'; if (waits(n.k) && !(w && waits(w.k))) { need++; who.add(n.agent); } if (n.st === 'done' && w && w.st !== 'done') done++; if (w && n.st === 'doing' && n.p > w.p) moved++; });
+  if (!need && !done && !moved) return; const mins = Math.max(1, Math.round((Date.now() - awayAt) / 60000)), parts = [];
+  if (need) parts.push(`<b class="need">${need} now need${need === 1 ? 's' : ''} you</b>`); if (done) parts.push(`${done} finished`); if (moved) parts.push(`${moved} moved forward`);
+  document.querySelectorAll('.backline').forEach(x => x.remove()); const el = document.createElement('div'); el.className = 'backline'; el.setAttribute('role', 'status');
+  el.innerHTML = `<span>While you were away · ${mins} min</span><p>${parts.join(' · ')}</p>${need ? '<button type="button" class="btn primary" data-away-go>Show me</button>' : ''}<button type="button" class="backline-x" data-away-x aria-label="Dismiss">✕</button>`; document.body.appendChild(el);
+  setTimeout(() => { el.classList.add('out'); setTimeout(() => el.remove(), 500); }, 14000); }
+document.addEventListener('click', e => { if (e.target.closest?.('[data-away-go]')) { goTab(0); document.querySelector('.backline')?.remove(); } else if (e.target.closest?.('[data-away-x]')) document.querySelector('.backline')?.remove(); const fc = e.target.closest?.('[data-full]'); if (fc) { const id = fc.dataset.full; setTimeout(() => openPanel(id), 0); } });
 let dogOpen = false, pFoldOpen = false;   // the two folds stay as you left them across redraws
 document.addEventListener('click', e => { if (e.target.closest?.('[data-dog-fold]')) dogOpen = !dogOpen; if (e.target.closest?.('[data-p-fold]')) pFoldOpen = !pFoldOpen; });
 document.addEventListener('click', async e => {
