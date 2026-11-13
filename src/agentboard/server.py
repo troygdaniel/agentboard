@@ -280,7 +280,7 @@ def make_handler(default_store, port):
                 self._send(500, {"error": f"server error ({e.__class__.__name__})"})
 
         def _route_get(self, url, q):
-            if url.path in ("/", "/index.html", "/hud", "/agents", "/need"):
+            if url.path in ("/", "/index.html", "/hud", "/agents", "/need", "/watch"):
                 html = (STATIC / "index.html").read_text()
                 inject = f"<script>window.AB_BASE = {json.dumps(self.base)};</script><script src=\"{self.base}/voice.js\" defer></script>" + plugins.page_tags(self.base)   # the page prefixes its /api calls with this; plugin tags only while plugins are allowed
                 nonce = secrets.token_urlsafe(18)   # new for every response; only the page's own inline scripts get it
@@ -385,6 +385,8 @@ def make_handler(default_store, port):
                         # never passes raw HTML through, so the client can insert it as-is
                         t["body_html"] = mdlib.to_html(t["body_md"])
                         t["sections"] = mdlib.sections(t["body_md"])   # Changed / Checked / Next / flow, for the panel's layout
+                    if t.get("description"):   # the same safe rendering for the task's own text: headings, lists and code, never raw HTML
+                        t["description_html"] = mdlib.to_html(t["description"])
                     blob = "\n".join([t.get("result") or "", t.get("body_md") or "", *[str(x.get("text", "")) for x in t.get("log", [])]])
                     t["checks"] = reports.test_totals(blob)   # "675 tests pass": the chips that say whether it passed
                     if (t.get("status") == "done" or t.get("review")) and not t.get("parent_id"):   # finished work, closed or up for review
@@ -514,6 +516,9 @@ def make_handler(default_store, port):
                     prev_before = self.store.next_sibling(body["id"])
                     self.store.delete(body["id"])
                     self._send(200, {"ok": True, "prev": prev, "prev_before": prev_before, "prev_kids": prev_kids})
+                elif path == "/api/owner-mark":   # a step done, or "later": the owner's own marks on a card that waits on them
+                    t = self.store.owner_mark(body["id"], step=body.get("step"), later=body.get("later"))
+                    self._send(200, {"ok": True, "owner_step": t.get("owner_step", 0), "owner_later": bool(t.get("owner_later"))})
                 elif path == "/api/reply":
                     if not isinstance(body["text"], str):
                         raise BoardError("text must be a string")

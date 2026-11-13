@@ -24,20 +24,22 @@ class RouteTests(_Http):
             self.assertIn("Content-Security-Policy", headers, path)
 
     def test_the_shared_bar_links_to_it(self):
-        self.assertIn(("need", "Needs you", "/need"), nav.TABS)
+        self.assertIn(("need", "Now", "/need"), nav.TABS)
+        self.assertIn(("watch", "Watch", "/watch"), nav.TABS)
         self.assertEqual(len(nav.TABS), 3)
 
 
 class ViewSwitchTests(unittest.TestCase):
     def test_one_two_three_open_the_three_tabs_and_the_ring_has_three_views(self):
-        self.assertIn("if ((e.key === '1' || e.key === '2' || e.key === '3') && !SOLO && !e.altKey) { e.preventDefault(); goView(+e.key - 1); return; }", PAGE)
-        self.assertIn("const curView = () => MEFIRST ? 2 : BYAGENT ? 1 : 0;", PAGE)
+        self.assertIn("if ((e.key === '1' || e.key === '2' || e.key === '3') && !SOLO && !e.altKey) { e.preventDefault(); goTab(+e.key - 1); return; }", PAGE)
+        self.assertIn("const TAB_N = 3, tabNow = () => hudIsOpen() ? -1 : MEFIRST ? (nowWatch ? 1 : 0) : 2;", PAGE)   # the tabs as you see them: Now, Watch, Map
         self.assertIn("agents = i >= 1, need = i === 2", body("goView"))
-        self.assertIn("<kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></dt><dd>Board, By agent, Needs you</dd>", PAGE)
+        self.assertIn("<kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></dt><dd>Now, Watch, Map</dd>", PAGE)
 
     def test_back_and_forward_follow_the_address(self):
-        self.assertIn("need ? '/need' : agents ? '/agents' : '/'", body("setView"))
-        self.assertIn("need = path.endsWith('/need'), agents = need || path.endsWith('/agents')", PAGE)
+        self.assertIn("need ? (nowWatch ? '/watch' : '/need') : agents ? '/agents' : '/'", body("setView"))
+        self.assertIn("watch = path.endsWith('/watch'), need = watch || path.endsWith('/need'), agents = need || path.endsWith('/agents')", PAGE)
+        self.assertIn("history.pushState({ view: nowWatch ? 'watch' : 'need' }, '', BASE + (nowWatch ? '/watch' : '/need') + location.hash);", body("goTab"))   # Now to Watch is a step Back can undo
 
     def test_the_pile_is_drawn_by_the_same_card_function_in_the_same_redraw(self):
         self.assertIn("$('board').innerHTML = MEFIRST ? deckHtml(by, q || flagFilter) : BYAGENT ? byAgentHtml(by, q || flagFilter) :", body("render"))
@@ -64,8 +66,8 @@ class PileTests(unittest.TestCase):
         step = body("deckStep")
         self.assertIn("if (j < 0 || j >= deckIds.length) {", step)   # past an end: a small bump, and you stay where you are
         self.assertNotIn("%", step)
-        self.assertIn("'Top of the pile'", PAGE)
-        self.assertIn("'Last one'", PAGE)
+        self.assertNotIn("'Top of the pile'", PAGE)   # the counter and the rail say where the ends are
+        self.assertNotIn("'Last one'", PAGE)
 
     def test_the_hand_moves_it_continuously_and_it_settles_on_a_card(self):
         self.assertIn("deckPose(lim(want), 'drag')", PAGE)
@@ -77,7 +79,8 @@ class PileTests(unittest.TestCase):
         self.assertIn("if (deckArm === t.id) { deckDisarm(true); btn.click(); return; }", space)   # only the second press clicks
         self.assertIn("deckArmT = setTimeout(() => deckDisarm(false), 3000);", space)
         keys = PAGE[PAGE.index("else if (e.key === 'Enter' && !(t && t.closest && t.closest('button, a')))"):][:400]
-        self.assertIn("inp.focus()", keys)   # Enter only puts you in the reply box
+        self.assertIn("deckDetails(!deckOpen)", keys)   # Nov 13: Enter opens and closes the details, here and on Watch
+        self.assertIn("else if (e.key === 'r' || e.key === 'R') { const inp", PAGE)   # r puts you in the reply box: it never answers by itself
         self.assertNotIn(".click()", keys)
 
     def test_typing_in_the_reply_box_keeps_the_keys(self):
@@ -86,7 +89,7 @@ class PileTests(unittest.TestCase):
     def test_the_details_open_beside_the_card_from_the_feed_the_panel_reads(self):
         self.assertIn("fetch(BASE + '/api/task?id=' + encodeURIComponent(id)", body("deckFill"))
         more = body("deckMoreHtml")
-        for part in ("esc(h.title)", "esc(c)", "esc(d.description)", "esc(e.text)", "d.body_html"):   # everything escaped but the report the server already made safe
+        for part in ("esc(h.title)", "esc(c)", "d.description_html", "fmt(d.description)", "esc(e.text)", "d.body_html"):   # everything escaped but what the server already made safe
             self.assertIn(part, more)
         self.assertNotIn("render()", body("deckDetails"))
 
@@ -143,6 +146,58 @@ class StuckAndClearedTests(unittest.TestCase):
         self.assertIn("await api('/api/restore', c.undo);", PAGE)   # the same restore the toast's Undo uses
         for part in ("esc(c.word)", "esc(c.title)"):
             self.assertIn(part, h)
+
+
+class CalmPileTests(unittest.TestCase):
+    """The open card says who, what and how long. Everything around it says only what the card does not."""
+    def test_the_line_above_keeps_the_count_what_it_holds_and_a_quiet_cards_fix(self):
+        head = body("deckHeadHtml")
+        self.assertIn("return `<b title=\"${esc(top.agent || 'Unassigned')} ${what}\">${at + 1}<i> of ${n}</i></b>", head)
+        self.assertIn('<span class="deck-holds"', head)
+        self.assertIn("${fin}${fix}${all}${(() => {", head)
+        self.assertIn("})()}${hint}`; }", head)
+        self.assertNotIn('class="you ', head)                    # the You line is on the card, once
+        self.assertNotIn("dkAge(top)", head)
+
+    def test_what_the_open_card_hides_is_in_the_details(self):
+        self.assertIn(".deck-slot .card .title { display: none; }", PAGE)   # on every slot, so each is measured as it will be shown: hiding it on the open one alone left a strip of the slot showing
+        self.assertIn('return `<h2 class="deck-name">${esc(d.title || \'\')}</h2>`', body("deckMoreHtml"))
+
+    def test_hints_and_arrows_wait_for_a_hover_or_focus_and_an_armed_send_always_shows(self):
+        self.assertIn(".deck-head em.keys:not(.armed) { opacity: 0 !important;", PAGE)
+        self.assertIn(".deck-head:focus-within em.keys { opacity: .8 !important; }", PAGE)
+        self.assertIn(".deck-rail .deck-nav:focus-visible { opacity: 1; }", PAGE)
+        self.assertIn(".deck-slot:not(.front) .who .nm { display: none; }", PAGE)   # a strip is a face and a sentence
+
+    def test_the_empty_pile_says_it_in_two_words(self):
+        self.assertIn("<strong>All clear</strong>", body("deckHtml"))
+        self.assertIn("Nothing needs you. Press 2 to watch the agents work.", body("deckHtml"))
+
+
+class TaskTextTests(_Http):
+    """The details panel's "The task" was the description as one escaped paragraph: a blurb. It is rendered like an agent's report."""
+    def test_the_server_renders_the_description_safely_and_the_panel_uses_it(self):
+        import json
+        self.s.add("Pilot hosting", status="todo", task_id="host",
+                   description="Find hosting.\n\n## What we need\n- one web process\n- a database\n\n1. under 20 dollars\n\n<script>alert(1)</script> <img src=x onerror=alert(1)>")
+        d = json.loads(self.get("/api/task?id=host")[1])
+        html = d["description_html"]
+        self.assertIn("What we need</h", html)                  # a heading, not "## What we need"
+        self.assertEqual(html.count("<li>"), 3)
+        self.assertNotIn("<script", html)                       # never raw HTML
+        self.assertNotIn("<img", html)
+        self.assertIn("&lt;script&gt;", html)
+        self.s.add("No text", status="todo", task_id="bare")
+        self.assertNotIn("description_html", json.loads(self.get("/api/task?id=bare")[1]))
+
+    def test_the_panel_draws_it_as_rich_text_and_cuts_a_long_one(self):
+        m = body("deckMoreHtml")
+        self.assertIn('<section class="deck-task"><h3>The task</h3>${d.description_html ? `<div class="rich-body">${d.description_html}</div>`', m)
+        self.assertIn('`<div class="rich-body fmt">${fmt(d.description)}</div>`', m)   # an older server: the board's own formatter, still escaped
+        self.assertNotIn("<p>${esc(d.description)}</p>", PAGE)
+        self.assertIn(".deck-task .rich-body{max-height:230px;overflow:hidden}", PAGE)
+        self.assertIn("more.hidden = !long;", body("deckTaskFit"))                     # a short task has no button
+        self.assertIn(".deck-more .rich-body :is(h1,h2,h3,h4,h5,h6){", PAGE)           # a heading in the text is not styled as the panel's own label
 
 
 class SoundTests(unittest.TestCase):

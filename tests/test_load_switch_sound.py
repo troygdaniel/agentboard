@@ -24,7 +24,7 @@ class LoadSwitchSoundTests(unittest.TestCase):
     def test_one_sound_per_switch_whichever_views_are_involved(self):
         go = body("goView")
         # To Load (h, or Load › in the strip; it is no longer one of the numbered views): openHud's swish is the only sound
-        self.assertIn("if (e.key === 'h') { if (!hudIsOpen()) openHud(); return; }", HTML)
+        self.assertIn("if (e.target.closest('#ls-more')) { e.preventDefault(); if (!hudIsOpen()) openHud(); return; }", HTML)
         self.assertNotIn("openHud()", go)
         # Load to Board, By agent or Needs you: closeHud's swish is the only sound, so the in-place flip stays quiet when Load was open
         self.assertIn("if (agents !== BYAGENT || need !== MEFIRST) { if (!here) touch('swish'); setView(agents, true, need); }", go)
@@ -32,7 +32,7 @@ class LoadSwitchSoundTests(unittest.TestCase):
         # Back and Forward: the same swish, only when the view actually changes
         pop = HTML[HTML.index("window.addEventListener('popstate'"):]
         pop = pop[:pop.index("});") + 3]
-        self.assertIn("if ((agents !== BYAGENT || need !== MEFIRST) && !SOLO) touch('swish');", pop)
+        self.assertIn("if ((agents !== BYAGENT || need !== MEFIRST || (need && watch !== nowWatch)) && !SOLO) touch('swish');", pop)
         self.assertIn("setView(agents, false, need);", pop)
         # setView itself never sounds: the callers decide, so nothing plays twice
         self.assertNotIn("touch(", body("setView"))

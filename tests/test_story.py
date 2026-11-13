@@ -165,7 +165,7 @@ class PageTests(unittest.TestCase):
         # Nov 11: Story is a link in the board's Done column, like Summary and Reports, so its page lights none of the three tabs
         h = self.page(base="/b/x")
         self.assertNotIn("tab on", h)
-        for href in ('href="/b/x/"', 'href="/b/x/agents"', 'href="/b/x/need"'):
+        for href in ('href="/b/x/"', 'href="/b/x/watch"', 'href="/b/x/need"'):
             self.assertIn(href, h)
 
     def test_an_empty_board_says_so_with_one_scene(self):

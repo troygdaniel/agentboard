@@ -402,6 +402,7 @@ class Store:
             t.pop("reply", None)
             t.pop("body_md", None)
             t.pop("checkpoint_at", None)
+            _drop_owner_marks(t)
             t.pop("archived", None)   # claiming a cleared task (--force) puts it back on the board
             t["status_text"] = f"Claimed by {name}"
             _log(t, f"Claimed by {name}")
@@ -474,6 +475,7 @@ class Store:
             _must_hold(tasks, t, by, self.owner)
             _require_doing(t, "ask")
             t.pop("reply", None)   # a new question: the old answer no longer applies
+            _drop_owner_marks(t)   # ...and nor does "later", or a step count from an earlier report
             t["needs_input"] = True
             t["question"] = question
             t["status_text"] = question
@@ -509,6 +511,7 @@ class Store:
                 return self._update(tasks, t, 100, summary, None)
             _require_doing(t, "review")
             _drop_read_reply(t)
+            _drop_owner_marks(t)   # a new report: its steps start at the first, and it comes forward again
             t.pop("needs_input", None)
             t.pop("question", None)
             t.pop("ask_child", None)
@@ -551,6 +554,33 @@ class Store:
             _log(t, text, by=by)
             t["reply"] = {"text": text, "at": _now(), "by": by}   # the agent reads it with `agentboard answer`; its next update/ask/review clears it
             t["updated"] = _now()
+            return t
+
+    def owner_mark(self, task_id, step=None, later=None):
+        """What the owner did with a card that waits on them, kept on the card so it is the same on every screen: how many of the report's
+        steps they have done (`step`) and whether they put the card off for now (`later`). Neither is activity: no log line and no
+        `updated` bump, so a card does not look fresher, or reorder, because its owner ticked a step. The agent's next ask or review, and
+        the card leaving Doing, clear both."""
+        if step is None and later is None:
+            raise BoardError("give step or later")
+        if step is not None and (isinstance(step, bool) or not isinstance(step, int) or not 0 <= step <= OWNER_STEP_MAX):
+            raise BoardError(f"step must be a whole number from 0 to {OWNER_STEP_MAX}")
+        if later is not None and not isinstance(later, bool):
+            raise BoardError("later must be true or false")
+        with self.transaction() as tasks:
+            t = self.get(tasks, task_id)
+            if t.get("status") != "doing":
+                raise BoardError(f"{task_id} is not in Doing")
+            if step is not None:
+                if step:
+                    t["owner_step"] = step
+                else:
+                    t.pop("owner_step", None)
+            if later is not None:
+                if later:
+                    t["owner_later"] = True
+                else:
+                    t.pop("owner_later", None)
             return t
 
     def set_report(self, task_id, rec):
@@ -1211,6 +1241,15 @@ def _settle_ask(tasks, t, note):
         t.pop("body_md", None)
 
 
+OWNER_STEP_MAX = 50   # more steps than any report lists; a bound, so the field cannot be made to hold anything else
+
+
+def _drop_owner_marks(t):
+    """Forget what the owner marked on a card that was waiting on them: the wait those marks belonged to is over."""
+    t.pop("owner_step", None)
+    t.pop("owner_later", None)
+
+
 def _drop_read_reply(t):
     """Clear the card's reply once the agent has read it with `answer`; an unread one stays, so it is never lost unseen."""
     r = t.get("reply")
@@ -1473,6 +1512,7 @@ def _apply_status(t, status):
     t["status"] = status
     if status != "doing":
         t.pop("checkpoint_at", None)   # a hand-off note belongs to the claim it was written in
+        _drop_owner_marks(t)           # and the owner's marks to the wait they were made in
     if status != "done":
         t.pop("result", None)
         t.pop("archived", None)   # reopened work must not stay hidden

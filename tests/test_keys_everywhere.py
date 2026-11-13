@@ -78,7 +78,7 @@ class EscAndTypingTests(unittest.TestCase):
         self.assertIn("return c && !c.classList.contains('h-row') ? c.dataset.id : null;", fn("aimedCard"))
 
     def test_the_pop_out_keeps_the_keys_that_make_sense_there(self):
-        self.assertIn("if (SOLO && 'nla'.includes(e.key)) return;", handler())
+        self.assertIn("if (hudIsOpen() && SOLO && 'nl'.includes(e.key)) return;", handler())   # Nov 13: a went with the lanes' key
 
     def test_opening_a_card_closes_both_drawers(self):
         self.assertIn("$('later').classList.remove('open'); $('chat').classList.remove('open');", fn("openPanel"))

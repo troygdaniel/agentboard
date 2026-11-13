@@ -229,7 +229,7 @@ For a Claude Code terminal (ORCH or an agent): `agentboard dictate` (Enter, spea
 
 ### By agent
 
-The **By agent** tab (or the key `a`) shows the same cards as swimlane columns. The **Todo** column comes first and is the very same
+The **By agent** lanes (the address `/agents`; they have no tab and no key) show the same cards as swimlane columns. The **Todo** column comes first and is the very same
 narrow column the board draws: every Todo card (an assigned one carries its agent's name), the queue number, Copy prompt and Later in one
 foot row. After it comes one column per agent with a card in Doing (its ask, review or quiet state in the header, its cards stacked).
 There is no Done column here (it stays on the board), so the agents get the width. A card opens its panel as usual, and drags as on Board: onto Todo, or onto a lane (a lane is Doing). A drop never changes who holds a card, so
@@ -237,10 +237,15 @@ another agent's lane refuses it (red outline, no insertion line, a toast says wh
 
 ### Story
 
-**Needs you** (the third tab, the key `3`, `/need`) is the cards waiting on you, one at a time: the card open in the middle, the ones before it as strips
-above and the ones after it as strips below, asks first and then sign-offs. `↑` `↓` (or a scroll, or a click on a strip) moves through the pile, `→` opens the
-card's details beside it, `Enter` goes to the reply box, and `Space` twice sends the card's first answer. An answered card leaves and the next one opens.
-`1`, `2`, `3` switch between Board, By agent and Needs you. Every card in Doing carries one **You** line saying what you owe it: Answer, Sign off, Close it, Check on it, or Nothing. On By agent, a rule under a waiting agent's name shows how long it has waited and how many Todo cards it holds.
+The board has three tabs: **Now** (`1`), **Watch** (`2`) and **Map** (`3`). The bare address opens Now.
+
+**Now** is the cards waiting on you, one at a time: the card open in the middle, the ones before it as strips above and the ones after it as strips below. The arrows move through the pile, `Enter` opens the card's details, `r` puts you in the reply box, and `Space` twice does what the card asks. A card that lists several things for you shows them one step at a time. When the last card leaves, the page becomes Watch.
+
+**Watch** is the whole team as large cards, six to a page: who is working and on what, who is waiting on you, who is idle. The arrows walk the cards and turn the page at its edges; `Enter` opens a card where it is.
+
+**Map** is the board: Todo, Doing and Done. Every card in Doing carries one **You** line saying what you owe it: Answer, Sign off, Close it, Check on it, or Nothing.
+
+A line at the bottom of every view (`/`) talks to ORCH.
 
 **Story** (`/story`, linked from the Done column) is the work in plain words, five scenes you scroll: a sentence and a ring (finished this week, in progress, waiting);
 a flow from Waiting to Working to Done with every card a dot, one colour per theme; one card per theme with a one-line sentence and "n of m done"; only what
@@ -443,7 +448,7 @@ for, since both mean progress is stalled on a human, not on more waiting.
 
 ## The HUD (Load)
 
-Press `h`, click `Load ›` at the end of the gauge strip, or open `/hud` in its own window (second monitor). The board's Todo and Doing columns on the left, the same
+Click `Load ›` at the end of the gauge strip, or open `/hud` in its own window (second monitor). The board's Todo and Doing columns on the left, the same
 cards as Board and By agent (they glide across on the switch), then the **Agents** column where Board's Done column is:
 
 - **One card per agent**, every agent, idle ones too: the pill, the age, and the agent's **60-minute load bar** (working /

@@ -57,10 +57,9 @@ class TabStripTests(unittest.TestCase):
         self.assertIn("localStorage.setItem('convSeen', JSON.stringify(convSeen))", body("markConvSeen"))
         self.assertNotIn("touch(", body("updatePanelDot"))   # no sound, no popup
 
-    def test_the_key_cycles_the_tabs_and_is_on_the_list(self):
-        self.assertIn("if (e.key === 't' && openId && panelHasTabs(lastDetail)) { e.preventDefault(); setPanelTab(PANEL_TABS[(PANEL_TABS.indexOf(panelTab) + 1) % PANEL_TABS.length]); return; }", HTML)
-        self.assertIn("<dt><kbd>t</kbd></dt><dd>Next tab of the open card: Summary, Conversation, Terminal</dd>", HTML)
-        self.assertEqual(HTML.count("e.key === 't'"), 1)
+    def test_the_tabs_have_no_key(self):
+        self.assertNotIn("e.key === 't'", HTML)   # Nov 13: the key went with the cut; the tabs are clicked
+        self.assertNotIn("<dt><kbd>t</kbd></dt>", HTML)
 
     def test_the_pill_switches_the_tab_inside_the_panel(self):
         self.assertIn("if (b) { if (b.closest('#panel')) setPanelTab('chat'); else openThread(b.dataset.thread); return; }", HTML)

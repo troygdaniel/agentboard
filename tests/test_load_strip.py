@@ -61,7 +61,7 @@ class LoadStripTests(unittest.TestCase):
     def test_the_load_page_stays_reachable(self):
         self.assertIn('id="ls-more"', HTML)
         self.assertNotIn('id="hud-btn"', HTML)   # Load is no longer a tab (Nov 11): this link, the h key and /hud open it
-        self.assertIn("if (e.key === 'h') { if (!hudIsOpen()) openHud(); return; }", HTML)
+        self.assertNotIn("e.key === 'h'", HTML)   # Nov 13: no key; this link and /hud open it
         self.assertIn("if (e.target.closest('#ls-more')) { e.preventDefault(); if (!hudIsOpen()) openHud(); return; }", HTML)
 
 
