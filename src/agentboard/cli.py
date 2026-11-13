@@ -1280,6 +1280,11 @@ def cmd_update(a):
         print(f"{t['id']}: Σ {t['progress']}% (a parent's % is computed from its subtasks; update those instead)")
     elif t["status"] == "done" and t.get("parent_id"):
         print(f"{t['id']}: 100% — subtask done")
+        tasks = s.load()
+        parent = next((x for x in tasks if x["id"] == t["parent_id"]), None)
+        if parent and hookslib.finished_unhanded(tasks, parent):   # the last step: say so now, or the card sits at 100% and nobody is told
+            print(f"{parent['id']}: every step is done. Hand it in now, so the user is told it is ready:\n"
+                  f"    agentboard review {parent['id']} \"<one-line result>\" --next \"<what the user must do, or: nothing>\"")
     else:
         print(f"{t['id']}: {t['progress']}%")
 
@@ -1294,8 +1299,17 @@ def _read_body(a):
     return a.body
 
 
+def _one_line(text, what):
+    """The sentence the owner reads first is one line they can take in at a glance: refuse a longer one and say where the rest goes."""
+    first = (text or "").strip().partition("\n")[0].strip()
+    if len(first) > rules.FIRST_LINE_MAX:
+        raise BoardError(f"the first line of {what} is {len(first)} characters; {rules.FIRST_LINE_MAX} at most. Say the one thing the user must do, "
+                         "and put the rest in --body")
+
+
 def cmd_ask(a):
     s = _store()
+    _one_line(a.question, "an ask")
     t = s.ask(a.id, a.question, _read_body(a), by=os.environ.get("AGENTBOARD_NAME"))
     _notify(s.dir, f"{t.get('agent') or 'An agent'} needs your input", t["title"], a.question)
     print(f"{t['id']}: waiting on user — {a.question}")
@@ -1323,6 +1337,8 @@ def cmd_review(a):
               f'(agentboard add "<step>" --parent {a.id}).', file=sys.stderr)
     body = _read_body(a)
     task = Store.get(s.load(), a.id)
+    if not task.get("parent_id"):
+        _one_line(a.text, "a review")
     if not (task.get("parent_id") and any(x["id"] == task["parent_id"] for x in s.load())):   # a subtask has no review step, so nothing to state
         body = _with_next(a.text, body, a.next)
     t = s.review(a.id, a.text, body, by=os.environ.get("AGENTBOARD_NAME"))

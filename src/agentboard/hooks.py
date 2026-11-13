@@ -136,6 +136,14 @@ def known_name(board_dir, payload):
     return name if name and name != owner_name(board_dir) else None
 
 
+def finished_unhanded(tasks, t):
+    """A card in Doing whose every subtask is done, that is neither up for review nor asking: finished work its owner was never told about."""
+    if t.get("status") != "doing" or t.get("parent_id") or t.get("review") or t.get("needs_input") or t.get("archived"):
+        return False
+    kids = [k for k in tasks if k.get("parent_id") == t["id"]]
+    return bool(kids) and all(k.get("status") == "done" for k in kids)
+
+
 def stop_decision(store, payload):
     """What `agentboard hook stop` answers Claude Code: {'decision': 'block', 'reason': …} to keep the session going, or None to let
     it stop. Block for an unread line the owner wrote to this session on the board (its words, quoted as data), else once for a
@@ -163,6 +171,15 @@ def stop_decision(store, payload):
                       f"`{rules.reply_cmd('agentboard', name, owner, reply_to=seq)}`, then start `{rules.inbox_wait_cmd('agentboard', name)}` "
                       "as a background command so the next line wakes you.")
         return {"decision": "block", "reason": reason[:REASON_MAX]}
+    tasks = store.load()
+    left = [t for t in tasks if str(t.get("agent") or "").lower() == name.lower() and finished_unhanded(tasks, t)]
+    if left:   # the work is done and nobody was told: the commonest way a card ends up looking abandoned
+        t = left[0]
+        more = f" (and {len(left) - 1} more like it)" if len(left) > 1 else ""
+        return {"decision": "block", "reason": (f"You finished {t['id']} (“{untrusted.one_line(t.get('title'), 80)}”){more} and never handed it in: every step is at "
+                                                f"100% but it is not up for review, so {who} has not been told it is ready. Run "
+                                                f"`agentboard review {t['id']} \"<one-line result>\" --next \"<what they must do, or: nothing>\"`, "
+                                                "then wait for the answer as usual.")[:REASON_MAX]}
     if not listeners.is_listening(store.dir, name):
         return {"decision": "block", "reason": (f"Nothing is listening for you on the board: a line {who} types there would wait until you happen to look. "
                                                 f"Start `{rules.inbox_wait_cmd('agentboard', name)}` as a background command (Bash with run_in_background) "

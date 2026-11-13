@@ -35,10 +35,13 @@ REPLY_TO_HERE = "<the line's number>"   # in a prompt, the placeholder for the n
 
 
 # -- reporting ---------------------------------------------------------------------------------------------------------------------
+FIRST_LINE_MAX = 140   # the sentence the owner reads on a card that waits on them: one line, read at a glance
 REPORT_TEXT = (
     "Report to {owner} in one sentence, one idea: the ACTION they must take first, then one fact. If nothing is needed from them, one line of\n"
     "status. If more is unavoidable, one sentence, then offer the detail. Put that sentence on the card (agentboard ask/review/update text)\n"
-    "so {owner} answers you there, and in your terminal. Put detail in `--body` (it shows under Details on the card), never in the first line."
+    "so {owner} answers you there, and in your terminal. Put detail in `--body` (it shows under Details on the card), never in the first line.\n"
+    "The first line of an `ask` or a `review` is " + str(FIRST_LINE_MAX) + " characters at most: the board refuses a longer one. If {owner} answers \"Be simpler\", say it\n"
+    "again shorter: one line, the one thing they must do."
 )
 REPORT_RULE = "## Reporting to {owner}\n\n" + REPORT_TEXT + "\n"
 

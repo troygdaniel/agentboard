@@ -38,6 +38,8 @@ NEVER mark your own task done: run `agentboard done "$ID"` ONLY if the user expl
 Report to the user in one sentence, one idea: the ACTION they must take first, then one fact. If nothing is needed from them, one line of
 status. If more is unavoidable, one sentence, then offer the detail. Put that sentence on the card (agentboard ask/review/update text)
 so the user answers you there, and in your terminal. Put detail in `--body` (it shows under Details on the card), never in the first line.
+The first line of an `ask` or a `review` is 140 characters at most: the board refuses a longer one. If the user answers "Be simpler", say it
+again shorter: one line, the one thing they must do.
 
 After `review`, do not sit idle: start `agentboard answer "$ID" --wait --timeout 3600` as a background command
 (in Claude Code, Bash with run_in_background) and end your turn. It wakes you, and prints what happened, when the user replies, sends the card
