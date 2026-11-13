@@ -72,7 +72,9 @@ class Watch(unittest.TestCase):
     def test_everyone_is_a_large_card_in_a_fixed_order_and_every_word_is_escaped(self):
         w = body("watchHtml")
         self.assertIn("name(a).localeCompare(name(b), undefined, { numeric: true }) || a.id.localeCompare(b.id)", w)   # a card never moves because it was updated
-        self.assertIn("const cards = [...live.map(tile), ...[...groups.values()].map(waitTile), ...idle.map(idleTile)]", w)
+        self.assertIn("const cards = [...mains.map(tile), ...[...groups.values()].map(waitTile), ...idle.map(idleTile)]", w)
+        self.assertIn("g[0]._more = g.slice(1); return g[0];", w)                     # one card per working agent: the card it last reported on, and how many more
+        self.assertIn("esc(t._more.map(x => x.title).join(' · '))", w)
         for part in ("esc(name(t))", "esc(line)", "esc(t.title)", "esc(y.say || verb)", "esc(a)", "esc(t.id)"):
             self.assertIn(part, w)
         self.assertIn("const watchPer = () => innerWidth >= 1180 ? 6 : innerWidth >= 780 ? 4 : 2;", PAGE)
@@ -186,9 +188,36 @@ class OwnerMarks(_Http):
 class Orch(unittest.TestCase):
     def test_one_line_goes_to_orch_and_its_answer_comes_back_escaped(self):
         self.assertIn('<form id="orch-line" autocomplete="off">', PAGE)
-        self.assertIn("await api('/api/chat', { text, to: 'ORCH' });", PAGE)
-        self.assertIn("bub.innerHTML = `<span aria-hidden=\"true\">O</span><p>${esc(last.text)}</p>`;", PAGE)
+        self.assertIn("await api('/api/chat', /^@[\\w-]+\\s/.test(text) ? { text } : { text, to: 'ORCH' });", PAGE)   # "@name ..." is addressed by the server, as in the chat drawer
+        self.assertIn("bub.innerHTML = `<span aria-hidden=\"true\">${esc(nodeGlyph(last.sender))}</span><p><b>${esc(last.sender)}</b>${esc(last.text)}</p>`;", PAGE)
+        self.assertIn("return m.kind === 'agent' && m.text && (to === 'you' || to === String(OWNER || '').toLowerCase());", PAGE)   # only a line written to you rises
         self.assertIn("if (orchSeen === null) { orchSeen = last.seq; return; }", PAGE)  # what ORCH said before you arrived is not announced
+
+
+class Flow(unittest.TestCase):
+    """Nov 13, later: fewer trips. The bottom line writes to anyone, a card shows its steps as dots, and coming back says what changed."""
+    def test_at_offers_the_names_and_every_one_is_escaped(self):
+        w = body("orchWho")
+        self.assertIn("m = /^@([\\w-]*)$/.exec(v)", w)
+        self.assertIn('data-who="${esc(n)}"', w)
+        self.assertIn("${esc(nodeGlyph(n))}</i>${esc(n)}</button>", w)
+        self.assertIn(".slice(0, 8)", w)
+        self.assertIn("window.addEventListener('keydown', e => { if (e.key !== 'Tab' || !e.target.closest?.('#orch-line')) return;", PAGE)   # Tab takes the first name
+
+    def test_coming_back_says_what_changed_and_never_for_a_glance_away(self):
+        self.assertIn("let awaySnap = null, awayAt = 0, backAfterMs = 60000;", PAGE)
+        self.assertIn("else if (awaySnap && Date.now() - awayAt >= backAfterMs) setTimeout(awayShow, 1500);", PAGE)
+        a = body("awayShow")
+        self.assertIn("if (!need && !done && !moved) return;", a)                       # nothing changed: nothing is said
+        self.assertIn("el.className = 'backline';", a)                                  # not "away": the greyed rings in the strip own that word
+        self.assertNotIn("querySelectorAll('.away')", PAGE)
+        self.assertNotIn("${esc(", a)                                                   # it prints counts only, no card text
+        self.assertIn("@media (prefers-reduced-motion: reduce) { .backline, .orch-who { animation: none; } }", PAGE)
+
+    def test_step_dots_and_the_way_to_the_whole_card(self):
+        self.assertIn("Array.from({ length: y.steps }, (_, k) => `<s class=\"${k < y.step ? 'dn' : k === y.step ? 'at' : ''}\"></s>`)", PAGE)
+        self.assertIn('class="deck-full" data-full="${esc(d.id)}">Everything on this card ›</button>', body("deckMoreHtml"))
+        self.assertIn("const fc = e.target.closest?.('[data-full]'); if (fc) { const id = fc.dataset.full; setTimeout(() => openPanel(id), 0); }", PAGE)
 
 
 class Life(unittest.TestCase):
