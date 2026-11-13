@@ -1365,6 +1365,14 @@ def cmd_prompt(a):
     print(text)
 
 
+def cmd_orch(a):
+    """Print the prompt that boots a session as ORCH: the same text as the board's Copy prompt button. It starts nothing."""
+    from . import selfcheck, serverstate
+    s = _store()
+    ports = sorted({st["port"] for st in (serverstate.read(s.dir, p) for p in selfcheck._server_pids(s.dir)) if st and st["port"]})
+    print(promptlib.build_orch_prompt(s.load(), s.dir, port=a.port or (ports[0] if ports else 8765)))
+
+
 def cmd_rebuild(a):
     s = _store()
     ids = [t["id"] for t in s.load()] if a.all else [a.id]
@@ -2127,6 +2135,8 @@ def main(argv=None):
     sp = add("prompt", cmd_prompt, "print a task's assembled prompt")
     sp.add_argument("id")
     sp.add_argument("--public", action="store_true", help="skip private providers")
+    sp = add("orch", cmd_orch, "print the prompt that boots a session as ORCH (the board's Copy prompt button, in a terminal); starts nothing")
+    sp.add_argument("--port", type=int, help="the board's port to name in the prompt (default: the running server's, else 8765)")
     sp = add("rebuild", cmd_rebuild, "re-run providers and store prompt(s)")
     sp.add_argument("id", nargs="?")
     sp.add_argument("--all", action="store_true")

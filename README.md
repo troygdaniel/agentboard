@@ -150,7 +150,7 @@ from you, or with no wait running, before it does; it never blocks twice in a ro
 panel, each line you send one agent carries a receipt: **delivered** (in its inbox), **read** (its wait printed it), **answered** (it replied to that line with
 `--reply-to <n>`, which the prompts tell agents to do) or **wrote back** (a later line to you not marked as a reply to it). A line older than a day, or one to an agent listed under `[hud] retired`, shows plain sent or delivered: no warning, no Nudge. After a minute unread the line says whether the agent is listening and, when it is not, offers **Nudge via ORCH**: the
 board asks ORCH, in its own thread, to message that session (ORCH's SendMessage is the one thing on the machine that wakes an idle
-session). A line to ORCH itself cannot be nudged: if ORCH is not listening, type in its terminal or boot one with Copy prompt. ORCH listens the same way (`agentboard chat inbox --name ORCH --wait 3600`). Every posted line also moves `.agentboard/chat-wake.json` (a counter and a time, no words), so a wait watches that one file and wakes within a second, and an ORCH that runs on a schedule instead of a wait can tell in one stat whether anything was posted. A line that nobody is listening for says so in the chat panel after a minute, for ORCH and for any agent, with a Nudge: for an agent it asks ORCH to message that session; for ORCH it moves the wake file.
+session). A line to ORCH itself cannot be nudged: if ORCH is not listening, type in its terminal or boot one with Copy prompt (the line at the bottom of the page says "ORCH is not running" and offers it; `agentboard orch` prints the same prompt). ORCH listens the same way (`agentboard chat inbox --name ORCH --wait 3600`). Every posted line also moves `.agentboard/chat-wake.json` (a counter and a time, no words), so a wait watches that one file and wakes within a second, and an ORCH that runs on a schedule instead of a wait can tell in one stat whether anything was posted. A line that nobody is listening for says so in the chat panel after a minute, for ORCH and for any agent, with a Nudge: for an agent it asks ORCH to message that session; for ORCH it moves the wake file.
 
 **Said casually.** With `[chat] casual = true`, the board gives every agent line (mirrored ones included) a spoken version through
 the cheap model: the same facts, names, numbers and card ids, in one friendly line that reads aloud; the panel shows that, with
@@ -610,7 +610,7 @@ Copy prompt button, the CLI and `agentboard prompt` are unaffected.
 | `report [--date YYYY-MM-DD]` | markdown recap of what got done that day, by agent — for a standup or daily log |
 | `clear` | archive all Done cards: they move to `archive.json` (history and HUD counts kept) |
 | `demo [--live]`, `rm --demo` | sample tasks / simulated agents |
-| `prompt <id> [--public]`, `rebuild [id] [--all]`, `instructions` | prompts and the agent snippet |
+| `prompt <id> [--public]`, `rebuild [id] [--all]`, `instructions`, `orch` | prompts and the agent snippet; `orch` prints the prompt that boots a session as ORCH (starts nothing) |
 
 | For agents | |
 |---|---|
