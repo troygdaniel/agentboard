@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Handed in, and said in one line (Nov 13)
+Two things kept sending the owner to an agent's terminal: work that was finished and never handed in, and a question or result that took a paragraph to say.
+- **The last step says "hand it in".** When an agent's update finishes a card's last subtask, the CLI prints the exact `review` command. Before that session goes quiet, the Stop hook says it once more if the card is still at 100% and not up for review. This is the commonest way a card ended up as "Close it" on the board.
+- **One line first.** The first line of an `ask` or a `review` is 140 characters at most; a longer one is refused and the message says to put the rest in `--body`. Later lines and the body are not limited, and a subtask or a plain `update` is not held to it.
+- **"Be simpler" is a rule agents know**: the reporting rule in every prompt, `agentboard instructions` and this repo's CLAUDE.md now says that an owner's "Be simpler" means say it again shorter, one line, the one thing they must do. That is what the board's **Simpler** button sends.
 ### Now, Watch, Map: a new front page (Nov 13)
 The board was organised around cards in columns; the owner's day is a loop of clearing what waits, then watching the work. The front page follows the loop.
 - **Three tabs, three keys**: **Now** (`1`, the pile of cards waiting on you, the old Needs you), **Watch** (`2`, new) and **Map** (`3`, the board). The bare address opens Now. The By agent lanes have no tab and no key; `/agents` still draws them.
