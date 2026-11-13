@@ -2353,14 +2353,13 @@ function parentLine(t) {
 // The You line: the one line every Doing card carries, in the same place: what you owe this card. The board works it out; the agent's words fill it in.
 function youNext(md) { const m = /(?:^|\n)##\s*Next\s*\n([\s\S]*?)(?=\n##|\n```|$)/.exec(md || ''); if (!m) return ''; const l = (m[1].split('\n').map(x => x.replace(/^\s*[-*]\s*/, '').trim()).find(Boolean)) || ''; return /^(nothing|none|n\/a)\b/i.test(l) ? '' : l; }
 function youSteps(md) { const m = /(?:^|\n)##\s*Next\s*\n([\s\S]*?)(?=\n##|\n```|$)/.exec(md || ''); if (!m) return []; return m[1].split('\n').map(x => x.replace(/^\s*(?:[-*]|\d+[.)])\s*/, '').trim()).filter(x => x && !/^(nothing|none|n\/a)\b/i.test(x)); }
-let stepAt = {}; try { stepAt = JSON.parse(localStorage.getItem('ab-steps') || '{}'); } catch (e) {}
 let nowWatch = location.pathname.replace(/\/+$/, '').endsWith('/watch');   // Now's second face: the agents at work
 function youOf(t) {
   if (!t || t.status !== 'doing' || isKid(t)) return null;
   const a = ago(t.updated), old = a.min >= (cfg.stale_minutes || DEFAULT_STALE_MIN), full = (t.progress || 0) >= 100, n = a.text.replace(' ago', '');
   if (t.needs_input) return { k: 'ask', verb: 'Answer', say: t.question || t.status_text || '' };
-  if (t.review) { const steps = youSteps(t.details);
-    if (steps.length > 1) { const i = Math.min(stepAt[t.id] || 0, steps.length); return i < steps.length ? { k: 'rev', verb: `Step ${i + 1} of ${steps.length}`, say: steps[i], sub: t.result || '', step: i, steps: steps.length } : { k: 'rev', verb: 'Sign off', say: t.result || t.status_text || '', sub: `All ${steps.length} steps done` }; }
+  if (t.review) { const steps = youSteps(t.details);   // how many of them you have done is kept on the card (/api/owner-mark): the same on every screen
+    if (steps.length > 1) { const i = Math.min(t.owner_step || 0, steps.length); return i < steps.length ? { k: 'rev', verb: `Step ${i + 1} of ${steps.length}`, say: steps[i], sub: t.result || '', step: i, steps: steps.length } : { k: 'rev', verb: 'Sign off', say: t.result || t.status_text || '', sub: `All ${steps.length} steps done` }; }
     const nx = youNext(t.details); return { k: 'rev', verb: nx ? 'Do this, then sign off' : 'Sign off', say: nx || t.result || t.status_text || '', sub: nx ? (t.result || '') : '' }; }
   if (old && full) return { k: 'fin', verb: 'Close it', say: `Finished ${a.text}, never handed in` };
   if (old) return { k: 'quiet', verb: 'Check on it', say: `Quiet for ${n}, stopped at ${t.progress || 0}%` };
@@ -2444,7 +2443,7 @@ function card(t) {
   seen.add(t.id); lastUpdated.set(t.id, t.updated);
   return `<div class="card ${you ? 'y-' + you.k : ''} ${done ? 'done' : ''} ${asking ? 'ask' : ''} ${reviewing ? 'review' : ''} ${revIn ? 'rev-in' : ''} ${abandoned && !asking && !reviewing ? 'abandoned' : ''} ${live && !asking && !reviewing ? 'livebar' : ''} ${fresh ? 'enter' : ''} ${flash ? 'flash' : ''} ${selected.has(t.id) ? 'selected' : ''} " style="--c:${colorOf(t)}" data-agent="${esc(t.agent || '')}" draggable="${backlog ? 'false' : 'true'}" tabindex="0" data-id="${esc(t.id)}" data-status="${t.status}"
       aria-label="${esc(t.title)}, ${t.status}${asking ? ', needs your input' : reviewing ? ', ready for review' : abandoned ? ', no update in a long time, possibly abandoned' : ''}${t.agent ? ', ' + esc(t.agent) : ''}${blockers.length ? ', blocked by ' + blockers.map(b => esc(b.title)).join(', ') : ''}">
-    ${top}${askFlag}${saidRow}${foldRow}${blockedRow}${todo && t._q ? `<span class="qnum" aria-label="Queue position ${t._q}">${t._q}</span>` : ''}<div class="title ${done ? 'has-check' : ''}" title="${esc((done ? t.result : t.status_text) || '')}">${checkIcon}${done ? `<span>${esc(t.title)}</span>` : esc(t.title)}</div>${desc}${resume}${AB.chips(t)}${asking || reviewing ? '' : note}${bar}${noSubs}${meta}${who ? '' : reportLink}${replyRow}${reviewing ? (you && you.step != null ? `<div class="step-row"><button class="btn markdone stepbtn" type="button" data-step="${esc(t.id)}">Done · next step</button><button class="btn stuckbtn" type="button" data-stuck="${esc(t.id)}" data-text="${esc(`I'm stuck on step ${you.step + 1}: “${you.say}”. Help me with just this step, in one line.`)}" title="Asks ${esc(t.agent || 'the agent')} for help with this step only">I’m stuck</button></div>` : `<button class="btn markdone" data-done="${esc(t.id)}">Mark done</button>`) : ''}${MEFIRST && (asking || reviewing) ? `<div class="you-help"><button type="button" class="you-h" data-simpler="${esc(t.id)}" title="Asks ${esc(t.agent || 'the agent')} to say it in one line">Simpler</button><button type="button" class="you-h" data-snooze="${esc(t.id)}" title="Not now: this card goes to the end of the pile">Later</button><button type="button" class="you-h" data-deck-details title="The details (→)">Why?</button></div>` : ''}</div>`;
+    ${top}${askFlag}${saidRow}${foldRow}${blockedRow}${todo && t._q ? `<span class="qnum" aria-label="Queue position ${t._q}">${t._q}</span>` : ''}<div class="title ${done ? 'has-check' : ''}" title="${esc((done ? t.result : t.status_text) || '')}">${checkIcon}${done ? `<span>${esc(t.title)}</span>` : esc(t.title)}</div>${desc}${resume}${AB.chips(t)}${asking || reviewing ? '' : note}${bar}${noSubs}${meta}${who ? '' : reportLink}${replyRow}${reviewing ? (you && you.step != null ? `<div class="step-row"><button class="btn markdone stepbtn" type="button" data-step="${esc(t.id)}">Done · next step</button><button class="btn stuckbtn" type="button" data-stuck="${esc(t.id)}" data-text="${esc(`I'm stuck on step ${you.step + 1}: “${you.say}”. Help me with just this step, in one line.`)}" title="Asks ${esc(t.agent || 'the agent')} for help with this step only">I’m stuck</button></div>` : `<button class="btn markdone" data-done="${esc(t.id)}">Mark done</button>`) : ''}${MEFIRST && (asking || reviewing) ? `<div class="you-help"><button type="button" class="you-h" data-simpler="${esc(t.id)}" title="Asks ${esc(t.agent || 'the agent')} to say it in one line">Simpler</button><button type="button" class="you-h" data-snooze="${esc(t.id)}" title="${t.owner_later ? 'Put it back where it was in the pile' : 'Not now: this card goes to the end of the pile'}">${t.owner_later ? 'Not later' : 'Later'}</button><button type="button" class="you-h" data-deck-details title="The details (→)">Why?</button></div>` : ''}</div>`;
 }
 
 // the parent's segmented bar (one cell per subtask), which doubles as the expand toggle, plus its quiet rows
@@ -2854,9 +2853,14 @@ document.addEventListener('keydown', e => {
   if ((e.key === 'r' || e.key === 'R') && watchOpenId) { const inp = document.querySelector('.w-focus input[name="text"]'); if (inp) { e.preventDefault(); e.stopImmediatePropagation(); inp.focus(); } }
 }, true);
 const dialStep = n => Math.min(9, 300 / Math.max(1, n));   // degrees between two cards' lights on the ring
-const snz = new Set(), clearTimes = [];   // what you put off this session, and when each card left
+const clearTimes = [];   // when each card left the pile this session
+async function ownerMark(t, mark) {   // a step done, or "later": shown at once, kept on the card, and put back if the board refuses it
+  const was = { owner_step: t.owner_step, owner_later: t.owner_later }; if ('step' in mark) t.owner_step = mark.step; if ('later' in mark) t.owner_later = mark.later; render();
+  try { await api('/api/owner-mark', { id: t.id, ...mark }); showError(''); } catch (err) { Object.assign(t, was); showError('Could not save that: ' + err.message); render(); }
+  raw = ''; load();
+}
 function deckHtml(by, filtered) {
-  const list = by.doing.filter(t => dkKind(t) < 3).sort((a, b) => (snz.has(a.id) - snz.has(b.id)) || dkKind(a) - dkKind(b) || heldBy(b.id).length - heldBy(a.id).length || (Date.parse(a.updated) || 0) - (Date.parse(b.updated) || 0));
+  const list = by.doing.filter(t => dkKind(t) < 3).sort((a, b) => (!!a.owner_later - !!b.owner_later) || dkKind(a) - dkKind(b) || heldBy(b.id).length - heldBy(a.id).length || (Date.parse(a.updated) || 0) - (Date.parse(b.updated) || 0));
   const had = deckIds, wasTop = deckTop; deckIds = list.map(t => t.id);
   if (wasTop && !deckIds.includes(wasTop)) { deckGone = wasTop; const i = had.indexOf(wasTop); deckTop = had.slice(i + 1).find(id => deckIds.includes(id)) || had.slice(0, i).reverse().find(id => deckIds.includes(id)) || null; }   // the answered card leaves; the next one below opens (the one above, at the bottom)
   if (!deckTop || !deckIds.includes(deckTop)) deckTop = deckIds[0] || null;
@@ -2965,7 +2969,7 @@ function deckSettle() {   // after every redraw of the pile
   if (RM) { deckPose(at, 'still'); deckFill(); return; }
   if (gone && old && r) {   // the card you just answered: a tick lands on it, it leaves to the right, and the next one opens where it stood
     const t = byId.get(gone), word = !t || t.status === 'done' ? 'Signed off' : t.status === 'todo' ? 'Released' : 'Sent';
-    clearTimes.push(Date.now()); snz.delete(gone);
+    clearTimes.push(Date.now());
     deckCleared.push({ id: gone, title: t ? t.title : gone, agent: t ? t.agent : '', word, undo: word === 'Signed off' && undoInfo && undoInfo.prev && undoInfo.prev.id === gone ? { task: undoInfo.prev, before: undoInfo.before, kids: undoInfo.kids } : null }); deckClearedDraw();   // a sign-off keeps what the toast's Undo would restore
     if (clear) touch.after('clear'); else touch.after('sent', t && t.agent);   // your answer or sign-off has left: the redraw that shows it comes after the click, so the sound is asked for "after"
     old.style.cssText += `;position:fixed;left:${r.left}px;top:${r.top}px;width:${r.width}px;height:${r.height}px;margin:0;z-index:40;pointer-events:none;transition:none`;
@@ -5493,10 +5497,10 @@ document.addEventListener('click', async e => {   // an agent that left several 
 document.addEventListener('click', e => {   // a step done, a card opened on Watch, a batch, a card put off
   const n = e.target.closest?.('[data-now]'); if (n) { nowWatch = n.dataset.now === 'watch'; touch('toggle', nowWatch); render(); return; }
   const sk = e.target.closest?.('[data-stuck]'); if (sk) { e.stopPropagation(); e.preventDefault(); touch('stuck'); quickReply(sk.dataset.stuck, sk.dataset.text, sk); return; }
-  const st = e.target.closest?.('[data-step]'); if (st) { e.stopPropagation(); e.preventDefault(); stepAt[st.dataset.step] = (stepAt[st.dataset.step] || 0) + 1; try { localStorage.setItem('ab-steps', JSON.stringify(stepAt)); } catch (err) {} touch('stepup', stepAt[st.dataset.step] - 1); render(); return; }
+  const st = e.target.closest?.('[data-step]'); if (st) { e.stopPropagation(); e.preventDefault(); const t = byId.get(st.dataset.step); if (!t) return; const n = (t.owner_step || 0) + 1; touch('stepup', n - 1); ownerMark(t, { step: n }); return; }
   const bt = e.target.closest?.('[data-batch]'); if (bt) { e.stopPropagation(); e.preventDefault(); const ids = deckIds.filter(id => { const x = byId.get(id); return x && dkPassed(x); }); const r = bt.getBoundingClientRect(); touch('batch', ids.length); bt.disabled = true;
     ids.forEach((id, i) => setTimeout(() => { sparkle(r.left + r.width / 2, r.top + r.height / 2, [colorOf(byId.get(id) || {}), 'var(--ok)']); clearTimes.push(Date.now()); deckCleared.push({ id, title: (byId.get(id) || {}).title || id, agent: (byId.get(id) || {}).agent || '', word: 'Signed off', undo: null }); move(id, 'done'); }, i * 420)); return; }
-  const sn = e.target.closest?.('[data-snooze]'); if (sn) { e.stopPropagation(); e.preventDefault(); const id = sn.dataset.snooze, i = deckIds.indexOf(id); snz.add(id); deckTop = deckIds[i + 1] || deckIds[i - 1] || id; touch('later'); toast('Moved to the end of the pile'); render(); return; }
+  const sn = e.target.closest?.('[data-snooze]'); if (sn) { e.stopPropagation(); e.preventDefault(); const id = sn.dataset.snooze, i = deckIds.indexOf(id), t = byId.get(id); if (!t) return; const on = !t.owner_later; if (on) deckTop = deckIds[i + 1] || deckIds[i - 1] || id; touch('later'); toast(on ? 'Moved to the end of the pile' : 'Back in its place'); ownerMark(t, { later: on }); return; }
   const rb = e.target.closest?.('#ribbon [data-rb]'); if (rb) { const id = rb.dataset.rb, y = youOf(byId.get(id)); if (y && y.k !== 'none') { goTab(0); setTimeout(() => deckGo(id), 80); } return; }
   const sm = e.target.closest?.('[data-simpler]'); if (sm) { e.stopPropagation(); e.preventDefault(); quickReply(sm.dataset.simpler, 'Be simpler: one line. What is the one thing I need to do?', sm); return; }
   if (e.target.closest?.('[data-wclose]')) { watchToggle(null); return; }

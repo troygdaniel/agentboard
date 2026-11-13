@@ -516,6 +516,9 @@ def make_handler(default_store, port):
                     prev_before = self.store.next_sibling(body["id"])
                     self.store.delete(body["id"])
                     self._send(200, {"ok": True, "prev": prev, "prev_before": prev_before, "prev_kids": prev_kids})
+                elif path == "/api/owner-mark":   # a step done, or "later": the owner's own marks on a card that waits on them
+                    t = self.store.owner_mark(body["id"], step=body.get("step"), later=body.get("later"))
+                    self._send(200, {"ok": True, "owner_step": t.get("owner_step", 0), "owner_later": bool(t.get("owner_later"))})
                 elif path == "/api/reply":
                     if not isinstance(body["text"], str):
                         raise BoardError("text must be a string")

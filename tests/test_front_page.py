@@ -122,13 +122,65 @@ class Steps(unittest.TestCase):
         self.assertIn('data-simpler="${esc(t.id)}"', c)
         self.assertIn('data-snooze="${esc(t.id)}"', c)
         self.assertIn("quickReply(sm.dataset.simpler, 'Be simpler: one line. What is the one thing I need to do?', sm)", PAGE)
-        self.assertIn("(snz.has(a.id) - snz.has(b.id)) || dkKind(a) - dkKind(b)", body("deckHtml"))   # put off: last in the pile, whatever it asks
+        self.assertIn("(!!a.owner_later - !!b.owner_later) || dkKind(a) - dkKind(b)", body("deckHtml"))   # put off: last in the pile, whatever it asks
 
     def test_sign_off_all_only_offers_what_reported_passing_tests(self):
         self.assertIn("const ok = deckIds.map(id => byId.get(id)).filter(x => x && dkPassed(x)); return ok.length > 1 ?", body("deckHeadHtml"))
         self.assertIn("esc(ok.map(x => x.title).join(' · '))", body("deckHeadHtml"))
         self.assertIn("ids.forEach((id, i) => setTimeout(() => {", PAGE)
         self.assertIn("move(id, 'done'); }, i * 420));", PAGE)
+
+
+class OwnerMarks(_Http):
+    """Which step you are on, and what you put off, are kept on the card: the same on every screen, gone when the wait they belong to ends."""
+    def spa(self):   # made in each test, not in setUp: the shared fixture's own tests count the cards they find
+        self.s.add("Spa shortlist", status="todo", task_id="spa")
+        self.s.claim("spa", "atlas")
+        self.s.review("spa", "Five options", body_md="## Next\n- open the report\n- pick one\n- reply with its number", by="atlas")
+
+    def card(self):
+        import json
+        return next(t for t in json.loads(self.get("/api/tasks")[1])["tasks"] if t["id"] == "spa")
+
+    def test_a_step_and_later_are_saved_and_served_and_neither_is_activity(self):
+        self.spa()
+        before = self.card()["updated"]
+        self.assertEqual(self.post("/api/owner-mark", {"id": "spa", "step": 2}), {"ok": True, "owner_step": 2, "owner_later": False})
+        self.post("/api/owner-mark", {"id": "spa", "later": True})
+        t = self.card()
+        self.assertEqual((t["owner_step"], t["owner_later"]), (2, True))
+        self.assertEqual(t["updated"], before)                                # the card does not look fresher because you ticked a step
+        self.assertFalse(any("step" in str(e.get("text", "")).lower() for e in self.s.get(self.s.load(), "spa")["log"]))
+        self.post("/api/owner-mark", {"id": "spa", "step": 0, "later": False})
+        t = self.card()
+        self.assertNotIn("owner_step", t)
+        self.assertNotIn("owner_later", t)
+
+    def test_only_a_whole_number_in_range_a_real_flag_and_a_card_in_doing(self):
+        self.spa()
+        import urllib.error
+        for bad in ({"id": "spa", "step": -1}, {"id": "spa", "step": 51}, {"id": "spa", "step": "2"}, {"id": "spa", "step": True}, {"id": "spa", "later": "yes"}, {"id": "spa"}, {"id": "nope", "step": 1}):
+            with self.assertRaises(urllib.error.HTTPError, msg=bad):
+                self.post("/api/owner-mark", bad)
+        self.s.add("Idle", status="todo", task_id="idle")
+        with self.assertRaises(urllib.error.HTTPError):
+            self.post("/api/owner-mark", {"id": "idle", "step": 1})
+
+    def test_the_marks_end_with_the_wait_they_were_made_in(self):
+        self.spa()
+        mark = lambda: self.post("/api/owner-mark", {"id": "spa", "step": 2, "later": True})
+        gone = lambda: self.assertFalse({"owner_step", "owner_later"} & set(self.s.get(self.s.load(), "spa")))
+        mark(); self.s.review("spa", "Five options, again", body_md="## Next\n- nothing", by="atlas"); gone()      # a new report
+        mark(); self.s.ask("spa", "Which one?", by="atlas"); gone()                                                  # a new question
+        self.s.review("spa", "Ready", body_md="## Next\n- nothing", by="atlas")
+        mark(); self.s.update("spa", status="done"); gone()                                                          # the card closed
+
+    def test_the_page_reads_them_from_the_card_and_not_from_the_browser(self):
+        self.assertIn("const i = Math.min(t.owner_step || 0, steps.length);", PAGE)
+        self.assertIn("await api('/api/owner-mark', { id: t.id, ...mark });", PAGE)
+        self.assertIn("catch (err) { Object.assign(t, was);", PAGE)          # a refused save is put back on screen
+        for old in ("ab-steps", "stepAt", "snz."):
+            self.assertNotIn(old, PAGE)
 
 
 class Orch(unittest.TestCase):
