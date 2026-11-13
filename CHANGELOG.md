@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+### Now, Watch, Map: a new front page (Nov 13)
+The board was organised around cards in columns; the owner's day is a loop of clearing what waits, then watching the work. The front page follows the loop.
+- **Three tabs, three keys**: **Now** (`1`, the pile of cards waiting on you, the old Needs you), **Watch** (`2`, new) and **Map** (`3`, the board). The bare address opens Now. The By agent lanes have no tab and no key; `/agents` still draws them.
+- **Watch** is the whole team as large cards, six to a page: working agents first (a ring that fills, what the agent is doing right now, one segment per step), then agents waiting on you (dashed, in the colour of what they need, with a count), then idle agents, resting. The arrows walk the cards; past the left or right edge the next page slides in, and a dot under the cards pulses when something changed on a page you are not on. Cards never change place: a change shows as a change (an outline, the ring growing, the number counting, a "+7%").
+- **A card on Watch opens where it is**: Enter or a click lifts it out of its slot with its details beside it, and it goes back to its slot when closed. A card waiting on you opens as the card itself, so it can be answered from Watch.
+- **Clearing the last card flows into Watch**, with one quiet flourish and how long the pile took.
+- **One step at a time**: a review whose `## Next` lists several things shows "Step 1 of 3" with only that step, **Done · next step** and **I'm stuck** (asks the agent for help with that step only). After the last step it is a plain sign-off.
+- **Simpler, Later, Why?** on the open card: Simpler asks the agent to say it in one line; Later sends the card to the end of the pile; Why? opens the details. **Sign off all** appears when two or more sign-offs report passing tests.
+- **One line to ORCH** at the bottom of every view (`/`); ORCH's answer rises out of it.
+- **Keys cut to what is used**: `1 2 3`, the arrows, `Enter` (details, on Now and on Watch), `Space Space`, `r` (reply), `/`, `Esc`, `?`. Gone: `j k`, `[ ]`, `a`, `h`, `t`, `e`, `f`, `m`, and Left/Right as a second way to open details. Load opens from its link in the agent strip and Settings from the gear.
+- **Life**: the cards on screen travel between tabs to where they live in the next view; slow glows behind every tab warm with the share of cards waiting on you; the ring behind the pile carries one light per waiting card and turns as you move; a greeting once a day; a small burst in the agent's colour when you clear a card; the browser tab's icon shows the number waiting, or a tick. All of it stops under reduced motion.
+- **Sound**: eight new Touch cues for what you do (a tab change with its direction, a Watch card rising and settling in its agent's notes, a page turn panned to its side, a step climbing a note each time, stuck, later, the batch run). An agent's step and ORCH's answer keep to the board's existing cues.
+- **Until the next change**: which step you are on and what you put off with Later are remembered by the browser only.
 ### The You line, and a calmer board: every card says what you owe it; each fact is said once (Nov 12)
 A card in Doing used to say what it needed only when its agent had asked or handed it in. "Nothing needed" was never stated, and "abandoned?" was the board asking you a question.
 - **Every Doing card carries one You line, in the same place**, and the side panel opens with the same thing as a block: **Answer** (the question), **Sign off** (the result), **Do this, then sign off** (the agent's `## Next` line, when it wrote one that is not "nothing"), **Close it** (at 100% and never handed in: Mark done or Nudge), **Check on it** (quiet past the stale threshold: Nudge or Release), or **Nothing**, greyed. The "abandoned?" corner text is gone from Doing cards: the line says which of the two cases it is.

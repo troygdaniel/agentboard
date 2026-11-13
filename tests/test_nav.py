@@ -12,13 +12,13 @@ from tests.test_reports import HttpTests as _Http
 
 class TabsTests(unittest.TestCase):
     def test_three_tabs_under_the_base_with_the_active_one_marked(self):
-        h = nav.tabs("", "agents")
-        for href in ('href="/"', 'href="/agents"', 'href="/need"'):
+        h = nav.tabs("", "watch")
+        for href in ('href="/"', 'href="/watch"', 'href="/need"'):
             self.assertIn(href, h)
-        self.assertIn('class="tab on" href="/agents" aria-current=page', h)
+        self.assertIn('class="tab on" href="/watch" aria-current=page', h)
         self.assertEqual(h.count("tab on"), 1)
         hb = nav.tabs("/b/work", "need")
-        for href in ('href="/b/work/"', 'href="/b/work/agents"', 'href="/b/work/need"'):
+        for href in ('href="/b/work/"', 'href="/b/work/watch"', 'href="/b/work/need"'):
             self.assertIn(href, hb)
         self.assertIn('class="tab on" href="/b/work/need"', hb)
         for gone in ("/hud", "/story"):   # Load is an overlay (h, or Load › in the strip) and Story a link in the Done column: neither is a tab
@@ -52,9 +52,9 @@ class SameRowTests(unittest.TestCase):
     def test_the_page_has_one_tab_row_and_it_lists_the_three_tabs_in_order(self):
         rows = re.findall(r'<nav class="ab-tabs" aria-label="Pages">(.*?)</nav>', self.html)
         self.assertEqual(len(rows), 1)   # the board's header only: Load has no bar of its own, so it cannot differ
-        self.assertEqual(re.findall(r'class="tab[^"]*"[^>]*>([^<]+)<', rows[0]), ["Board", "By agent", "Needs you"])   # Needs you carries its count in a span
-        self.assertEqual(re.findall(r">([^<]+)</a>", nav.tabs("", "board")), ["Board", "By agent", "Needs you"])
-        self.assertIn("$('tab-need').href = BASE + '/need'", self.html)   # pinned to the board's base like the other tabs
+        self.assertEqual(re.findall(r'class="tab[^"]*"[^>]*>([^<]+)<', rows[0]), ["Now", "Watch", "Map"])   # Now and Watch carry their counts in a span
+        self.assertEqual(re.findall(r">([^<]+)</a>", nav.tabs("", "board")), ["Now", "Watch", "Map"])
+        self.assertIn("a.href = BASE + ['/need', '/watch', '/'][i];", self.html)   # pinned to the board's base like the other tabs
 
     def test_the_done_column_carries_summary_then_reports_then_clear(self):
         done = re.search(r"const clr = k === 'done' \? (.*?) : '';", self.html).group(1)
@@ -78,8 +78,8 @@ class SameRowTests(unittest.TestCase):
         self.assertIn("body:has(#hud.open) :is(#panel, #later, #chat, #thread) { z-index: 32; }", self.html)   # Later, ORCH and an agent thread open over Load
 
     def test_the_header_tab_lights_the_view_you_are_on(self):
-        self.assertIn("const on = MEFIRST ? 'tab-need' : BYAGENT ? 'tab-agents' : 'tab-board';", self.html)   # Load is an overlay: the tab of the view under it stays lit
-        self.assertIn("goView(i)", self.html)
+        self.assertIn("const on = MEFIRST ? (nowWatch ? 'tab-watch' : 'tab-need') : 'tab-board';", self.html)   # Load is an overlay: the tab of the view under it stays lit
+        self.assertIn("goTab(i)", self.html)
 
     def test_the_later_and_todo_buttons_share_one_width(self):
         self.assertIn("#later-btn { min-width: 104px; font-variant-numeric: tabular-nums; }", self.html)   # ORCH sits after it and must not move between Board and By agent
@@ -94,8 +94,7 @@ class AgentsRouteTests(_Http):
     def test_agents_serves_the_board_page(self):
         status, body, _ = self.get("/agents")
         self.assertEqual(status, 200)
-        self.assertIn(b"By agent", body)
-        self.assertIn(b'id="tab-agents"', body)
+        self.assertNotIn(b'id="tab-agents"', body)   # Nov 13: the lanes have no tab; the address still draws them
 
 
 class PagesTests(_ReportsBase):

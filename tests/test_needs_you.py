@@ -24,20 +24,22 @@ class RouteTests(_Http):
             self.assertIn("Content-Security-Policy", headers, path)
 
     def test_the_shared_bar_links_to_it(self):
-        self.assertIn(("need", "Needs you", "/need"), nav.TABS)
+        self.assertIn(("need", "Now", "/need"), nav.TABS)
+        self.assertIn(("watch", "Watch", "/watch"), nav.TABS)
         self.assertEqual(len(nav.TABS), 3)
 
 
 class ViewSwitchTests(unittest.TestCase):
     def test_one_two_three_open_the_three_tabs_and_the_ring_has_three_views(self):
-        self.assertIn("if ((e.key === '1' || e.key === '2' || e.key === '3') && !SOLO && !e.altKey) { e.preventDefault(); goView(+e.key - 1); return; }", PAGE)
-        self.assertIn("const curView = () => MEFIRST ? 2 : BYAGENT ? 1 : 0;", PAGE)
+        self.assertIn("if ((e.key === '1' || e.key === '2' || e.key === '3') && !SOLO && !e.altKey) { e.preventDefault(); goTab(+e.key - 1); return; }", PAGE)
+        self.assertIn("const TAB_N = 3, tabNow = () => hudIsOpen() ? -1 : MEFIRST ? (nowWatch ? 1 : 0) : 2;", PAGE)   # the tabs as you see them: Now, Watch, Map
         self.assertIn("agents = i >= 1, need = i === 2", body("goView"))
-        self.assertIn("<kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></dt><dd>Board, By agent, Needs you</dd>", PAGE)
+        self.assertIn("<kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></dt><dd>Now, Watch, Map</dd>", PAGE)
 
     def test_back_and_forward_follow_the_address(self):
-        self.assertIn("need ? '/need' : agents ? '/agents' : '/'", body("setView"))
-        self.assertIn("need = path.endsWith('/need'), agents = need || path.endsWith('/agents')", PAGE)
+        self.assertIn("need ? (nowWatch ? '/watch' : '/need') : agents ? '/agents' : '/'", body("setView"))
+        self.assertIn("watch = path.endsWith('/watch'), need = watch || path.endsWith('/need'), agents = need || path.endsWith('/agents')", PAGE)
+        self.assertIn("history.pushState({ view: nowWatch ? 'watch' : 'need' }, '', BASE + (nowWatch ? '/watch' : '/need') + location.hash);", body("goTab"))   # Now to Watch is a step Back can undo
 
     def test_the_pile_is_drawn_by_the_same_card_function_in_the_same_redraw(self):
         self.assertIn("$('board').innerHTML = MEFIRST ? deckHtml(by, q || flagFilter) : BYAGENT ? byAgentHtml(by, q || flagFilter) :", body("render"))
@@ -77,7 +79,8 @@ class PileTests(unittest.TestCase):
         self.assertIn("if (deckArm === t.id) { deckDisarm(true); btn.click(); return; }", space)   # only the second press clicks
         self.assertIn("deckArmT = setTimeout(() => deckDisarm(false), 3000);", space)
         keys = PAGE[PAGE.index("else if (e.key === 'Enter' && !(t && t.closest && t.closest('button, a')))"):][:400]
-        self.assertIn("inp.focus()", keys)   # Enter only puts you in the reply box
+        self.assertIn("deckDetails(!deckOpen)", keys)   # Nov 13: Enter opens and closes the details, here and on Watch
+        self.assertIn("else if (e.key === 'r' || e.key === 'R') { const inp", PAGE)   # r puts you in the reply box: it never answers by itself
         self.assertNotIn(".click()", keys)
 
     def test_typing_in_the_reply_box_keeps_the_keys(self):
@@ -151,12 +154,13 @@ class CalmPileTests(unittest.TestCase):
         head = body("deckHeadHtml")
         self.assertIn("return `<b title=\"${esc(top.agent || 'Unassigned')} ${what}\">${at + 1}<i> of ${n}</i></b>", head)
         self.assertIn('<span class="deck-holds"', head)
-        self.assertIn("${fin}${fix}${all}${hint}", head)
+        self.assertIn("${fin}${fix}${all}${(() => {", head)
+        self.assertIn("})()}${hint}`; }", head)
         self.assertNotIn('class="you ', head)                    # the You line is on the card, once
         self.assertNotIn("dkAge(top)", head)
 
     def test_what_the_open_card_hides_is_in_the_details(self):
-        self.assertIn(".deck-slot.front .card .title { display: none; }", PAGE)
+        self.assertIn(".deck-slot .card .title { display: none; }", PAGE)   # on every slot, so each is measured as it will be shown: hiding it on the open one alone left a strip of the slot showing
         self.assertIn('return `<h2 class="deck-name">${esc(d.title || \'\')}</h2>`', body("deckMoreHtml"))
 
     def test_hints_and_arrows_wait_for_a_hover_or_focus_and_an_armed_send_always_shows(self):
@@ -167,7 +171,7 @@ class CalmPileTests(unittest.TestCase):
 
     def test_the_empty_pile_says_it_in_two_words(self):
         self.assertIn("<strong>All clear</strong>", body("deckHtml"))
-        self.assertIn("<span>${by.doing.length} working</span>", body("deckHtml"))
+        self.assertIn("Nothing needs you. Press 2 to watch the agents work.", body("deckHtml"))
 
 
 class TaskTextTests(_Http):

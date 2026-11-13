@@ -28,18 +28,16 @@ class WalkLoadTests(unittest.TestCase):
 
     def test_load_no_longer_returns_before_the_rest_of_the_list(self):
         h = handler()
-        load = h[h.index("if (hudIsOpen()) {\n    if (e.key === 'f')"):]
-        load = load[: load.index("  }\n") + 4]
-        self.assertIn("toggleHudFull(); return;", load)
-        self.assertIn("closeHud(); return;", load)
-        self.assertNotRegex(load, r"\n\s*return;\s*\n\s*}")   # the only bare return left in the branch is the pop-out's
-        self.assertIn("if (SOLO && 'nla'.includes(e.key)) return;", load)   # the pop-out window has no board: n, l and a stop there; ?, e and the arrows go on
-        for call in ("toggleKeys()", "toggleAdd(true)", "startEdit('title')", "$('later-btn').click()", "goView(BYAGENT ? 0 : 1)", "navigate(map[e.key])"):
-            self.assertGreater(h.index(call), h.index(load.strip()), call)   # all of them come after the Load branch
+        load = "if (hudIsOpen() && SOLO && 'nl'.includes(e.key)) return;"   # the pop-out window has no board: n and l stop there; ? and the arrows go on
+        self.assertIn(load, h)
+        for key in ("f", "h"):   # Nov 13: Load's own two keys are gone with the rest of the cut; its buttons and Esc remain
+            self.assertNotIn(f"e.key === '{key}'", h)
+        for call in ("toggleKeys()", "toggleAdd(true)", "$('later-btn').click()", "navigate(map[e.key])"):
+            self.assertGreater(h.index(call), h.index(load), call)   # all of them come after the Load line
 
     def test_typing_still_ends_the_handler_before_any_of_it(self):
         h = handler()
-        self.assertLess(h.index("if (typing) return;"), h.index("if (hudIsOpen()) {\n    if (e.key === 'f')"))
+        self.assertLess(h.index("if (typing) return;"), h.index("if (hudIsOpen() && SOLO && 'nl'.includes(e.key)) return;"))
 
     def test_load_without_a_doing_card_leaves_the_arrows_to_scroll_it(self):
         self.assertIn("if (hudIsOpen() && !cardsGrid().some(col => col.length)) return;", handler())
@@ -64,12 +62,12 @@ class EscTests(unittest.TestCase):
 
 class SheetTests(unittest.TestCase):
     def test_the_list_says_which_keys_leave_or_skip_load(self):
-        self.assertIn('<dd id="key-new">New task (leaves Load; not in the pop-out window, nor <kbd>l</kbd> or <kbd>a</kbd>)</dd>', HTML)
+        self.assertIn('<dd id="key-new">New task (leaves Load; not in the pop-out window, nor <kbd>l</kbd>)</dd>', HTML)
         self.assertIn('<dd id="key-alt">Move the card: ← → between columns (Todo, Doing, Done; on Load and By agent, Todo and Doing), ↑ ↓ within one</dd>', HTML)
         self.assertIn('<dd id="key-shiftarrows">Extend the selection</dd>', HTML)
 
     def test_the_keys_that_work_the_same_everywhere_carry_no_caveat(self):
-        for text in ("<dd>Move between cards (on Load: Todo and Doing)</dd>", "<dd>Next / previous card</dd>", "<dd>Open card</dd>", '<dd id="key-copy">', '<dd id="key-done">', '<dd id="key-undo">'):
+        for text in ("<dd>Move between cards (on Load: Todo and Doing)</dd>", "<dd>Open card</dd>", '<dd id="key-copy">', '<dd id="key-done">', '<dd id="key-undo">'):
             self.assertIn(text, HTML)
 
 

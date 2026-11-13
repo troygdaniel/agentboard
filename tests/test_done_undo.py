@@ -107,13 +107,14 @@ class KeysTests(unittest.TestCase):
         for key, call in (("d", "markDoneByKey()"), ("u", "undoByKey()")):
             self.assertEqual(HTML.count(f"e.key === '{key}'"), 1, key)
             self.assertLess(h.index("if (typing) return;"), h.index(call))
-            self.assertLess(h.index(call), h.index("if (hudIsOpen()) {\n    if (e.key === 'f')"))
+            self.assertLess(h.index(call), h.index("if (hudIsOpen() && SOLO && 'nl'.includes(e.key)) return;"))
         self.assertIn("if (e.metaKey || e.ctrlKey) return;", h)   # Cmd/Ctrl+D and +U stay the browser's
 
     def test_no_single_key_is_handled_twice(self):
         keys = re.findall(r"e\.key === '(\w)'", self.handler())
-        self.assertEqual(sorted(set(k for k in keys if keys.count(k) > 1)), ["h"])   # h opens Load and, inside Load, closes it
-        self.assertTrue({"d", "u", "c", "n", "l", "h", "a", "e", "m", "s"} <= set(keys))
+        self.assertEqual(sorted(set(k for k in keys if keys.count(k) > 1)), [])
+        self.assertTrue({"d", "u", "c", "n", "l", "s"} <= set(keys))
+        self.assertFalse({"h", "a", "e", "m", "t", "f", "j", "k"} & set(keys))   # Nov 13: the list was cut to what is used; Load and Settings open from their buttons
 
     def test_both_keys_are_on_the_shortcuts_list(self):
         self.assertRegex(HTML, r'<dt><kbd>d</kbd></dt><dd id="key-done">Mark that same card done</dd>')
