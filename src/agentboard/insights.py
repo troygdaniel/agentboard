@@ -19,7 +19,7 @@ import statistics
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from . import tomlread
+from . import rework, tomlread
 
 CLOSE_REASONS = ("shipped", "duplicate", "not-reproduced", "superseded", "not-needed")   # why a card was closed (closed_as); "shipped" is the default
 MIN_N = 5                      # fewer samples than this and a rule says "not enough data"
@@ -32,9 +32,10 @@ GAP_MIN_H, GAP_MAX_H = 0.5, 8.0   # a between-card gap counts from half an hour 
 NIGHT_END_HOUR = 8
 MIN_OBS_H = 8.0                # state history: an agent needs this many observed hours in the window before its split is read
 WAIT_WORK_SHARE = 0.25         # waiting for work: fire when an agent was waiting for work at least this share of its observed time
+REWORK_SHARE = 0.20            # rework: fire when at least this share of the cards that were reported finished came back
 STATE_COVER_S = 30 * 60        # a state line holds for at most this long: the heartbeat is every 15 minutes, so a longer silence is time nobody watched
 STATE_WORDS = {"working": "working", "quiet": "quiet", "abandoned": "abandoned", "owner": "waiting for the owner", "listening": "waiting for work", "away": "away"}
-THRESHOLDS = {"blocked_wait_h": BLOCKED_WAIT_H, "big_card_h": BIG_CARD_H, "big_share": BIG_SHARE, "night_share": NIGHT_SHARE, "hold_share": HOLD_SHARE, "min_n": MIN_N, "wait_work_share": WAIT_WORK_SHARE, "min_observed_h": MIN_OBS_H}
+THRESHOLDS = {"blocked_wait_h": BLOCKED_WAIT_H, "big_card_h": BIG_CARD_H, "big_share": BIG_SHARE, "night_share": NIGHT_SHARE, "hold_share": HOLD_SHARE, "min_n": MIN_N, "wait_work_share": WAIT_WORK_SHARE, "min_observed_h": MIN_OBS_H, "rework_share": REWORK_SHARE}
 
 
 def enabled(board_dir):
@@ -75,6 +76,16 @@ def _text(e):
     return e.get("text") or ""
 
 
+def _kind_of(title):
+    """The kind of change a card was (summary.kind_of, a short class word), read from the title once and kept as that word. Imported here, not at the top:
+    summary imports the store, and the store imports this module."""
+    try:
+        from . import summary
+        return summary.kind_of(title)
+    except Exception:   # a title the classifier cannot read is just "Changed": a label must never stop an insights run
+        return "Changed"
+
+
 class Card:
     """What a card's own log says about its timing. Only ids, agents and stamps: the card's words are never read."""
 
@@ -88,6 +99,10 @@ class Card:
         at = lambda pred: [x for x in (_t(e.get("at")) for e in log if pred(_text(e))) if x]   # noqa: E731
         claims = at(lambda s: s.startswith(("Claimed by", "Started by", "Added to doing")))
         reviews = at(lambda s: s.startswith("Ready for review"))
+        self.reviews = len(reviews)                                                            # times the agent reported it finished
+        self.rework = [c for c in (rework.code_of(_text(e)) for e in log) if c]                # the codes the capture wrote (rework.py)
+        self.sent_back = any(_text(e).startswith("Sent back") for e in log)                  # the dedicated send-back, which also wrote this before the capture
+        self.title_kind = _kind_of(t.get("title"))                                           # a class label only (summary.KINDS): the title's words are not kept
         dones = at(lambda s: s.startswith(("Marked done", "Moved to done")))
         blocked = at(lambda s: s.startswith("Blocked by"))
         unblocked = at(lambda s: s.startswith("Unblocked"))
@@ -96,6 +111,11 @@ class Card:
         self.done = max(dones) if dones else None
         self.blocked_at = min(blocked) if blocked else None      # logged since the capture; else the card's creation is the start of the wait
         self.unblocked_at = max(unblocked) if unblocked else None
+
+    @property
+    def came_back(self):
+        """Reviewed twice, sent back, or any rework line: the work did not stop at the first report."""
+        return self.reviews >= 2 or self.sent_back or bool(self.rework)
 
     @property
     def build_h(self):
@@ -336,6 +356,46 @@ def waiting_for_work(states):
     return out
 
 
+REWORK_SAYS = {
+    rework.BE_SIMPLER: "Lead every report with the one action the owner must take and keep the rest under Details: Be simpler means the first line said too much.",
+    rework.SENT_BACK: "Write what done looks like (the check the owner will make) into the card's description before the work starts, so a send-back is about a change, not the goal.",
+    rework.CHANGES_ASKED: "Write what done looks like (the check the owner will make) into the card's description before the work starts, so the first report already answers it.",
+    rework.REOPENED: "Close a card only after the merge and the check are confirmed: a reopened card was closed too early.",
+    rework.RE_REVIEWED: "Ask for a change on the card (a reply), not in chat: a second report with no request on the card leaves no reason behind.",
+}
+
+
+def work_comes_back(cards):
+    title = "Work comes back"
+    seen = [c for c in cards if c.reviews or c.came_back]   # the cards the owner was ever asked to look at
+    if len(seen) < MIN_N:
+        return _not_enough("rework", title, len(seen), "cards reported finished")
+    back = [c for c in seen if c.came_back]
+    share = len(back) / len(seen)
+    fires = share >= REWORK_SHARE
+    codes = {}
+    for c in back:
+        for code in c.rework:
+            codes[code] = codes.get(code, 0) + 1
+    unknown = sum(1 for c in back if not c.rework)   # came back before the capture was on (or by a path it does not see): no reason on record
+    parts = [f"{code} {n}" for code, n in sorted(codes.items(), key=lambda kv: (-kv[1], kv[0]))] + ([f"no reason recorded {unknown}"] if unknown else [])
+    evidence = ["Reasons (every rework line): " + ", ".join(parts)] if parts else []
+    kinds = {}
+    for c in seen:
+        k = kinds.setdefault(c.title_kind, [0, 0])
+        k[0] += 1
+        k[1] += 1 if c.came_back else 0
+    cells = sorted(((k, v[1], v[0]) for k, v in kinds.items() if v[0] >= MIN_N), key=lambda x: (-x[1] / x[2], x[0]))
+    evidence += [f"{k}: {b} of {n} came back ({100 * b / n:.0f}%)" for k, b, n in cells[:5]]
+    top = max(codes.items(), key=lambda kv: (kv[1], kv[0]))[0] if codes else None
+    return _obs("rework", title, "fires" if fires else "quiet", len(seen), round(share, 2), threshold=REWORK_SHARE,
+                sentence=f"{len(back)} of {len(seen)} cards that were reported finished came back ({100 * share:.0f}%): reviewed twice, sent back, reopened or answered with a change request"
+                + (f", at least {100 * REWORK_SHARE:.0f}%." if fires else "."),
+                evidence=evidence,
+                cannot_see="Reasons are only on rework since the capture was switched on; older cards show as no reason recorded. A change asked for in chat shows only if the agent then reports the card finished again, and any reply to a card in review counts as a request even when it was a question. Kinds come from the title and only show with at least 5 cards.",
+                suggestion=(REWORK_SAYS[top] if top else "Cards come back and the board does not know why for these: with insights on, the next ones carry a reason.") if fires else "")
+
+
 def _not_enough_hours(rule, title, hours, what):
     sentence = f"Not enough data: {what}." if not hours and what.startswith("no state") else f"Not enough data: {hours:.1f} observed hours for {what}, need {MIN_OBS_H:g}."
     return _obs(rule, title, "not-enough-data", round(hours), sentence=sentence)
@@ -348,7 +408,7 @@ def compute(tasks, since=None, agent=None, prefix=None, now=None, states=None):
     cards = select(tasks, since, agent, prefix, now)
     lines = [x for x in (states or []) if not agent or x[0].lower() == agent.lower()]
     by_state = state_intervals(lines, since or (min(x[2] for x in lines) if lines else None), now) if lines else None
-    obs = [blocked_wait(cards, by_id), big_cards(cards), idle_nights(cards, by_state)] + holding(cards, by_state) + waiting_for_work(by_state)
+    obs = [blocked_wait(cards, by_id), big_cards(cards), idle_nights(cards, by_state), work_comes_back(cards)] + holding(cards, by_state) + waiting_for_work(by_state)
     return {"since": since.isoformat(timespec="minutes") if since else "all", "agent": agent, "prefix": prefix, "cards": len(cards),
             "thresholds": dict(THRESHOLDS), "observations": obs}
 
@@ -376,5 +436,6 @@ def as_json(result):
 
 
 OFF_HINT = ("Insights are off. To turn them on, put this in .agentboard/config.toml:\n\n    [insights]\n    enabled = true\n\n"
-            "Turning it on starts three small captures on new cards (blockers logged when a card is made and an Unblocked line when the last one finishes; "
-            "who made a card; a closing reason on done). It reads nothing outside the board, starts no program and sends nothing out.")
+            "Turning it on starts small captures on new cards (blockers logged when a card is made and an Unblocked line when the last one finishes; "
+            "who made a card; a closing reason on done; a Rework line with a reason code when a card is sent back, answered with a change request, "
+            "reopened or reported finished again). It reads nothing outside the board, starts no program and sends nothing out.")

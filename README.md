@@ -272,12 +272,15 @@ The Done summary is about the work; **`agentboard insights`** is about how it we
 starts three small captures on new cards (a card's blockers are logged when it is made and an `Unblocked` line when the last one finishes; the name that made a
 card is kept in its `Added` log entry as `actor`; a card closed without a reason is `closed_as: shipped`, or give one: `agentboard done ID --reason duplicate`,
 from `shipped`, `duplicate`, `not-reproduced`, `superseded`, `not-needed`). `agentboard insights [--since 7d|24h|all] [--agent NAME] [--prefix ID_START] [--json]`
-then reads the board's own records and prints four observations, each one number with how many cards it rests on, a threshold, what the board cannot see, and a
+then reads the board's own records and prints five observations (six with the agent state history, below), each one number with how many cards it rests on, a threshold, what the board cannot see, and a
 suggestion: **blocked cards wait** (median wait for a blocker of at least 2 h), **a few cards hold the hours** (cards of 3 h or more build hold at least 40% of
-build hours), **the nights are idle** (at least half of the between-card gap hours fall between midnight and 08:00), **a card in hand** (an agent holds a card
+build hours), **the nights are idle** (at least half of the between-card gap hours fall between midnight and 08:00), **work comes back** (at least 20% of the cards
+reported finished were reviewed twice, sent back, reopened or answered with a change request, with the reasons and the kinds of card), **a card in hand** (an agent holds a card
 under 40% of the time between its first claim and its last review: work with no card is invisible, so this is not idle time). A rule with fewer than 5 cards says
 "not enough data". Counts, timings and card ids only: no title, result or chat text is read into an observation. It only suggests; it changes no prompt, role or
 card, ranks no one, reads nothing outside the board, starts no program. Design and the ten planned captures: `docs/insights-design.md`.
+
+**One rework event** (same flag): every path that sends a card back for changes writes one log line, `Rework: <code>`, with a code from a closed list and nothing else (no note, no reply text): `sent-back` (the owner's Send back), `be-simpler` (the Be simpler button on a card in review), `changes-asked` (any other reply to a card in review), `reopened` (a card moved out of Done) and `re-reviewed` (the agent reported finished again with no request on the card since its last report). A review that follows one of the first four adds no second line. `agentboard insights` counts the cards that came back, by reason and by kind of card; cards from before the switch show as "no reason recorded".
 
 **Agent state history** (the second capture, same flag): while the server runs, it notes once a minute what each agent is doing and appends a line to `.agentboard/agent-states.jsonl` when it changes (and a heartbeat every 15 minutes, so a gap is time nobody watched): working, quiet, abandoned, waiting for the owner (every open card is a question or a review), waiting for work (no open card and a wait running) or away (no open card and no wait). A line is a name, a state word and a time; no text. With it, `agentboard insights` adds a fifth observation, **waiting for work** (an agent waited for work at least a quarter of the hours the board watched it, once it has watched 8), and says where the night gaps and an agent's missing card time went instead of listing what it cannot see.
 

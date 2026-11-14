@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Insights: one rework event, so the board can say why work comes back (Nov 14, same flag as insights v0)
+The "Be simpler" replies, reopened cards and second reports were the only trace of work coming back: the dedicated Send back had 0 uses on 2,878 cards, and nothing said why a card returned. With `[insights] enabled = true` every path that sends a card back now writes one log line, `Rework: <code>`, with a code from a closed list and nothing else (never the note or the reply).
+- **Five codes:** `sent-back` (the owner's Send back), `be-simpler` (the Be simpler button on a card in review), `changes-asked` (any other reply to a card in review; the board cannot tell a change from a question, so every reply to a report counts), `reopened` (a card moved out of Done) and `re-reviewed` (the agent reported finished again with no request on the card since its last report). A report that follows one of the first four is that request coming back and adds no second line; with the flag off the log is exactly what it was.
+- **`agentboard insights` has a sixth rule, *Work comes back*:** the share of cards reported finished that were reviewed twice, sent back, reopened or answered with a change request (fires at 20%, needs 5 cards), the reasons counted, and each kind of card with at least 5 cards. Cards from before the switch show as "no reason recorded". Counts, kinds and ids only; the board's own words are never printed.
+- Not covered: a change asked for in chat shows only if the agent then reports the card finished again; the model and size captures (#6, #8) are the next insights cards.
+- Checked: `tests/test_rework.py` (30: the codes, flag off writes nothing, each path writes one line, a request and its report are one rework, counts only, the rule on hand-counted cards, the command on a throwaway board), `tests/test_insights.py` and `tests/test_agentstates.py` unchanged apart from the rule list; the whole suite alone.
+
 ### ORCH signs off on a card, with its evidence (Nov 14)
 The owner signed off two cards that ORCH knew were not merged yet; ORCH had the facts and the board did not show them. A card in review now carries ORCH's sign-off next to its review state, and signing first tells ORCH.
 - **`agentboard signoff <id>`** (ORCH): records what ORCH holds, as hashes, counts and results only: `--merged <hash>` or `--not-merged --ahead <n>`, up to four `--test "<suite>=pass|fail|running|pending|skipped"`, `--gate pass|fail|pending`, `--verified-by <name>`. Every field is checked against a small pattern, so no message text can be stored. Only ORCH (or the owner at a terminal) can run it; an agent cannot sign off its own work.
