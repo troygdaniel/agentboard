@@ -304,6 +304,7 @@ steps written as `(1) … (2) …` render one per line. Details that don't chang
 - `ask` and `review` clear automatically on the agent's next `update`. `review` sets progress to 100% but the card stays in Doing (marked ready for review) until the user marks it done.
 - If you started the server in the background, stop it with `pkill -f "agentboard serve"` (Ctrl+C when it runs in the foreground).
 - **Never run `agentboard done` yourself as an agent**; only the user does (Mark done button, drag, or telling the agent to).
+- **ORCH's sign-off:** before the user signs off a card in review, ORCH records what it holds with `agentboard signoff <id> --merged <hash> --test "full smoke=pass" --gate pass` (or `--not-merged`). The card shows it under your sentence, so you never need to write it yourself; if the user signs off before ORCH has, the board says so and tells ORCH.
 - One task per deliverable, not per command; keep status lines to one line.
 
 Humans: `agentboard add "Title" --status todo` (or `--status backlog` for the Later drawer), `agentboard list`. A new card lands at the top of its column.

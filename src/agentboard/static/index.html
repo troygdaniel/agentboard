@@ -663,6 +663,18 @@
   .you.ask, .p-you.ask { --y: var(--err); } .you.rev, .p-you.rev { --y: var(--ok); } .you.fin, .you.quiet, .p-you.fin, .p-you.quiet { --y: var(--need); }
   .you.none b { background: none; color: var(--muted); box-shadow: inset 0 0 0 1px var(--line); } .you.none i { font-weight: 500; }
   .you-say { font-size: var(--fs-sm); color: var(--muted); margin: -2px 0 8px; overflow-wrap: anywhere; }
+  /* ORCH's sign-off on a card in review (card orch-sign-off): one row under the agent's sentence, three states (signed off, not merged, not seen yet) */
+  .so { display: grid; grid-template-columns: 18px 1fr auto; column-gap: 10px; row-gap: 1px; align-items: start; margin: 0 0 10px; padding: 8px 12px; border-radius: 8px;
+        font-size: var(--fs-sm); line-height: 1.4; background: var(--chip); color: var(--text); border: 1px solid var(--line); }
+  .so .g { grid-row: 1 / span 2; display: inline-flex; width: 18px; height: 18px; margin-top: 1px; border-radius: 50%; align-items: center; justify-content: center; color: #fff; font-size: 11px; font-weight: 800; background: var(--neutral); }
+  .so b { font-size: var(--fs-xs); letter-spacing: .14em; text-transform: uppercase; font-weight: 700; color: var(--text); align-self: center; }
+  .so .t { font-size: var(--fs-xs); color: var(--muted); align-self: center; white-space: nowrap; }
+  .so .f { grid-column: 2 / span 2; color: var(--muted); overflow-wrap: anywhere; }
+  .so .f i { font-style: normal; color: var(--text); font-weight: 600; }
+  .so.ok { border-color: color-mix(in srgb, var(--ok) 45%, var(--line)); background: color-mix(in srgb, var(--ok) 9%, var(--chip)); } .so.ok .g { background: var(--ok); }
+  .so.warn { border-color: color-mix(in srgb, var(--warn) 50%, var(--line)); background: color-mix(in srgb, var(--warn) 10%, var(--chip)); } .so.warn .g { background: var(--warn); }
+  .so.none { padding-block: 6px; }
+  @media (max-width: 520px) { .so { grid-template-columns: 18px 1fr; } .so .g { grid-row: 1 / span 3; } .so .f, .so .t { grid-column: 2; } .so .t { grid-row: 3; align-self: start; white-space: normal; } }
   .you-btns { display: flex; gap: 8px; flex-wrap: wrap; margin: 0 0 10px; }
   .you-b { min-height: 28px; padding: 0 10px; font-size: 12px; white-space: nowrap; } .you-btns { flex-wrap: nowrap; } .you u { white-space: nowrap; } .you i { white-space: nowrap; }
   .you-b[data-dog-action] { font-size: 0; } .you-b[data-dog-action]::after { content: 'Release'; font-size: 12px; }
@@ -2438,11 +2450,25 @@ function youCard(t) { const y = youOf(t); if (!y) return '';
   const b = youBtns(t, y);
   const age = y.k === 'fin' || y.k === 'quiet' ? '' : `<u>${esc(y.k === 'none' ? ago(t.updated).text : 'for ' + ago(t.updated).text.replace(' ago', '').replace('just now', 'a moment'))}</u>`;
   return `<div class="you ${y.k}"><b>You</b><i>${esc(y.verb)}</i>${y.steps ? `<span class="step-dots" aria-hidden="true">${Array.from({ length: y.steps }, (_, k) => `<s class="${k < y.step ? 'dn' : k === y.step ? 'at' : ''}"></s>`).join('')}</span>` : ''}${age}</div>` + (y.k === 'fin' || y.k === 'quiet' ? `<div class="you-say">${esc(y.say)}</div><div class="you-btns">${b}</div>` : ''); }
+// ORCH's sign-off on a card in review (card orch-sign-off): hashes, counts and results the server has already checked, and escaped anyway.
+// Signed off (merged) is green, a record that says not merged is amber, no record at all is grey and says so.
+function signoffHtml(t) {
+  if (!t || !t.review || t.parent_id) return '';
+  const so = t.signoff;
+  if (!so) return `<div class="so none" role="note"><span class="g" aria-hidden="true">–</span><b>ORCH has not signed this yet</b></div>`;
+  const ok = !!so.merged, tests = Array.isArray(so.tests) ? so.tests : [];
+  const facts = [ok ? `merged <i>${esc(so.merged)}</i>` : (so.ahead != null ? `<i>${esc(so.ahead)}</i> ${so.ahead === 1 ? 'branch' : 'branches'} ahead` : 'not on main yet')]
+    .concat(tests.map(x => `${esc(x.name)} <i>${esc(x.result)}</i>`))
+    .concat(so.gate ? [`batch gate <i>${esc(so.gate)}</i>`] : []);
+  const when = [String(so.at || '').slice(11, 16), so.verified_by ? `${esc(so.verified_by)} verified` : ''].filter(Boolean).join(' · ');
+  return `<div class="so ${ok ? 'ok' : 'warn'}" role="note"><span class="g" aria-hidden="true">${ok ? '✓' : '!'}</span><b>${ok ? 'ORCH signed off' : 'ORCH: not merged'}</b>`
+    + `<span class="t">${when}</span><div class="f">${facts.join(' · ')}</div></div>`;
+}
 function youPanel(t) { const y = youOf(byId.get(t.id) || t); if (!y) return '';   // the list's copy carries the report's text, where the Next line is
   const say = y.k === 'none' ? `${esc(t.agent || 'The agent')} is working and has not asked for anything. Last update ${esc(ago(t.updated).text)}.` : esc(y.say);
   const b = youBtns(t, y, true);
   const join = y.k === 'ask' || (y.k === 'rev' && !y.sub);   // the box just below already carries this sentence: the block is its heading
-  return `<div class="p-you ${y.k}${y.k === 'ask' || y.k === 'rev' ? ' joined' : ''}${y.sub ? ' has-next' : ''}"><div class="py-h"><b>You</b><i>${esc(y.verb)}</i><u>${y.k === 'none' ? '' : esc(ago(t.updated).text)}</u></div>${join ? '' : `<div class="py-say">${say}</div>`}${b ? `<div class="you-btns">${b}</div>` : ''}</div>`; }
+  return signoffHtml(t) + `<div class="p-you ${y.k}${y.k === 'ask' || y.k === 'rev' ? ' joined' : ''}${y.sub ? ' has-next' : ''}"><div class="py-h"><b>You</b><i>${esc(y.verb)}</i><u>${y.k === 'none' ? '' : esc(ago(t.updated).text)}</u></div>${join ? '' : `<div class="py-say">${say}</div>`}${b ? `<div class="you-btns">${b}</div>` : ''}</div>`; }
 function card(t) {
   const a = ago(t.updated);
   const doing = t.status === 'doing', done = t.status === 'done';
@@ -2493,7 +2519,7 @@ function card(t) {
   // ask / review: the agent's one sentence is the card's first line, large, with a reply box the owner can answer in (stored on the card; the agent reads it with `agentboard answer`)
   const you = youOf(t), askFlag = youCard(t);
   const said = (asking || reviewing) ? (you ? you.say : (t.question || t.result || t.status_text || '')) : '';
-  const saidRow = said ? `<div class="said" title="${esc(said)}">${esc(said)}</div>${you && you.sub ? `<div class="you-say">${esc(you.sub)}</div>` : ''}` : '';
+  const saidRow = (said ? `<div class="said" title="${esc(said)}">${esc(said)}</div>${you && you.sub ? `<div class="you-say">${esc(you.sub)}</div>` : ''}` : '') + (reviewing ? signoffHtml(t) : '');   // ORCH's sign-off row (card orch-sign-off) sits right under the sentence
   // everything past the one sentence waits behind a collapsed Details fold
   const foldRow = t.details ? `<details class="fold"><summary>Details</summary><div class="fold-body">${esc(t.details)}</div></details>` : '';
   const quick = asking ? quickHtml(t, false) : '';
@@ -3847,7 +3873,8 @@ async function move(id, status, before, note = '') {
     const r = await api('/api/move', { id, status, before: before || null });
     showError(''); ok = true;
     if (t && t.status !== status) { landedId = id; landedTo = status; }   // Lively: it settles with a ring once it is drawn there
-    if (t && t.status !== status) toast(`Moved “${t.title}” to ${LABELS[status]}${note}`, { prev: r.prev, before: r.prev_before, kids: r.prev_kids });
+    if (t && t.status !== status && r.heads_up) toast(r.heads_up, { prev: r.prev, before: r.prev_before, kids: r.prev_kids });   // signed off before ORCH did (card orch-sign-off): the toast says so, and keeps its Undo
+    else if (t && t.status !== status) toast(`Moved “${t.title}” to ${LABELS[status]}${note}`, { prev: r.prev, before: r.prev_before, kids: r.prev_kids });
   } catch (e) { showError('Could not move task: ' + e.message); }
   raw = ''; detailRaw = ''; load();
   return ok;
@@ -3860,7 +3887,7 @@ $('bulk-move').onchange = async e => {
   const ids = [...selected];
   try {
     const r = await api('/api/bulk-move', { ids, status });
-    toast(`Moved ${ids.length} task${ids.length === 1 ? '' : 's'} to ${LABELS[status]}`,
+    toast(r.heads_up || `Moved ${ids.length} task${ids.length === 1 ? '' : 's'} to ${LABELS[status]}`,
           { replay: r.prev.map(p => ({ path: '/api/restore', body: { task: p.task, before: p.before, kids: p.kids } })) });
     showError('');
   } catch (err) { showError('Could not move: ' + err.message); }
