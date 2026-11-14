@@ -546,6 +546,7 @@ Findings below come from the audit in `SECURITY.md` in the repository root (v0.2
     [board]
     owner = "you"                 # your name: replaces "the user" in every prompt and "you" on the board, the HUD and report pages
     stale_minutes = 120           # a Doing card silent this long is marked "abandoned?" on the board and the HUD
+    silent_minutes = 10           # an agent not heard from this long shows amber and quiet on the Watch tab
 
     [voice]
     words = ["Acme"]              # names the dictation should spell right (your name and the agents' are already included)

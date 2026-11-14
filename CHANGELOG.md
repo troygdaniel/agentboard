@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Watch feels alive: a connection dot and an honest pulse per agent (Nov 14)
+On Watch the rings can sit still for a long time, and a still screen looked the same whether the board had lost its connection or the agents were idle. Two signals now, both read from data the page already has: no new request, and the percent never moves for a pulse.
+- **A connection dot in the header (Watch, Now and the rest):** `Live · updated 3s ago` while the page's own poll answers, amber `Slow` after 5 s without an answer or a failed poll, red `Reconnecting… last update 14:07` after 3 failed polls in a row or 15 s of silence. While it is red the Watch tiles freeze and dim, so a quiet screen is never mistaken for busy agents. It says the change once to a screen reader. A hidden browser tab is not a lost board: the clock starts again when it comes back. The old `Disconnected; retrying` chip is still there and is hidden while the dot is red.
+- **Each Watch tile says how long since its agent was heard:** `heard 8s ago` in the agent's colour with a steady pulse (under a minute), `heard 4m ago` with a slower, dimmer pulse (a minute up to the limit), and from the limit an amber ring, no pulse, `last heard 12m ago` and a QUIET tag. The line is never hidden, and the tiles age in place on the poll's beat without a redraw. The old small age at the top right of a tile is gone.
+- **`[board] silent_minutes`** (default 10, 1 to 100000) sets where a tile goes amber; `/api/config` carries it to the page.
+- **Reduced motion:** the same colours with a static ring and dot, no animation.
+- Checked: `tests/test_watch_alive.py`, and the page rendered in headless Chrome on a throwaway board (light, dark, 390 px wide, a server stopped mid-session).
+
 ### ORCH signs off on a card, with its evidence (Nov 14)
 The owner signed off two cards that ORCH knew were not merged yet; ORCH had the facts and the board did not show them. A card in review now carries ORCH's sign-off next to its review state, and signing first tells ORCH.
 - **`agentboard signoff <id>`** (ORCH): records what ORCH holds, as hashes, counts and results only: `--merged <hash>` or `--not-merged --ahead <n>`, up to four `--test "<suite>=pass|fail|running|pending|skipped"`, `--gate pass|fail|pending`, `--verified-by <name>`. Every field is checked against a small pattern, so no message text can be stored. Only ORCH (or the owner at a terminal) can run it; an agent cannot sign off its own work.

@@ -21,6 +21,12 @@ def stale_minutes(conf):
     return v if isinstance(v, (int, float)) and not isinstance(v, bool) and v > 0 else ABANDONED_MIN
 
 
+def silent_minutes(conf):
+    """The [board] silent_minutes setting (the Watch tab goes amber for an agent not heard from this long), or STALE_MIN when it is missing or not a positive number."""
+    v = (conf or {}).get("board", {}).get("silent_minutes", STALE_MIN)
+    return v if isinstance(v, (int, float)) and not isinstance(v, bool) and v > 0 else STALE_MIN
+
+
 def retired(conf):
     """[hud] retired = ["AGENT-5"]: agent names the HUD leaves out (their cards and history stay).
     Anything that is not a list of strings is ignored."""

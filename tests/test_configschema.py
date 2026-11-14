@@ -72,7 +72,7 @@ class Typos(Base):
     def test_every_key_the_code_reads_is_in_the_schema(self):
         """A `.get("key")` on a config section in the code must be a schema key (the scan is by section helper: the few places that read config)."""
         src = (ROOT / "src" / "agentboard")
-        reads = {("board", "owner"), ("board", "stale_minutes"), ("hud", "retired"), ("orch", "agents"), ("ui", "dispatch"), ("notify", "enabled"), ("notify", "sound"),
+        reads = {("board", "owner"), ("board", "stale_minutes"), ("board", "silent_minutes"), ("hud", "retired"), ("orch", "agents"), ("ui", "dispatch"), ("notify", "enabled"), ("notify", "sound"),
                  ("prompt", "template_file"), ("prompt", "template"), ("chat", "idle_model"), ("chat", "idle_budget_usd"), ("chat", "casual"), ("chat", "casual_per_hour"),
                  ("chat", "autopilot"), ("chat", "autopilot_every"), ("chat", "autopilot_per_hour"), ("chat", "share_every_min"), ("chat", "live_min"),
                  ("run", "claude"), ("run", "budget_usd"), ("run", "max_minutes"), ("reports", "keep_hours"), ("reports", "repo"), ("backup", "sync_dir"),
