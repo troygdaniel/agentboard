@@ -92,6 +92,8 @@ def _names_in_use(store, data, archive):
         if isinstance(rec, dict):
             used.add(key(rec.get("name")))
     used.update(key(n) for n in _roster(d))
+    from . import configurations   # (it imports this module)
+    used.update(key(n) for n in configurations.roster(configurations.applied_if_enabled(d)))
     used.discard("")
     return used
 

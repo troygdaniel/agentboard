@@ -32,6 +32,9 @@ OPEN_QUESTION_S = 30 * 60   # a plain answer from an agent belongs to the owner'
 # past TITLE_MAX (it is a line, not a document), the prose fields are cut.
 TITLE_MAX, DESCRIPTION_MAX, STATUS_MAX, BODY_MAX = 200, 20_000, 1000, 60_000
 CHAT_DECISIONS = ("approved", "declined")
+OUTSIDE_TTL_MIN = 30                                 # an approval for an action outside the board lapses this long after it was asked for
+OUTSIDE_FIELDS = ("target", "say", "money", "shares")   # what an outside action must state: who or where, the exact words, the money, what of the owner's is shared
+OUTSIDE_FIELD_MAX = 300
 DEFAULT_OWNER = "you"   # what the board calls the human until [board] owner in config.toml says otherwise
 
 
@@ -982,13 +985,16 @@ class Store:
         return bool(on)
 
     def chat_send(self, sender, text, kind="agent", to=None, topic=None, detail=None, card=None, files=None, propose=None,
-                  reply_to=None, color=None, via=None):
+                  reply_to=None, color=None, via=None, outside=None):
         """Post a message to the shared channel. kind is 'agent' or 'user' (the human).
 
         The one line is what the panel shows; everything else is optional and shown on tap: `to` (an agent, ORCH or all),
         `topic` (status, learn, help, heads-up, handoff), `detail` (the technical part), `card` (a card id it is about),
         `files` (paths other agents should know are being touched), `propose` (an action for the owner to approve; chat never does
         it), `reply_to` (the seq it answers). A multi-line text keeps its first line and the rest becomes the detail.
+        `outside` ({target, say, money, shares}, with `propose`): the proposal is an action that reaches outside the board (a call, a message, a payment, a
+        form): every field must be stated ("none" where there is none), the owner's yes covers that one action only, and it lapses OUTSIDE_TTL_MIN minutes
+        after the ask (chat_decide refuses it after that).
 
         Agent-to-agent talk needs the board-wide switch on: a line to an agent, ORCH or all, a heads-up about files, or a reply to
         another agent's line. An answer to the owner (addressed to them, or to no one: the owner's thread) is never talk, whatever
@@ -1014,6 +1020,8 @@ class Store:
         to = (to or "").strip() or None
         if to and to.lower() == "all":
             to = "all"
+        if outside is not None and not to:
+            to = self.owner   # an approval is asked of the owner: it lands in that agent's thread with them, where the Approve button is
         if topic is not None:
             topic = str(topic).strip().lower() or None
             if topic and topic not in CHAT_TOPICS:
@@ -1028,6 +1036,15 @@ class Store:
             files = [f.strip()[:200] for f in files][:CHAT_FILES_MAX] or None
         if propose is not None:
             propose = str(propose).strip()[:CHAT_LINE_MAX] or None
+        if outside is not None:
+            if not propose:
+                raise BoardError("an action outside the board is a proposal: give the action itself with --propose")
+            if not isinstance(outside, dict):
+                raise BoardError("outside must be the fields of the action")
+            missing = [f for f in OUTSIDE_FIELDS if not str(outside.get(f) or "").strip()]
+            if missing:
+                raise BoardError("an action outside the board must state " + ", ".join(missing) + " (write none where there is none)")
+            outside = {f: (self._scrub(str(outside[f]), OUTSIDE_FIELD_MAX) if kind == "agent" else str(outside[f])).strip()[:OUTSIDE_FIELD_MAX] for f in OUTSIDE_FIELDS}
         if reply_to is not None:
             try:
                 reply_to = int(reply_to)
@@ -1080,6 +1097,9 @@ class Store:
                     msg[k] = v
             if propose:
                 msg["action"] = {"text": propose, "status": "proposed"}
+                if outside:
+                    msg["action"]["outside"] = outside
+                    msg["action"]["expires_at"] = time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(time.time() + 60 * OUTSIDE_TTL_MIN))
             data["chat"].append(msg)
             del data["chat"][:-CHAT_MAX]
             self._write(data)
@@ -1160,6 +1180,8 @@ class Store:
                 raise BoardError(f"message #{seq} proposes no action")
             if m["action"].get("status") != "proposed":
                 raise BoardError(f"message #{seq} was already {m['action']['status']}")
+            if lapsed(m["action"]):
+                raise BoardError(f"message #{seq} lapsed at {m['action']['expires_at'][11:16]}: ask {m['sender']} to propose it again (an approval is for one action, for {OUTSIDE_TTL_MIN} minutes)")
             m["action"].update({"status": decision, "decided_at": _now(), "by": by})
             self._write(data)
             return m
@@ -1278,7 +1300,14 @@ def _split_long_line(text, detail):
 
 
 def _roster(board_dir):
-    """The names in [orch] agents = [{name="AGENT-1"}, ...] of the board's config.toml: peers ORCH hands work to are known before they speak."""
+    """The names in [orch] agents = [{name="AGENT-1"}, ...] of the board's config.toml, and those of the applied agent configuration (configurations.py): peers ORCH hands
+    work to are known before they speak."""
+    from . import configurations   # (it imports this module)
+    return configurations.merge(_roster_listed(board_dir), board_dir)
+
+
+def _roster_listed(board_dir):
+    """Only the names listed in config.toml."""
     try:
         conf = tomlread.loads((Path(board_dir) / "config.toml").read_text())
     except (OSError, ValueError, tomlread.TOMLDecodeError):
@@ -1731,3 +1760,14 @@ def _unique_id(title, taken, prefix=None):
 
 def _now():
     return time.strftime("%Y-%m-%dT%H:%M:%S")
+
+
+def lapsed(action, now=None):
+    """Is this proposed action's approval window over (it has `expires_at`, an outside action's 30 minutes) and no decision was made."""
+    exp = (action or {}).get("expires_at")
+    if not exp or (action or {}).get("status") not in (None, "proposed"):
+        return False
+    try:
+        return (now if now is not None else time.time()) > time.mktime(time.strptime(str(exp)[:19], "%Y-%m-%dT%H:%M:%S"))
+    except ValueError:
+        return False

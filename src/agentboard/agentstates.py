@@ -113,10 +113,10 @@ def sample(store, now=None):
     """One tick: with [insights] on, append a line for each agent whose state changed or that has no line for BEAT_S. Returns how many lines were written."""
     if not insights.enabled(store.dir):
         return 0
-    from . import prompt as promptlib
+    from . import configurations, prompt as promptlib
     now = now or datetime.now()
     conf = promptlib.load_config(store.dir)
-    states = current(store.load(), listeners.listening(store.dir), now, hud.roster(conf), hud.retired(conf), hud.stale_minutes(conf))
+    states = current(store.load(), listeners.listening(store.dir), now, configurations.merge(hud.roster(conf), store.dir), hud.retired(conf), hud.stale_minutes(conf))
     path = Path(store.dir) / FILE
     try:
         if path.stat().st_size > MAX_BYTES:

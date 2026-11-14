@@ -21,6 +21,7 @@ from . import agentstates as agentstateslib
 from . import insights as insightslib
 from . import lifecycle
 from . import lockdown
+from . import configurations as configurationslib
 from . import names as namesmod
 from . import rename as renamelib
 from .names import AGENT_SLOTS, agent_slot  # noqa: F401  (agent_slot is also used by tests and the spawn command below)
@@ -41,7 +42,7 @@ from .server import serve
 from . import agentfiles
 from . import boards as boardlib
 from . import demo as demolib
-from .store import BoardError, CHAT_LINE_MAX, CHAT_TOPICS, DIR_NAME, find_dir, parse_stamp, Store, subtask_counts, _to_owner
+from .store import BoardError, CHAT_LINE_MAX, CHAT_TOPICS, DIR_NAME, find_dir, lapsed, parse_stamp, Store, subtask_counts, _to_owner
 
 DEFAULT_PORT = 8765
 
@@ -658,8 +659,11 @@ def cmd_chat_send(a):
             detail = Path(a.detail_file).expanduser().read_text()
         except OSError as e:
             raise BoardError(f"--detail-file: {e}") from e
+    given = {f: getattr(a, f, None) for f in ("target", "say", "money", "shares")}
+    if (any(given.values())) and not a.outside:
+        raise BoardError("--target, --say, --money and --shares go with --outside")
     m = _store().chat_send(name, a.text, kind="user" if a.user else "agent", to=a.to, topic=a.topic, detail=detail, card=a.card,
-                           files=a.file or None, propose=a.propose, reply_to=a.reply_to)
+                           files=a.file or None, propose=a.propose, reply_to=a.reply_to, outside=given if a.outside else None)
     print(_chat_line(m))
     if len((a.text or "").strip().partition("\n")[0].strip()) > CHAT_LINE_MAX and m["text"].endswith("\u2026"):
         print(f"Sent, cut at {CHAT_LINE_MAX} characters: the rest is in the detail.", file=sys.stderr)
@@ -730,7 +734,12 @@ def cmd_chat_approvals(a):
         return
     for m in rows:
         act = m["action"]
-        print(f"#{m['seq']}  {act['status']:<9} {m['sender']}: {act['text']}" + (f"   ({act['by']} {act['decided_at']})" if act.get("by") else ""))
+        status = "lapsed" if lapsed(act) else act["status"]
+        print(f"#{m['seq']}  {status:<9} {m['sender']}: {act['text']}" + (f"   ({act['by']} {act['decided_at']})" if act.get("by") else ""))
+        out = act.get("outside")
+        if out:
+            print(f"      to: {out['target']} | say: {out['say']} | money: {out['money']} | shares: {out['shares']}"
+                  + (f" | {'lapsed' if status == 'lapsed' else 'lapses'} {act['expires_at'][11:16]}" if act.get("expires_at") and status in ("proposed", "lapsed") else ""))
 
 
 def cmd_chat_decide(a):
@@ -1014,6 +1023,7 @@ def cmd_start(a):
     if not created:
         print(f"agentboard: you already hold {t['id']}; logged on it, no twin made", file=sys.stderr)
     print(t["id"])  # agents use this id for update/done; the sibling list goes to stderr so $(...) still captures only the id
+    _print_role(_store(), _agent_name(a), file=sys.stderr)
     if a.parent:
         _print_subtasks(_store().load(), a.parent, file=sys.stderr)
     elif _lacks_subtasks(_store().load(), t["id"]):
@@ -1264,10 +1274,18 @@ def cmd_claim(a):
     hookslib.remember_session(s.dir, name, transcript=a.transcript)
     t = s.claim(a.id, name, force=a.force)   # --color is accepted and ignored
     print(f"claimed {t['id']} as {name}")
+    _print_role(s, name)
     tasks = s.load()
     _print_subtasks(tasks, t["id"])
     if _lacks_subtasks(tasks, t["id"]):
         print(_subtask_nudge(t["id"]))
+
+
+def _print_role(s, name, file=None):
+    """An agent that has a role in the applied configuration (configurations.py) reads it when it claims or starts a card: what it is here, what it may not do."""
+    block = configurationslib.role_block(configurationslib.applied_if_enabled(s.dir), name, s.owner if s.owner != "you" else "the owner")
+    if block:
+        print("\n" + block.rstrip("\n"), file=file)
 
 
 def _print_subtasks(tasks, parent_id, file=None):
@@ -2289,6 +2307,11 @@ def main(argv=None):
     csp.add_argument("--card", metavar="ID", help="the card this is about")
     csp.add_argument("--file", action="append", metavar="PATH", help="a shared file you are about to touch; repeat for more")
     csp.add_argument("--propose", metavar="ACTION", help="an action for the owner to approve first (chat never does it)")
+    csp.add_argument("--outside", action="store_true", help="the proposal reaches outside the board (a call, a message, a payment, a form): needs --target, --say, --money and --shares; the owner's yes is for that one action and lapses after 30 minutes")
+    csp.add_argument("--target", help="with --outside: who or where (a name, a number, an address, a site)")
+    csp.add_argument("--say", help="with --outside: the exact words, or the exact entries, you will use")
+    csp.add_argument("--money", help="with --outside: the amount, or none")
+    csp.add_argument("--shares", help="with --outside: what of the owner's is shared (a first name, a card number: say, or none)")
     csp.add_argument("--reply-to", dest="reply_to", type=int, metavar="N", help="the message number this answers")
     csp.add_argument("--color", help="ignored: the board colours an agent by name")
     csp = cadd("tail", cmd_chat_tail, "read recent messages, optionally following live")
@@ -2332,6 +2355,10 @@ def main(argv=None):
     csp.add_argument("--once", action="store_true", help="one round, then exit")
     csp.add_argument("--model", help="claude model for the drafts (default: [chat] idle_model)")
 
+    sp = add("configuration", cmd_configuration, "agent configurations: the names and roles the board shows (show, apply, clear); needs [agents] configurations = true; the board starts no agent")
+    sp.add_argument("action", nargs="?", choices=["show", "apply", "clear"], default="show")
+    sp.add_argument("what", nargs="?", help="a shipped configuration's name (day-to-day) or the path of a configuration file")
+
     sp = add("rename", cmd_rename, "give an agent a new name and keep its cards, claims, chat and colour (the old name keeps working for a day)")
     sp.add_argument("old", nargs="?", help="the agent's current name")
     sp.add_argument("new", nargs="?", help="its new name (letters, digits, space, dot, hyphen, underscore; up to 40)")
@@ -2365,7 +2392,7 @@ def main(argv=None):
         sys.exit(f"agentboard: {msg}")
 
 
-NAMELESS_COMMANDS = ("init", "board", "plugins", "profile", "selfcheck", "rename")
+NAMELESS_COMMANDS = ("init", "board", "plugins", "profile", "selfcheck", "rename", "configuration")
 
 
 def _canon_names(a):
@@ -2388,6 +2415,32 @@ def _canon_names(a):
     for f, v in given.items():
         if isinstance(v, str) and v:
             setattr(a, f, namesmod.resolve(board, v))
+
+
+def cmd_configuration(a):
+    s = _store()
+    if not configurationslib.enabled(s.dir):
+        raise BoardError("agent configurations are off: add [agents] configurations = true to config.toml (see `agentboard config docs`)")
+    if a.action == "clear":
+        print("Removed the applied configuration; the roster is the one in config.toml again." if configurationslib.clear(s.dir) else "No configuration is applied.")
+        return
+    if a.action == "apply":
+        if not a.what:
+            raise BoardError(f"say which: agentboard configuration apply NAME|FILE   (shipped: {', '.join(configurationslib.builtin_names())})")
+        cfg, source = configurationslib.read_source(a.what, s.owner)
+        configurationslib.apply(s.dir, cfg, source)
+        print("\n".join(configurationslib.describe(cfg, source, applied_now=True)))
+        return
+    if a.what:   # show a configuration without applying it
+        cfg, source = configurationslib.read_source(a.what, s.owner)
+        print("\n".join(configurationslib.describe(cfg, source)))
+        return
+    cfg = configurationslib.applied(s.dir)
+    if cfg is None:
+        print("No configuration is applied. Shipped with the board: " + ", ".join(configurationslib.builtin_names())
+              + ".\nSee one: agentboard configuration show NAME     Apply it: agentboard configuration apply NAME")
+        return
+    print("\n".join(configurationslib.describe(cfg, "applied")))
 
 
 def cmd_rename(a):

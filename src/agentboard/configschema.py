@@ -70,6 +70,7 @@ SCHEMA = {
     },
     "ui": {"dispatch": Field("bool", True, "show Copy prompt and the prompt preview")},
     "insights": {"enabled": Field("bool", False, "turn on `agentboard insights` and its captures: a card's blockers logged when it is made and an Unblocked line when the last finishes, who made a card, and a closing reason on done (counts and timings only; nothing leaves the board)")},
+    "agents": {"configurations": Field("bool", False, "turn on agent configurations: `agentboard configuration show|apply`, role chips on Load, Watch and Now, and a role block in each card prompt (the board starts no agent; you start the terminals)")},
     "hud": {"retired": Field("list[str]", [], "agents hidden from the HUD; their cards and history stay")},
     "voice": {
         "words": Field("list[str]", [], "names the dictation should spell right (yours and the agents' are already included)"),

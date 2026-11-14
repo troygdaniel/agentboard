@@ -18,7 +18,7 @@ except ImportError:   # a platform without flock: the write is still atomic; two
 
 from . import backup
 
-STATE_FILES = ("chat-cursors.json", "chat-listeners.json", "sessions.json", "aliases.json", "renames.json")   # the board's own state files (a plugin's are its own)
+STATE_FILES = ("chat-cursors.json", "chat-listeners.json", "sessions.json", "aliases.json", "renames.json", "configuration.json")   # the board's own state files (a plugin's are its own)
 STALE_TMP_S = 600   # a temp file older than this belongs to no live write
 
 

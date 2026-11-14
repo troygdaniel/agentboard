@@ -12,7 +12,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-from . import boards, demo, hud, lifecycle, private
+from . import boards, configurations, demo, hud, lifecycle, private
 from . import profile as profilelib
 from . import hooks as hookslib
 from . import listeners, watchdog
@@ -355,7 +355,8 @@ def make_handler(default_store, port):
             elif url.path == "/api/hud":
                 def build_hud():
                     conf = _config(self.store)
-                    data = hud.build(self.store.load_all(), abandoned_min=hud.stale_minutes(conf), retired=hud.retired(conf), roster=hud.roster(conf), owner=self.store.owner)
+                    data = hud.build(self.store.load_all(), abandoned_min=hud.stale_minutes(conf), retired=hud.retired(conf),
+                                     roster=configurations.merge(hud.roster(conf), self.store.dir), owner=self.store.owner)
                     data["backup"] = self.store.backups.status()   # {last_backup_min, snapshots, last_sync, sync_dir}: the HUD's "backup N min ago" chip
                     data["watchdog"] = watchdog.findings(self.store, stale_min=hud.stale_minutes(conf))   # the ways the board is stuck between agents, each with its fix
                     return json.dumps(data).encode()
@@ -372,9 +373,12 @@ def make_handler(default_store, port):
             elif url.path == "/api/config":
                 conf = _config(self.store)
                 colors = conf.get("agent_colors")   # [agent_colors] AGENT-1 = "#2563eb": overrides the palette slot a name gets
+                cfgn = configurations.applied_if_enabled(self.store.dir)   # an applied agent configuration: the role chips beside the names (lower-cased name -> role)
                 self._send(200, {"dispatch": bool(conf.get("ui", {}).get("dispatch", True)), "owner": self.store.owner,
                                   "stale_minutes": hud.stale_minutes(conf),
-                                  "agent_colors": {str(k): v for k, v in colors.items() if isinstance(v, str)} if isinstance(colors, dict) else {}})
+                                  "agent_colors": {str(k): v for k, v in colors.items() if isinstance(v, str)} if isinstance(colors, dict) else {},
+                                  "configuration": cfgn["name"] if cfgn else "",
+                                  "roles": {n.lower(): v for n, v in configurations.roles_by_name(cfgn).items()} if cfgn else {}})
             elif url.path == "/api/task":
                 try:
                     wanted = (q.get("id") or [""])[0]

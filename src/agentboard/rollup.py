@@ -33,11 +33,11 @@ def _one(text, n=110):
 
 def build(store, now=None, since_hours=24):
     """The roll-up as data: totals, who waits on the owner, agents, stuck cards, the Todo queue, finished cards and the moves that follow."""
-    from . import prompt
+    from . import configurations, prompt
     now = now or datetime.now()
     tasks = store.load_all()
     conf = prompt.load_config(store.dir)
-    data = hud.build(tasks, now=now, abandoned_min=hud.stale_minutes(conf), retired=hud.retired(conf), roster=hud.roster(conf), owner=store.owner)
+    data = hud.build(tasks, now=now, abandoned_min=hud.stale_minutes(conf), retired=hud.retired(conf), roster=configurations.merge(hud.roster(conf), store.dir), owner=store.owner)
     live = [t for t in tasks if not t.get("archived") and not t.get("parent_id")]
     by_id = {t["id"]: t for t in tasks}
 

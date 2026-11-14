@@ -15,4 +15,4 @@ dependencies = []
 agentboard = "agentboard.cli:main"
 
 [tool.setuptools.package-data]
-agentboard = ["static/*"]
+agentboard = ["static/*", "configurations/*.json"]

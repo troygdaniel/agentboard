@@ -26,6 +26,12 @@ An invalid value is never guessed at: the default applies and the check says so.
 |---|---|---|---|
 | `enabled` | bool | false | turn on `agentboard insights` and its captures: a card's blockers logged when it is made and an Unblocked line when the last finishes, who made a card, and a closing reason on done (counts and timings only; nothing leaves the board). |
 
+## `[agents]`
+
+| Key | Type | Default | Meaning |
+|---|---|---|---|
+| `configurations` | bool | false | turn on agent configurations: `agentboard configuration show|apply`, role chips on Load, Watch and Now, and a role block in each card prompt (the board starts no agent; you start the terminals). |
+
 ## `[hud]`
 
 | Key | Type | Default | Meaning |

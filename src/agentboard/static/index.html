@@ -253,6 +253,11 @@
   .top .when.stale { color: var(--warn); }
   .who { display: inline-flex; align-items: center; gap: 8px; background: none; border: 0; padding: 0; cursor: pointer; color: var(--text); font-weight: 500; font-size: var(--fs-sm); border-radius: 6px; }
   .who:hover .nm { text-decoration: underline; text-underline-offset: 3px; }
+  /* the role an applied agent configuration gives a name (Settings: [agents] configurations): a quiet chip beside it, never louder than the name; shed first when a row is tight */
+  .rolechip { display: inline-block; flex: 0 1 auto; margin-left: 6px; padding: 0 7px; border: 1px solid var(--line); border-radius: 999px; background: var(--chip); color: var(--muted);
+    font-size: var(--fs-xs); font-weight: 600; letter-spacing: .02em; text-transform: none; line-height: 1.5; white-space: nowrap; max-width: 8.5em; overflow: hidden; text-overflow: ellipsis; vertical-align: 1px; }
+  .deck-slot:not(.front) .who .rolechip { display: none; }
+  @media (max-width: 600px) { .top .who .rolechip { display: none; } }   /* a phone shows the name; the role stays in the tooltip and the panel */
   .card.done .who { color: color-mix(in srgb, var(--text) 82%, var(--muted)); }
   /* the holder's name is the card's first thing to find (2026-11-01): 14px/650 in full text colour (the title is 15px),
      the same on every status; it was 12px/500, the smallest text on the card, level with the timestamp */
@@ -1284,7 +1289,10 @@
   .cmsg-act .lab { display: block; font-size: var(--fs-xs); font-weight: 600; letter-spacing: var(--tr-tight); text-transform: uppercase; color: var(--warn); margin-bottom: 2px; }
   .cmsg-act.approved { border-color: color-mix(in srgb, var(--ok) 45%, var(--line)); background: color-mix(in srgb, var(--ok) 7%, var(--surface)); } .cmsg-act.approved .lab { color: var(--ok); }
   .cmsg-act.declined { border-color: var(--line); background: var(--surface); opacity: .8; } .cmsg-act.declined .lab { color: var(--muted); }
-  .cmsg-act .acts { display: flex; gap: 6px; margin-top: 6px; }
+  .cmsg-act .acts { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; align-items: center; }
+  .cmsg-act .outs { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 1px 10px; margin: 5px 0 2px; font-size: var(--fs-sm); } .cmsg-act .outs dt { color: var(--muted); } .cmsg-act .outs dd { margin: 0; overflow-wrap: anywhere; }
+  .cmsg-act .until { font-size: var(--fs-xs); color: var(--muted); }
+  .cmsg-act.lapsed { border-color: var(--line); background: var(--surface); opacity: .8; } .cmsg-act.lapsed .lab { color: var(--muted); }
   .cmsg-act .acts .btn { min-height: 26px; padding: 2px 10px; font-size: var(--fs-sm); }
   .cmsg-act .acts .btn.go { border-color: var(--ok); color: var(--ok); }
   .cmsg-act .decided { font-size: var(--fs-xs); color: var(--muted); margin-top: 4px; }
@@ -2346,6 +2354,9 @@ const agentColor = name => {
   return `var(--a${AGENT_SLOT[name] || (m ? (Math.max(m[1], 1) - 1) % 4 + 1 : 1 + [...name].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) >>> 0, 7) % 6)})`;
 };
 const colorOf = t => agentColor(t.agent);
+// The role an applied agent configuration gives a name (cfg.roles, keyed by lower-cased name; empty with no configuration): a chip beside the name, and its sentence as the tooltip.
+const roleOf = name => (cfg.roles || {})[String(name || '').toLowerCase()] || null;
+const roleChip = name => { const r = roleOf(name); return r ? `<span class="rolechip" title="${esc(r.role + (r.purpose ? ': ' + r.purpose : ''))}">${esc(r.role)}</span>` : ''; };
 
 const unresolvedBlockers = t => (t.blocked_by || [])
   .map(id => tasks.find(x => x.id === id))
@@ -2480,7 +2491,7 @@ function card(t) {
     `<svg width="11" height="11" viewBox="0 0 16 16" fill="none" aria-hidden="true"><rect x="3.5" y="7" width="9" height="6.5" rx="1.3" stroke="currentColor" stroke-width="1.4"/><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>` +
     blockers.map(b => `<button class="blocked-link" data-open-blocker="${esc(b.id)}">${esc(b.title)}</button>`).join('') + `</div>` : '';
   const who = t.agent
-    ? `<button class="who" data-agent="${esc(t.agent)}" data-tip="Show only ${esc(t.agent)}" aria-label="Show only ${esc(t.agent)}"><span class="av ${live ? 'live' : ''}" style="--c:${colorOf(t)}" aria-hidden="true">${esc(nodeGlyph(t.agent))}</span><span class="nm">${esc(t.agent)}</span></button>` : '';
+    ? `<button class="who" data-agent="${esc(t.agent)}" data-tip="Show only ${esc(t.agent)}" aria-label="Show only ${esc(t.agent)}"><span class="av ${live ? 'live' : ''}" style="--c:${colorOf(t)}" aria-hidden="true">${esc(nodeGlyph(t.agent))}</span><span class="nm">${esc(t.agent)}</span>${roleChip(t.agent)}</button>` : '';
   const checkIcon = done ? `<svg class="check" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-label="Done"><path d="M3.5 8.5l3 3 6-7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>` : '';
   const whenText = a.text ? (doing ? '' : `${abandoned ? '⚠ abandoned? no update ' : stale ? 'no update ' : ''}${a.text}`) : '';   // on a Doing card the You line says how long and why; the corner is left empty
   const when = whenText ? `<span class="when ${abandoned ? 'abandoned' : stale ? 'stale' : ''}" title="${esc(whenText)}">${whenText}</span>` : '';
@@ -2848,15 +2859,15 @@ function watchHtml(by, n) {   // The whole team. Working agents are tiles (alive
     const slotsNow = t.subs && t.subs.length ? t.subs : (kidsMap.get(t.id) || []), dn = slotsNow.filter(sl => subDone(byId.get(sl.id) || sl)).length, sparkAt = was && dn > (was.dn || 0) ? dn - 1 : -1;
     return `<article class="w-tile w-nav${alive ? ' fresh' : ''}${moved ? ' moved' : ''}${isNew ? ' new' : ''}${watchSel === t.id ? ' sel' : ''}${watchOpenId === t.id ? ' lifted' : ''}" style="--c:${colorOf(t)}" data-watch="${esc(t.id)}" data-wid="${esc(t.id)}" data-p="${p}" data-was="${was ? was.p : p}" data-dn="${dn}" data-spark="${sparkAt}" data-line="${esc(line)}" tabindex="0" role="button" aria-label="${esc(name(t))}, ${esc(line)}, ${p}%">
 <div class="w-ring"><svg viewBox="0 0 80 80" aria-hidden="true"><circle class="tr" cx="40" cy="40" r="34"/><circle class="fg" cx="40" cy="40" r="34" pathLength="100" stroke-dasharray="${was ? was.p : p} 100"/>${p > 0 && p < 100 ? `<circle class="tip" r="3.2" cx="${(40 + 34 * Math.cos(p / 100 * 2 * Math.PI)).toFixed(2)}" cy="${(40 + 34 * Math.sin(p / 100 * 2 * Math.PI)).toFixed(2)}"/>` : ''}</svg>${orb(t.agent)}<em>${was ? was.p : p}</em>${dp > 0 ? `<u class="w-delta">+${dp}%</u>` : ''}</div>
-<div class="w-tx"><b>${esc(name(t))}</b><span class="w-now${was && was.line !== line ? ' swap' : ''}" title="${esc(line)}">${esc(line)}</span>${was && was.line !== line ? `<span class="w-was" aria-hidden="true">${esc(was.line)}</span>` : ''}<span class="w-card">${esc(t.title)}${(t._more || []).length ? `<i class="w-more-n" title="${esc(t._more.map(x => x.title).join(' · '))}"> · +${t._more.length} more</i>` : ''}</span></div>
+<div class="w-tx"><b>${esc(name(t))}${roleChip(t.agent)}</b><span class="w-now${was && was.line !== line ? ' swap' : ''}" title="${esc(line)}">${esc(line)}</span>${was && was.line !== line ? `<span class="w-was" aria-hidden="true">${esc(was.line)}</span>` : ''}<span class="w-card">${esc(t.title)}${(t._more || []).length ? `<i class="w-more-n" title="${esc(t._more.map(x => x.title).join(' · '))}"> · +${t._more.length} more</i>` : ''}</span></div>
 <span class="segs">${segsOf(t)}</span><i class="w-age">${alive ? 'now' : secs < 90 ? Math.round(secs) + 's ago' : esc(ago(t.updated).text)}</i></article>`; };
   const liveNames = new Set(live.map(name));
   const rank = { ask: 0, rev: 1, fin: 2, quiet: 3 }, groups = new Map(); wait.forEach(t => { const g = groups.get(name(t)) || []; g.push(t); groups.set(name(t), g); });   // one card per agent: its most pressing card, and how many
   const waitTile = g => { g.sort((a, b) => rank[kOf(a)] - rank[kOf(b)]); const t = g[0], y = youOf(t), wid = 'wait:' + name(t), verb = y.k === 'ask' ? 'Answer' : y.k === 'rev' ? 'Sign off' : y.k === 'fin' ? 'Close it' : 'Check on it';
     return `<article class="w-tile w-nav w-waiting ${y.k}${watchSeen && watchLiveWas.has(name(t)) && !liveNames.has(name(t)) ? ' flipin' : ''}${watchSel === wid ? ' sel' : ''}${watchOpenId === wid ? ' lifted' : ''}" style="--c:${colorOf(t)}" data-wait="${esc(t.id)}" data-wid="${esc(wid)}" tabindex="0" role="button" aria-label="${esc(name(t))} is waiting on you: ${esc(verb)}, ${g.length} card${g.length === 1 ? '' : 's'}">
 <div class="w-ring">${orb(t.agent)}${g.length > 1 ? `<em class="n">${g.length}</em>` : ''}</div>
-<div class="w-tx"><b>${esc(name(t))}</b><span class="w-now">${esc(y.say || verb)}</span><span class="w-card"><i class="w-verb">You · ${esc(verb)}</i></span></div><i class="w-age">waiting</i></article>`; };
-  const idleTile = a => `<article class="w-tile w-nav w-idling${watchSel === 'idle:' + a ? ' sel' : ''}" data-wid="${esc('idle:' + a)}" tabindex="0" aria-label="${esc(a)} is idle"><div class="w-ring">${orb(a)}<i class="zz" aria-hidden="true">z</i><i class="zz" aria-hidden="true">z</i><i class="zz" aria-hidden="true">z</i></div><div class="w-tx"><b>${esc(a)}</b><span class="w-now">Resting</span><span class="w-card">Nothing in hand</span></div></article>`;
+<div class="w-tx"><b>${esc(name(t))}${roleChip(t.agent)}</b><span class="w-now">${esc(y.say || verb)}</span><span class="w-card"><i class="w-verb">You · ${esc(verb)}</i></span></div><i class="w-age">waiting</i></article>`; };
+  const idleTile = a => `<article class="w-tile w-nav w-idling${watchSel === 'idle:' + a ? ' sel' : ''}" data-wid="${esc('idle:' + a)}" tabindex="0" aria-label="${esc(a)} is idle"><div class="w-ring">${orb(a)}<i class="zz" aria-hidden="true">z</i><i class="zz" aria-hidden="true">z</i><i class="zz" aria-hidden="true">z</i></div><div class="w-tx"><b>${esc(a)}${roleChip(a)}</b><span class="w-now">Resting</span><span class="w-card">Nothing in hand</span></div></article>`;
   const liveBy = new Map(); live.forEach(t => { const g = liveBy.get(name(t)) || []; g.push(t); liveBy.set(name(t), g); });   // one card per agent: the card it last reported on, and how many more it holds
   const mains = [...liveBy.values()].map(g => { g.sort((a, b) => (Date.parse(b.updated) || 0) - (Date.parse(a.updated) || 0)); g[0]._more = g.slice(1); return g[0]; });
   const byAgent = n => n === 'Unassigned' ? '\uffff' : n;   // by agent name, Unassigned last; one agent's working tile, then its waiting tile, then resting: a tile always lands in the same place
@@ -3510,9 +3521,14 @@ function chatBubble(m) {
   const detail = detailText ? `<button class="p-more cmsg-more dt" data-detail="${m.seq}" aria-expanded="${dOpen}">${dOpen ? (spoken ? 'As written ▾' : 'Detail ▾') : (spoken ? 'As written ▸' : 'Detail ▸')}</button><div class="cmsg-detail fmt" ${dOpen ? '' : 'hidden'}>${fmt(detailText)}</div>` : '';
   let act = '';
   if (m.action) {
-    const a = m.action, st = a.status || 'proposed';
-    act = `<div class="cmsg-act ${esc(st)}"><span class="lab">${st === 'proposed' ? 'Proposes · needs your OK' : st === 'approved' ? 'Approved' : 'Declined'}</span>${esc(a.text)}`
-      + (st === 'proposed' ? `<div class="acts"><button class="btn go" data-decide="approved" data-seq="${m.seq}">Approve</button><button class="btn" data-decide="declined" data-seq="${m.seq}">Decline</button></div>`
+    const a = m.action, st = a.status || 'proposed', out = a.outside, lapsed = st === 'proposed' && !!a.expires_at && Date.parse(a.expires_at) < Date.now();
+    // an action outside the board (a call, a message, a payment, a form) states what it is, to whom, the exact words, the money and what is shared; the yes is for that one action and lapses
+    const lab = lapsed ? 'Lapsed · ask again' : st === 'proposed' ? (out ? 'Needs your word · nothing has been done' : 'Proposes · needs your OK') : st === 'approved' ? 'Approved' : 'Declined';
+    const facts = out ? `<dl class="outs"><dt>To</dt><dd>${esc(out.target)}</dd><dt>Say</dt><dd>${esc(out.say)}</dd><dt>Money</dt><dd>${esc(out.money)}</dd><dt>Shares</dt><dd>${esc(out.shares)}</dd></dl>` : '';
+    const until = out && st === 'proposed' && !lapsed && a.expires_at ? `<span class="until">this action only · lapses ${esc(a.expires_at.slice(11, 16))}</span>` : '';
+    act = `<div class="cmsg-act ${lapsed ? 'lapsed' : esc(st)}"><span class="lab">${lab}</span>${esc(a.text)}${facts}`
+      + (lapsed ? `<div class="decided">${esc(a.expires_at.slice(11, 16))} passed · the agent has to propose it again</div>`
+        : st === 'proposed' ? `<div class="acts"><button class="btn go" data-decide="approved" data-seq="${m.seq}">${out ? 'Approve this action' : 'Approve'}</button><button class="btn" data-decide="declined" data-seq="${m.seq}">${out ? 'Not now' : 'Decline'}</button>${until}</div>`
         : `<div class="decided">${esc(a.by || OWNER)} · ${ago(a.decided_at).text}</div>`) + '</div>';
   }
   const fresh = !chatShown.has(m.seq) && !chatFirstLoad; chatShown.add(m.seq);
@@ -3783,16 +3799,20 @@ async function sendLine(inp, goes, where, dflt) {   // the text stays in the box
 }
 $('thread-form').addEventListener('submit', e => { e.preventDefault(); sendLine('thread-input', 'thread-goes', 'thread', () => threadName); });
 quickEvents($('thread-body'));
+// Approve / Decline on a proposed action: in the ORCH drawer, and in an agent's thread (an agent's own proposal, such as an action outside the board, is asked of you there)
+async function decideClick(e) {
+  const dec = e.target.closest('[data-decide]');
+  if (!dec) return false;
+  dec.disabled = true;
+  try { await api('/api/chat-decide', { seq: +dec.dataset.seq, decision: dec.dataset.decide }); showError(''); chatActKey = ''; loadChat(); }   // a changed status redraws without a drip
+  catch (err) { showError('Could not decide: ' + err.message); dec.disabled = false; loadChat(); }   // a lapsed one is refused by the board: the redraw shows it lapsed
+  return true;
+}
+$('thread-body').addEventListener('click', decideClick);
 $('chat-body').addEventListener('click', async e => {
   const card = e.target.closest('[data-chat-card]');
   if (card) { openPanel(card.dataset.chatCard); return; }
-  const dec = e.target.closest('[data-decide]');
-  if (dec) {
-    dec.disabled = true;
-    try { await api('/api/chat-decide', { seq: +dec.dataset.seq, decision: dec.dataset.decide }); showError(''); chatActKey = ''; loadChat(); }   // a changed status redraws without a drip
-    catch (err) { showError('Could not decide: ' + err.message); dec.disabled = false; }
-    return;
-  }
+  if (await decideClick(e)) return;
   const dt = e.target.closest('[data-detail]');
   if (dt) { const seq = +dt.dataset.detail; if (chatDetail.has(seq)) chatDetail.delete(seq); else chatDetail.add(seq); renderChat(); return; }
   const btn = e.target.closest('.cmsg-more'); if (!btn) return;
@@ -4151,7 +4171,7 @@ $('p-chat-form').addEventListener('submit', e => { e.preventDefault(); sendLine(
 function panelHtml(t) {
   const doing = t.status === 'doing', stale = doing && ago(t.updated).min >= STALE_MIN;
   const abandoned = doing && ago(t.updated).min >= (cfg.stale_minutes || DEFAULT_STALE_MIN);
-  const who = t.agent ? `<div class="p-who"><button class="agent-pill" type="button" data-thread="${esc(t.agent)}" title="Talk to ${esc(t.agent)}" aria-label="Talk to ${esc(t.agent)}" style="--c:${colorOf(t)}"><span class="av ${doing && !stale ? 'live' : ''}" aria-hidden="true">${esc(nodeGlyph(t.agent))}</span><span class="name">${esc(t.agent)}</span></button><span class="p-when">${t.status === 'done' ? 'finished' : 'working'} ${ago(t.updated).text}</span></div>` : '';
+  const who = t.agent ? `<div class="p-who"><button class="agent-pill" type="button" data-thread="${esc(t.agent)}" title="Talk to ${esc(t.agent)}" aria-label="Talk to ${esc(t.agent)}" style="--c:${colorOf(t)}"><span class="av ${doing && !stale ? 'live' : ''}" aria-hidden="true">${esc(nodeGlyph(t.agent))}</span><span class="name">${esc(t.agent)}</span>${roleChip(t.agent)}</button><span class="p-when">${t.status === 'done' ? 'finished' : 'working'} ${ago(t.updated).text}</span></div>` : '';
   const prog = doing ? `<div class="p-sec"><div class="bar" style="margin:0" role="progressbar" aria-valuenow="${t.progress || 0}" aria-valuemin="0" aria-valuemax="100" aria-label="Progress"><b style="width:${t.progress || 0}%;background:${colorOf(t)}"></b></div><div class="p-pct"><span>${t.review || t.needs_input ? '' : esc(t.status_text || '')}</span><b>${t.progress || 0}%${(kidsMap.get(t.id) || []).length ? '<small> overall</small>' : ''}</b></div>${abandoned ? `<div class="p-pct"><span style="color:var(--err)">⚠ No update for ${ago(t.updated).text.replace(' ago', '')} — possibly abandoned</span></div>` : stale ? `<div class="p-pct"><span style="color:var(--warn)">No update for ${ago(t.updated).text.replace(' ago', '')}</span></div>` : ''}</div>` : '';
   const bodyHtml = t.body_html ? `<div class="rich-body">${t.body_html}</div>` : '';   // server-rendered + sanitized; safe to insert as-is
   const rv = !t.needs_input && t.review && t.status === 'doing';
@@ -5416,7 +5436,7 @@ function stripHtml(f) {
   const gauge = a => {
     const on = a.state !== 'idle', dash = (a.pct / 100 * C).toFixed(1);
     const word = STRIP_STATE[a.state] || a.state;
-    return `<button type="button" class="ls-g ${hh(a.state)}" data-agent="${hh(a.name)}"${on ? '' : ' aria-disabled="true"'} title="${hh(a.name)} · ${a.pct}% of the last hour at work · ${hh(word)} now${on ? ' · click for its lane' : ''}">`
+    return `<button type="button" class="ls-g ${hh(a.state)}" data-agent="${hh(a.name)}"${on ? '' : ' aria-disabled="true"'} title="${hh(a.name)}${roleOf(a.name) ? ' (' + hh(roleOf(a.name).role) + ')' : ''} · ${a.pct}% of the last hour at work · ${hh(word)} now${on ? ' · click for its lane' : ''}">`
       + `<span class="ls-ring" aria-hidden="true"><svg viewBox="0 0 34 34"><circle class="tr" cx="17" cy="17" r="${R}"/><circle class="fg" cx="17" cy="17" r="${R}" stroke-dasharray="${dash} ${C.toFixed(1)}"/></svg><span class="gl">${hh(nodeGlyph(a.name))}</span></span>`
       + `<span class="ls-tx"><b>${hh(a.name)}</b><span><i>${hh(word)}</i> · ${a.pct}%</span></span></button>`;
   };
@@ -5434,7 +5454,7 @@ async function stripLoad() {
     if (!res.ok) throw new Error(res.status);
     stripTag = res.headers.get('ETag') || '';
     const f = stripFigures(await res.json());
-    const key = JSON.stringify(f.agents.map(a => [a.name, a.state, a.pct])) + f.trend.join();
+    const key = JSON.stringify(f.agents.map(a => [a.name, a.state, a.pct, roleOf(a.name)?.role || ''])) + f.trend.join();   // a role arriving rebuilds the strip
     if (key === stripKey) return;   // nothing a gauge shows moved: no rebuild, so a hover or a focus is not lost
     stripKey = key;
     const box = $('load-strip'), keep = document.activeElement?.closest?.('.ls-g')?.dataset.agent;
@@ -5855,10 +5875,10 @@ function renderGrid(d) {
   const win = (d.window_min || 60) * 60000, end = Date.now(), start = end - win;
   const cnt = $('h-tele-n'); if (cnt) cnt.textContent = agents.length;
   if (!agents.length) { box.innerHTML = `<div class="h-empty">No agents yet. An agent shows up here when it runs <b>agentboard start</b>. The Board's Get started panel says how to connect one.</div>`; teleKey = ''; return; }
-  const key = agents.map(a => a.name).join('|');
+  const key = agents.map(a => a.name + '/' + (roleOf(a.name)?.role || '')).join('|');   // a role arriving, or changing, rebuilds the row
   if (key !== teleKey) {
     teleKey = key;
-    const card = a => `<div class="card h-row" data-agent="${hh(a.name)}"><div class="top"><span class="who" title="${hh(a.name)}"><span class="av" aria-hidden="true">${hh(nodeGlyph(a.name))}</span><span class="nm">${hh(a.name)}</span></span><span class="when h-since"></span></div><div class="ln-track"></div></div>`;
+    const card = a => `<div class="card h-row" data-agent="${hh(a.name)}"><div class="top"><span class="who" title="${hh(a.name)}"><span class="av" aria-hidden="true">${hh(nodeGlyph(a.name))}</span><span class="nm">${hh(a.name)}</span>${roleChip(a.name)}</span><span class="when h-since"></span></div><div class="ln-track"></div></div>`;
     box.innerHTML = agents.map(card).join('')
       + `<div class="card h-q" data-status="queue"><div class="top"><span class="nm" id="h-qlab">Queue</span></div><div class="ln-track" id="h-qtrack" title="unclaimed cards in Todo over the hour"></div></div>`;
   }

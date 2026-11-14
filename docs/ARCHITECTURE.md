@@ -81,6 +81,7 @@ is the developer's.
 | `listeners.py` | Who is listening: `chat-listeners.json`, one entry per `chat inbox --wait` process, written under a file lock. |
 | `names.py` | Agent names that changed: `aliases.json` (old name to new, with the time it was last used), `resolve()` (the one place an old name becomes the new one, a day after its last use), and `agent_slot()`, the palette slot a name gets. |
 | `rename.py` | `agentboard rename OLD NEW`: the plan (counts, refusals), the rewrite of cards, log fields, chat and archive, the five state files, and the roster and colour in `config.toml`; `--dry-run` and `--undo`. |
+| `configurations.py` | Agent configurations: the JSON file's validator (unknown keys refused, names kept apart from the board's own), the shipped `configurations/day-to-day.json`, `[agents] configurations`, the applied copy `configuration.json`, the roster merge, the role block for a card prompt and the ORCH section. |
 | `chatwake.py` | The chat wake file `chat-wake.json`: a counter, a time and who a line was for (never its words), moved on every post, so a wait watches one small file and reads the board only when it moved. |
 | `hooks.py` | The two Claude Code hooks `agentboard hooks install` writes into `.claude/settings.json` (or `~/.claude/settings.json` with `--user`): PostToolUse on SendMessage mirrors a message's first line into the chat; Stop tells a session about to go quiet with an unread owner line. Session name to session id lives in `sessions.json`. |
 | `serverstate.py` | `server-<pid>.json`: what a running server was started with (lock on or off, plugins open, plugin names), so `doctor` can check the server rather than its own shell. |
@@ -122,6 +123,7 @@ Everything is a file. Nothing is a database, a daemon of its own or a cloud.
 | `.agentboard/sessions.json` | `hooks.py` (`me`, `claim`, `start`, `chat` record the name) | the hooks | session name per `CLAUDE_CODE_SESSION_ID` |
 | `.agentboard/aliases.json` | `names.py` (`rename` writes it first; a command that resolves an old name notes its use) | `cli._canon_names`, before any command runs | old name (lower-cased) to the new name, with `at` and `used`; dropped a day after the last use or by `--undo` |
 | `.agentboard/renames.json` | `rename.py` | `agentboard rename --undo` | the last 20 renames: old, new, time, whether a colour pin was added or moved |
+| `.agentboard/configuration.json` | `configurations.py` (`agentboard configuration apply`) | the roster (`hud`, the ORCH prompt, `known_names`), `/api/config` (the role chips), the card prompts | the applied configuration, validated again on every read; ignored while `[agents] configurations` is off |
 | `.agentboard/server-<pid>.json` | `serverstate.py` at `serve` start | `doctor` | removed at exit; a dead pid's file is forgotten at the next start |
 | `.agentboard/server.log` | `lifecycle.start_background` (the detached server's output) | a person, after `serve --background` or `restart` | 0600, appended, rolled to `.1` past 2 MB |
 | `~/.agentboard/boards.toml` | `boards.py` | `find_dir`, the server's `/b/<name>/` boards | only if you use named boards |

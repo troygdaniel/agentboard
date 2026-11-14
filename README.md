@@ -309,6 +309,28 @@ steps written as `(1) … (2) …` render one per line. Details that don't chang
 
 Humans: `agentboard add "Title" --status todo` (or `--status backlog` for the Later drawer), `agentboard list`. A new card lands at the top of its column.
 
+### Agent configurations: names and roles (off by default)
+A configuration is a small JSON file saying which agent names and roles exist and how the board shows them (design: [docs/agent-configurations-design.md](docs/agent-configurations-design.md)).
+You pick it; **the board starts nothing**: you type the names into terminals as before, and the board reflects them. Turn it on with `[agents] configurations = true` in `config.toml`, then:
+
+    agentboard configuration                       # the applied one (or the shipped ones), with the terminals to start
+    agentboard configuration show day-to-day       # look at one without applying it (a name, or the path of a file)
+    agentboard configuration apply day-to-day      # the roster, the role chips and the prompts follow it; cards, claims and chat do not change
+    agentboard configuration clear                 # back to the roster in config.toml
+
+Applying changes the roster and the labels only: a **role chip** beside the name on Now, Map and Watch (the compact Load strip has it in the tooltip), a **role block** in the card prompt and in what an agent
+reads when it claims or starts a card, and a **Configuration** section in the ORCH prompt. A file holds names, roles, a purpose, an advised model and size (S, M, L), what the role may and may not do, and the tools to leave
+enabled; unknown keys are refused, and a file is read as data and never run. `day-to-day` ships with the board (caller, bills, forms, research, planner, family).
+
+**An action outside the board waits for your word, every time.** In `day-to-day` no role may place a call, send a message, pay or submit a form on its own. The agent proposes the one action:
+
+    agentboard chat send "<one line>" --name Caller-1 --propose "<the action>" --outside \
+        --target "<who or where>" --say "<the exact words>" --money "<amount, or none>" --shares "<what of yours is shared, or none>" --card <id>
+
+It shows in that agent's thread (Watch, or the agent's name on a card) as *Needs your word · nothing has been done*, with the four things stated and **Approve this action** / **Not now**. A yes is for that one action,
+is recorded once, and **lapses 30 minutes after the ask** (the board refuses a late click); the agent reads it with `agentboard chat approvals --name Caller-1`. The board cannot stop an agent from acting in its own
+terminal: the hard stop is that the terminal has no payment method, password or dialing access, which is why each role lists the tools to leave enabled.
+
 ## One orchestrator, several agents
 
 The workflow this was built for: one coordinating session (**ORCH**) and N worker sessions (**AGENT-1 … AGENT-N**),
@@ -627,6 +649,7 @@ Copy prompt button, the CLI and `agentboard prompt` are unaffected.
 | `reports [--purge] [--hours N]` | list card reports; remove the old ones now |
 | `report [--date YYYY-MM-DD]` | markdown recap of what got done that day, by agent — for a standup or daily log |
 | `insights [--since 7d] [--agent N] [--prefix P] [--json]` | four observations on how the agents are used, from the board's own records (needs `[insights] enabled = true`; see Insights) |
+| `configuration [show\|apply\|clear] [NAME\|FILE]` | agent configurations: the names and roles the board shows (needs `[agents] configurations = true`; the board starts no agent) |
 | `rename OLD NEW [--dry-run]`, `rename --undo` | give an agent a new name and keep its cards, claims, chat, read position, roster entry and colour (a `--dry-run` prints the counts and writes nothing); the old name keeps working for a day after its last use, so a terminal not yet renamed still reports; `--undo` reverses the last one |
 | `clear` | archive all Done cards: they move to `archive.json` (history and HUD counts kept) |
 | `demo [--live]`, `rm --demo` | sample tasks / simulated agents |

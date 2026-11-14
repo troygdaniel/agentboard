@@ -383,7 +383,10 @@ def build_prompt(task, board_dir, public=False, tasks=None, attended=True):
     # one pass over the template, so a placeholder that appears inside a substituted value
     # (a description mentioning "{ab}", say) is left as written rather than expanded again
     out = re.sub(r"\{(" + "|".join(values) + r")\}", lambda m: values[m.group(1)], template)
-    from . import agentchat
+    from . import agentchat, configurations
+    role = configurations.role_block(configurations.applied_if_enabled(board_dir), task.get("agent"), owner_ref(board_dir)) if task.get("agent") else ""
+    if role:   # a card held by an agent that has a role in the applied configuration: the role, what it may not do and the approval rule
+        out = out.rstrip("\n") + "\n\n" + role
     if attended and agentchat.is_on(board_dir):   # the agent chat protocol rides along only while the owner has the switch on, and never in an unattended run (it cannot wait or be answered)
         out = out.rstrip("\n") + "\n\n" + agentchat.protocol(board_dir)
     return out, warnings
@@ -547,14 +550,19 @@ def build_orch_prompt(tasks, board_dir, port=8765):
     for status, label in (("doing", "Doing"), ("todo", "Todo (unclaimed)"), ("backlog", "Later")):
         cards = [t for t in open_cards if t["status"] == status]
         sections.append(f"{label} ({len(cards)}):\n" + ("\n".join(line(t) for t in cards) or "- none"))
-    roster = _peer_roster(conf)
+    from . import configurations   # (imports .store, as this module does)
+    cfg = configurations.applied_if_enabled(board_dir)
+    listed = conf.get("orch", {}).get("agents")
+    roster = configurations.merge([str(p.get("name")) for p in listed if isinstance(p, dict) and p.get("name")] if isinstance(listed, list) else [], board_dir) if cfg else _peer_roster(conf)
     names = set(roster)
     idle = [n for n in roster if n not in held]
     extra = [a for a in held if a not in names]
     sections.append("Holders: " + ("; ".join(f"{a}: {', '.join(t['id'] for t in ts)}" for a, ts in held.items()) or "none"))
     sections.append("Idle: " + (", ".join(idle) or "none") + (f"  (also working, not in roster: {', '.join(extra)})" if extra else ""))
 
-    peers = "\n".join(f"- {n}" for n in roster)
+    if cfg:
+        sections.append(configurations.orch_section(cfg, owner_ref(board_dir)))
+    peers = "\n".join(f"- {n}" + (f" ({configurations.role_of(cfg, n)['role']})" if cfg and configurations.role_of(cfg, n) else "") for n in roster)
     from . import agentchat
     if agentchat.is_on(board_dir):
         sections.append(agentchat.ORCH_PROTOCOL.format(ab=agentboard_cmd(board_dir), owner=owner_ref(board_dir)).rstrip("\n"))

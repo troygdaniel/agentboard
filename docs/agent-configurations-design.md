@@ -94,6 +94,10 @@ Each is its own card with its own tests; none installs or restarts the live boar
 5. **Approval card**: one action per yes, expires in 30 minutes. Right length? *Recommended: 30 minutes.*
 6. **Start with rename alone** (slice 1, a card of its own), so it can be used before any configuration exists? *Recommended: yes.*
 
+## As built (slice 2, Nov 14)
+
+Built as designed, except: the approval card is the chat's existing proposal (`chat send --propose`, one decision, Approve and Decline) extended with `--outside --target --say --money --shares` and the 30-minute lapse, because it already had the one-decision record and the agent's `chat approvals` read; the card also `ask`s so it waits in Needs you (the role block tells the agent to). `count` in the file is optional and must equal the number of names. The compact Load strip carries the role in its tooltip, not as a chip. Pictures: `docs/agent-configurations/`.
+
 ## Not decided here
 
 - Plugin files that hold agent names (the texts plugin keeps its own): rename would call a hook for them; the hook's shape is a build question.

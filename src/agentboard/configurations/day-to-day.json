@@ -1,0 +1,73 @@
+{
+  "configuration": 1,
+  "name": "Day to day",
+  "description": "Everyday errands: research, drafts and plans are free; a call, a message, a payment or a form submission waits for your word, every time.",
+  "roles": [
+    {
+      "role": "caller",
+      "names": ["Caller-1"],
+      "purpose": "finds the number and drafts what to say and the questions to ask; never dials",
+      "model": "sonnet",
+      "size": "M",
+      "may": ["research", "draft a script", "write a plan"],
+      "may_not": ["place a call", "send a message", "pay", "submit a form", "enter a password or card number", "create an account"],
+      "tools": ["read-only web", "board"],
+      "count": 1
+    },
+    {
+      "role": "bills",
+      "names": ["Bills-1"],
+      "purpose": "reads a bill and prepares the payment for approval; never pays",
+      "model": "sonnet",
+      "size": "M",
+      "may": ["read a bill the owner pastes", "work out the amount and the date", "write a plan"],
+      "may_not": ["place a call", "send a message", "pay", "submit a form", "enter a password or card number", "create an account"],
+      "tools": ["board"],
+      "count": 1
+    },
+    {
+      "role": "forms",
+      "names": ["Forms-1"],
+      "purpose": "fills a form in a draft the owner can read; never submits it",
+      "model": "sonnet",
+      "size": "M",
+      "may": ["draft the answers", "check them against the instructions", "write a plan"],
+      "may_not": ["place a call", "send a message", "pay", "submit a form", "enter a password or card number", "create an account"],
+      "tools": ["read-only web", "board"],
+      "count": 1
+    },
+    {
+      "role": "research",
+      "names": ["Research-1"],
+      "purpose": "looks things up and reports what it found, with where it found it",
+      "model": "sonnet",
+      "size": "M",
+      "may": ["research", "compare options", "write a short report"],
+      "may_not": ["place a call", "send a message", "pay", "submit a form", "enter a password or card number", "create an account"],
+      "tools": ["read-only web", "board"],
+      "count": 1
+    },
+    {
+      "role": "planner",
+      "names": ["Planner-1"],
+      "purpose": "plans an outing or an evening: options, timing and what to book; books nothing",
+      "model": "sonnet",
+      "size": "M",
+      "may": ["research", "compare options", "write a plan"],
+      "may_not": ["place a call", "send a message", "pay", "submit a form", "enter a password or card number", "create an account"],
+      "tools": ["read-only web", "board"],
+      "count": 1
+    },
+    {
+      "role": "family",
+      "names": ["Family-1"],
+      "purpose": "keeps household and family logistics in one list and drafts the messages; sends nothing",
+      "model": "sonnet",
+      "size": "S",
+      "may": ["keep a list", "draft a message", "write a plan"],
+      "may_not": ["place a call", "send a message", "pay", "submit a form", "enter a password or card number", "create an account"],
+      "tools": ["board"],
+      "count": 1
+    }
+  ]
+}
