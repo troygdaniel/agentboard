@@ -17,6 +17,8 @@ from . import hooks as hookslib
 from . import chatwake, cursors, listeners
 from . import backup as backuplib
 from . import hud as hudlib
+from . import agentstates as agentstateslib
+from . import insights as insightslib
 from . import lifecycle
 from . import lockdown
 from . import plugins
@@ -271,7 +273,7 @@ def _gitignore_board(root):
 
 def cmd_add(a):
     t = _store().add(a.title, a.description or "", a.status, a.ctx, a.id, blocked_by=a.blocked_by,
-                     parent_id=a.parent)
+                     parent_id=a.parent, actor=os.environ.get("AGENTBOARD_NAME") or None)
     print(f"added {t['id']} ({t['status']})")
     if not a.parent and not sys.stderr.isatty():   # for an agent adding cards (stderr, so a script reading the line above is unaffected); a person at a terminal has no use for it
         print("reminder: every card gets subtasks. The agent adds them as soon as it starts; the card prompt says so, "
@@ -528,6 +530,21 @@ def cmd_summary(a):
         print(summarylib.to_mermaid(data), end="")
     else:
         print(summarylib.to_text(data), end="")
+
+
+def cmd_insights(a):
+    """Observations about how the agents are used, from what the board records (docs/insights-design.md): counts and timings only, read-only."""
+    from datetime import datetime
+    s = _store()
+    if not insightslib.enabled(s.dir):
+        print(insightslib.OFF_HINT)
+        return
+    try:
+        since = insightslib.parse_since(a.since)
+    except ValueError as e:
+        sys.exit(f"agentboard: {e}")
+    result = insightslib.compute(s.load_all(), since, a.agent, a.prefix, datetime.now(), states=agentstateslib.read(s.dir))
+    print(insightslib.as_json(result) if a.json else insightslib.render(result), end="")
 
 
 def cmd_dictate(a):
@@ -1390,7 +1407,7 @@ def cmd_done(a):
         print(f"warning: ORCH has not recorded a merge for {a.id}: an agent closes its card only after ORCH confirms the merge", file=sys.stderr)
     # a.text, not `a.text or ""`: an explicit "" would blank out a review's result/status_text
     # (store.update treats "not None" as "replace it"); omitting it should leave them alone.
-    s.update(a.id, text=a.text, status="done")
+    s.update(a.id, text=a.text, status="done", closed_as=a.reason)
     print(f"{a.id}: done")
 
 
@@ -2082,6 +2099,11 @@ def main(argv=None):
     sp.add_argument("--agent", help="only this agent's cards")
     sp.add_argument("--html", metavar="PATH", help="write a self-contained HTML page to PATH instead of printing text")
     sp.add_argument("--mermaid", action="store_true", help="print a Mermaid mindmap (agents and work areas) instead of text")
+    sp = add("insights", cmd_insights, "what the board's own records say about how the agents are used: four observations with their numbers (needs [insights] enabled = true)")
+    sp.add_argument("--since", default="7d", help="7d (default), 24h, 30d or all: the cards whose last event falls in the window")
+    sp.add_argument("--agent", help="only this agent's cards")
+    sp.add_argument("--prefix", help="only cards whose id starts with this")
+    sp.add_argument("--json", action="store_true", help="the observations as JSON (rule, state, value, n, threshold, evidence), not text")
     sp = add("dictate", cmd_dictate, "speak instead of type: records the mic, transcribes on this Mac (whisper.cpp), puts the text on the clipboard")
     sp.add_argument("--paste", action="store_true", help="after 3 seconds press Cmd+V in the window you click (needs Accessibility for the terminal)")
     sp.add_argument("--file", help="transcribe this audio file instead of recording")
@@ -2174,6 +2196,7 @@ def main(argv=None):
     sp = add("done", cmd_done, "USER-APPROVED completion (agents: use review instead); ORCH adds the sign-off flags, see agentboard signoff")
     sp.add_argument("id")
     sp.add_argument("text", nargs="?")
+    sp.add_argument("--reason", choices=insightslib.CLOSE_REASONS, help="why it was closed (kept on the card for `agentboard insights`; with [insights] enabled the default is shipped)")
     signoff_flags(sp)
     sp = add("wait", cmd_wait, "block (polling) until a task reaches a status — sync on another agent's work")
     sp.add_argument("id")

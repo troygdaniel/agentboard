@@ -499,7 +499,7 @@
   .w-focus [data-deck-details] { display: none; }   /* the details are already open beside it */
   .w-fclose { position: absolute; right: -6px; top: -42px; width: 32px; height: 32px; border-radius: 50%; border: 0; background: color-mix(in srgb, var(--surface) 80%, transparent); color: var(--muted); cursor: pointer; font-size: 13px; } .w-fclose:hover { color: var(--text); }
   @media (max-width: 900px) { .w-focus { grid-template-columns: minmax(0, 1fr); } }
-  /* Watch is only large cards, six to a page; the arrows walk them and, past an edge, slide in the next six */
+  /* Watch is only large cards, nine to a page, in agent-name order; the arrows walk them and, past an edge, slide in the next nine */
   .w-pages { position: relative; max-width: 1220px; margin: 40px auto 0; overflow: hidden; padding: 14px 0 44px; }
   .w-track { display: flex; transition: transform .7s cubic-bezier(.2,.8,.2,1); will-change: transform; }
   .w-page { flex: 0 0 100%; min-width: 0; box-sizing: border-box; padding: 0 20px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-auto-rows: 168px; gap: 18px; align-content: start; transition: opacity .5s; } .w-page:not(.cur) { opacity: .25; }
@@ -2859,7 +2859,9 @@ function watchHtml(by, n) {   // The whole team. Working agents are tiles (alive
   const idleTile = a => `<article class="w-tile w-nav w-idling${watchSel === 'idle:' + a ? ' sel' : ''}" data-wid="${esc('idle:' + a)}" tabindex="0" aria-label="${esc(a)} is idle"><div class="w-ring">${orb(a)}<i class="zz" aria-hidden="true">z</i><i class="zz" aria-hidden="true">z</i><i class="zz" aria-hidden="true">z</i></div><div class="w-tx"><b>${esc(a)}</b><span class="w-now">Resting</span><span class="w-card">Nothing in hand</span></div></article>`;
   const liveBy = new Map(); live.forEach(t => { const g = liveBy.get(name(t)) || []; g.push(t); liveBy.set(name(t), g); });   // one card per agent: the card it last reported on, and how many more it holds
   const mains = [...liveBy.values()].map(g => { g.sort((a, b) => (Date.parse(b.updated) || 0) - (Date.parse(a.updated) || 0)); g[0]._more = g.slice(1); return g[0]; });
-  const cards = [...mains.map(tile), ...[...groups.values()].map(waitTile), ...idle.map(idleTile)], per = watchPer(), pages = []; for (let k = 0; k < cards.length; k += per) pages.push(cards.slice(k, k + per));
+  const byAgent = n => n === 'Unassigned' ? '\uffff' : n;   // by agent name, Unassigned last; one agent's working tile, then its waiting tile, then resting: a tile always lands in the same place
+  const cards = [...mains.map(t => [name(t), 0, tile(t)]), ...[...groups.values()].map(g => [name(g[0]), 1, waitTile(g)]), ...idle.map(a => [a, 2, idleTile(a)])]
+    .sort((x, y) => byAgent(x[0]).localeCompare(byAgent(y[0]), undefined, { numeric: true }) || x[1] - y[1]).map(x => x[2]), per = watchPer(), pages = []; for (let k = 0; k < cards.length; k += per) pages.push(cards.slice(k, k + per));
   watchPages = Math.max(1, pages.length); watchPage = Math.min(watchPage, watchPages - 1);
   pages.forEach((pg, k) => { if (k !== watchPage && pg.some(h => h.includes(' moved'))) watchPing.add(k); }); watchPing.delete(watchPage);
   const pinged = pages.map((_, k) => watchPing.has(k));   // something changed on a page you have not looked at since
@@ -2894,7 +2896,7 @@ function watchToggle(wid) {   // Enter, or a click: this card's details open whe
       return; } }
   watchDimNew = open && !watchOpenId; watchOpenId = open ? wid : null; watchOpenNew = open; { const tt = wid ? (wid.startsWith('wait:') ? wid.slice(5) : (byId.get(wid) || {}).agent) : ''; touch(open ? 'rise' : 'settle', tt); } render();
 }
-const watchPer = () => innerWidth >= 1180 ? 6 : innerWidth >= 780 ? 4 : 2;   // three across and two down on a wide window
+const watchPer = () => innerWidth >= 1180 ? 9 : innerWidth >= 780 ? 6 : 3;   // three across and three down on a wide window, two across and three down on a medium one
 function watchGo(k, pickEdge) {   // to another page: the cards slide across; nothing is redrawn
   if (k < 0 || k >= watchPages) { touch('bump'); return false; }
   const track = document.querySelector('.w-track'); if (!track) return false;

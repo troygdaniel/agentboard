@@ -1,0 +1,163 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Agent Configurations Mockup</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  /* Mockup, not the real board: every name, count and number is made up (phone numbers are the fictional 555-01xx range). The tokens, .chip, .btn and the agent hues are the board's
+     own, copied so each piece maps to one class in the build. ?theme=dark or ?theme=light forces a theme (the PNGs use it); otherwise it follows the system. */
+  :root {
+    --bg: #fafaf9; --surface: #ffffff; --line: #e7e5e4; --text: #1c1917; --muted: #6b6560; --accent: #1c1917;
+    --run: #c2570c; --warn: #b45309; --ok: #15803d; --err: #b42318; --neutral: #a8a29e; --info: #1d4ed8;
+    --chip: #f2f0ee; --shadow: 0 1px 2px rgba(28,25,23,.05), 0 1px 1px rgba(28,25,23,.03);
+    --glow1: rgba(99,102,241,.08); --dot: rgba(28,25,23,.07); --on-agent: #ffffff;
+    --a1: #2563eb; --a2: #7c3aed; --a3: #db2777; --a4: #0e7490; --a5: #b45309; --a6: #15803d;
+    --fs-xs: 11px; --fs-sm: 12px; --fs-md: 13px; --fs-base: 14px; --fs-lg: 15px; --tr-label: .16em;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #070b12; --surface: #0f1722; --line: #1c2a3a; --text: #d6e9ff; --muted: #7f95ad; --accent: #d6e9ff;
+      --run: #ff9a3c; --warn: #ffc857; --ok: #5dffb0; --err: #ff6b6b; --neutral: #4b5f75; --info: #5ee7ff;
+      --chip: #15202e; --shadow: inset 0 1px 0 rgba(255,255,255,.03); --glow1: rgba(94,231,255,.12); --dot: rgba(110,190,255,.05); --on-agent: #0b1220;
+      --a1: #60a5fa; --a2: #c084fc; --a3: #f472b6; --a4: #22d3ee; --a5: #fbbf24; --a6: #5dffb0; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #070b12; --surface: #0f1722; --line: #1c2a3a; --text: #d6e9ff; --muted: #7f95ad; --accent: #d6e9ff;
+    --run: #ff9a3c; --warn: #ffc857; --ok: #5dffb0; --err: #ff6b6b; --neutral: #4b5f75; --info: #5ee7ff;
+    --chip: #15202e; --shadow: inset 0 1px 0 rgba(255,255,255,.03); --glow1: rgba(94,231,255,.12); --dot: rgba(110,190,255,.05); --on-agent: #0b1220;
+    --a1: #60a5fa; --a2: #c084fc; --a3: #f472b6; --a4: #22d3ee; --a5: #fbbf24; --a6: #5dffb0; color-scheme: dark;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body { background: radial-gradient(1000px 460px at 10% -8%, var(--glow1), transparent 70%) no-repeat, radial-gradient(var(--dot) 1px, transparent 1px) 0 0 / 22px 22px, var(--bg);
+    min-height: 100vh; color: var(--text); font: var(--fs-base)/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+  .wrap { width: min(100%, 1240px); margin: 0 auto; padding: 18px 16px 36px; }
+  header.top { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding-bottom: 14px; margin-bottom: 18px; border-bottom: 1px solid var(--line); }
+  h1 { font-size: var(--fs-lg); font-weight: 600; letter-spacing: -.015em; }
+  .mock, h2 { font-size: var(--fs-xs); font-weight: 600; letter-spacing: var(--tr-label); text-transform: uppercase; color: var(--muted); }
+  section { margin-bottom: 30px; }
+  h2 { margin-bottom: 10px; }
+  .note { font-size: var(--fs-md); color: var(--muted); margin: 0 0 12px; max-width: 78ch; }
+  .note b { color: var(--text); font-weight: 600; }
+  .btn { font: inherit; font-size: var(--fs-sm); background: var(--surface); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 5px 12px; cursor: pointer; }
+  .btn.primary { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+  .btn:focus-visible { outline: 2px solid var(--run); outline-offset: 1px; }
+  .chip { display: inline-flex; align-items: center; gap: 5px; font-size: var(--fs-xs); background: var(--chip); border: 1px solid var(--line); border-radius: 999px; padding: 1px 8px; color: var(--muted); white-space: nowrap; }
+  .chip.ok { color: var(--ok); } .chip.warn { color: var(--warn); } .chip.err { color: var(--err); } .chip.dim { opacity: .55; }
+  .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); padding: 14px 16px; }
+  .grid2 { display: grid; grid-template-columns: minmax(250px, 340px) 1fr; gap: 14px; align-items: start; }
+  .cfg { display: block; width: 100%; text-align: left; font: inherit; color: inherit; cursor: pointer; margin-bottom: 8px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); padding: 10px 12px; }
+  .cfg[aria-pressed="true"] { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+  .cfg b { display: block; font-size: var(--fs-md); } .cfg span { font-size: var(--fs-sm); color: var(--muted); }
+  .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; vertical-align: -1px; margin-right: 6px; }
+  table { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); }
+  th { text-align: left; font-size: var(--fs-xs); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); padding: 6px 8px; border-bottom: 1px solid var(--line); }
+  td { padding: 7px 8px; border-bottom: 1px solid var(--line); vertical-align: top; } tr:last-child td { border-bottom: 0; }
+  td.may { color: var(--ok); } td.not { color: var(--err); }
+  .scroll { overflow-x: auto; }
+  code, .cmd { font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--chip); border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; }
+  .cmds { margin-top: 12px; border-top: 1px dashed var(--line); padding-top: 10px; }
+  .cmds .row { display: grid; grid-template-columns: 110px 1fr auto; gap: 8px; align-items: center; padding: 4px 0; font-size: var(--fs-sm); }
+  .dlg { max-width: 460px; margin: 0 auto; } .dlg h3 { font-size: var(--fs-base); margin-bottom: 8px; }
+  .dlg label { display: block; font-size: var(--fs-xs); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 8px 0 3px; }
+  .dlg input { width: 100%; font: inherit; background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; }
+  ul.keep { list-style: none; padding: 0; margin: 6px 0 10px; font-size: var(--fs-sm); } ul.keep li { padding: 3px 0; display: flex; gap: 8px; }
+  ul.keep li::before { content: "✓"; color: var(--ok); } ul.keep li.stay::before { content: "•"; color: var(--muted); }
+  .after { margin-top: 10px; border-left: 3px solid var(--ok); padding: 8px 12px; background: var(--chip); border-radius: 0 8px 8px 0; font-size: var(--fs-sm); }
+  .actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 10px; }
+  .agents { display: flex; flex-wrap: wrap; gap: 10px; }
+  .ag { border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; background: var(--surface); min-width: 170px; border-top: 3px solid var(--c, var(--neutral)); }
+  .ag b { font-size: var(--fs-md); } .ag small { display: block; color: var(--muted); font-size: var(--fs-xs); } .ag.out { opacity: .55; border-top-style: dashed; }
+  .prop { margin-top: 14px; border: 1px solid var(--line); border-left: 3px solid var(--info); border-radius: 10px; background: var(--surface); padding: 10px 14px; }
+  .prop .k { font-size: var(--fs-xs); letter-spacing: var(--tr-label); text-transform: uppercase; color: var(--info); }
+  .need { border: 1px solid var(--line); border-left: 3px solid var(--warn); border-radius: 10px; background: var(--surface); padding: 12px 14px; max-width: 640px; }
+  .need .k { font-size: var(--fs-xs); letter-spacing: var(--tr-label); text-transform: uppercase; color: var(--warn); }
+  .need dl { display: grid; grid-template-columns: 90px 1fr; gap: 2px 10px; margin: 8px 0; font-size: var(--fs-sm); } .need dt { color: var(--muted); }
+  .grid2 > * { min-width: 0; } table { min-width: 560px; } .chip { white-space: normal; }
+  @media (max-width: 760px) { .grid2 { grid-template-columns: minmax(0, 1fr); } .cmds .row { grid-template-columns: 1fr; } }
+</style>
+<div class="wrap">
+  <header class="top"><h1>Agent configurations</h1><span class="mock">Mockup · made-up names and numbers · design only</span></header>
+
+  <section>
+    <h2>1 · Pick a configuration (Settings → Agents)</h2>
+    <p class="note"><b>You pick it; the board starts nothing.</b> Applying sets the roster (names, roles, colours) and shows the terminals to start by hand. The files are small and shareable: <b>Import a file…</b> shows what it holds and applies nothing until you confirm.</p>
+    <div class="grid2">
+      <div>
+        <button class="cfg" aria-pressed="true"><b>Build or improve an application</b><span>5 roles · dev ×2, QA, architect, designer</span></button>
+        <button class="cfg" aria-pressed="false"><b>Dream up an application or feature</b><span>4 roles · brainstormer, mockups, proof of concept, tester</span></button>
+        <button class="cfg" aria-pressed="false"><b>Day to day <span class="chip warn">your word, each time</span></b><span>6 roles · caller, bills, forms, research, planner, family</span></button>
+        <button class="btn">Import a configuration file…</button>
+      </div>
+      <div class="panel">
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:8px"><b>Build or improve an application</b><span class="chip">built in</span><span class="chip">current: none</span></div>
+        <div class="scroll"><table>
+          <tr><th>Role</th><th>Default name</th><th>Purpose</th><th>Model · size</th><th>May</th><th>May not</th></tr>
+          <tr><td><span class="dot" style="background:var(--a1)"></span>Dev <span class="chip">×2</span></td><td>Dev-1, Dev-2</td><td>builds a card on its own branch</td><td>Sonnet · M</td><td class="may">code, tests, branches</td><td class="not">merge, push, install</td></tr>
+          <tr><td><span class="dot" style="background:var(--a2)"></span>QA</td><td>QA-1</td><td>tries the change in a browser, reports a failing test first</td><td>Sonnet · M</td><td class="may">Chrome automation, a throwaway board</td><td class="not">edit product code</td></tr>
+          <tr><td><span class="dot" style="background:var(--a3)"></span>Architect</td><td>Arch</td><td>design notes, splits cards, reviews the plan</td><td>Fable · L</td><td class="may">docs, reads code</td><td class="not">merge, edit tests</td></tr>
+          <tr><td><span class="dot" style="background:var(--a4)"></span>Designer</td><td>Design</td><td>look and feel, mockups, copy</td><td>Sonnet · M</td><td class="may">mockups, styles</td><td class="not">change data or tests</td></tr>
+        </table></div>
+        <div class="actions" style="justify-content:space-between;align-items:center"><span class="note" style="margin:0">Applying starts nothing. It writes the roster and the role labels, and adds the role to each agent's card prompt.</span><button class="btn primary">Apply to this board</button></div>
+        <div class="cmds">
+          <div class="k mock" style="margin-bottom:4px">Start these terminals (you type them; the board only watches)</div>
+          <div class="row"><b>Dev-1</b><span class="cmd">/rename Dev-1</span><button class="btn">Copy</button></div>
+          <div class="row"><b>Dev-2</b><span class="cmd">/rename Dev-2</span><button class="btn">Copy</button></div>
+          <div class="row"><b>QA-1</b><span class="cmd">/rename QA-1</span><button class="btn">Copy</button></div>
+          <div class="row"><b>Arch</b><span class="cmd">/rename Arch</span><button class="btn">Copy</button></div>
+          <div class="row"><b>Design</b><span class="cmd">/rename Design</span><button class="btn">Copy</button></div>
+          <p class="note" style="margin:6px 0 0">In each, then set <code>export AGENTBOARD_NAME=&lt;name&gt;</code> and paste the card prompt from the board.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>2 · Rename an agent (the HUD or the agent's row → Rename…)</h2>
+    <p class="note"><b>History, colour, claims and chat come with the name.</b> Counts below are what a rename of one real agent would touch (made-up name). The old name keeps working until its terminal is renamed.</p>
+    <div class="panel dlg">
+      <h3>Rename Scout</h3>
+      <label for="nn">New name</label><input id="nn" value="Ives" aria-label="New name">
+      <label>What carries over</label>
+      <ul class="keep">
+        <li>380 cards it holds or held (5 open stay its), their claims and its colour</li>
+        <li>77 chat lines it sent or was sent, its read position and who is listening</li>
+        <li>its roster entry, its place in the HUD, its session link for mirrored messages</li>
+        <li class="stay">20 history lines that say "Scout" stay as written: history is history</li>
+      </ul>
+      <div class="note" style="margin:0">Nothing changes until you press Rename. <code>agentboard rename Scout Ives --dry-run</code> prints the same counts.</div>
+      <div class="actions"><button class="btn">Cancel</button><button class="btn primary">Rename</button></div>
+      <div class="after"><b>Renamed.</b> Cards and chat now say <b>Ives</b>. In the terminal that was Scout, type <code>/rename Ives</code> and <code>export AGENTBOARD_NAME=Ives</code>. Until then <code>--name Scout</code> still works and shows as Ives. <a href="#" style="color:var(--info)">Undo</a></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>3 · The views show the role; ORCH may propose, never apply</h2>
+    <p class="note"><b>Role chip next to the name</b> on Load, Watch and Now, and the configuration in the header. An agent outside the configuration stays visible, dimmed.</p>
+    <div style="display:flex;gap:10px;align-items:center;margin-bottom:10px;flex-wrap:wrap"><span class="chip">Configuration: Build · 5 roles</span><span class="chip ok">4 of 5 running</span></div>
+    <div class="agents">
+      <div class="ag" style="--c:var(--a1)"><b>Dev-1</b> <span class="chip">dev</span><small>working · 2 min</small></div>
+      <div class="ag" style="--c:var(--a1)"><b>Dev-2</b> <span class="chip">dev</span><small>working · 6 min</small></div>
+      <div class="ag" style="--c:var(--a2)"><b>QA-1</b> <span class="chip">QA</span><small>waiting for work</small></div>
+      <div class="ag" style="--c:var(--a3)"><b>Arch</b> <span class="chip">architect</span><small>review · waiting for you</small></div>
+      <div class="ag out" style="--c:var(--a4)"><b>Design</b> <span class="chip dim">designer</span><small>not started</small></div>
+      <div class="ag out" style="--c:var(--a5)"><b>Scout</b> <span class="chip dim">not in this configuration</span><small>holds 1 card</small></div>
+    </div>
+    <div class="prop"><div class="k">ORCH suggests · from Insights</div>
+      <p style="margin:4px 0 8px;font-size:var(--fs-md)">Add a second QA: 5 of the last 9 cards were reviewed twice, and QA-1 held a card 91% of the time (counts only).</p>
+      <div style="display:flex;gap:8px"><button class="btn primary">Accept (adds QA-2 to the roster)</button><button class="btn">Ignore</button></div></div>
+  </section>
+
+  <section>
+    <h2>4 · Day to day: an action waits for your word, every time</h2>
+    <p class="note"><b>Research, drafts and plans are free; a real call, message, payment or form submission is not.</b> The agent writes the exact action as a card in Needs you; your approval is for that one action and nothing else.</p>
+    <div class="need">
+      <div class="k">Caller-1 · needs your word · nothing has been done</div>
+      <dl><dt>Action</dt><dd>Place a call to book a table</dd><dt>Number</dt><dd>416-555-0100 (made-up)</dd><dt>Say</dt><dd>"A table for two on Friday at seven, under a first name only."</dd><dt>Money</dt><dd>none</dd><dt>Shares</dt><dd>first name only; nothing from your files</dd></dl>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary">Approve this call</button><button class="btn">Not now</button><span class="chip">expires in 30 min</span></div>
+    </div>
+  </section>
+</div>
+<script>
+  // ?theme=dark|light forces a theme; the rest of the page is static
+  const t = new URLSearchParams(location.search).get('theme'); if (t === 'dark' || t === 'light') document.documentElement.dataset.theme = t;
+</script>

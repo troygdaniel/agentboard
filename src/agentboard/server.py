@@ -474,7 +474,7 @@ def make_handler(default_store, port):
                 elif path == "/api/tasks":
                     t = self.store.add(body["title"], body.get("description", ""),
                                   body.get("status"), body.get("ctx", []),
-                                  parent_id=body.get("parent_id"))
+                                  parent_id=body.get("parent_id"), actor=self.store.owner)
                     self._send(200, t)
                 elif path == "/api/edit":
                     self._send(200, self.store.edit(body["id"], body.get("title"), body.get("description"), body.get("blocked_by")))
@@ -642,6 +642,17 @@ def serve(store, port=8765, open_browser=True):
             time.sleep(300)
 
     threading.Thread(target=_backups, daemon=True).start()
+
+    def _states():   # insights capture 4: with [insights] on, one line a minute at most when an agent's state changes (agentstates.sample); a problem here never stops a board
+        from . import agentstates
+        while True:
+            try:
+                agentstates.sample(store)
+            except Exception:   # noqa: BLE001
+                pass
+            time.sleep(60)
+
+    threading.Thread(target=_states, daemon=True).start()
 
     def _autopilot():   # [chat] autopilot / casual: the board's own rounds on the cheaper model, when switched on
         from . import agentchat, hud, lockdown, runs
