@@ -1,5 +1,5 @@
 """The front page (Nov 13): three tabs, Now, Watch and Map. Now is the pile of cards waiting on the owner; when the last one leaves it flows
-into Watch, the whole team as large cards, six to a page; Map is the board. A card that asks several things shows them one step at a time.
+into Watch, the whole team as large cards, nine to a page, in agent-name order; Map is the board. A card that asks several things shows them one step at a time.
 These read the page and the server; how it moves is checked in a browser."""
 import re
 import unittest
@@ -72,12 +72,14 @@ class Watch(unittest.TestCase):
     def test_everyone_is_a_large_card_in_a_fixed_order_and_every_word_is_escaped(self):
         w = body("watchHtml")
         self.assertIn("name(a).localeCompare(name(b), undefined, { numeric: true }) || a.id.localeCompare(b.id)", w)   # a card never moves because it was updated
-        self.assertIn("const cards = [...mains.map(tile), ...[...groups.values()].map(waitTile), ...idle.map(idleTile)]", w)
+        self.assertIn("const cards = [...mains.map(t => [name(t), 0, tile(t)]), ...[...groups.values()].map(g => [name(g[0]), 1, waitTile(g)]), ...idle.map(a => [a, 2, idleTile(a)])]", w)
+        self.assertIn("byAgent(x[0]).localeCompare(byAgent(y[0]), undefined, { numeric: true }) || x[1] - y[1]", w)   # by agent name, Unassigned last
+        self.assertIn("const byAgent = n => n === 'Unassigned' ? '\\uffff' : n;", w)
         self.assertIn("g[0]._more = g.slice(1); return g[0];", w)                     # one card per working agent: the card it last reported on, and how many more
         self.assertIn("esc(t._more.map(x => x.title).join(' · '))", w)
         for part in ("esc(name(t))", "esc(line)", "esc(t.title)", "esc(y.say || verb)", "esc(a)", "esc(t.id)"):
             self.assertIn(part, w)
-        self.assertIn("const watchPer = () => innerWidth >= 1180 ? 6 : innerWidth >= 780 ? 4 : 2;", PAGE)
+        self.assertIn("const watchPer = () => innerWidth >= 1180 ? 9 : innerWidth >= 780 ? 6 : 3;", PAGE)
 
     def test_a_change_is_shown_as_a_change(self):
         w = body("watchHtml")
