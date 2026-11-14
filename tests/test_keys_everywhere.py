@@ -88,7 +88,7 @@ class SheetTests(unittest.TestCase):
     def test_the_sheet_matches_the_handlers(self):
         for text in ("<dd>Move between cards (on Load: Todo and Doing)</dd>", "<kbd>Enter</kbd> / <kbd>Space</kbd></dt><dd>Open card</dd>",
                      '<dd id="key-alt">Move the card: ← → between columns (Todo, Doing, Done; on Load and By agent, Todo and Doing), ↑ ↓ within one</dd>',
-                     '<dd id="key-shiftarrows">Extend the selection</dd>', "<dd>Close the top layer: a sheet, a drawer, a field, the card, the selection, then Load</dd>",
+                     '<dd id="key-shiftarrows">Extend the selection</dd>', "<dd>Leave a text field (what you typed stays), then close the top layer: a sheet, a drawer, the card, the selection, then Load</dd>",
                      "<kbd>⌘/Ctrl</kbd> + <kbd>Enter</kbd></dt><dd>Send the reply you are typing on the open card"):
             self.assertIn(text, HTML, text)
         self.assertNotIn("(Board only)", HTML)

@@ -2154,7 +2154,7 @@ body.deckview .board{display:block !important;overflow:visible !important;paddin
     <dt><kbd>Shift</kbd> + click</dt><dd>Select a range of cards</dd>
     <dt><kbd>⌘/Ctrl</kbd> + click</dt><dd>Add/remove one card from the selection</dd>
     <dt><kbd>Shift</kbd> + <kbd>↑ ↓</kbd></dt><dd id="key-shiftarrows">Extend the selection</dd>
-    <dt><kbd>Esc</kbd></dt><dd>Close the top layer: a sheet, a drawer, a field, the card, the selection, then Load</dd>
+    <dt><kbd>Esc</kbd></dt><dd>Leave a text field (what you typed stays), then close the top layer: a sheet, a drawer, the card, the selection, then Load</dd>
     <dt><kbd>?</kbd></dt><dd>This list</dd>
   </dl>
   </details>
@@ -5656,6 +5656,19 @@ document.addEventListener('click', async e => {
   const sd = e.target.closest?.('[data-talk-send]'); if (sd) { const m = chatMsgs.find(x => x.seq === +sd.dataset.talkSend), id = talkCard; if (!m || !id) return; sd.disabled = true;
     try { await api('/api/chat-decide', { seq: m.seq, decision: 'approved' }); } catch (err) {}
     if (talkSignoff(byId.get(id), m)) { const ag = byId.get(id)?.agent; if (await move(id, 'done')) touch.after('drop', 'done', ag); } else { talkShut.add(id); await quickReply(id, m.action.text); } loadChat(); }   // the card is answered: it leaves the pile, and the conversation goes with it
+}, true);
+// Esc leaves a text field (14 Nov, card agentboard-esc-leaves-text-field): the first press blurs the field and keeps what is typed, so the board's keys work again without the mouse; the
+// next press peels the layer as before (the conversation, the sheet, the drawer, the card). This runs first, ahead of every other Esc handler, and stops the
+// press there. Left to their own Esc: the new-task title (it closes its sheet) and the card editor (it cancels the edit), which already leave in one press; the
+// settings search while it has text (the first Esc clears the box); a select, a switch or a slider (not typing); and an IME composing (that Esc is the IME's).
+const escLeavesField = el => !!el && (el.tagName === 'TEXTAREA' || el.isContentEditable || (el.tagName === 'INPUT' && !/^(checkbox|radio|range|button|submit|reset|file|image|color)$/.test(el.type)))
+  && el.id !== 'title' && el.id !== 'ed-field' && !(el.id === 'mix-search' && el.value);
+window.addEventListener('keydown', e => {
+  if (e.key !== 'Escape' || tourIsOpen()) return;
+  const el = document.activeElement;
+  if (!escLeavesField(el)) return;
+  if (e.isComposing || e.keyCode === 229) { e.stopImmediatePropagation(); return; }   // the IME's Esc: no panel closes under it, and the browser still gets it
+  e.preventDefault(); e.stopImmediatePropagation(); el.blur();
 }, true);
 window.addEventListener('keydown', e => {   // on Now, the slash talks about the card in front of you; Esc closes the conversation
   if (e.metaKey || e.ctrlKey || e.altKey) return; const typing = isTyping();

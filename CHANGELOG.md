@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Esc leaves a text field (Nov 14)
+Typing to ORCH (the line at the bottom, the chat drawer, the Ask ORCH box in Talk it through) or parking an idea in Later left you in the field: the board's keys did not work again until you reached for the mouse, and Esc closed the drawer or the conversation under you in the same press.
+- **The first Esc in a text field leaves it and keeps what you typed**; the board's keys (`?`, `l`, `n`, `s`, the arrows) work again at once. The next Esc closes the layer under it, as before: the conversation, the sheet, the drawer, the card.
+- **Left as they were:** the new-task field (its Esc closes its sheet), the card editor (its Esc cancels the edit), the settings search while it has text (the first Esc clears it), a select, a switch and a slider.
+- **An IME composing is never interrupted:** an Esc with `isComposing` set goes to the IME, closes no panel and blurs nothing.
+- Checked in headless Chrome on a throwaway board with real key events (`node tests/qa/esc_field_check.mjs`, 30 checks); `tests/test_esc_leaves_field.py` pins the handler.
+
 ### A restart keeps the keys the board was started with (Nov 14)
 A board started with extra `AGENTBOARD_*` settings in its environment (a plugin's keys) lost them when `agentboard restart` was run from a plain shell: the new server got that shell's environment and nothing else, and a feature went quietly off until someone noticed.
 - **`agentboard restart` reads the old server's `AGENTBOARD_*` environment before stopping it** (its own process: `/proc/<pid>/environ` on Linux, `ps -E` on macOS) and keeps every setting this shell lacks; this shell still wins where it sets one. The one line names what was kept, never a value. `--fresh` takes this shell's environment only.
