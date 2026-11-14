@@ -384,7 +384,10 @@
   .talk-send { margin-top: 8px; padding: 12px 14px; border-radius: 16px; box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--ok) 55%, var(--line)); background: color-mix(in srgb, var(--ok) 7%, transparent); } .talk-send small { display: block; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; } .talk-send p { font-weight: 600; margin-bottom: 10px; } .talk-send span { display: flex; gap: 8px; } .talk-send .btn { border-radius: 999px; min-height: 34px; } .talk-send.sent { box-shadow: none; } .talk-send.sent p { margin: 0; font-weight: 500; color: var(--muted); } .talk-send.sent small { color: var(--ok); }
   .talk-start { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; } .talk-start button { font: inherit; font-size: 14px; text-align: left; padding: 10px 14px; border-radius: 14px; border: 0; cursor: pointer; color: var(--text); background: none; box-shadow: inset 0 0 0 1px var(--line); } .talk-start button:hover { background: color-mix(in srgb, var(--text) 6%, transparent); }
   .talk-form { display: flex; gap: 8px; padding: 12px; border-top: 1px solid var(--line); } .talk-form input { flex: 1; min-width: 0; font: inherit; font-size: 15px; padding: 10px 14px; border-radius: 999px; border: 0; outline: 0; color: var(--text); background: color-mix(in srgb, var(--text) 6%, transparent); } .talk-form input:focus { box-shadow: inset 0 0 0 1.5px var(--text); } .talk-form .btn { border-radius: 999px; }
-  .you-h.talk-h { color: var(--text); font-weight: 600; }
+  .you-h.talk-h { color: var(--text); font-weight: 600; position: relative; } .you-h.talk-h.new::after { content: ''; position: absolute; right: -9px; top: 2px; width: 7px; height: 7px; border-radius: 50%; background: var(--need); }
+  .talk-walk { display: inline-flex; align-items: center; gap: 7px; font: inherit; font-size: 12px; font-weight: 600; color: var(--muted); padding: 5px 10px 5px 6px; border: 0; border-radius: 999px; cursor: pointer; background: color-mix(in srgb, var(--text) 6%, transparent); white-space: nowrap; }
+  .talk-walk i { width: 22px; height: 13px; border-radius: 999px; background: color-mix(in srgb, var(--text) 22%, transparent); position: relative; transition: background .2s; } .talk-walk i::after { content: ''; position: absolute; left: 2px; top: 2px; width: 9px; height: 9px; border-radius: 50%; background: var(--surface); transition: transform .2s; }
+  .talk-walk[aria-checked=true] { color: var(--text); } .talk-walk[aria-checked=true] i { background: var(--ok); } .talk-walk[aria-checked=true] i::after { transform: translateX(9px); }
   body.talking .deck.open .deck-more { visibility: hidden; }   /* one thing beside the card at a time */
   @media (min-width: 1180px) { body.talking .deck .deck-body { transform: translateX(-150px); transition: transform .4s cubic-bezier(.2,.9,.25,1); } }
   @media (max-width: 900px) { #talk { top: auto; height: min(70vh, 560px); left: 16px; right: 16px; width: auto; bottom: 84px; } }
@@ -5606,31 +5609,38 @@ new MutationObserver(() => { const b = $('need-n'); if (!b) return; favSync(+b.t
 setTimeout(() => favSync(+($('need-n')?.textContent) || 0), 3000);
 // Talk it through: a conversation with ORCH about the card in front of you. Each line goes to ORCH with the card attached; ORCH's answers
 // about that card collect here, and when it proposes a reply, one click sends it to the card's agent. Nothing runs: it is the board's chat.
-let talkCard = null, talkBusy = false; const talkShut = new Set();
+let talkCard = null, talkBusy = false, talkWalk = false, talkSince = 0; const talkShut = new Set(), talkAsked = new Set(), talkSeen = new Map();
+try { talkWalk = localStorage.getItem('ab-talk-walk') === '1'; } catch (e) {}
+const TALK_WALK = 'Walk me through this one.';   // what the board asks for you on each card while Walk me through is on
+const talkSignoff = (t, m) => !!(t && t.review && m.action && /^sign (it )?off\b/i.test(m.action.text));   // on finished work ORCH may propose the sign-off itself
+function talkNew(id) { const last = talkLines(id).filter(m => m.kind === 'agent').pop(); return !!last && last.seq > (talkSeen.get(id) || 0); }
 const TALK_STARTERS = ['What is this asking me?', 'Say it simpler', 'What do you recommend?', 'What happens if I say no?'];
 const talkLines = id => chatMsgs.filter(m => m.card === id && ((m.kind === 'user' && String(m.to || '').toUpperCase() === 'ORCH') || (m.kind === 'agent' && String(m.sender || '').toUpperCase() === 'ORCH')));
 function talkOpen(id) { talkShut.delete(id); talkCard = id; talkSync(true); setTimeout(() => $('talk')?.querySelector('input')?.focus({ preventScroll: true }), 60); touch('rise'); }
 function talkClose() { if (talkCard) talkShut.add(talkCard); talkCard = null; talkSync(true); }
 function talkSync(force) {
   const onNow = MEFIRST && !nowWatch && !hudIsOpen() && deckTop;
-  if (onNow && talkCard !== deckTop) talkCard = !talkShut.has(deckTop) && (talkCard || talkLines(deckTop).length) ? deckTop : null;   // it follows you down the pile; a card you already talked about opens with its conversation
+  if (onNow && talkCard !== deckTop) { talkCard = !talkShut.has(deckTop) && (talkCard || talkLines(deckTop).length) ? deckTop : null; talkSince = Date.now(); }   // it follows you down the pile; a card you already talked about opens with its conversation
   if (!onNow) talkCard = null;
+  document.querySelectorAll('[data-talk]').forEach(b => b.classList.toggle('new', b.dataset.talk !== talkCard && talkNew(b.dataset.talk)));
   let box = $('talk'); const t = talkCard && byId.get(talkCard);
   document.body.classList.toggle('talking', !!t);
   if (!t) { box?.remove(); return; }
   const lines = talkLines(t.id), waiting = lines.length && lines[lines.length - 1].kind === 'user';
-  const sig = t.id + '|' + lines.map(m => m.seq + (m.action ? m.action.status : '')).join(',') + '|' + waiting + '|' + (orchUp === false);
+  const seenTo = lines.filter(m => m.kind === 'agent').pop(); if (seenTo) talkSeen.set(t.id, seenTo.seq);
+  if (talkWalk && !lines.length && !talkAsked.has(t.id) && !talkBusy && Date.now() - talkSince > 1100) { talkAsked.add(t.id); talkSay(TALK_WALK); }   // a card you only pass on the way down is not asked about
+  const sig = t.id + '|' + lines.map(m => m.seq + (m.action ? m.action.status : '')).join(',') + '|' + waiting + '|' + (orchUp === false) + '|' + talkWalk;
   if (!box) { box = document.createElement('aside'); box.id = 'talk'; box.setAttribute('aria-label', 'Talk it through with ORCH');
-    box.innerHTML = '<header><span class="talk-face" aria-hidden="true">O</span><div><b>Talk it through</b><small></small></div><button type="button" class="talk-x" data-talk-close aria-label="Close the conversation">✕</button></header><div class="talk-lines" aria-live="polite"></div><form class="talk-form" autocomplete="off"><input maxlength="2000" placeholder="Ask ORCH about this card…" aria-label="Ask ORCH about this card"><button class="btn primary" type="submit">Send</button></form>';
+    box.innerHTML = '<header><span class="talk-face" aria-hidden="true">O</span><div><b>Talk it through</b><small></small></div><button type="button" class="talk-walk" data-talk-walk role="switch" aria-checked="false" title="ORCH explains each card as you reach it, and says what it would do"><i></i>Walk me through</button><button type="button" class="talk-x" data-talk-close aria-label="Close the conversation">✕</button></header><div class="talk-lines" aria-live="polite"></div><form class="talk-form" autocomplete="off"><input maxlength="2000" placeholder="Ask ORCH about this card…" aria-label="Ask ORCH about this card"><button class="btn primary" type="submit">Send</button></form>';
     document.body.appendChild(box); }
   if (box.dataset.sig === sig && !force) return; box.dataset.sig = sig;
-  box.style.setProperty('--c', colorOf(t)); box.querySelector('header small').textContent = t.title;
+  box.style.setProperty('--c', colorOf(t)); box.querySelector('header small').textContent = t.title; box.querySelector('.talk-walk').setAttribute('aria-checked', talkWalk);
   const said = t.needs_input ? (t.question || t.status_text) : (t.result || t.status_text);
-  const row = m => m.kind === 'user' ? `<p class="tl me">${esc(m.text)}</p>`
-    : `<div class="tl orch"><p>${esc(m.text)}</p>${m.action ? (m.action.status === 'proposed' ? `<div class="talk-send"><small>Reply to ${esc(t.agent || 'the agent')}</small><p>${esc(m.action.text)}</p><span><button type="button" class="btn primary" data-talk-send="${m.seq}">Send this</button><button type="button" class="btn" data-talk-edit="${m.seq}">Change it</button></span></div>` : m.action.status === 'approved' ? `<div class="talk-send sent"><small>✓ Sent to ${esc(t.agent || 'the agent')}</small><p>${esc(m.action.text)}</p></div>` : '') : ''}</div>`;
+  const row = m => m.kind === 'user' ? (m.text === TALK_WALK ? '' : `<p class="tl me">${esc(m.text)}</p>`)
+    : `<div class="tl orch"><p>${esc(m.text)}</p>${m.action ? (m.action.status === 'proposed' ? (talkSignoff(t, m) ? `<div class="talk-send"><small>Nothing more is needed from you</small><p>Sign off ${esc(t.title)}</p><span><button type="button" class="btn primary" data-talk-send="${m.seq}">Sign off</button><button type="button" class="btn" data-talk-edit="${m.seq}">Not yet</button></span></div>` : `<div class="talk-send"><small>Reply to ${esc(t.agent || 'the agent')}</small><p>${esc(m.action.text)}</p><span><button type="button" class="btn primary" data-talk-send="${m.seq}">Send this</button><button type="button" class="btn" data-talk-edit="${m.seq}">Change it</button></span></div>`) : m.action.status === 'approved' ? `<div class="talk-send sent"><small>✓ ${talkSignoff(t, m) ? 'Signed off' : 'Sent to ' + esc(t.agent || 'the agent')}</small><p>${esc(m.action.text)}</p></div>` : '') : ''}</div>`;
   box.querySelector('.talk-lines').innerHTML = `<p class="tl card-said"><small>${esc(t.agent || 'The agent')} ${t.needs_input ? 'asks' : 'says'}</small>${esc(said || t.title)}</p>`
     + lines.map(row).join('') + (waiting ? (orchUp === false ? '<p class="tl note">ORCH is not running. It will read this when it starts.</p>' : '<p class="tl think" aria-label="ORCH is answering"><i></i><i></i><i></i></p>') : '')
-    + (lines.length ? '' : `<div class="talk-start">${TALK_STARTERS.map(q => `<button type="button" data-talk-ask="${esc(q)}">${esc(q)}</button>`).join('')}</div>`);
+    + (lines.length || talkWalk ? '' : `<div class="talk-start">${TALK_STARTERS.map(q => `<button type="button" data-talk-ask="${esc(q)}">${esc(q)}</button>`).join('')}</div>`);
   const sc = box.querySelector('.talk-lines'); sc.scrollTop = sc.scrollHeight;
 }
 setInterval(talkSync, 350);
@@ -5640,11 +5650,12 @@ document.addEventListener('submit', e => { const f = e.target.closest?.('.talk-f
 document.addEventListener('click', async e => {
   const o = e.target.closest?.('[data-talk]'); if (o) { e.preventDefault(); e.stopPropagation(); if (talkCard === o.dataset.talk) talkClose(); else talkOpen(o.dataset.talk); return; }
   if (e.target.closest?.('[data-talk-close]')) { talkClose(); return; }
+  if (e.target.closest?.('[data-talk-walk]')) { talkWalk = !talkWalk; talkSince = 0; try { localStorage.setItem('ab-talk-walk', talkWalk ? '1' : '0'); } catch (err) {} touch(talkWalk ? 'rise' : 'later'); talkSync(true); return; }
   const a = e.target.closest?.('[data-talk-ask]'); if (a) { $('talk').querySelector('input').focus({ preventScroll: true }); talkSay(a.dataset.talkAsk); return; }   // the keys stay in the conversation: a stray d or Space must not reach the card
-  const ed = e.target.closest?.('[data-talk-edit]'); if (ed) { const m = chatMsgs.find(x => x.seq === +ed.dataset.talkEdit), i = $('talk').querySelector('input'); if (m) { i.value = 'Change it: '; i.focus(); } return; }
+  const ed = e.target.closest?.('[data-talk-edit]'); if (ed) { const m = chatMsgs.find(x => x.seq === +ed.dataset.talkEdit), i = $('talk').querySelector('input'); if (m) { i.value = talkSignoff(byId.get(talkCard), m) ? 'Not yet: ' : 'Change it: '; i.focus(); } return; }
   const sd = e.target.closest?.('[data-talk-send]'); if (sd) { const m = chatMsgs.find(x => x.seq === +sd.dataset.talkSend), id = talkCard; if (!m || !id) return; sd.disabled = true;
     try { await api('/api/chat-decide', { seq: m.seq, decision: 'approved' }); } catch (err) {}
-    talkShut.add(id); await quickReply(id, m.action.text); loadChat(); }   // the card is answered: it leaves the pile, and the conversation goes with it
+    if (talkSignoff(byId.get(id), m)) { const ag = byId.get(id)?.agent; if (await move(id, 'done')) touch.after('drop', 'done', ag); } else { talkShut.add(id); await quickReply(id, m.action.text); } loadChat(); }   // the card is answered: it leaves the pile, and the conversation goes with it
 }, true);
 window.addEventListener('keydown', e => {   // on Now, the slash talks about the card in front of you; Esc closes the conversation
   if (e.metaKey || e.ctrlKey || e.altKey) return; const typing = isTyping();
