@@ -983,7 +983,7 @@ class Store:
         talk = bool(to and not to_owner) or bool(files and not to_owner)
         with self._lock():
             data = self._read()
-            if kind == "agent" and not to and reply_to is None and not files:   # a plain answer: the line an agent writes to the question the owner asked it (see _open_question)
+            if kind == "agent" and not to and reply_to is None and not files and not via:   # a plain answer (not a line the board or a mirror posts: via): the line an agent writes to the question the owner asked it (see _open_question)
                 q = self._open_question(data, sender, card)
                 if q is not None:
                     reply_to, to, to_owner = q["seq"], q.get("sender") or self.owner, True

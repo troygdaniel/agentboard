@@ -124,6 +124,13 @@ class NotAnAnswer(Base):
         a = self.s.chat_send("ORCH", "a plain line")
         self.assertNotIn("reply_to", a)
 
+    def test_a_line_the_board_or_a_mirror_posts_is_never_taken_for_an_answer(self):
+        self.ask()
+        for via in ("mirror", "board", "idle"):
+            m = self.s.chat_send("ORCH", f"a {via} line", via=via)
+            self.assertNotIn("reply_to", m, via)
+            self.assertNotIn("to", m, via)
+
     def test_nothing_is_threaded_when_nobody_asked(self):
         a = self.s.chat_send("ORCH", "a plain line")
         self.assertEqual({k for k in a if k in ("to", "card", "reply_to")}, set())

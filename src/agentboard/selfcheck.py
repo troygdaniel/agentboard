@@ -61,7 +61,7 @@ PROCESS_ALLOWED = {
     "cli.py": "osascript windows for `spawn` (refuses under the lock) and git/osascript helpers run by the person at the command line",
     "repoguard.py": "read-only git queries (ls-files) for the repo guard the doctor and the tests share; a command, never the server",
     "doctor.py": "read-only git, pipx and lsof queries for `agentboard doctor` (a command, never the server)",
-    "lifecycle.py": "a read-only `ps -o command=` to check that a pid is an agentboard serve, and the detached `agentboard serve` that `restart` and `serve --background` start (a command, never the server)",
+    "lifecycle.py": "a read-only `ps -o command=` to check that a pid is an agentboard serve, a read-only `ps -o ppid=,comm=` to tell which session (agent runtime or terminal) runs a command, and the detached `agentboard serve` that `restart` and `serve --background` start (commands, never the server)",
     "providers.py": "the command provider (a shell command you write in config.toml); locked off by AGENTBOARD_LOCKDOWN",
     "reports.py": "read-only git queries for a finished card's report; the server's process guard refuses them in the work profile",
     "runs.py": "`agentboard run` (claude -p); refuses under AGENTBOARD_LOCKDOWN",

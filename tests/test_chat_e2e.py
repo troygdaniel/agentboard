@@ -72,7 +72,9 @@ class WakeAndLatency(unittest.TestCase):
 class ReceiptsTellTheTruth(unittest.TestCase):
     """R2, R3: delivered is not seen; a dead reader's line comes again; a stopped wait is said at 60 s."""
 
-    def test_a_busy_session_delivered_then_late_then_shown_again_then_seen_then_answered(self):
+    def test_a_busy_session_delivered_then_late_then_back_and_seen_not_shown_again_then_answered(self):
+        """The busy session of the bug report: the line is printed, the session works for six minutes (the board says late), then it is back at the
+        board. It is the SAME session, so it read the line: the next inbox does not print it again (cursors.py, card talk-it-through-bugs)."""
         w = World(self)
         a = w.session("AGENT-A").listen()
         m = w.owner_says("did you get this?", to="AGENT-A")
@@ -82,15 +84,38 @@ class ReceiptsTellTheTruth(unittest.TestCase):
         s = w.state(m["seq"], plus_s=400)                                  # six minutes later and it still has not acted
         self.assertEqual((s["state"], s["late"]), ("delivered", True))
         w.age_delivery("AGENT-A", 400)
-        rc, out = a.run("chat", "inbox")                                   # it comes back to the board: the line is shown AGAIN, with the reason
-        self.assertIn("never confirmed: shown again", out)
-        self.assertIn("did you get this?", out)
-        self.assertEqual(w.state(m["seq"])["state"], "delivered")          # printing it again is still only a delivery
-        rc, out = a.run("claim", w.store.load()[0]["id"])                  # any command as that name: it has acted on the board
-        self.assertEqual(rc, 0, out)
+        rc, out = a.run("chat", "inbox")                                   # it comes back to the board, the same session: it has read the line
+        self.assertNotIn("never confirmed", out)
+        self.assertNotIn("did you get this?", out)
         self.assertEqual(w.state(m["seq"])["state"], "seen")
         a.run("chat", "send", "yes, on it", "--to", w.owner, "--reply-to", str(m["seq"]))
         self.assertEqual(w.state(m["seq"])["state"], "answered")
+
+    def test_a_busy_session_that_only_runs_a_command_has_seen_the_line(self):
+        w = World(self)
+        a = w.session("AGENT-A").listen()
+        m = w.owner_says("look at this", to="AGENT-A")
+        a.got(10)
+        w.age_delivery("AGENT-A", 600)
+        rc, out = a.run("claim", w.store.load()[0]["id"])                  # any command from that session, ten minutes on
+        self.assertEqual(rc, 0, out)
+        self.assertEqual(w.state(m["seq"])["state"], "seen")
+
+    def test_a_different_session_taking_over_the_name_is_shown_the_line_again(self):
+        """What chat-f3 is for: the session that was shown the line is gone. A new one answering to the name, after five minutes, is shown it again."""
+        w = World(self)
+        a = w.session("AGENT-A").listen()
+        m = w.owner_says("did you get this?", to="AGENT-A")
+        a.got(10)
+        w.age_delivery("AGENT-A", 400)
+        b = w.session("AGENT-A", key="the-next-terminal")                  # another terminal, the same name
+        rc, out = b.run("chat", "inbox")
+        self.assertIn("never confirmed: shown again", out)
+        self.assertIn("did you get this?", out)
+        self.assertEqual(w.state(m["seq"])["state"], "delivered")          # printing it again is still only a delivery
+        rc, out = b.run("claim", w.store.load()[0]["id"])                  # and now it has acted
+        self.assertEqual(rc, 0, out)
+        self.assertEqual(w.state(m["seq"])["state"], "seen")
 
     def test_a_line_printed_to_a_reader_that_was_gone_is_not_lost(self):
         w = World(self)
@@ -100,7 +125,8 @@ class ReceiptsTellTheTruth(unittest.TestCase):
         self.assertEqual(w.state(m["seq"])["state"], "delivered")
         self.assertIsNone(cursors.get(w.board, "AGENT-A"))                 # not seen: the cursor did not move on print
         w.age_delivery("AGENT-A", 400)
-        rc, out = a.run("chat", "inbox")
+        b = w.session("AGENT-A", key="restarted")                          # the session that was shown it is gone; another starts reading
+        rc, out = b.run("chat", "inbox")
         self.assertIn("anyone?", out)                                      # the next read shows it again
 
     def test_a_stopped_wait_is_known_and_the_page_would_warn_at_sixty_seconds(self):

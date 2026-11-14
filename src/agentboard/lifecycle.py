@@ -65,6 +65,43 @@ def command_of(pid, runner=subprocess.run):
     return out or None
 
 
+_NOT_A_SESSION = {"sh", "bash", "zsh", "dash", "fish", "ksh", "tcsh", "csh", "env", "sudo", "nohup", "timeout", "time", "stdbuf", "xargs"}   # a shell or a wrapper runs the command; the session is above it
+_SESSION = ["unset"]
+
+
+def _ps(pid):
+    """(parent pid, command name) of a process, or None. A read-only `ps`; it never raises."""
+    try:
+        out = subprocess.run(["ps", "-o", "ppid=,comm=", "-p", str(int(pid))], capture_output=True, text=True, timeout=3).stdout.strip()
+        ppid, _, comm = out.partition(" ")
+        return int(ppid), comm.strip()
+    except Exception:   # no ps, a refused program start (lockdown), a bad answer: the session is then simply unknown
+        return None
+
+
+def session_id():
+    """Which session is running this command, as a string, or None when it cannot be told: AGENTBOARD_SESSION when the session set one (like
+    AGENTBOARD_NAME), else the first ancestor process of this command that is not a shell or a wrapper (the agent runtime that spawned the shell, or
+    a terminal tab's login), as `pid:N`. Worked out once per process. cursors.py uses it to tell whose delivery a command confirms."""
+    named = os.environ.get("AGENTBOARD_SESSION", "").strip()
+    if named:
+        return named
+    if _SESSION[0] != "unset":
+        return _SESSION[0]
+    found, pid = None, os.getppid()
+    for _ in range(12):
+        row = _ps(pid) if pid and pid > 1 else None
+        if not row:
+            break
+        ppid, comm = row
+        if Path(comm).name.lstrip("-").lower() not in _NOT_A_SESSION:
+            found = f"pid:{pid}"
+            break
+        pid = ppid
+    _SESSION[0] = found
+    return found
+
+
 def is_board_server(pid, runner=subprocess.run):
     """Whether the process really is an `agentboard serve`: alive, and its command line says so by doctor's own rule. A pid that a crash or a
     kill -9 left in a state file and that now belongs to another of the user's programs is not, so `stop` never signals it

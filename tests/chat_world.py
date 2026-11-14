@@ -74,11 +74,12 @@ def receipt_state(payload, owner, seq, now=None, workdir=None):
 class Session:
     """One agent's terminal: the name it uses, and the wait it leaves running."""
 
-    def __init__(self, world, name):
+    def __init__(self, world, name, key=None):
         self.w, self.name, self.proc, self.out, self.t_exit, self.t_start = world, name, None, b"", None, None
+        self.key = key or name   # which session this is: a terminal of its own (AGENTBOARD_SESSION), so another name's commands never confirm this one's lines
 
     def env(self):
-        return {**self.w.env, "AGENTBOARD_NAME": self.name}
+        return {**self.w.env, "AGENTBOARD_NAME": self.name, "AGENTBOARD_SESSION": self.key}
 
     def listen(self, wait=120, discard=False, drain=True):
         """Start `chat inbox --name N --wait` in the background, as an agent does. discard=True: its output goes nowhere (the reader is gone).
@@ -161,8 +162,9 @@ class World:
         import shutil
         shutil.rmtree(self.tmp, ignore_errors=True)
 
-    def session(self, name):
-        s = self.sessions[name] = Session(self, name)
+    def session(self, name, key=None):
+        """key: a different terminal answering to the same name (a session that took the name over after the first one was gone)."""
+        s = self.sessions[name] = Session(self, name, key)
         return s
 
     # -- the owner, through the same door the page uses --------------------------------------------------------------------

@@ -3,7 +3,7 @@ when the session next does something on the board as that name; a delivery nothi
 That second half assumed a session that has not confirmed in 5 minutes never read the line. A busy session breaks it: ORCH was shown a line, acted on it
 (merged a branch, ran a test suite, ten minutes of commands that carry no --name), then restarted its listener, and `chat inbox` printed the line again with
 "printed to you 10 min ago and never confirmed: shown again". Time is the wrong witness. The right one is the session itself: a delivery records which session
-it went to (the first ancestor process of the command that is not a shell: the agent runtime, or the terminal's login), and that session running any board
+it went to (AGENTBOARD_SESSION, else the first ancestor process of the command that is not a shell: the agent runtime, or the terminal's login), and that session running any board
 command, or its next `chat inbox`, is proof it read what it was shown, however long ago. A different session taking over the name, or one we cannot tell,
 still gets the old 5-minute rule. A throwaway board; nothing reaches a real one."""
 import contextlib
@@ -16,10 +16,10 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from unittest import mock
 
-from agentboard import cli, cursors
+from agentboard import cli, cursors, lifecycle
 from agentboard.store import Store
 
-ME, SOMEONE_ELSE = 4111, 4222
+ME, SOMEONE_ELSE = "pid:4111", "pid:4222"
 
 
 class Base(unittest.TestCase):
@@ -36,7 +36,7 @@ class Base(unittest.TestCase):
         os.environ["AGENTBOARD_DIR"] = str(self.s.dir)
         self.s.add("seed")
         self.who = ME
-        sid = mock.patch.object(cursors, "session_id", create=True, side_effect=lambda: self.who)   # which session is running the command (a test says)
+        sid = mock.patch.object(lifecycle, "session_id", create=True, side_effect=lambda: self.who)   # which session is running the command (a test says)
         sid.start()
         self.addCleanup(sid.stop)
 
@@ -142,44 +142,61 @@ class AReaderThatIsGoneStillGetsTheLineAgain(Base):
 
 
 class TheSessionKey(unittest.TestCase):
-    """cursors.session_id(): the first ancestor process that is not a shell, from a table of (pid -> parent, command)."""
+    """lifecycle.session_id(): AGENTBOARD_SESSION, else the first ancestor process that is not a shell, from a table of (pid -> parent, command)."""
 
-    def chain(self, table, start=900):
-        with mock.patch.object(cursors, "_ps", side_effect=lambda pid: table.get(pid)), mock.patch("os.getppid", return_value=start):
-            cursors._SESSION[0] = "unset"
+    def chain(self, table, start=900, env=None):
+        clean = {k: v for k, v in os.environ.items() if k != "AGENTBOARD_SESSION"}
+        clean.update(env or {})
+        with mock.patch.object(lifecycle, "_ps", side_effect=lambda pid: table.get(pid)), mock.patch("os.getppid", return_value=start), mock.patch.dict(os.environ, clean, clear=True):
+            lifecycle._SESSION[0] = "unset"
             try:
-                return cursors.session_id()
+                return lifecycle.session_id()
             finally:
-                cursors._SESSION[0] = "unset"
+                lifecycle._SESSION[0] = "unset"
 
     def test_it_is_the_agent_runtime_not_the_shell_that_runs_the_command(self):
         # agentboard (this process) < zsh -c (pid 900) < claude (pid 800) < -zsh (700) < login (600) < Terminal (500): a pid maps to (its parent, its command)
         table = {900: (800, "/bin/zsh"), 800: (700, "claude"), 700: (600, "-zsh"), 600: (500, "login"), 500: (1, "/System/Applications/Utilities/Terminal.app/Contents/MacOS/Terminal")}
-        self.assertEqual(self.chain(table), 800)
+        self.assertEqual(self.chain(table), "pid:800")
 
     def test_a_terminal_tab_is_its_login_process(self):
         table = {900: (700, "-zsh"), 700: (600, "login"), 600: (500, "Terminal")}
-        self.assertEqual(self.chain(table), 700)                              # the login process: one per terminal tab
+        self.assertEqual(self.chain(table), "pid:700")                         # the login process: one per terminal tab
 
     def test_wrappers_are_skipped_like_shells(self):
         table = {900: (880, "env"), 880: (870, "timeout"), 870: (860, "/bin/bash"), 860: (800, "claude")}
-        self.assertEqual(self.chain(table), 860)
+        self.assertEqual(self.chain(table), "pid:860")
+
+    def test_a_session_may_name_itself_and_that_wins(self):
+        table = {900: (800, "zsh"), 800: (1, "claude")}
+        self.assertEqual(self.chain(table, env={"AGENTBOARD_SESSION": "orch-main"}), "orch-main")
+        self.assertEqual(self.chain({}, env={"AGENTBOARD_SESSION": "  x  "}), "x")           # even where no process can be looked up
 
     def test_nothing_known_is_none_and_never_an_error(self):
         self.assertIsNone(self.chain({}))
         self.assertIsNone(self.chain({900: (1, "zsh")}))                      # only shells up to init
 
+    def test_a_refused_program_start_is_just_an_unknown_session(self):
+        with mock.patch.object(lifecycle.subprocess, "run", side_effect=RuntimeError("program starts are refused here")), mock.patch("os.getppid", return_value=900):
+            with mock.patch.dict(os.environ, {k: v for k, v in os.environ.items() if k != "AGENTBOARD_SESSION"}, clear=True):
+                lifecycle._SESSION[0] = "unset"
+                try:
+                    self.assertIsNone(lifecycle.session_id())
+                finally:
+                    lifecycle._SESSION[0] = "unset"
+
     def test_it_is_worked_out_once_per_process(self):
         calls = []
         table = {900: (800, "zsh"), 800: (1, "claude")}
-        with mock.patch.object(cursors, "_ps", side_effect=lambda pid: calls.append(pid) or table.get(pid)), mock.patch("os.getppid", return_value=900):
-            cursors._SESSION[0] = "unset"
+        with mock.patch.object(lifecycle, "_ps", side_effect=lambda pid: calls.append(pid) or table.get(pid)), mock.patch("os.getppid", return_value=900), \
+                mock.patch.dict(os.environ, {k: v for k, v in os.environ.items() if k != "AGENTBOARD_SESSION"}, clear=True):
+            lifecycle._SESSION[0] = "unset"
             try:
-                a, n = cursors.session_id(), len(calls)
-                b = cursors.session_id()
-                self.assertEqual((a, b, len(calls)), (800, 800, n))
+                a, n = lifecycle.session_id(), len(calls)
+                b = lifecycle.session_id()
+                self.assertEqual((a, b, len(calls)), ("pid:800", "pid:800", n))
             finally:
-                cursors._SESSION[0] = "unset"
+                lifecycle._SESSION[0] = "unset"
 
 
 if __name__ == "__main__":
