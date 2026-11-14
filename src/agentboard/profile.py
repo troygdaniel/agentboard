@@ -113,7 +113,7 @@ def reset():   # tests only: take the guards off again
 
 # -- is this a machine that looks like the owner's own (a home Mac), or a fresh install on a managed PC? ----------------------------------------------
 INIT_ENV = "AGENTBOARD_INIT_PROFILE"   # work | home | auto: what `agentboard init` writes when the command line does not say
-CORE_ENV = {"AGENTBOARD_PROFILE", INIT_ENV, "AGENTBOARD_ORIG_UMASK", "AGENTBOARD_TRANSCRIPT", "AGENTBOARD_RUN", "AGENTBOARD_MIC", "AGENTBOARD_COLOR", "AGENTBOARD_PRIVATE_WORDS"}   # plus configschema.ENV
+CORE_ENV = {"AGENTBOARD_PROFILE", INIT_ENV, "AGENTBOARD_ORIG_UMASK", "AGENTBOARD_TRANSCRIPT", "AGENTBOARD_RUN", "AGENTBOARD_MIC", "AGENTBOARD_COLOR", "AGENTBOARD_PRIVATE_WORDS", "AGENTBOARD_MODEL"}   # plus configschema.ENV
 HOME_FILES = ("home.env", "facts-never.txt")   # in ~/.config/agentboard: the home setup's own files
 
 

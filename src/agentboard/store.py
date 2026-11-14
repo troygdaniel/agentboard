@@ -251,12 +251,13 @@ class Store:
         raise BoardError(f"no such task: {task_id}")
 
     def add(self, title, description="", status=None, ctx=None, task_id=None, blocked_by=None,
-            parent_id=None, source=None, actor=None):
+            parent_id=None, source=None, actor=None, size=None):
         """Add a task. With parent_id it becomes a subtask: it follows its parent's column and owner (one level only).
         `source` says where the card came from ({"kind": "text", "key": ..., "at": ...}); a second card with the same source key is refused,
         so a pull that runs twice (or twice at once) can never make the same card twice."""
         if status is not None and status not in STATUSES:
             raise BoardError(f"status must be one of {STATUSES}")
+        size = _clean_size(size)
         title = _clean_title(self._scrub(title))
         description = _cap(self._scrub(description, DESCRIPTION_MAX), DESCRIPTION_MAX)
         source = _clean_source(source)
@@ -292,6 +293,8 @@ class Store:
             }
             if source:
                 task["source"] = source
+            if size:
+                task["size"] = size   # the estimate (insights): S, M or L, kept when given even with the flag off, like a closing reason
             if blocked_by:
                 task["blocked_by"] = list(blocked_by)
             if parent:
@@ -320,8 +323,9 @@ class Store:
         return self.start_card(title, name, color, description, task_id, blocked_by, force, parent_id)[0]
 
     def start_card(self, title, name, color=None, description="", task_id=None,
-                   blocked_by=None, force=False, parent_id=None):
+                   blocked_by=None, force=False, parent_id=None, model=None, size=None):
         """Like start, but returns (task, created): created is False when the agent already held a card for this work and it was reused."""
+        model, size = self._model_on_claim(model), _clean_size(size)
         title = _clean_title(self._scrub(title))   # before the id is made from it: the card id, report names and lookups never carry a key
         description = _cap(self._scrub(description, DESCRIPTION_MAX), DESCRIPTION_MAX)
         name = self._scrub(name)
@@ -357,6 +361,10 @@ class Store:
                 "created": _now(), "updated": _now(),
             }
             # `color` is accepted and ignored: the board colours an agent by name, never a card (see agentColor in index.html)
+            if model:
+                task["model"] = model
+            if size:
+                task["size"] = size
             if blocked_by:
                 task["blocked_by"] = list(blocked_by)
             if parent:
@@ -383,8 +391,9 @@ class Store:
                         by_id.pop(tid)
         return plan
 
-    def claim(self, task_id, name, color=None, force=False):
+    def claim(self, task_id, name, color=None, force=False, model=None):
         name = self._scrub(name)
+        model = self._model_on_claim(model)   # before anything changes: a bad --model refuses the whole claim
         with self.transaction() as tasks:
             if not any(t["id"] == task_id for t in tasks) and any(t["id"] == task_id for t in self._read_archive()):
                 if not force:   # a cleared card is a done card: the same refusal, and the archive is not touched
@@ -406,6 +415,10 @@ class Store:
                     raise BoardError(f"{task_id} is blocked by: {', '.join(unresolved)} (use --force)")
             t["status"] = "doing"
             t["agent"] = name   # `color` is accepted and ignored, as in start_card
+            if model:
+                t["model"] = model
+            else:
+                t.pop("model", None)   # the model of the last claim: an agent that does not say which model it is does not inherit the one before it
             if t.get("progress", 0) == 0:
                 t["progress"] = 5
             t.pop("needs_input", None)
@@ -529,6 +542,10 @@ class Store:
             t.pop("needs_input", None)
             t.pop("question", None)
             t.pop("ask_child", None)
+            if insights.enabled(self.dir) and not t.get("actual_size"):   # how big it came out, at the first report: its own time since its first claim
+                sz = insights.build_size(t.get("log"), _now())
+                if sz:
+                    t["actual_size"] = sz
             t["review"] = True
             t["progress"] = 100
             t["result"] = summary
@@ -666,6 +683,21 @@ class Store:
             self._rework(t, rework.SENT_BACK)
             t["updated"] = _now()
             return t
+
+    def _model_on_claim(self, model):
+        """The model to record on a card at claim or start: the explicit --model (a bad one is refused), else $AGENTBOARD_MODEL when [insights] is enabled
+        (an implicit read must not change what a board with insights off writes; a bad value there is ignored, never a failed claim). None for none."""
+        if model is not None and str(model).strip():
+            try:
+                return insights.clean_model(model)
+            except ValueError as e:
+                raise BoardError(str(e))
+        if insights.enabled(self.dir):
+            try:
+                return insights.clean_model(os.environ.get("AGENTBOARD_MODEL"))
+            except ValueError:
+                return None
+        return None
 
     def _rework(self, t, code):
         """Write one `Rework: <code>` log line (src/agentboard/rework.py, docs/insights-design.md capture 5). Only with [insights] enabled: with it off the
@@ -1353,6 +1385,16 @@ def _drop_read_reply(t):
     r = t.get("reply")
     if isinstance(r, dict) and r.get("read_at"):
         t.pop("reply", None)
+
+
+def _clean_size(size):
+    """A card's estimated size: S, M or L in either case, None for none; anything else is refused."""
+    if size is None or str(size).strip() == "":
+        return None
+    s = str(size).strip().upper()
+    if s not in insights.SIZES:
+        raise BoardError("size must be S, M or L")
+    return s
 
 
 def _log(t, text, by=None, actor=None):
