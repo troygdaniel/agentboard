@@ -21,6 +21,9 @@ from . import agentstates as agentstateslib
 from . import insights as insightslib
 from . import lifecycle
 from . import lockdown
+from . import names as namesmod
+from . import rename as renamelib
+from .names import AGENT_SLOTS, agent_slot  # noqa: F401  (agent_slot is also used by tests and the spawn command below)
 from . import plugins
 from . import private
 from . import profile as profilelib
@@ -910,20 +913,20 @@ def _agent_name(a):
 # Slot n is --a<n> in static/index.html (light-theme values, which carry white text, as a spawned terminal tab does), and
 # agent_slot() mirrors agentColor() there, so a spawned terminal and the agent's cards are the same colour.
 AGENT_PALETTE = ["#2563eb", "#7c3aed", "#db2777", "#0e7490", "#475569", "#a21caf"]
-AGENT_SLOTS = {"GENERAL": 5, "ORCH": 6}
+# AGENT_SLOTS and agent_slot() live in names.py (rename pins a renamed agent's colour with them); imported at the top of this file.
 
 
-def agent_slot(name):
-    """The 1-based palette slot an agent name gets: AGENT-1..4 take 1..4 (AGENT-5 wraps to 1), GENERAL 5, ORCH 6, any other name a stable hash."""
-    if name in AGENT_SLOTS:
-        return AGENT_SLOTS[name]
-    m = re.fullmatch(r"AGENT-(\d+)", name)
-    if m:
-        return (max(int(m.group(1)), 1) - 1) % 4 + 1
-    h = 7
-    for ch in name:
-        h = (h * 31 + ord(ch)) & 0xFFFFFFFF
-    return 1 + h % 6
+def _spawn_color(name, overrides):
+    """The colour a spawned terminal gets: the name's [agent_colors] entry, else its palette slot. A pin of the form var(--aN), which `agentboard rename`
+    writes so a renamed agent keeps the slot colour its old name had, is that slot's hex (a terminal cannot use a CSS variable)."""
+    own = overrides.get(name)
+    if isinstance(own, str):
+        m = re.fullmatch(r"var\(--a([1-6])\)", own)
+        if m:
+            return AGENT_PALETTE[int(m.group(1)) - 1]
+        if own:
+            return own
+    return AGENT_PALETTE[agent_slot(name) - 1]
 
 
 def _as_escape(s):
@@ -984,7 +987,7 @@ def cmd_spawn(a):
     if not isinstance(overrides, dict):
         overrides = {}
     for i, name in enumerate(names):
-        color = colors[i] if i < len(colors) else overrides.get(name) or AGENT_PALETTE[agent_slot(name) - 1]
+        color = colors[i] if i < len(colors) else _spawn_color(name, overrides)
         cmdline = f"cd {shlex.quote(cwd)} && {a.cmd}"
         lines = ['tell application "Terminal"', "activate",
                  f'set newTab to do script "{_as_escape(cmdline)}"']
@@ -2329,6 +2332,12 @@ def main(argv=None):
     csp.add_argument("--once", action="store_true", help="one round, then exit")
     csp.add_argument("--model", help="claude model for the drafts (default: [chat] idle_model)")
 
+    sp = add("rename", cmd_rename, "give an agent a new name and keep its cards, claims, chat and colour (the old name keeps working for a day)")
+    sp.add_argument("old", nargs="?", help="the agent's current name")
+    sp.add_argument("new", nargs="?", help="its new name (letters, digits, space, dot, hyphen, underscore; up to 40)")
+    sp.add_argument("--dry-run", action="store_true", help="say what would change and change nothing")
+    sp.add_argument("--undo", action="store_true", help="reverse the last rename (takes no names)")
+
     sp = sub.add_parser("plugins", help="say whether plugins are allowed on this machine and which are loaded (no network call; imports nothing while off)")
     sp.set_defaults(fn=cmd_plugins)
     add_plugin_commands(sub)
@@ -2344,6 +2353,7 @@ def main(argv=None):
         p.error("give a task id or --all")
     if a.cmd == "rm" and not (a.demo or a.id):
         p.error("give a task id or --demo")
+    _canon_names(a)
     _seen_step(a)
     a._real_cli = argv is None   # the real command line, not a call from code: `init` chooses its profile by looking at the machine only here
     try:
@@ -2353,6 +2363,48 @@ def main(argv=None):
         if msg.startswith("no such task: ") and "agentboard list" not in msg:
             msg += ("" if msg.endswith(")") else " (`agentboard list` shows the ids)")
         sys.exit(f"agentboard: {msg}")
+
+
+NAMELESS_COMMANDS = ("init", "board", "plugins", "profile", "selfcheck", "rename")
+
+
+def _canon_names(a):
+    """A name that was changed with `agentboard rename` keeps working: --name, --to and $AGENTBOARD_NAME that hold the old name mean the new one for the
+    rest of this command (names.resolve; the alias lasts a day after its last use). One place, before any command runs, so no command has to know."""
+    if a.cmd in NAMELESS_COMMANDS:
+        return
+    given = {f: getattr(a, f, None) for f in ("name", "to")}
+    env = os.environ.get("AGENTBOARD_NAME")
+    if not env and not any(isinstance(v, str) and v for v in given.values()):
+        return
+    try:
+        board = find_dir()
+    except BoardError:
+        return
+    if not namesmod.path(board).exists():
+        return
+    if env:
+        os.environ["AGENTBOARD_NAME"] = namesmod.resolve(board, env)
+    for f, v in given.items():
+        if isinstance(v, str) and v:
+            setattr(a, f, namesmod.resolve(board, v))
+
+
+def cmd_rename(a):
+    s = _store()
+    if a.undo:
+        if a.old or a.new:
+            raise BoardError("--undo takes no names: it reverses the last rename")
+        rec = renamelib.last_record(s.dir)
+        if rec is None:
+            raise BoardError("no rename to undo")
+        old, new, undoing = rec["new"], rec["old"], rec
+    else:
+        if not (a.old and a.new):
+            raise BoardError("give the old and the new name: agentboard rename OLD NEW  (or --undo)")
+        old, new, undoing = a.old, a.new, None
+    p = renamelib.plan(s, old, new, undoing) if a.dry_run else renamelib.apply(s, old, new, undoing)
+    print("\n".join(renamelib.describe(p, dry=a.dry_run)))
 
 
 def _seen_step(a):

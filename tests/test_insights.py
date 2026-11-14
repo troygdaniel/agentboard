@@ -391,7 +391,7 @@ class TheCommand(Base):
         code, out = self.run_cli("insights", "--json", "--since", "30d")
         d = json.loads(out)
         self.assertEqual(d["thresholds"]["min_n"], 5)
-        self.assertEqual({o["rule"] for o in d["observations"]}, {"blocked-wait", "big-cards", "idle-nights", "holding", "waiting-for-work"})
+        self.assertEqual({o["rule"] for o in d["observations"]}, {"blocked-wait", "big-cards", "idle-nights", "rework", "holding", "waiting-for-work"})
         self.assertTrue(all(o["state"] in ("fires", "quiet", "not-enough-data") for o in d["observations"]))
 
     def test_a_bad_since_says_the_allowed_shapes(self):
