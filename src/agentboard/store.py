@@ -26,6 +26,7 @@ DIR_NAME = ".agentboard"
 # agent chat: what a message may be about, and how long its one line and its detail may be
 CHAT_TOPICS = ("status", "learn", "help", "heads-up", "handoff")
 CHAT_LINE_MAX, CHAT_DETAIL_MAX, CHAT_FILES_MAX = 300, 4000, 20
+OPEN_QUESTION_S = 30 * 60   # a plain answer from an agent belongs to the owner's last question to it only while that question is this young (Store._open_question)
 # Caps on a card's free text. Every card is re-served on the page's 1 Hz poll, so one huge field would slow every client; a title is refused
 # past TITLE_MAX (it is a line, not a document), the prose fields are cut.
 TITLE_MAX, DESCRIPTION_MAX, STATUS_MAX, BODY_MAX = 200, 20_000, 1000, 60_000
@@ -982,6 +983,11 @@ class Store:
         talk = bool(to and not to_owner) or bool(files and not to_owner)
         with self._lock():
             data = self._read()
+            if kind == "agent" and not to and reply_to is None and not files:   # a plain answer: the line an agent writes to the question the owner asked it (see _open_question)
+                q = self._open_question(data, sender, card)
+                if q is not None:
+                    reply_to, to, to_owner = q["seq"], q.get("sender") or self.owner, True
+                    card = card or q.get("card")
             if card:
                 if not any(t["id"] == card for t in data["tasks"]):
                     raise BoardError(f"no such task: {card}")
@@ -989,6 +995,8 @@ class Store:
                 parent = next((m for m in data["chat"] if m["seq"] == reply_to), None)
                 if parent is None:
                     raise BoardError(f"no chat message #{reply_to}")
+                if not card and parent.get("card") and any(t["id"] == parent["card"] for t in data["tasks"]):
+                    card = parent["card"]   # an answer belongs to its question's card: the conversation on the card lists lines by card
                 if not to and parent.get("kind") != "user":   # an unaddressed reply to an agent's line is talking to that agent
                     talk = True
             unknown = to and to != "all" and not to_owner and not self._known_name(data, to)   # a name nobody has
@@ -1023,6 +1031,27 @@ class Store:
             self._write(data)
             chatwake.bump(self.dir, to)   # the wake file moves: a wait on it reads the board now, a schedule sees it in one stat (chat-f7)
             return msg
+
+    def _open_question(self, data, sender, card=None):
+        """The owner's latest line to `sender` that `sender` has not answered yet, if it is recent and a line about `card` (or about no card) can answer it.
+        An agent that answers the owner with a plain `chat send` (no --to, no --reply-to, no --card) means that answer: without this the line was a
+        broadcast to every inbox that never reached the conversation it belongs to. Not an answer: a line to someone else, a line about another card, an
+        answer to a question that is already answered, or a question older than OPEN_QUESTION_S."""
+        who = str(sender or "").strip().lower()
+        asked = [m for m in data["chat"] if m.get("kind") == "user" and str(m.get("to") or "").strip().lower() == who]
+        if not who or not asked:
+            return None
+        q = asked[-1]
+        if card and q.get("card") != card:
+            return None
+        at = parse_stamp(q.get("at"))
+        if at is None or (parse_stamp(_now()) - at).total_seconds() > OPEN_QUESTION_S:
+            return None
+        for m in data["chat"]:   # answered: a later line from `sender` that replies to it, or is addressed to the owner
+            if m["seq"] > q["seq"] and m.get("kind") == "agent" and str(m.get("sender") or "").strip().lower() == who \
+                    and (m.get("reply_to") == q["seq"] or _to_owner(m.get("to"), self.owner)):
+                return None
+        return q
 
     def _known_names(self, data):
         """Who a line can reach: ORCH, the owner, the roster ([orch] agents in config.toml), every card holder, every chat sender, every
