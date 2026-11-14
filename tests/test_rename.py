@@ -380,6 +380,12 @@ class CommandLine(Base):
             cli._canon_names(SimpleNamespace(cmd="update", name="Anyone", to=None))
         resolve.assert_not_called()
 
+    def test_a_spawned_terminal_gets_a_real_colour_for_a_pinned_slot(self):
+        self.assertEqual(cli._spawn_color("Ives", {"Ives": "var(--a3)"}), cli.AGENT_PALETTE[2])
+        self.assertEqual(cli._spawn_color("Ives", {"Ives": "#112233"}), "#112233")
+        self.assertEqual(cli._spawn_color("Ives", {"Ives": "green"}), "green")
+        self.assertEqual(cli._spawn_color("Ives", {}), cli.AGENT_PALETTE[names.agent_slot("Ives") - 1])
+
     def test_help_and_usage(self):
         code, out = self.run_cli("rename")
         self.assertIn("give the old and the new name", out)

@@ -915,6 +915,19 @@ AGENT_PALETTE = ["#2563eb", "#7c3aed", "#db2777", "#0e7490", "#475569", "#a21caf
 # AGENT_SLOTS and agent_slot() live in names.py (rename pins a renamed agent's colour with them); imported at the top of this file.
 
 
+def _spawn_color(name, overrides):
+    """The colour a spawned terminal gets: the name's [agent_colors] entry, else its palette slot. A pin of the form var(--aN), which `agentboard rename`
+    writes so a renamed agent keeps the slot colour its old name had, is that slot's hex (a terminal cannot use a CSS variable)."""
+    own = overrides.get(name)
+    if isinstance(own, str):
+        m = re.fullmatch(r"var\(--a([1-6])\)", own)
+        if m:
+            return AGENT_PALETTE[int(m.group(1)) - 1]
+        if own:
+            return own
+    return AGENT_PALETTE[agent_slot(name) - 1]
+
+
 def _as_escape(s):
     """Escape a string for embedding inside a double-quoted AppleScript literal."""
     return s.replace("\\", "\\\\").replace('"', '\\"')
@@ -973,7 +986,7 @@ def cmd_spawn(a):
     if not isinstance(overrides, dict):
         overrides = {}
     for i, name in enumerate(names):
-        color = colors[i] if i < len(colors) else overrides.get(name) or AGENT_PALETTE[agent_slot(name) - 1]
+        color = colors[i] if i < len(colors) else _spawn_color(name, overrides)
         cmdline = f"cd {shlex.quote(cwd)} && {a.cmd}"
         lines = ['tell application "Terminal"', "activate",
                  f'set newTab to do script "{_as_escape(cmdline)}"']
