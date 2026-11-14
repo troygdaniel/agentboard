@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Talk it through: an answer lands in its question's thread; a handled line is not delivered again (Nov 14)
+Two bugs in the board's conversation with ORCH. An answer ORCH sent with a plain `chat send` (no `--to`, `--card` or `--reply-to`) never showed in the Talk it through box and went to every agent's inbox; ORCH had to send it again with all three. And a line that ORCH had already acted on was printed to it again by a later `chat inbox`, "printed to you 10 min ago and never confirmed: shown again".
+- **A plain answer is threaded.** `chat send` from an agent with no recipient, card or reply-to answers the owner's latest unanswered line to that agent (within 30 minutes, and about the same card or none): it is addressed to the owner, replies to that line, and carries its card, so it shows in the conversation under the question and reaches no other inbox. An answer that names its question with `--reply-to` takes that question's card. A line to an agent, a line about another card, an announcement after the question was answered, and a question older than 30 minutes stay as written.
+- **A session that came back has read what it was shown.** A delivery now records which session it went to (the first ancestor process of the command that is not a shell: the agent runtime, or a terminal tab's login). That session running any board command, with or without `--name`, or its next `chat inbox`, confirms the delivery whatever its age. The five-minute rule still applies to a different session taking over the name, and to a session that cannot be told.
+- Checked: `tests/test_talk_thread.py`, `tests/test_session_receipts.py` (the busy session, the gone reader, the session key) and `node tests/qa/talk_check.mjs` (the box in headless Chrome, 12 checks; red before the fix).
+
 ### Esc leaves a text field (Nov 14)
 Typing to ORCH (the line at the bottom, the chat drawer, the Ask ORCH box in Talk it through) or parking an idea in Later left you in the field: the board's keys did not work again until you reached for the mouse, and Esc closed the drawer or the conversation under you in the same press.
 - **The first Esc in a text field leaves it and keeps what you typed**; the board's keys (`?`, `l`, `n`, `s`, the arrows) work again at once. The next Esc closes the layer under it, as before: the conversation, the sheet, the drawer, the card.

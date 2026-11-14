@@ -69,6 +69,9 @@ Each card names the repro line it must turn green.
    takes a file lock and only moves forward. Paths 7 and 8 (R7, R8).
 3. **F3 (dev)** Two-step receipts: printed = delivered; read only when the session next does anything on the board as that name (any
    command with `--name`); a delivered line that is not confirmed in 5 minutes is shown again by the next `chat inbox`. Path 5 (R2).
+   *As built, 14 Nov (card `talk-it-through-bugs`):* the clock alone showed a handled line again to a session that had been busy for 10 minutes with commands
+   that carry no name. A delivery now records the session it went to (`cursors.session_id()`: the first ancestor process of the command that is not a shell),
+   and that session running any board command, or its next `chat inbox`, confirms it at any age; the 5 minutes decide only for a different or unknown session.
 4. **F4 (dev)** One listener entry per process, not per name; a second registration under a live name warns and the board shows
    "2 sessions". Path 6 (R4a, R4b).
 5. **F5 (dev)** `chat send --to X` says when X is no known name (anyone on the board, any listener, ORCH, the owner, "all") and offers the

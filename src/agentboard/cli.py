@@ -676,8 +676,8 @@ def cmd_chat_inbox(a):
     name = _chat_name(a)
     s = _store()
     if not a.keep and a.after is None and not a.all:   # two steps: what an earlier read printed is seen now that the session is back, unless it sat unconfirmed too long
-        left = cursors.pending(s.dir, name)
-        if left and cursors.confirm(s.dir, name, within=cursors.RESHOW_S) is None:
+        left = cursors.pending(s.dir, name)   # the session that was shown it is back (its next inbox is the proof it read it, however long the job in between); another or unknown one is judged by the clock
+        if left and cursors.confirm(s.dir, name, within=cursors.RESHOW_S, by=cursors.session_id() if left.get("by") is not None else None) is None:
             print(f"(printed to you {int(left['age_s'] // 60)} min ago and never confirmed: shown again)")
     after = None if a.all else (a.after if a.after is not None else cursors.get(s.dir, name))
     deadline = time.time() + (a.wait or 0)
@@ -693,7 +693,7 @@ def cmd_chat_inbox(a):
     for m in msgs:
         print(_chat_line(m))
     if msgs and not a.keep:
-        cursors.deliver(s.dir, name, msgs[-1]["seq"])   # DELIVERED: printed. SEEN when this name next does anything on the board (cursors.confirm)
+        cursors.deliver(s.dir, name, msgs[-1]["seq"], by=cursors.session_id())   # DELIVERED: printed, to this session. SEEN when this session next does anything on the board (cursors.confirm, confirm_session)
     if more:
         print(f"({len(more)} more unread, from #{more[0]['seq']}: run `agentboard chat inbox --name {name}` again" + ("" if a.keep else ", or --limit 0 for all") + ")")
     if not msgs:
@@ -1760,7 +1760,8 @@ def cmd_answer(a):
                 if name is None:
                     name = Store.get(s.load(), a.id).get("agent") or ""
                     if name:
-                        cursors.confirm(s.dir, name, within=cursors.RESHOW_S)   # back as this name: what an earlier wait printed is seen (unless it sat too long)
+                        left = cursors.pending(s.dir, name)
+                        cursors.confirm(s.dir, name, within=cursors.RESHOW_S, by=cursors.session_id() if left and left.get("by") is not None else None)   # back as this name: what an earlier wait printed is seen (this session at any age, another unless it sat too long)
                     if a.wait and name:
                         listener = (name, listeners.register(s.dir, name, f"answer {a.id}"))
                         _twins_warning(s, name)
@@ -1780,7 +1781,7 @@ def cmd_answer(a):
                 for m in msgs:
                     print(f"({_message_when(m)})", file=sys.stderr)
                     print(m["text"])
-                cursors.deliver(s.dir, name, msgs[-1]["seq"])   # delivered, the same way `chat inbox` records what it printed; seen when the session next acts
+                cursors.deliver(s.dir, name, msgs[-1]["seq"], by=cursors.session_id())   # delivered, the same way `chat inbox` records what it printed; seen when the session next acts
                 print(f"(not a card reply: answer on the board with `{rules.reply_cmd('agentboard', name, s.owner, reply_to=msgs[-1]['seq'])}`, then keep waiting)", file=sys.stderr)
                 return
             if not a.wait or time.time() >= deadline:
@@ -2283,16 +2284,17 @@ def main(argv=None):
 
 
 def _seen_step(a):
-    """The second step of a receipt (cursors.py): a session that runs any board command as a name has seen what its wait printed.
-    Not for `chat inbox` (it applies the 5-minute rule itself), the hooks (they run beside the session, not as its act), or
+    """The second step of a receipt (cursors.py): a session that runs any board command, as a name or not, has seen what its wait printed to it.
+    Not for `chat inbox` (it applies the session and 5-minute rules itself), the hooks (they run beside the session, not as its act), or
     `serve`/`tail`/`run` (the owner's, not an agent's turn)."""
     if a.cmd in ("hook", "hooks", "serve", "tail", "run", "init", "board", "plugins") or a.fn is cmd_chat_inbox:
         return
     name = getattr(a, "name", None) or os.environ.get("AGENTBOARD_NAME")
-    if not name:
-        return
     try:
-        cursors.confirm(find_dir(), name)
+        board = find_dir()
+        if name:
+            cursors.confirm(board, name)
+        cursors.confirm_session(board)   # the session that was shown a line ran a board command, with or without a name: it read it
     except (BoardError, OSError):
         pass
 
