@@ -405,6 +405,7 @@ Rename this session to ORCH (`/rename ORCH`). You are a fresh or /clear'ed Claud
 - Speak to {owner} only when they must act.
 - Daytime: {owner} assigns cards. Declared sleep or nap: you assign idle agents.
 - Agents finish with `review`; {owner} signs off. Run `done` only on their explicit say-so. """ + rules.ORCH_ONE_ID + """
+- Before {owner} signs off a card in review, record what you hold: `{ab} signoff <id> --merged <hash>` (or `--not-merged --ahead <n>`) with `--test "<suite>=pass|fail|running"`, `--gate pass|fail|pending`, `--verified-by <name>`. The board shows it on the card, and tells you when {owner} signs a card you have not. `done` takes the same flags, and needs a merged sign-off.
 - When an agent tells you its session name, tell the board: `{ab} me --name <name> --session <its CLAUDE_CODE_SESSION_ID>` if it gave its id; if not, ask it to run `{ab} me --name <name>` in its own shell. Session ids are not the `[ref]` ListAgents shows.
 
 ## Never without {owner}'s own words

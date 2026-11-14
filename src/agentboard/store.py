@@ -14,6 +14,7 @@ from . import chatwake
 from . import listeners
 from . import redact
 from . import rules
+from . import signoff as signofflib
 from . import statefile
 
 try:
@@ -513,6 +514,7 @@ class Store:
             _require_doing(t, "review")
             _drop_read_reply(t)
             _drop_owner_marks(t)   # a new report: its steps start at the first, and it comes forward again
+            t.pop("signoff", None)   # ORCH's sign-off was about the review before this one
             t.pop("needs_input", None)
             t.pop("question", None)
             t.pop("ask_child", None)
@@ -530,6 +532,39 @@ class Store:
                 if k["status"] != "done":
                     _finish(k, t["updated"])
             return t
+
+    def signoff(self, task_id, rec, by=None):
+        """ORCH records what it knows about a card in review (card orch-sign-off): merged or not, the tests that ran, the batch gate, who verified.
+        `rec` comes from signoff.clean(), so it holds hashes, counts and results only. Only ORCH (or the owner at a terminal) records one; an agent
+        never signs off its own work. It shows on the card next to the review, so the owner reads it before signing. A new review, the card
+        going back to work or to Todo, or a send-back drops it; done keeps it as the record."""
+        who = str(by or "").strip()
+        if who and who.upper() != "ORCH" and not _to_owner(who, self.owner):
+            raise BoardError(f"only ORCH records a sign-off: {who} reports with review and waits for ORCH or {_who(self.owner)}")
+        with self.transaction() as tasks:
+            t = self.get(tasks, task_id)
+            _not_a_subtask(t, "sign off")
+            if t["status"] != "doing" or not t.get("review"):
+                raise BoardError(f"{task_id} is not in review: ORCH signs a card off once its agent has handed it in")
+            t["signoff"] = {**rec, "by": who or "ORCH", "at": _now()}
+            _log(t, "ORCH sign-off: " + signofflib.line(rec), by=who or "ORCH")
+            t["updated"] = _now()
+            return t
+
+    def unsigned_note(self, prev):
+        """The owner has just closed `prev` (the card as it stood a moment before). When it was in review and ORCH had not signed it off as
+        merged, return the one-line heads-up the board shows, and tell ORCH in chat (a count-and-result line, no message text). None for any
+        other card: a sign-off that says merged, a card that was not in review, a subtask."""
+        if not prev or prev.get("parent_id") or prev.get("status") != "doing" or not prev.get("review"):
+            return None
+        so = prev.get("signoff")
+        if so and so.get("merged"):
+            return None
+        what = "not merged yet" if so else "not signed yet"
+        with contextlib.suppress(BoardError):   # chat off or full must not undo the owner's sign-off
+            self.chat_send(self.owner, f"{_who(self.owner)} signed off {prev['id']} without ORCH's sign-off ({what}).", "user",
+                           to="ORCH", card=prev["id"], via="board")
+        return f"Signed off without ORCH: {what}. ORCH has been told."
 
     def set_run(self, task_id, run, log_text=None):
         """Record a one-shot run on the card (`agentboard run`): status, pid, times, cost. A shallow merge into card["run"]."""
@@ -604,7 +639,7 @@ class Store:
             if t["status"] == "done":
                 t["status"] = "doing"
                 t.pop("finished", None)
-            for f in ("review", "needs_input", "question", "ask_child", "body_md"):
+            for f in ("review", "needs_input", "question", "ask_child", "body_md", "signoff"):
                 t.pop(f, None)
             t["progress"] = min(int(t.get("progress", 0)), 95)
             t["status_text"] = f"Sent back: {text}"[:300]
@@ -719,7 +754,7 @@ class Store:
             raise BoardError(parent_pct_hint(t["id"], open_kids))
         resumed = bool(t.get("needs_input") or t.get("review"))
         settled = False   # a subtask's report ended the card's own question
-        for f in ("needs_input", "question", "review") + (() if status == "done" else ("body_md",)):   # done keeps the body it closes with
+        for f in ("needs_input", "question", "review") + (() if status == "done" else ("body_md", "signoff")):   # done keeps the body and the sign-off it closes with
             t.pop(f, None)
         _drop_read_reply(t)   # the agent has moved on from what the reply answered, once it has read it
         parent = _parent_of(tasks, t)
@@ -782,6 +817,8 @@ class Store:
                 if was == "doing" and status in ("todo", "backlog"):
                     _keep_learned(t)   # the agent's account, last status and progress outlive its claim: the next agent starts from them
                 _set_status(tasks, t, status)
+                if status != "done":
+                    t.pop("signoff", None)   # back to Todo or Later: the review it spoke of is over
                 self._tell_holder(t, was, holder)
                 _log(t, f"Moved to {status}")
             t["updated"] = _now()
@@ -883,6 +920,8 @@ class Store:
                 if t["status"] != status:
                     was, holder = t["status"], t.get("agent")
                     _set_status(tasks, t, status)
+                    if status != "done":
+                        t.pop("signoff", None)
                     self._tell_holder(t, was, holder)
                     _log(t, f"Moved to {status}")
                 t["updated"] = _now()

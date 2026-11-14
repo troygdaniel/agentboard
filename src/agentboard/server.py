@@ -484,7 +484,8 @@ def make_handler(default_store, port):
                     prev_kids = [k for k in loaded if k.get("parent_id") == body["id"]]   # a move cascades onto them
                     prev_before = self.store.next_sibling(body["id"])
                     moved = self.store.move(body["id"], body["status"], body.get("before"))
-                    self._send(200, {"task": moved, "prev": prev, "prev_before": prev_before, "prev_kids": prev_kids})
+                    note = self.store.unsigned_note(prev) if body["status"] == "done" else None   # the owner signed off a card ORCH had not: say so, tell ORCH
+                    self._send(200, {"task": moved, "prev": prev, "prev_before": prev_before, "prev_kids": prev_kids, "heads_up": note})
                 elif path == "/api/restore":
                     self._send(200, self.store.restore(body["task"], body.get("before"), body.get("kids")))
                 elif path == "/api/bulk-move":
@@ -493,7 +494,10 @@ def make_handler(default_store, port):
                     prev = [{"task": Store.get(loaded, i), "before": self.store.next_sibling(i),
                              "kids": [k for k in loaded if k.get("parent_id") == i]} for i in ids]
                     moved = self.store.bulk_move(ids, body["status"])
-                    self._send(200, {"tasks": moved, "prev": prev})
+                    notes = [self.store.unsigned_note(p["task"]) for p in prev] if body["status"] == "done" else []
+                    notes = [n for n in notes if n]
+                    note = (notes[0] if len(notes) == 1 else f"Signed off {len(notes)} cards without ORCH's sign-off. ORCH has been told.") if notes else None
+                    self._send(200, {"tasks": moved, "prev": prev, "heads_up": note})
                 elif path == "/api/bulk-archive":
                     self._send(200, {"ids": self.store.bulk_archive(_ids(body))})
                 elif path == "/api/clear-done":
