@@ -533,6 +533,7 @@ def make_handler(default_store, port):
                     if at and not to:
                         to, text = at.group(1), at.group(2)
                     m = self.store.chat_send(sender, text, "user", to=to if isinstance(to, str) else None,
+                                             card=body.get("card") if isinstance(body.get("card"), str) else None,
                                              reply_to=body.get("reply_to") if isinstance(body.get("reply_to"), int) else None)
                     self._send(200, m)
                 elif path == "/api/chat-agents":
