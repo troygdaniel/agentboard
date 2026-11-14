@@ -626,6 +626,7 @@ Copy prompt button, the CLI and `agentboard prompt` are unaffected.
 | `reports [--purge] [--hours N]` | list card reports; remove the old ones now |
 | `report [--date YYYY-MM-DD]` | markdown recap of what got done that day, by agent — for a standup or daily log |
 | `insights [--since 7d] [--agent N] [--prefix P] [--json]` | four observations on how the agents are used, from the board's own records (needs `[insights] enabled = true`; see Insights) |
+| `rename OLD NEW [--dry-run]`, `rename --undo` | give an agent a new name and keep its cards, claims, chat, read position, roster entry and colour (a `--dry-run` prints the counts and writes nothing); the old name keeps working for a day after its last use, so a terminal not yet renamed still reports; `--undo` reverses the last one |
 | `clear` | archive all Done cards: they move to `archive.json` (history and HUD counts kept) |
 | `demo [--live]`, `rm --demo` | sample tasks / simulated agents |
 | `prompt <id> [--public]`, `rebuild [id] [--all]`, `instructions`, `orch` | prompts and the agent snippet; `orch` prints the prompt that boots a session as ORCH (starts nothing) |
