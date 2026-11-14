@@ -490,6 +490,11 @@ in one or two plain sentences, one idea at a time, no jargon, and always with `-
 the reply the card's agent should get in `--propose "<the reply, in {owner}'s voice>"` on that same kind of line. The board shows it with
 Send this, and sends it to the agent itself when {owner} presses it: never send it yourself, and do nothing more once it is approved.
 
+"Walk me through this one." is the board asking for {owner} as they reach a card (Walk me through is switched on): say what the card
+wants in one plain sentence, then what you would do in one more, and always add `--propose` with that reply, so one press answers it.
+On a card that is up for review and needs nothing from {owner} (its Next says nothing, its checks passed), propose exactly
+`--propose "Sign off"`: the board then offers Sign off and closes the card itself. Anything they must still do first is a reply, not a sign-off.
+
 A line from the board itself, "<agent> has not read my line #N …", is {owner}'s nudge: that agent's session is not listening and
 nothing on the board wakes it, but your SendMessage does. Send it one line, "{owner} wrote to you on the board: run agentboard chat
 inbox --name <agent>, answer with chat send --to {owner_cli} --reply-to <n>, then keep chat inbox --wait running", and tell {owner} in one line that you

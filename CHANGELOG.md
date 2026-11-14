@@ -8,6 +8,9 @@ The owner still went to ORCH's terminal to be walked through the cards one by on
 - **It ends in an action.** When what you want is clear, ORCH proposes the reply for the card's agent. **Send this** sends it (the board sends it, not ORCH), the card leaves the pile, and the conversation moves to the next card. **Change it** rewords it first.
 - **It follows you down the pile**, and a card you already talked about opens with its conversation. `Esc` closes it.
 - **ORCH's boot prompt says how**: a line ending "(card <id>)" is answered about that card only, in one or two plain sentences, with `--card`, and the reply goes in `--propose` once the owner is clear. An ORCH started from an older prompt answers in the bubble as before, so copy a fresh prompt.
+- **Walk me through** (later the same day): a switch at the top of the conversation. While it is on, the board asks ORCH about each card as you reach it, and ORCH says what the card wants and what it would do, with the reply ready to send. A card you only pass on the way down the pile is not asked about. The switch is remembered.
+- **Sign off from the conversation**: on finished work that needs nothing from you, ORCH proposes the sign-off itself. The button reads **Sign off** and closes the card; **Not yet** keeps it open.
+- **A dot on Talk it through** when ORCH has answered about a card and you have not looked.
 - Nothing new runs and no new route: it is the board's chat (`POST /api/chat` now takes the `card` a line is about). While ORCH is away the conversation says so and keeps your line for it.
 ### Starting the day: ORCH, one click away (Nov 13)
 Finding the ORCH prompt took a trip to the drawer, and nothing said that ORCH was not running.

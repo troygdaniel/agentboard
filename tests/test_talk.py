@@ -87,6 +87,20 @@ class Page(unittest.TestCase):
     def test_it_says_when_orch_is_away(self):
         self.assertIn("ORCH is not running. It will read this when it starts.</p>", PAGE)
 
+    def test_walk_me_through_asks_once_per_card_you_stop_on(self):
+        self.assertIn("const TALK_WALK = 'Walk me through this one.';", PAGE)
+        self.assertIn("if (talkWalk && !lines.length && !talkAsked.has(t.id) && !talkBusy && Date.now() - talkSince > 1100) { talkAsked.add(t.id); talkSay(TALK_WALK); }", PAGE)
+        self.assertIn("try { talkWalk = localStorage.getItem('ab-talk-walk') === '1'; } catch (e) {}", PAGE)   # remembered, and a blocked store leaves it off
+
+    def test_orch_may_propose_the_sign_off_only_on_finished_work(self):
+        self.assertIn("const talkSignoff = (t, m) => !!(t && t.review && m.action && /^sign (it )?off\\b/i.test(m.action.text));", PAGE)
+        block = PAGE[PAGE.index("const sd = e.target.closest?.('[data-talk-send]')"):PAGE.index("window.addEventListener('keydown', e => {   // on Now, the slash talks")]
+        self.assertIn("if (talkSignoff(byId.get(id), m)) { const ag = byId.get(id)?.agent; if (await move(id, 'done')) touch.after('drop', 'done', ag); } else { talkShut.add(id); await quickReply(id, m.action.text); }", block)
+
+    def test_a_new_answer_marks_the_cards_button(self):
+        self.assertIn("b.classList.toggle('new', b.dataset.talk !== talkCard && talkNew(b.dataset.talk))", PAGE)
+
+
 
 class OrchKnowsHow(unittest.TestCase):
     def test_the_boot_prompt_says_how_to_answer_a_card_conversation(self):
@@ -97,6 +111,8 @@ class OrchKnowsHow(unittest.TestCase):
         self.assertIn("--propose", text)
         self.assertIn("never send it yourself", text)
         self.assertIn('"Simpler" means shorter and plainer, not more.', text)
+        self.assertIn('"Walk me through this one." is the board asking', text)
+        self.assertIn('`--propose "Sign off"`', text)
 
 
 if __name__ == "__main__":
