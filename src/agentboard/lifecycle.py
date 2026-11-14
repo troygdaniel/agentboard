@@ -3,7 +3,9 @@
     agentboard serve --background      start detached: output to .agentboard/server.log, one line with the pid and the URL once /api/health answers
     agentboard status                  running or not, pid, port, since when, uptime, plugins loaded, lockdown on or off; stale files cleaned
     agentboard stop                    SIGTERM every server of this board and wait until each is gone (in-flight requests finish first)
-    agentboard restart                 stop, then start again on the same port with this shell's environment; one line with the old and new pid
+    agentboard restart                 stop, then start again on the same port with this shell's environment plus every AGENTBOARD_* setting the
+                                       old server had and this shell lacks (a restart from a plain shell keeps the keys the board was started
+                                       with; --fresh takes this shell's environment only); one line with the old and new pid and what was kept
 
 Everything here reads the board folder's server-<pid>.json files (serverstate.py) and talks to the loopback only (GET /api/health, which
 answers with no board data). A stale file (a server killed with -9) is recognised by its dead pid and cleaned. A taken port gets a message
@@ -222,18 +224,56 @@ def start_background(board_dir, port=DEFAULT_PORT, env=None, timeout=START_WAIT_
     return pr.pid, f"started pid {pr.pid} on port {port}, but /api/health did not answer within {timeout:.0f} s (log: {log_path})"
 
 
-def restart(board_dir, port=None, env=None):
+_ENV_BOUND = re.compile(r"(?:^|\s)([A-Za-z_][A-Za-z0-9_]*)=")
+
+
+def server_env(pid, runner=subprocess.run):
+    """The AGENTBOARD_* variables a running server was started with, read from its own process: /proc/<pid>/environ on Linux, `ps -E` on
+    macOS (both show the environment of your own processes only). {} when it cannot be read. Values are keys and tokens: callers may
+    pass them on to a new server and name the variables, never print the values."""
+    out = {}
+    try:
+        for item in Path(f"/proc/{int(pid)}/environ").read_bytes().split(b"\0"):
+            k, sep, v = item.partition(b"=")
+            if sep and k.startswith(b"AGENTBOARD_"):
+                out[k.decode()] = v.decode(errors="replace")
+        return out
+    except (OSError, ValueError):
+        pass
+    try:
+        r = runner(["ps", "-E", "-ww", "-o", "command=", "-p", str(int(pid))], capture_output=True, text=True, timeout=5)
+    except (OSError, subprocess.SubprocessError, ValueError):
+        return out
+    s = (r.stdout or "").rstrip("\n")
+    bounds = [(m.start(1), m.end(), m.group(1)) for m in _ENV_BOUND.finditer(s)]   # VAR= starts; a value runs to the next start
+    for i, (start, end, key) in enumerate(bounds):
+        if key.startswith("AGENTBOARD_"):
+            stop = bounds[i + 1][0] - 1 if i + 1 < len(bounds) else len(s)
+            out[key] = s[end:stop]
+    return out
+
+
+def restart(board_dir, port=None, env=None, fresh=False):
     """Stop the board's server(s) and start one again on the same port (the first running one's, else `port`, else 8765) with this shell's
-    environment. Returns (ok, one line)."""
+    environment (`env`, else os.environ) plus every AGENTBOARD_* setting the old server had and this shell lacks, so a restart from a plain
+    shell does not silently drop the keys the board was started with (texts, replies, facts). `fresh=True` takes this shell's environment
+    only. Returns (ok, one line) that names what was kept (names, never values)."""
     live = running(board_dir)
     ports = [s["port"] for s in live if s["port"]]
     use = int(port or (ports[0] if ports else DEFAULT_PORT))
     was = ", ".join(str(s["pid"]) for s in live) or "none"
+    base = dict(os.environ if env is None else env)
+    kept = {}
+    if live and not fresh:   # read before the stop: the old process must still be there
+        kept = {k: v for k, v in server_env(live[0]["pid"]).items() if k not in base and k != "AGENTBOARD_DIR"}
+        base.update(kept)
     if live:
         ok, line = stop(board_dir)
         if not ok:
             return False, f"restart stopped short: {line}"
-    pid, line = start_background(board_dir, use, env=env)
+    pid, line = start_background(board_dir, use, env=base)
     if pid is None:
         return False, f"restart failed: {line}"
-    return True, f"restarted on port {use}: pid {pid} (was {was}) · http://localhost:{use}/"
+    note = (f" · kept {len(kept)} setting{'s' if len(kept) != 1 else ''} this shell did not have: {', '.join(sorted(kept))}" if kept
+            else " · this shell's environment only" if fresh else "")
+    return True, f"restarted on port {use}: pid {pid} (was {was}){note} · http://localhost:{use}/"

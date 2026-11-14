@@ -409,7 +409,9 @@ starts it detached, with its output in `.agentboard/server.log`, and prints the 
 says running or not, with the pid, the port, since when, the uptime, the plugins loaded and whether the lockdown is on (exit 1 when
 nothing runs); a server file left by a crash or a `kill -9` is cleaned and said. `agentboard stop` sends SIGTERM and waits until the
 server has finished the requests in flight and is gone; `agentboard restart` stops it and starts it again on the same port with this
-shell's environment, one line with the old and new pid. A taken port says who holds it (this board's own server, another board's, or
+shell's environment plus every `AGENTBOARD_*` setting the old server had that this shell lacks (so a restart from a plain shell does
+not silently drop the keys the board was started with; `--fresh` takes this shell's environment only), one line with the old and new
+pid and the names of what was kept. A taken port says who holds it (this board's own server, another board's, or
 something else) and what to do. `stop` signals only a process that is really an `agentboard serve` (its command line says so), never a pid a crash left behind that another program now has. `/api/health` answers on the loopback with no board data: `{ok, agentboard, pid, port, started, uptime_s,
 plugins, lockdown}`. `agentboard doctor` warns about stale server files.
 

@@ -175,6 +175,39 @@ class StatusStopRestart(Base):
         self.assertEqual(code, 0, out)
         self.assertIn("stopped pid", out)
 
+    def test_server_env_reads_the_agentboard_settings_of_a_process(self):
+        # macOS: ps -E appends the environment to the command line; only AGENTBOARD_* keys come back, each value up to the next VAR=
+        fake = lambda argv, **k: mock.Mock(stdout="/usr/bin/python3 -m agentboard serve --port 8765 --no-open AGENTBOARD_DIR=/x/y proj "
+                                           "AGENTBOARD_TEXTS_REPLY=send HOME=/h AGENTBOARD_TEXTS=1 PATH=/a:/b\n", returncode=0)
+        got = lifecycle.server_env(99999999, runner=fake)   # no /proc entry for that pid anywhere, so the runner is asked
+        self.assertEqual(got, {"AGENTBOARD_DIR": "/x/y proj", "AGENTBOARD_TEXTS_REPLY": "send", "AGENTBOARD_TEXTS": "1"})
+        self.assertEqual(lifecycle.server_env(99999999, runner=lambda argv, **k: (_ for _ in ()).throw(OSError("no ps"))), {})
+
+    def test_restart_keeps_the_old_servers_settings_this_shell_lacks(self):
+        # the home Mac's case: the board was started with the texts keys, then restarted from a plain shell without them
+        port = free_port()
+        pid, line = lifecycle.start_background(self.board, port, env={**self.env, "AGENTBOARD_TEXTS_REPLY": "send", "AGENTBOARD_KEEP_ME": "yes"})
+        self.pids.append(pid)
+        self.assertIsNotNone(pid, line)
+        self.assertEqual(lifecycle.server_env(pid).get("AGENTBOARD_KEEP_ME"), "yes", "this platform can read a child's environment")
+        ok, line = lifecycle.restart(self.board, env=self.env)   # self.env has neither key
+        self.assertTrue(ok, line)
+        self.assertIn("kept 2 settings this shell did not have: AGENTBOARD_KEEP_ME, AGENTBOARD_TEXTS_REPLY", line)
+        self.assertNotIn("send", line.split("http")[0].replace("settings", ""))   # names, never values
+        new = lifecycle.health(port)["pid"]
+        self.pids.append(new)
+        kept = lifecycle.server_env(new)
+        self.assertEqual((kept.get("AGENTBOARD_TEXTS_REPLY"), kept.get("AGENTBOARD_KEEP_ME")), ("send", "yes"))
+        self.assertEqual(kept.get("AGENTBOARD_DIR"), str(self.board))
+        ok, line = lifecycle.restart(self.board, env=self.env, fresh=True)   # --fresh: this shell only
+        self.assertTrue(ok, line)
+        self.assertIn("this shell's environment only", line)
+        newer = lifecycle.health(port)["pid"]
+        self.pids.append(newer)
+        self.assertNotIn("AGENTBOARD_TEXTS_REPLY", lifecycle.server_env(newer))
+        code, out = self.run_cli("stop")
+        self.assertEqual(code, 0, out)
+
     def test_a_request_in_flight_finishes_before_the_server_closes(self):
         port = free_port()
         pr = self.serve(port)

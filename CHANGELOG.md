@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### A restart keeps the keys the board was started with (Nov 14)
+A board started with extra `AGENTBOARD_*` settings in its environment (a plugin's keys) lost them when `agentboard restart` was run from a plain shell: the new server got that shell's environment and nothing else, and a feature went quietly off until someone noticed.
+- **`agentboard restart` reads the old server's `AGENTBOARD_*` environment before stopping it** (its own process: `/proc/<pid>/environ` on Linux, `ps -E` on macOS) and keeps every setting this shell lacks; this shell still wins where it sets one. The one line names what was kept, never a value. `--fresh` takes this shell's environment only.
 ### Talk it through: a conversation on the card (Nov 14)
 The owner still went to ORCH's terminal to be walked through the cards one by one, and to talk until it was clear what a card wanted. The line at the bottom showed one answer and let it go.
 - **Talk it through** on the open card of Now (`/`, or the first button under the card): a conversation with ORCH opens beside the card. Each line goes to ORCH with the card attached, so the card never has to be named, and ORCH's answers about that card collect there. Four starter questions are offered: what is this asking me, say it simpler, what do you recommend, what happens if I say no.

@@ -1849,7 +1849,7 @@ def cmd_stop(a):
 
 
 def cmd_restart(a):
-    ok, line = lifecycle.restart(_store().dir, a.port)
+    ok, line = lifecycle.restart(_store().dir, a.port, fresh=a.fresh)
     print(line)
     sys.exit(0 if ok else 1)
 
@@ -2149,8 +2149,10 @@ def main(argv=None):
     add("status", cmd_status, "is the board's server running: pid, port, since when, uptime, plugins loaded, lockdown (exit 1 when not running)")
     sp = add("stop", cmd_stop, "stop the board's server: SIGTERM, then wait until it has finished what it was doing and is gone")
     sp.add_argument("--timeout", type=float, default=lifecycle.STOP_WAIT_S, help="seconds to wait for it to end (default 10)")
-    sp = add("restart", cmd_restart, "stop the board's server and start it again on the same port with this shell's environment; one line with the old and new pid")
+    sp = add("restart", cmd_restart, "stop the board's server and start it again on the same port with this shell's environment, keeping every "
+             "AGENTBOARD_* setting the old server had that this shell lacks; one line with the old and new pid and what was kept")
     sp.add_argument("--port", type=int, help=f"the port for the new server (default: the running one's, else {DEFAULT_PORT})")
+    sp.add_argument("--fresh", action="store_true", help="this shell's environment only: keep nothing from the old server")
 
     sp = add("run", cmd_run, "run a card with a one-shot, non-interactive `claude -p`, then move it to review (or ask)")
     sp.add_argument("id")
