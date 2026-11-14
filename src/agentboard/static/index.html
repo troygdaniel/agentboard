@@ -500,9 +500,9 @@
   .w-fclose { position: absolute; right: -6px; top: -42px; width: 32px; height: 32px; border-radius: 50%; border: 0; background: color-mix(in srgb, var(--surface) 80%, transparent); color: var(--muted); cursor: pointer; font-size: 13px; } .w-fclose:hover { color: var(--text); }
   @media (max-width: 900px) { .w-focus { grid-template-columns: minmax(0, 1fr); } }
   /* Watch is only large cards, nine to a page, in agent-name order; the arrows walk them and, past an edge, slide in the next nine */
-  .w-pages { position: relative; max-width: 1220px; margin: 40px auto 0; overflow: hidden; padding: 14px 0 44px; }
+  .w-pages { position: relative; max-width: 1220px; margin: 8px auto 0; overflow: hidden; padding: 6px 0 44px; }
   .w-track { display: flex; transition: transform .7s cubic-bezier(.2,.8,.2,1); will-change: transform; }
-  .w-page { flex: 0 0 100%; min-width: 0; box-sizing: border-box; padding: 0 20px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-auto-rows: 168px; gap: 18px; align-content: start; transition: opacity .5s; } .w-page:not(.cur) { opacity: .25; }
+  .w-page { flex: 0 0 100%; min-width: 0; box-sizing: border-box; padding: 0 20px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-auto-rows: 150px; gap: 16px; align-content: start; transition: opacity .5s; } .w-page:not(.cur) { opacity: .25; }
   @media (max-width: 1179px) { .w-page { grid-template-columns: repeat(2, minmax(0, 1fr)); } } @media (max-width: 779px) { .w-page { grid-template-columns: minmax(0, 1fr); } }
   .w-dots { position: relative; display: flex; justify-content: center; align-items: center; gap: 10px; margin-top: -18px; }
   .w-dot { width: 9px; height: 9px; padding: 0; border-radius: 50%; border: 0; background: color-mix(in srgb, var(--text) 22%, transparent); cursor: pointer; transition: width .3s, background .3s; } .w-dot.on { width: 26px; border-radius: 99px; background: var(--text); }
@@ -540,7 +540,7 @@
   .now-switch button b { font-weight: 700; font-variant-numeric: tabular-nums; } .now-switch button[aria-selected=true] { background: var(--text); color: var(--bg); } .now-switch button:disabled { opacity: .4; cursor: default; }
   .deck .deck-head { padding-right: 240px; }
   .deck.watch { display: block; position: relative; padding: 4px 24px 110px; min-height: calc(100vh - 230px); }
-  .watch-head { position: relative; min-height: 46px; display: flex; align-items: center; gap: 18px; } .watch-head strong { font-size: 22px; font-weight: 700; letter-spacing: -.01em; }
+  .watch-head { position: relative; min-height: 8px; display: flex; align-items: center; gap: 18px; } .watch-head strong { font-size: 22px; font-weight: 700; letter-spacing: -.01em; }
   .w-grid { position: relative; display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 18px; max-width: 1180px; margin: 46px auto 0; }
   .w-none { grid-column: 1 / -1; text-align: center; color: var(--muted); }
   .w-tile { position: relative; display: grid; grid-template-columns: 84px 1fr; column-gap: 16px; row-gap: 14px; align-items: center; padding: 20px 22px 18px; border-radius: 22px; cursor: pointer; background: radial-gradient(140% 100% at 0 0, color-mix(in srgb, var(--c) 13%, transparent), transparent 60%), var(--surface); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c) 22%, var(--line)), 0 18px 40px -22px color-mix(in srgb, var(--c) 55%, transparent); transition: transform .25s, box-shadow .25s; }
@@ -663,6 +663,18 @@
   .you.ask, .p-you.ask { --y: var(--err); } .you.rev, .p-you.rev { --y: var(--ok); } .you.fin, .you.quiet, .p-you.fin, .p-you.quiet { --y: var(--need); }
   .you.none b { background: none; color: var(--muted); box-shadow: inset 0 0 0 1px var(--line); } .you.none i { font-weight: 500; }
   .you-say { font-size: var(--fs-sm); color: var(--muted); margin: -2px 0 8px; overflow-wrap: anywhere; }
+  /* ORCH's sign-off on a card in review (card orch-sign-off): one row under the agent's sentence, three states (signed off, not merged, not seen yet) */
+  .so { display: grid; grid-template-columns: 18px 1fr auto; column-gap: 10px; row-gap: 1px; align-items: start; margin: 0 0 10px; padding: 8px 12px; border-radius: 8px;
+        font-size: var(--fs-sm); line-height: 1.4; background: var(--chip); color: var(--text); border: 1px solid var(--line); }
+  .so .g { grid-row: 1 / span 2; display: inline-flex; width: 18px; height: 18px; margin-top: 1px; border-radius: 50%; align-items: center; justify-content: center; color: #fff; font-size: 11px; font-weight: 800; background: var(--neutral); }
+  .so b { font-size: var(--fs-xs); letter-spacing: .14em; text-transform: uppercase; font-weight: 700; color: var(--text); align-self: center; }
+  .so .t { font-size: var(--fs-xs); color: var(--muted); align-self: center; white-space: nowrap; }
+  .so .f { grid-column: 2 / span 2; color: var(--muted); overflow-wrap: anywhere; }
+  .so .f i { font-style: normal; color: var(--text); font-weight: 600; }
+  .so.ok { border-color: color-mix(in srgb, var(--ok) 45%, var(--line)); background: color-mix(in srgb, var(--ok) 9%, var(--chip)); } .so.ok .g { background: var(--ok); }
+  .so.warn { border-color: color-mix(in srgb, var(--warn) 50%, var(--line)); background: color-mix(in srgb, var(--warn) 10%, var(--chip)); } .so.warn .g { background: var(--warn); }
+  .so.none { padding-block: 6px; }
+  @media (max-width: 520px) { .so { grid-template-columns: 18px 1fr; } .so .g { grid-row: 1 / span 3; } .so .f, .so .t { grid-column: 2; } .so .t { grid-row: 3; align-self: start; white-space: normal; } }
   .you-btns { display: flex; gap: 8px; flex-wrap: wrap; margin: 0 0 10px; }
   .you-b { min-height: 28px; padding: 0 10px; font-size: 12px; white-space: nowrap; } .you-btns { flex-wrap: nowrap; } .you u { white-space: nowrap; } .you i { white-space: nowrap; }
   .you-b[data-dog-action] { font-size: 0; } .you-b[data-dog-action]::after { content: 'Release'; font-size: 12px; }
@@ -2438,11 +2450,25 @@ function youCard(t) { const y = youOf(t); if (!y) return '';
   const b = youBtns(t, y);
   const age = y.k === 'fin' || y.k === 'quiet' ? '' : `<u>${esc(y.k === 'none' ? ago(t.updated).text : 'for ' + ago(t.updated).text.replace(' ago', '').replace('just now', 'a moment'))}</u>`;
   return `<div class="you ${y.k}"><b>You</b><i>${esc(y.verb)}</i>${y.steps ? `<span class="step-dots" aria-hidden="true">${Array.from({ length: y.steps }, (_, k) => `<s class="${k < y.step ? 'dn' : k === y.step ? 'at' : ''}"></s>`).join('')}</span>` : ''}${age}</div>` + (y.k === 'fin' || y.k === 'quiet' ? `<div class="you-say">${esc(y.say)}</div><div class="you-btns">${b}</div>` : ''); }
+// ORCH's sign-off on a card in review (card orch-sign-off): hashes, counts and results the server has already checked, and escaped anyway.
+// Signed off (merged) is green, a record that says not merged is amber, no record at all is grey and says so.
+function signoffHtml(t) {
+  if (!t || !t.review || t.parent_id) return '';
+  const so = t.signoff;
+  if (!so) return `<div class="so none" role="note"><span class="g" aria-hidden="true">–</span><b>ORCH has not signed this yet</b></div>`;
+  const ok = !!so.merged, tests = Array.isArray(so.tests) ? so.tests : [];
+  const facts = [ok ? `merged <i>${esc(so.merged)}</i>` : (so.ahead != null ? `<i>${esc(so.ahead)}</i> ${so.ahead === 1 ? 'branch' : 'branches'} ahead` : 'not on main yet')]
+    .concat(tests.map(x => `${esc(x.name)} <i>${esc(x.result)}</i>`))
+    .concat(so.gate ? [`batch gate <i>${esc(so.gate)}</i>`] : []);
+  const when = [String(so.at || '').slice(11, 16), so.verified_by ? `${esc(so.verified_by)} verified` : ''].filter(Boolean).join(' · ');
+  return `<div class="so ${ok ? 'ok' : 'warn'}" role="note"><span class="g" aria-hidden="true">${ok ? '✓' : '!'}</span><b>${ok ? 'ORCH signed off' : 'ORCH: not merged'}</b>`
+    + `<span class="t">${when}</span><div class="f">${facts.join(' · ')}</div></div>`;
+}
 function youPanel(t) { const y = youOf(byId.get(t.id) || t); if (!y) return '';   // the list's copy carries the report's text, where the Next line is
   const say = y.k === 'none' ? `${esc(t.agent || 'The agent')} is working and has not asked for anything. Last update ${esc(ago(t.updated).text)}.` : esc(y.say);
   const b = youBtns(t, y, true);
   const join = y.k === 'ask' || (y.k === 'rev' && !y.sub);   // the box just below already carries this sentence: the block is its heading
-  return `<div class="p-you ${y.k}${y.k === 'ask' || y.k === 'rev' ? ' joined' : ''}${y.sub ? ' has-next' : ''}"><div class="py-h"><b>You</b><i>${esc(y.verb)}</i><u>${y.k === 'none' ? '' : esc(ago(t.updated).text)}</u></div>${join ? '' : `<div class="py-say">${say}</div>`}${b ? `<div class="you-btns">${b}</div>` : ''}</div>`; }
+  return signoffHtml(t) + `<div class="p-you ${y.k}${y.k === 'ask' || y.k === 'rev' ? ' joined' : ''}${y.sub ? ' has-next' : ''}"><div class="py-h"><b>You</b><i>${esc(y.verb)}</i><u>${y.k === 'none' ? '' : esc(ago(t.updated).text)}</u></div>${join ? '' : `<div class="py-say">${say}</div>`}${b ? `<div class="you-btns">${b}</div>` : ''}</div>`; }
 function card(t) {
   const a = ago(t.updated);
   const doing = t.status === 'doing', done = t.status === 'done';
@@ -2493,7 +2519,7 @@ function card(t) {
   // ask / review: the agent's one sentence is the card's first line, large, with a reply box the owner can answer in (stored on the card; the agent reads it with `agentboard answer`)
   const you = youOf(t), askFlag = youCard(t);
   const said = (asking || reviewing) ? (you ? you.say : (t.question || t.result || t.status_text || '')) : '';
-  const saidRow = said ? `<div class="said" title="${esc(said)}">${esc(said)}</div>${you && you.sub ? `<div class="you-say">${esc(you.sub)}</div>` : ''}` : '';
+  const saidRow = (said ? `<div class="said" title="${esc(said)}">${esc(said)}</div>${you && you.sub ? `<div class="you-say">${esc(you.sub)}</div>` : ''}` : '') + (reviewing ? signoffHtml(t) : '');   // ORCH's sign-off row (card orch-sign-off) sits right under the sentence
   // everything past the one sentence waits behind a collapsed Details fold
   const foldRow = t.details ? `<details class="fold"><summary>Details</summary><div class="fold-body">${esc(t.details)}</div></details>` : '';
   const quick = asking ? quickHtml(t, false) : '';
@@ -2849,7 +2875,7 @@ function watchHtml(by, n) {   // The whole team. Working agents are tiles (alive
   requestAnimationFrame(watchSettle);
   return `<section class="deck watch deck-clear${focus ? ' focused' : ''}" data-status="deck" aria-label="Watch: the whole team">
 <div class="deck-rings live" aria-hidden="true"><i></i><i></i><i></i><b class="orbit o1"><u></u></b><b class="orbit o2"><u></u></b></div>${watchBurst ? '<div class="w-burst" aria-hidden="true"><i></i><i></i><i></i></div>' : ''}
-<div class="watch-head"><strong>${n ? '' : 'All clear'}</strong><div class="deck-cleared flat" aria-label="Cleared this session">${deckClearedHtml()}</div>${!n && clearTimes.length > 1 ? `<em class="w-stat">in ${(m => m < 1 ? 'under a minute' : m < 90 ? Math.round(m) + ' min' : (m / 60).toFixed(1) + ' h')((clearTimes[clearTimes.length - 1] - clearTimes[0]) / 60000)}</em>` : ''}</div>
+<div class="watch-head"><div class="deck-cleared flat" aria-label="Cleared this session">${deckClearedHtml()}</div>${!n && clearTimes.length > 1 ? `<em class="w-stat">in ${(m => m < 1 ? 'under a minute' : m < 90 ? Math.round(m) + ' min' : (m / 60).toFixed(1) + ' h')((clearTimes[clearTimes.length - 1] - clearTimes[0]) / 60000)}</em>` : ''}</div>
 <div class="w-pages"><div class="w-track" style="transform:translateX(${-watchPage * 100}%)">${pages.map((pg, k) => `<div class="w-page${k === watchPage ? ' cur' : ''}" data-page="${k}"${k === watchPage ? '' : ' inert'}>${pg.join('')}</div>`).join('') || '<p class="w-none">Nobody is here yet.</p>'}</div></div>${live.length ? '' : orchOffer()}
 ${focus}${watchPages > 1 ? `<nav class="w-dots" aria-label="Pages"><button type="button" class="w-arrow" data-wpage="${watchPage - 1}" aria-label="Previous page"${watchPage ? '' : ' disabled'}>‹</button>${pages.map((_, k) => `<button type="button" class="w-dot${k === watchPage ? ' on' : ''}${pinged[k] ? ' ping' : ''}" data-wpage="${k}" aria-label="Page ${k + 1} of ${watchPages}"${k === watchPage ? ' aria-current="true"' : ''}></button>`).join('')}<button type="button" class="w-arrow" data-wpage="${watchPage + 1}" aria-label="Next page"${watchPage < watchPages - 1 ? '' : ' disabled'}>›</button></nav>` : ''}</section>`;
 }
@@ -3847,7 +3873,8 @@ async function move(id, status, before, note = '') {
     const r = await api('/api/move', { id, status, before: before || null });
     showError(''); ok = true;
     if (t && t.status !== status) { landedId = id; landedTo = status; }   // Lively: it settles with a ring once it is drawn there
-    if (t && t.status !== status) toast(`Moved “${t.title}” to ${LABELS[status]}${note}`, { prev: r.prev, before: r.prev_before, kids: r.prev_kids });
+    if (t && t.status !== status && r.heads_up) toast(r.heads_up, { prev: r.prev, before: r.prev_before, kids: r.prev_kids });   // signed off before ORCH did (card orch-sign-off): the toast says so, and keeps its Undo
+    else if (t && t.status !== status) toast(`Moved “${t.title}” to ${LABELS[status]}${note}`, { prev: r.prev, before: r.prev_before, kids: r.prev_kids });
   } catch (e) { showError('Could not move task: ' + e.message); }
   raw = ''; detailRaw = ''; load();
   return ok;
@@ -3860,7 +3887,7 @@ $('bulk-move').onchange = async e => {
   const ids = [...selected];
   try {
     const r = await api('/api/bulk-move', { ids, status });
-    toast(`Moved ${ids.length} task${ids.length === 1 ? '' : 's'} to ${LABELS[status]}`,
+    toast(r.heads_up || `Moved ${ids.length} task${ids.length === 1 ? '' : 's'} to ${LABELS[status]}`,
           { replay: r.prev.map(p => ({ path: '/api/restore', body: { task: p.task, before: p.before, kids: p.kids } })) });
     showError('');
   } catch (err) { showError('Could not move: ' + err.message); }

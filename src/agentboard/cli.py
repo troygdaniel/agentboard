@@ -29,6 +29,7 @@ from . import private
 from . import profile as profilelib
 from . import prompt as promptlib
 from . import rules
+from . import signoff as signofflib
 from . import redact as redactlib
 from . import reports as reportslib
 from . import summary as summarylib
@@ -40,7 +41,7 @@ from .server import serve
 from . import agentfiles
 from . import boards as boardlib
 from . import demo as demolib
-from .store import BoardError, CHAT_LINE_MAX, CHAT_TOPICS, DIR_NAME, find_dir, parse_stamp, Store, subtask_counts
+from .store import BoardError, CHAT_LINE_MAX, CHAT_TOPICS, DIR_NAME, find_dir, parse_stamp, Store, subtask_counts, _to_owner
 
 DEFAULT_PORT = 8765
 
@@ -1369,10 +1370,47 @@ def cmd_review(a):
     print(f"{t['id']}: ready for review — waiting on the user to mark it done")
 
 
+def _signoff_record(a):
+    """The sign-off a command's flags describe, or None when it was given none of them. Refused with the fix when the flags do not add up."""
+    given = a.merged or a.not_merged or a.ahead is not None or a.test or a.gate or a.verified_by
+    if not given:
+        return None
+    try:
+        return signofflib.clean(merged=a.merged, not_merged=a.not_merged, ahead=a.ahead, tests=a.test, gate=a.gate, verified_by=a.verified_by)
+    except ValueError as e:
+        raise BoardError(str(e))
+
+
+def cmd_signoff(a):
+    """ORCH records what it knows about a card in review, so the owner sees it next to the review before signing (card orch-sign-off)."""
+    s = _store()
+    rec = _signoff_record(a)
+    if rec is None:
+        raise BoardError("say what you know: --merged <hash> or --not-merged, with --test NAME=RESULT, --gate pass|fail|pending, --verified-by NAME")
+    t = s.signoff(a.id, rec, by=os.environ.get("AGENTBOARD_NAME"))
+    print(f"{t['id']}: ORCH sign-off recorded ({signofflib.line(rec)}); the card shows it next to the review")
+
+
 def cmd_done(a):
+    s = _store()
+    name = (os.environ.get("AGENTBOARD_NAME") or "").strip()
+    rec = _signoff_record(a)
+    if rec is not None:   # done with the evidence: the same flags as `signoff`, recorded first, so ORCH's close and its facts are one command
+        s.signoff(a.id, rec, by=name or None)
+    task = Store.get(s.load(), a.id)
+    in_review = bool(task.get("review")) and not task.get("parent_id")
+    if name.upper() == "ORCH" and in_review:
+        so = task.get("signoff")
+        if not so:
+            raise BoardError(f"ORCH closes a card through its sign-off, so the evidence is recorded: agentboard done {a.id} --merged <hash> "
+                             "--test NAME=RESULT --gate pass|fail|pending --verified-by NAME (agentboard signoff records it without closing)")
+        if not so.get("merged"):
+            raise BoardError(f"ORCH's sign-off on {a.id} says not merged: close it once it is, with agentboard done {a.id} --merged <hash>")
+    elif in_review and name and not _to_owner(name, s.owner) and not (task.get("signoff") or {}).get("merged"):
+        print(f"warning: ORCH has not recorded a merge for {a.id}: an agent closes its card only after ORCH confirms the merge", file=sys.stderr)
     # a.text, not `a.text or ""`: an explicit "" would blank out a review's result/status_text
     # (store.update treats "not None" as "replace it"); omitting it should leave them alone.
-    _store().update(a.id, text=a.text, status="done", closed_as=a.reason)
+    s.update(a.id, text=a.text, status="done", closed_as=a.reason)
     print(f"{a.id}: done")
 
 
@@ -2148,10 +2186,21 @@ def main(argv=None):
     g = sp.add_mutually_exclusive_group()
     g.add_argument("--body", help="markdown body (recap/diff/report) shown in the detail panel")
     g.add_argument("--body-file", help="read --body from a file instead (handles multi-line content)")
-    sp = add("done", cmd_done, "USER-APPROVED completion (agents: use review instead)")
+    def signoff_flags(sp):
+        sp.add_argument("--merged", metavar="HASH", help="the merge commit's hash")
+        sp.add_argument("--not-merged", action="store_true", help="the card is not on main yet")
+        sp.add_argument("--ahead", type=int, metavar="N", help="with --not-merged: how many branches are ahead of main")
+        sp.add_argument("--test", action="append", metavar="NAME=RESULT", help="a suite that ran and its result (pass, fail, running, pending, skipped); repeat, up to 4")
+        sp.add_argument("--gate", choices=signofflib.GATES, help="the batch gate's result")
+        sp.add_argument("--verified-by", metavar="NAME", help="the session that ran the checks")
+    sp = add("signoff", cmd_signoff, "ORCH: record what you know about a card in review (merged or not, tests, gate), shown on the card")
+    sp.add_argument("id")
+    signoff_flags(sp)
+    sp = add("done", cmd_done, "USER-APPROVED completion (agents: use review instead); ORCH adds the sign-off flags, see agentboard signoff")
     sp.add_argument("id")
     sp.add_argument("text", nargs="?")
     sp.add_argument("--reason", choices=insightslib.CLOSE_REASONS, help="why it was closed (kept on the card for `agentboard insights`; with [insights] enabled the default is shipped)")
+    signoff_flags(sp)
     sp = add("wait", cmd_wait, "block (polling) until a task reaches a status — sync on another agent's work")
     sp.add_argument("id")
     sp.add_argument("--status", default="done", choices=["backlog", "todo", "doing", "done", "review", "needs_input"],
