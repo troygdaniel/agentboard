@@ -25,9 +25,9 @@ class HeaderTests(unittest.TestCase):
         self.assertIn('id="filter" aria-label="Filter tasks" hidden', HEADER)
         self.assertIn("#filter { display: none; }", HTML)
         self.assertNotIn("<span>Live</span>", HEADER)
-        self.assertIn("<dt><kbd>/</kbd></dt><dd>Tell ORCH something</dd>", HTML)   # Nov 13: the slash is the line to ORCH now, on every view
+        self.assertIn("<dt><kbd>/</kbd></dt><dd>On Now: talk the card through with ORCH. Elsewhere: tell ORCH something</dd>", HTML)   # Nov 13: the slash is the line to ORCH; Nov 14: on Now it opens the conversation about the card
         # the slash served only the header's filter field; since Nov 8 it is the Settings sheet's search box, and only while that sheet is open
-        self.assertEqual(HTML.count("e.key === '/'"), 1)
+        self.assertEqual(HTML.count("e.key === '/'"), 2)   # and, since Nov 14, the conversation about the front card on Now
         self.assertIn("if (e.key === '/' && mixIsOpen()) { e.preventDefault(); $('mix-search').focus(); return; }", HTML)
         self.assertNotIn("$('filter').focus()", HTML)
 

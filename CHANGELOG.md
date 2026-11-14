@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Talk it through: a conversation on the card (Nov 14)
+The owner still went to ORCH's terminal to be walked through the cards one by one, and to talk until it was clear what a card wanted. The line at the bottom showed one answer and let it go.
+- **Talk it through** on the open card of Now (`/`, or the first button under the card): a conversation with ORCH opens beside the card. Each line goes to ORCH with the card attached, so the card never has to be named, and ORCH's answers about that card collect there. Four starter questions are offered: what is this asking me, say it simpler, what do you recommend, what happens if I say no.
+- **It ends in an action.** When what you want is clear, ORCH proposes the reply for the card's agent. **Send this** sends it (the board sends it, not ORCH), the card leaves the pile, and the conversation moves to the next card. **Change it** rewords it first.
+- **It follows you down the pile**, and a card you already talked about opens with its conversation. `Esc` closes it.
+- **ORCH's boot prompt says how**: a line ending "(card <id>)" is answered about that card only, in one or two plain sentences, with `--card`, and the reply goes in `--propose` once the owner is clear. An ORCH started from an older prompt answers in the bubble as before, so copy a fresh prompt.
+- Nothing new runs and no new route: it is the board's chat (`POST /api/chat` now takes the `card` a line is about). While ORCH is away the conversation says so and keeps your line for it.
 ### Starting the day: ORCH, one click away (Nov 13)
 Finding the ORCH prompt took a trip to the drawer, and nothing said that ORCH was not running.
 - **The board says when ORCH is away.** It already knows who is listening. When ORCH has not listened for 90 seconds, the line at the bottom reads "ORCH is not running" and shows **Start ORCH**. What you type there is still kept, and a note says ORCH will read it when it starts.

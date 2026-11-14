@@ -367,6 +367,28 @@
     .deck.watch { padding: 0 6px 110px; } .w-pages { margin-top: 8px; padding-top: 6px; } .w-page { padding: 0 8px; grid-auto-rows: 150px; gap: 12px; } .w-tile { padding: 14px 16px; grid-template-columns: 70px 1fr; } .w-ring { width: 70px; height: 70px; } .orb { width: 46px; height: 46px; margin: -23px 0 0 -23px; } .w-now { font-size: 15px; }
     .w-focus { top: 60px; width: calc(100vw - 20px); } #orch-line { bottom: 12px; } .greet b { font-size: 30px; }
   }
+  /* Talk it through: the conversation sits beside the card it is about */
+  #talk { position: fixed; right: 28px; top: 168px; bottom: 96px; width: min(380px, calc(100vw - 32px)); z-index: 7; display: flex; flex-direction: column; border-radius: 24px; background: color-mix(in srgb, var(--surface) 95%, transparent); backdrop-filter: blur(18px); box-shadow: inset 0 0 0 1px var(--line), 0 30px 70px -30px rgba(0,0,0,.6); animation: talkin .4s cubic-bezier(.2,.9,.25,1) both; overflow: hidden; }
+  @keyframes talkin { from { opacity: 0; transform: translateX(24px); } }
+  #talk header { display: flex; align-items: center; gap: 12px; padding: 16px 16px 14px 18px; border-bottom: 1px solid var(--line); }
+  #talk header div { flex: 1; min-width: 0; } #talk header b { display: block; font-size: 15px; } #talk header small { display: block; font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .talk-face { width: 30px; height: 30px; flex: none; border-radius: 50%; display: grid; place-items: center; font-size: 13px; font-weight: 700; background: var(--text); color: var(--bg); }
+  .talk-x { width: 28px; height: 28px; border: 0; border-radius: 50%; background: none; color: var(--muted); cursor: pointer; font-size: 12px; } .talk-x:hover { color: var(--text); }
+  .talk-lines { flex: 1; overflow-y: auto; padding: 16px 16px 8px; display: flex; flex-direction: column; gap: 10px; }
+  .tl { margin: 0; font-size: 15px; line-height: 1.5; max-width: 92%; overflow-wrap: anywhere; } .tl p { margin: 0; }
+  .tl.card-said { max-width: 100%; padding: 12px 14px; border-radius: 14px; font-size: 14px; color: var(--muted); background: color-mix(in srgb, var(--c, var(--text)) 9%, transparent); } .tl.card-said small { display: block; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 3px; }
+  .tl.me { align-self: flex-end; padding: 9px 14px; border-radius: 18px 18px 6px 18px; background: var(--text); color: var(--bg); }
+  .tl.orch { align-self: flex-start; } .tl.orch > p { padding: 9px 14px; border-radius: 18px 18px 18px 6px; background: color-mix(in srgb, var(--text) 7%, transparent); }
+  .tl.note { font-size: 13px; color: var(--muted); }
+  .tl.think { display: flex; gap: 5px; padding: 12px 14px; } .tl.think i { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); animation: talkdot 1.2s ease-in-out infinite; } .tl.think i:nth-child(2) { animation-delay: .15s; } .tl.think i:nth-child(3) { animation-delay: .3s; } @keyframes talkdot { 0%, 60%, 100% { opacity: .25; transform: none; } 30% { opacity: 1; transform: translateY(-3px); } }
+  .talk-send { margin-top: 8px; padding: 12px 14px; border-radius: 16px; box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--ok) 55%, var(--line)); background: color-mix(in srgb, var(--ok) 7%, transparent); } .talk-send small { display: block; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; } .talk-send p { font-weight: 600; margin-bottom: 10px; } .talk-send span { display: flex; gap: 8px; } .talk-send .btn { border-radius: 999px; min-height: 34px; } .talk-send.sent { box-shadow: none; } .talk-send.sent p { margin: 0; font-weight: 500; color: var(--muted); } .talk-send.sent small { color: var(--ok); }
+  .talk-start { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; } .talk-start button { font: inherit; font-size: 14px; text-align: left; padding: 10px 14px; border-radius: 14px; border: 0; cursor: pointer; color: var(--text); background: none; box-shadow: inset 0 0 0 1px var(--line); } .talk-start button:hover { background: color-mix(in srgb, var(--text) 6%, transparent); }
+  .talk-form { display: flex; gap: 8px; padding: 12px; border-top: 1px solid var(--line); } .talk-form input { flex: 1; min-width: 0; font: inherit; font-size: 15px; padding: 10px 14px; border-radius: 999px; border: 0; outline: 0; color: var(--text); background: color-mix(in srgb, var(--text) 6%, transparent); } .talk-form input:focus { box-shadow: inset 0 0 0 1.5px var(--text); } .talk-form .btn { border-radius: 999px; }
+  .you-h.talk-h { color: var(--text); font-weight: 600; }
+  body.talking .deck.open .deck-more { visibility: hidden; }   /* one thing beside the card at a time */
+  @media (min-width: 1180px) { body.talking .deck .deck-body { transform: translateX(-150px); transition: transform .4s cubic-bezier(.2,.9,.25,1); } }
+  @media (max-width: 900px) { #talk { top: auto; height: min(70vh, 560px); left: 16px; right: 16px; width: auto; bottom: 84px; } }
+  @media (prefers-reduced-motion: reduce) { #talk, .tl.think i { animation: none; } }
   /* ORCH's presence: the line says when it is away, and offers the prompt that starts it */
   .orch-go { display: none; border-radius: 999px; min-height: 34px; white-space: nowrap; opacity: 1 !important; border-color: color-mix(in srgb, var(--need) 60%, transparent); color: var(--text); }
   body.orch-down #orch-line:not(:has(input:focus)) button[type=submit] { display: none; }   /* the INPUT's focus, not the line's: pressing Start ORCH focuses that button, and a button that hides on its own mousedown never gets its click */
@@ -2108,7 +2130,7 @@ body.deckview .board{display:block !important;overflow:visible !important;paddin
     <dt><kbd>Enter</kbd></dt><dd>Open the card's details, or close them</dd>
     <dt><kbd>Space</kbd> <kbd>Space</kbd></dt><dd>On Now: do what the card asks (the first press shows what, the second does it)</dd>
     <dt><kbd>r</kbd></dt><dd>Reply to the card's agent</dd>
-    <dt><kbd>/</kbd></dt><dd>Tell ORCH something</dd>
+    <dt><kbd>/</kbd></dt><dd>On Now: talk the card through with ORCH. Elsewhere: tell ORCH something</dd>
     <dt><kbd>Esc</kbd></dt><dd>Close, or go back</dd>
     <dt><kbd>?</kbd></dt><dd>This list</dd>
   </dl>
@@ -2481,7 +2503,7 @@ function card(t) {
   seen.add(t.id); lastUpdated.set(t.id, t.updated);
   return `<div class="card ${you ? 'y-' + you.k : ''} ${done ? 'done' : ''} ${asking ? 'ask' : ''} ${reviewing ? 'review' : ''} ${revIn ? 'rev-in' : ''} ${abandoned && !asking && !reviewing ? 'abandoned' : ''} ${live && !asking && !reviewing ? 'livebar' : ''} ${fresh ? 'enter' : ''} ${flash ? 'flash' : ''} ${selected.has(t.id) ? 'selected' : ''} " style="--c:${colorOf(t)}" data-agent="${esc(t.agent || '')}" draggable="${backlog ? 'false' : 'true'}" tabindex="0" data-id="${esc(t.id)}" data-status="${t.status}"
       aria-label="${esc(t.title)}, ${t.status}${asking ? ', needs your input' : reviewing ? ', ready for review' : abandoned ? ', no update in a long time, possibly abandoned' : ''}${t.agent ? ', ' + esc(t.agent) : ''}${blockers.length ? ', blocked by ' + blockers.map(b => esc(b.title)).join(', ') : ''}">
-    ${top}${askFlag}${saidRow}${foldRow}${blockedRow}${todo && t._q ? `<span class="qnum" aria-label="Queue position ${t._q}">${t._q}</span>` : ''}<div class="title ${done ? 'has-check' : ''}" title="${esc((done ? t.result : t.status_text) || '')}">${checkIcon}${done ? `<span>${esc(t.title)}</span>` : esc(t.title)}</div>${desc}${resume}${AB.chips(t)}${asking || reviewing ? '' : note}${bar}${noSubs}${meta}${who ? '' : reportLink}${replyRow}${reviewing ? (you && you.step != null ? `<div class="step-row"><button class="btn markdone stepbtn" type="button" data-step="${esc(t.id)}">Done · next step</button><button class="btn stuckbtn" type="button" data-stuck="${esc(t.id)}" data-text="${esc(`I'm stuck on step ${you.step + 1}: “${you.say}”. Help me with just this step, in one line.`)}" title="Asks ${esc(t.agent || 'the agent')} for help with this step only">I’m stuck</button></div>` : `<button class="btn markdone" data-done="${esc(t.id)}">Mark done</button>`) : ''}${MEFIRST && (asking || reviewing) ? `<div class="you-help"><button type="button" class="you-h" data-simpler="${esc(t.id)}" title="Asks ${esc(t.agent || 'the agent')} to say it in one line">Simpler</button><button type="button" class="you-h" data-snooze="${esc(t.id)}" title="${t.owner_later ? 'Put it back where it was in the pile' : 'Not now: this card goes to the end of the pile'}">${t.owner_later ? 'Not later' : 'Later'}</button><button type="button" class="you-h" data-deck-details title="The details (→)">Why?</button></div>` : ''}</div>`;
+    ${top}${askFlag}${saidRow}${foldRow}${blockedRow}${todo && t._q ? `<span class="qnum" aria-label="Queue position ${t._q}">${t._q}</span>` : ''}<div class="title ${done ? 'has-check' : ''}" title="${esc((done ? t.result : t.status_text) || '')}">${checkIcon}${done ? `<span>${esc(t.title)}</span>` : esc(t.title)}</div>${desc}${resume}${AB.chips(t)}${asking || reviewing ? '' : note}${bar}${noSubs}${meta}${who ? '' : reportLink}${replyRow}${reviewing ? (you && you.step != null ? `<div class="step-row"><button class="btn markdone stepbtn" type="button" data-step="${esc(t.id)}">Done · next step</button><button class="btn stuckbtn" type="button" data-stuck="${esc(t.id)}" data-text="${esc(`I'm stuck on step ${you.step + 1}: “${you.say}”. Help me with just this step, in one line.`)}" title="Asks ${esc(t.agent || 'the agent')} for help with this step only">I’m stuck</button></div>` : `<button class="btn markdone" data-done="${esc(t.id)}">Mark done</button>`) : ''}${MEFIRST && (asking || reviewing) ? `<div class="you-help"><button type="button" class="you-h talk-h" data-talk="${esc(t.id)}" title="A back-and-forth with ORCH about this card, until it is clear what to answer (/)">Talk it through</button><button type="button" class="you-h" data-simpler="${esc(t.id)}" title="Asks ${esc(t.agent || 'the agent')} to say it in one line">Simpler</button><button type="button" class="you-h" data-snooze="${esc(t.id)}" title="${t.owner_later ? 'Put it back where it was in the pile' : 'Not now: this card goes to the end of the pile'}">${t.owner_later ? 'Not later' : 'Later'}</button><button type="button" class="you-h" data-deck-details title="The details (→)">Why?</button></div>` : ''}</div>`;
 }
 
 // the parent's segmented bar (one cell per subtask), which doubles as the expand toggle, plus its quiet rows
@@ -5582,9 +5604,56 @@ function favSync(n) {   // the browser tab says it too: a number while cards wai
 }
 new MutationObserver(() => { const b = $('need-n'); if (!b) return; favSync(+b.textContent || 0); if (b.dataset.v === b.textContent) return; const up = (+b.textContent || 0) > (+b.dataset.v || 0); b.dataset.v = b.textContent; if (!RM) b.animate([{ transform: `translateY(${up ? 70 : -70}%)`, opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: 380, easing: 'cubic-bezier(.2,.8,.2,1)' }); }).observe($('need-n'), { childList: true, characterData: true, subtree: true });
 setTimeout(() => favSync(+($('need-n')?.textContent) || 0), 3000);
+// Talk it through: a conversation with ORCH about the card in front of you. Each line goes to ORCH with the card attached; ORCH's answers
+// about that card collect here, and when it proposes a reply, one click sends it to the card's agent. Nothing runs: it is the board's chat.
+let talkCard = null, talkBusy = false; const talkShut = new Set();
+const TALK_STARTERS = ['What is this asking me?', 'Say it simpler', 'What do you recommend?', 'What happens if I say no?'];
+const talkLines = id => chatMsgs.filter(m => m.card === id && ((m.kind === 'user' && String(m.to || '').toUpperCase() === 'ORCH') || (m.kind === 'agent' && String(m.sender || '').toUpperCase() === 'ORCH')));
+function talkOpen(id) { talkShut.delete(id); talkCard = id; talkSync(true); setTimeout(() => $('talk')?.querySelector('input')?.focus({ preventScroll: true }), 60); touch('rise'); }
+function talkClose() { if (talkCard) talkShut.add(talkCard); talkCard = null; talkSync(true); }
+function talkSync(force) {
+  const onNow = MEFIRST && !nowWatch && !hudIsOpen() && deckTop;
+  if (onNow && talkCard !== deckTop) talkCard = !talkShut.has(deckTop) && (talkCard || talkLines(deckTop).length) ? deckTop : null;   // it follows you down the pile; a card you already talked about opens with its conversation
+  if (!onNow) talkCard = null;
+  let box = $('talk'); const t = talkCard && byId.get(talkCard);
+  document.body.classList.toggle('talking', !!t);
+  if (!t) { box?.remove(); return; }
+  const lines = talkLines(t.id), waiting = lines.length && lines[lines.length - 1].kind === 'user';
+  const sig = t.id + '|' + lines.map(m => m.seq + (m.action ? m.action.status : '')).join(',') + '|' + waiting + '|' + (orchUp === false);
+  if (!box) { box = document.createElement('aside'); box.id = 'talk'; box.setAttribute('aria-label', 'Talk it through with ORCH');
+    box.innerHTML = '<header><span class="talk-face" aria-hidden="true">O</span><div><b>Talk it through</b><small></small></div><button type="button" class="talk-x" data-talk-close aria-label="Close the conversation">✕</button></header><div class="talk-lines" aria-live="polite"></div><form class="talk-form" autocomplete="off"><input maxlength="2000" placeholder="Ask ORCH about this card…" aria-label="Ask ORCH about this card"><button class="btn primary" type="submit">Send</button></form>';
+    document.body.appendChild(box); }
+  if (box.dataset.sig === sig && !force) return; box.dataset.sig = sig;
+  box.style.setProperty('--c', colorOf(t)); box.querySelector('header small').textContent = t.title;
+  const said = t.needs_input ? (t.question || t.status_text) : (t.result || t.status_text);
+  const row = m => m.kind === 'user' ? `<p class="tl me">${esc(m.text)}</p>`
+    : `<div class="tl orch"><p>${esc(m.text)}</p>${m.action ? (m.action.status === 'proposed' ? `<div class="talk-send"><small>Reply to ${esc(t.agent || 'the agent')}</small><p>${esc(m.action.text)}</p><span><button type="button" class="btn primary" data-talk-send="${m.seq}">Send this</button><button type="button" class="btn" data-talk-edit="${m.seq}">Change it</button></span></div>` : m.action.status === 'approved' ? `<div class="talk-send sent"><small>✓ Sent to ${esc(t.agent || 'the agent')}</small><p>${esc(m.action.text)}</p></div>` : '') : ''}</div>`;
+  box.querySelector('.talk-lines').innerHTML = `<p class="tl card-said"><small>${esc(t.agent || 'The agent')} ${t.needs_input ? 'asks' : 'says'}</small>${esc(said || t.title)}</p>`
+    + lines.map(row).join('') + (waiting ? (orchUp === false ? '<p class="tl note">ORCH is not running. It will read this when it starts.</p>' : '<p class="tl think" aria-label="ORCH is answering"><i></i><i></i><i></i></p>') : '')
+    + (lines.length ? '' : `<div class="talk-start">${TALK_STARTERS.map(q => `<button type="button" data-talk-ask="${esc(q)}">${esc(q)}</button>`).join('')}</div>`);
+  const sc = box.querySelector('.talk-lines'); sc.scrollTop = sc.scrollHeight;
+}
+setInterval(talkSync, 350);
+async function talkSay(text) { const id = talkCard; if (!id || !text || talkBusy) return; talkBusy = true;
+  try { await api('/api/chat', { text, to: 'ORCH', card: id }); showError(''); await loadChat(); talkSync(true); } catch (err) { showError('Could not send: ' + err.message); } talkBusy = false; }
+document.addEventListener('submit', e => { const f = e.target.closest?.('.talk-form'); if (!f) return; e.preventDefault(); const i = f.querySelector('input'), text = i.value.trim(); if (!text) return; i.value = ''; talkSay(text); });
+document.addEventListener('click', async e => {
+  const o = e.target.closest?.('[data-talk]'); if (o) { e.preventDefault(); e.stopPropagation(); if (talkCard === o.dataset.talk) talkClose(); else talkOpen(o.dataset.talk); return; }
+  if (e.target.closest?.('[data-talk-close]')) { talkClose(); return; }
+  const a = e.target.closest?.('[data-talk-ask]'); if (a) { $('talk').querySelector('input').focus({ preventScroll: true }); talkSay(a.dataset.talkAsk); return; }   // the keys stay in the conversation: a stray d or Space must not reach the card
+  const ed = e.target.closest?.('[data-talk-edit]'); if (ed) { const m = chatMsgs.find(x => x.seq === +ed.dataset.talkEdit), i = $('talk').querySelector('input'); if (m) { i.value = 'Change it: '; i.focus(); } return; }
+  const sd = e.target.closest?.('[data-talk-send]'); if (sd) { const m = chatMsgs.find(x => x.seq === +sd.dataset.talkSend), id = talkCard; if (!m || !id) return; sd.disabled = true;
+    try { await api('/api/chat-decide', { seq: m.seq, decision: 'approved' }); } catch (err) {}
+    talkShut.add(id); await quickReply(id, m.action.text); loadChat(); }   // the card is answered: it leaves the pile, and the conversation goes with it
+}, true);
+window.addEventListener('keydown', e => {   // on Now, the slash talks about the card in front of you; Esc closes the conversation
+  if (e.metaKey || e.ctrlKey || e.altKey) return; const typing = isTyping();
+  if (e.key === 'Escape' && talkCard && (!typing || e.target.closest?.('#talk'))) { e.preventDefault(); e.stopImmediatePropagation(); document.activeElement?.blur(); talkClose(); return; }
+  if (e.key === '/' && !typing && MEFIRST && !nowWatch && !hudIsOpen() && deckTop && !mixIsOpen()) { const t = byId.get(deckTop); if (t && (t.needs_input || t.review)) { e.preventDefault(); e.stopImmediatePropagation(); talkOpen(deckTop); } }
+}, true);
 let orchSeen = null;   // ORCH's answer rises out of the line you wrote to it
 const toMe = m => { const to = String(m.to || '').toLowerCase(); return m.kind === 'agent' && m.text && (to === 'you' || to === String(OWNER || '').toLowerCase()); };   // a line an agent wrote to you
-setInterval(() => { const last = [...chatMsgs].reverse().find(toMe); if (!last) { if (orchSeen === null && !chatFirstLoad) orchSeen = 0; return; } if (orchSeen === null) { orchSeen = last.seq; return; } if (last.seq <= orchSeen) return; orchSeen = last.seq;
+setInterval(() => { const last = [...chatMsgs].reverse().find(toMe); if (!last) { if (orchSeen === null && !chatFirstLoad) orchSeen = 0; return; } if (orchSeen === null) { orchSeen = last.seq; return; } if (last.seq <= orchSeen) return; orchSeen = last.seq; if (last.card && last.card === talkCard) return;
   document.querySelectorAll('.orch-say').forEach(x => x.remove()); const f = $('orch-line'); if (!f) return; const bub = document.createElement('button'); bub.type = 'button'; bub.className = 'orch-say'; bub.title = 'Answer ' + last.sender; bub.innerHTML = `<span aria-hidden="true">${esc(nodeGlyph(last.sender))}</span><p><b>${esc(last.sender)}</b>${esc(last.text)}</p>`;
   bub.onclick = () => { const i = f.querySelector('input'); i.value = last.sender.toUpperCase() === 'ORCH' ? '' : '@' + last.sender + ' '; i.focus(); orchWho(); bub.remove(); };   // a click answers them
   f.appendChild(bub); setTimeout(() => { bub.classList.add('out'); setTimeout(() => bub.remove(), 500); }, 9000); }, 700);

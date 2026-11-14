@@ -480,6 +480,16 @@ SendMessage. Answer on the board, one line, so it shows in the drawer; a plain l
 
     {ab} chat send "<one line>" --name ORCH --to {owner_cli} --reply-to <the line's number>
 
+A line that ends "(card <id>)" is {owner} talking a card through with you, on the card itself (Talk it through, on Now): they are
+stuck on what that card asks and want it made clear. Read the card first (`{ab} recall --card <id>`), then answer about that card only,
+in one or two plain sentences, one idea at a time, no jargon, and always with `--card <id>` so the answer lands in that conversation:
+
+    {ab} chat send "<one or two plain sentences>" --name ORCH --to {owner_cli} --card <id> --reply-to <the line's number>
+
+"Simpler" means shorter and plainer, not more. When what {owner} wants is clear (they say it, or they agree with what you recommend), put
+the reply the card's agent should get in `--propose "<the reply, in {owner}'s voice>"` on that same kind of line. The board shows it with
+Send this, and sends it to the agent itself when {owner} presses it: never send it yourself, and do nothing more once it is approved.
+
 A line from the board itself, "<agent> has not read my line #N …", is {owner}'s nudge: that agent's session is not listening and
 nothing on the board wakes it, but your SendMessage does. Send it one line, "{owner} wrote to you on the board: run agentboard chat
 inbox --name <agent>, answer with chat send --to {owner_cli} --reply-to <n>, then keep chat inbox --wait running", and tell {owner} in one line that you

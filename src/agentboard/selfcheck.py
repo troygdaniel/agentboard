@@ -577,7 +577,7 @@ class Audit:
             S.start("Selfcheck twin", "AGENT-9", None, task_id="selfcheck-twin-2")
         go("/api/watchdog-fix", {"action": "merge", "id": "selfcheck-twin-2"})
         go("/api/chat-agents", {"on": True})
-        go("/api/chat", {"text": "hello from the selfcheck"})
+        go("/api/chat", {"text": "hello from the selfcheck", "to": "ORCH", "card": aid})   # a line about a card: Talk it through
         prop = S.chat_send("AGENT-9", "may I?", kind="agent", propose="do a thing") if S.chat_agents() else None
         if prop:
             go("/api/chat-decide", {"seq": prop["seq"], "decision": "declined"})

@@ -52,7 +52,7 @@ class Keys(unittest.TestCase):
     def test_the_sheet_leads_with_eight_and_folds_the_rest(self):
         core = re.search(r'<dl class="keys-core">(.*?)</dl>', PAGE, re.S).group(1)
         self.assertEqual(core.count("<dt>"), 8)
-        for row in ("<dd>Now, Watch, Map</dd>", "<dd>Open the card's details, or close them</dd>", "<dd>Reply to the card's agent</dd>", "<dd>Tell ORCH something</dd>"):
+        for row in ("<dd>Now, Watch, Map</dd>", "<dd>Open the card's details, or close them</dd>", "<dd>Reply to the card's agent</dd>", "<dd>On Now: talk the card through with ORCH. Elsewhere: tell ORCH something</dd>"):
             self.assertIn(row, core)
         self.assertIn('<details class="keys-more"><summary>More keys</summary>', PAGE)
 
