@@ -10,6 +10,7 @@ from pathlib import Path
 
 from . import backup
 from . import insights, tomlread
+from . import rework
 from . import chatwake
 from . import listeners
 from . import redact
@@ -539,7 +540,10 @@ class Store:
                 t["body_md"] = body_md
             else:
                 t.pop("body_md", None)
+            again = rework.reviewed_before(t.get("log")) and not rework.explained(t.get("log"))   # asked before this line is written
             _log(t, f"Ready for review: {summary}")
+            if again:
+                self._rework(t, rework.RE_REVIEWED)
             t["updated"] = _now()
             for k in _kids(tasks, t["id"]):   # the deliverable is ready, so any still-open subtask is too
                 if k["status"] != "done":
@@ -601,6 +605,8 @@ class Store:
         with self.transaction() as tasks:
             t = self.get(tasks, task_id)
             _log(t, text, by=by)
+            if t.get("review") and not t.get("parent_id"):   # an answer to a report the agent thought finished: the owner is asking for something
+                self._rework(t, rework.reply_code(text))
             t["reply"] = {"text": text, "at": _now(), "by": by}   # the agent reads it with `agentboard answer`; its next update/ask/review clears it
             t["updated"] = _now()
             return t
@@ -660,8 +666,15 @@ class Store:
             t["reply"] = {"text": f"Sent back by {_who(owner)}: the card is open again in Doing, not closed. Note: {text}",
                           "at": _now(), "by": owner, "state": True}
             _log(t, f"Sent back: {text}", by=owner)
+            self._rework(t, rework.SENT_BACK)
             t["updated"] = _now()
             return t
+
+    def _rework(self, t, code):
+        """Write one `Rework: <code>` log line (src/agentboard/rework.py, docs/insights-design.md capture 5). Only with [insights] enabled: with it off the
+        board writes exactly what it always did. The line is the code and nothing else."""
+        if insights.enabled(self.dir):
+            _log(t, rework.line(code))
 
     def _tell_holder(self, t, was, agent):
         """The owner changed a card's column under the agent that holds it (`was` is the column before, `agent` who held it): leave
@@ -839,6 +852,8 @@ class Store:
                     t.pop("signoff", None)   # back to Todo or Later: the review it spoke of is over
                 self._tell_holder(t, was, holder)
                 _log(t, f"Moved to {status}")
+                if was == "done" and status != "done":   # a closed card came back
+                    self._rework(t, rework.REOPENED)
             t["updated"] = _now()
             _insert(tasks, t, before_id)
             return t

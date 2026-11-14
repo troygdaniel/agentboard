@@ -127,6 +127,14 @@
   .status { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-sm); color: var(--warn); border: 1px solid color-mix(in srgb, var(--warn) 45%, transparent); border-radius: 999px; padding: 3px 10px; white-space: nowrap; }
   .status[hidden] { display: none; }
   .status i { width: 6px; height: 6px; border-radius: 50%; background: var(--warn); }
+  /* The connection dot (card watch-alive-pulse): Live, Slow, Reconnecting. It says more than the old chip, which it hides while it is red. */
+  .ab-conn { display: inline-flex; align-items: center; gap: 7px; font-size: var(--fs-sm); color: var(--muted); padding: 3px 11px; border-radius: 999px; border: 1px solid var(--line); background: var(--chip); white-space: nowrap; }
+  .ab-conn i { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ok) 22%, transparent); }
+  .ab-conn b { font-weight: 650; color: var(--text); } .ab-conn .t::before { content: ' · '; } .ab-conn.down .t::before { content: ' '; }
+  .ab-conn.slow i { background: var(--warn); box-shadow: 0 0 0 3px color-mix(in srgb, var(--warn) 22%, transparent); }
+  .ab-conn.down { border-color: color-mix(in srgb, var(--err) 45%, var(--line)); } .ab-conn.down i { background: var(--err); box-shadow: 0 0 0 3px color-mix(in srgb, var(--err) 22%, transparent); } .ab-conn.down b { color: var(--err); }
+  .ab-conn.down ~ #status { display: none; }
+  @media (max-width: 760px) { .ab-conn .t { display: none; } .ab-conn { padding: 3px 9px; } .ab-conn:not(.slow):not(.down) b { display: none; } .ab-conn:not(.slow):not(.down) { padding: 7px; } }
   #filter { display: none; }   /* the filter is driven by the who chips and the attention counts, not typed */
   .filter-clear { width: 28px; height: 28px; min-height: 0; padding: 0; display: inline-grid; place-items: center; margin-left: -4px; }
   .filter-clear[hidden] { display: none; }
@@ -565,6 +573,25 @@
   #orch-line input { flex: 1; min-width: 0; background: none; border: 0; outline: none; font: inherit; font-size: 15px; color: var(--text); } #orch-line .btn { border-radius: 999px; min-height: 34px; opacity: 0; transition: opacity .2s; } #orch-line:focus-within .btn { opacity: 1; }
   #orch-line:focus-within { box-shadow: inset 0 0 0 1px var(--text), 0 18px 44px -18px rgba(0,0,0,.55); }
   @media (prefers-reduced-motion: reduce) { .w-tile.fresh .w-ring::after { animation: none; } }
+  /* Watch: how long since the agent was heard (card watch-alive-pulse). Fresh pulses steadily, ageing pulses slower and dimmer, silent is amber and still.
+     Only the clock moves any of it: the percent changes when an agent reports, never for a pulse. Reduced motion: the same colours, a static ring and dot. */
+  .w-heard { display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--muted); margin-top: 1px; }
+  .w-heard i { flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--muted); opacity: .55; }
+  .w-heard u { text-decoration: none; font-size: 10px; letter-spacing: .12em; text-transform: uppercase; border: 1px solid color-mix(in srgb, var(--warn) 55%, transparent); border-radius: 999px; padding: 0 6px; margin-left: 2px; }
+  .w-tile.fresh .w-heard { color: var(--c); font-weight: 700; }
+  .w-tile.fresh .w-heard i { background: var(--c); opacity: 1; box-shadow: 0 0 0 3px color-mix(in srgb, var(--c) 28%, transparent); animation: wdot 2.2s ease-in-out infinite; } @keyframes wdot { 50% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--c) 8%, transparent); } }
+  .w-tile.ageing .w-heard i { background: var(--c); opacity: .5; box-shadow: 0 0 0 2px color-mix(in srgb, var(--c) 14%, transparent); }
+  .w-tile.ageing .w-ring::after { content: ''; position: absolute; inset: -4px; border-radius: 50%; border: 2px solid var(--c); opacity: 0; animation: wpulse-slow 5s ease-out infinite; } @keyframes wpulse-slow { 0% { transform: scale(.9); opacity: .28; } 100% { transform: scale(1.2); opacity: 0; } }
+  .w-tile.silent { border-color: color-mix(in srgb, var(--warn) 55%, var(--line)); box-shadow: 0 14px 40px -26px color-mix(in srgb, var(--warn) 55%, transparent); }
+  .w-tile.silent .w-ring .fg { stroke: var(--warn); filter: none; } .w-tile.silent .w-ring .tip { display: none; }
+  .w-tile.silent .w-heard { color: var(--warn); font-weight: 700; } .w-tile.silent .w-heard i { background: var(--warn); opacity: 1; }
+  body.offline .w-tile:not(.w-waiting):not(.w-idling) { opacity: .55; filter: saturate(.45); }   /* connection lost: a quiet screen must not look like busy agents */
+  body.offline .w-tile, body.offline .w-tile *, body.offline .w-tile *::before, body.offline .w-tile *::after { animation-play-state: paused !important; }
+  @media (prefers-reduced-motion: reduce) {
+    .w-tile.fresh .w-heard i { animation: none; }
+    .w-tile.fresh .w-ring::after { animation: none; opacity: .5; transform: scale(1.08); }
+    .w-tile.ageing .w-ring::after { animation: none; opacity: .22; transform: scale(1.08); }
+  }
   /* A calmer pile: the open card says who, what and how long, so the line above it keeps the count and what the card holds */
   .deck-head { gap: 16px; align-items: center; } .deck-head b { font-size: 22px; } .deck-holds { color: var(--need) !important; font-weight: 700 !important; }
   .deck-head em.keys:not(.armed) { opacity: 0 !important; transition: opacity .2s; } .deck-head:hover em.keys, .deck-head:focus-within em.keys { opacity: .8 !important; }
@@ -2061,6 +2088,7 @@ body.deckview .board{display:block !important;overflow:visible !important;paddin
     <span class="summary" id="summary"></span>
     <span class="fut-ro" id="fut-ro" aria-hidden="true"></span>
     <span class="hicons">
+    <span class="ab-conn" id="conn" aria-live="off" title="The page asks the board every second"><i aria-hidden="true"></i><b>Live</b><span class="t"></span></span><span class="sr" id="conn-sr" role="status"></span>
     <span class="status off" id="status" role="status" hidden><i></i><span>Disconnected; retrying</span></span>
     <button class="status quiet" id="quiet-chip" type="button" hidden></button>
     <button class="btn off" id="notif-btn" aria-label="Desktop notifications: off. Press to turn on." aria-pressed="false" title="Desktop notifications: off"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 2a4 4 0 0 0-4 4v3L2.8 11h10.4L12 9V6a4 4 0 0 0-4-4z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M6.5 13a1.5 1.5 0 0 0 3 0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></button>
@@ -2849,18 +2877,28 @@ const orb = (name, extra = '') => { let h = 0; for (const ch of String(name || '
   return `<div class="orb ${extra}" style="--h2:${h % 360};--ox:${22 + h % 46}%;--oy:${18 + (h >> 4) % 40}%;--spin:${(h >> 7) % 360}deg"><i>${esc(nodeGlyph(name || ''))}</i></div>`; };
 const watchPrev = new Map(); let watchSel = null, watchSeen = false, watchBurst = false, watchLiveWas = new Set(), watchTilt = null;   // what each tile showed last time, so a change can be shown as a change
 const wSecs = t => Math.max(0, (Date.now() - (Date.parse(t.updated) || 0)) / 1000);
+// How long since an agent was heard (card watch-alive-pulse): the one honest signal a tile has. Fresh under a minute (a steady pulse), ageing from there
+// (slower and dimmer), silent from [board] silent_minutes (default 10: amber, no pulse). Read from the card's own `updated`; the percent never moves for it.
+const wState = secs => secs < 60 ? 'fresh' : secs < (cfg.silent_minutes || STALE_MIN) * 60 ? 'ageing' : 'silent';
+const wHeard = (secs, iso) => { const st = wState(secs), when = secs < 90 ? Math.max(1, Math.round(secs)) + 's ago' : ago(iso).text;
+  return `<i></i>${st === 'silent' ? 'last heard' : 'heard'} ${esc(when)}${st === 'silent' ? '<u>quiet</u>' : ''}`; };
+function watchAgeTick() {   // the clock moves, so a tile ages in place: its class and its "heard" line, no redraw and no request (called from the poll's own beat)
+  document.querySelectorAll('.w-tile[data-upd]').forEach(el => { const secs = wSecs({ updated: el.dataset.upd }), st = wState(secs);
+    for (const c of ['fresh', 'ageing', 'silent']) el.classList.toggle(c, c === st);
+    const h = el.querySelector('.w-heard'); if (h) { const html = wHeard(secs, el.dataset.upd); if (h.innerHTML !== html) h.innerHTML = html; } });
+}
 function watchHtml(by, n) {   // The whole team. Working agents are tiles (alive, doing what, how far); agents waiting on you and idle agents are there too, drawn quieter
   const kOf = t => (youOf(t) || {}).k, name = t => t.agent || 'Unassigned', byN = (a, b) => name(a).localeCompare(name(b), undefined, { numeric: true }) || a.id.localeCompare(b.id);
   const live = by.doing.filter(t => kOf(t) === 'none').sort(byN), wait = by.doing.filter(t => kOf(t) && kOf(t) !== 'none').sort(byN);   // a fixed order: a tile never moves because it was updated
   const busy = new Set(by.doing.map(name)), idle = [...document.querySelectorAll('#load-strip .ls-g')].map(g => g.dataset.agent).filter(a => a && !busy.has(a));
   const segsOf = t => { const slots = t.subs && t.subs.length ? t.subs : (kidsMap.get(t.id) || []); return slots.map(sl => { const k = byId.get(sl.id) || sl, dn = subDone(k); return `<i class="${dn ? 'dn' : (k.progress || 0) > 0 ? 'lv' : ''}" style="--p:${dn ? 100 : (k.progress || 0)}%"></i>`; }).join(''); };
-  const tile = t => { const p = t.progress || 0, line = parentLine(t) || t.status_text || 'working', was = watchPrev.get(t.id), secs = wSecs(t), alive = secs < 25;
+  const tile = t => { const p = t.progress || 0, line = parentLine(t) || t.status_text || 'working', was = watchPrev.get(t.id), secs = wSecs(t), st = wState(secs);
     const dp = was ? p - was.p : 0, moved = !!was && (dp !== 0 || was.line !== line), isNew = watchSeen && !was;
     const slotsNow = t.subs && t.subs.length ? t.subs : (kidsMap.get(t.id) || []), dn = slotsNow.filter(sl => subDone(byId.get(sl.id) || sl)).length, sparkAt = was && dn > (was.dn || 0) ? dn - 1 : -1;
-    return `<article class="w-tile w-nav${alive ? ' fresh' : ''}${moved ? ' moved' : ''}${isNew ? ' new' : ''}${watchSel === t.id ? ' sel' : ''}${watchOpenId === t.id ? ' lifted' : ''}" style="--c:${colorOf(t)}" data-watch="${esc(t.id)}" data-wid="${esc(t.id)}" data-p="${p}" data-was="${was ? was.p : p}" data-dn="${dn}" data-spark="${sparkAt}" data-line="${esc(line)}" tabindex="0" role="button" aria-label="${esc(name(t))}, ${esc(line)}, ${p}%">
+    return `<article class="w-tile w-nav ${st}${moved ? ' moved' : ''}${isNew ? ' new' : ''}${watchSel === t.id ? ' sel' : ''}${watchOpenId === t.id ? ' lifted' : ''}" style="--c:${colorOf(t)}" data-watch="${esc(t.id)}" data-wid="${esc(t.id)}" data-p="${p}" data-was="${was ? was.p : p}" data-dn="${dn}" data-spark="${sparkAt}" data-line="${esc(line)}" data-upd="${esc(t.updated)}" tabindex="0" role="button" aria-label="${esc(name(t))}, ${esc(line)}, ${p}%, ${st === 'silent' ? 'last heard ' : 'heard '}${secs < 90 ? Math.max(1, Math.round(secs)) + ' seconds ago' : esc(ago(t.updated).text)}">
 <div class="w-ring"><svg viewBox="0 0 80 80" aria-hidden="true"><circle class="tr" cx="40" cy="40" r="34"/><circle class="fg" cx="40" cy="40" r="34" pathLength="100" stroke-dasharray="${was ? was.p : p} 100"/>${p > 0 && p < 100 ? `<circle class="tip" r="3.2" cx="${(40 + 34 * Math.cos(p / 100 * 2 * Math.PI)).toFixed(2)}" cy="${(40 + 34 * Math.sin(p / 100 * 2 * Math.PI)).toFixed(2)}"/>` : ''}</svg>${orb(t.agent)}<em>${was ? was.p : p}</em>${dp > 0 ? `<u class="w-delta">+${dp}%</u>` : ''}</div>
-<div class="w-tx"><b>${esc(name(t))}${roleChip(t.agent)}</b><span class="w-now${was && was.line !== line ? ' swap' : ''}" title="${esc(line)}">${esc(line)}</span>${was && was.line !== line ? `<span class="w-was" aria-hidden="true">${esc(was.line)}</span>` : ''}<span class="w-card">${esc(t.title)}${(t._more || []).length ? `<i class="w-more-n" title="${esc(t._more.map(x => x.title).join(' · '))}"> · +${t._more.length} more</i>` : ''}</span></div>
-<span class="segs">${segsOf(t)}</span><i class="w-age">${alive ? 'now' : secs < 90 ? Math.round(secs) + 's ago' : esc(ago(t.updated).text)}</i></article>`; };
+<div class="w-tx"><b>${esc(name(t))}${roleChip(t.agent)}</b><span class="w-now${was && was.line !== line ? ' swap' : ''}" title="${esc(line)}">${esc(line)}</span>${was && was.line !== line ? `<span class="w-was" aria-hidden="true">${esc(was.line)}</span>` : ''}<span class="w-card">${esc(t.title)}${(t._more || []).length ? `<i class="w-more-n" title="${esc(t._more.map(x => x.title).join(' · '))}"> · +${t._more.length} more</i>` : ''}</span><span class="w-heard">${wHeard(secs, t.updated)}</span></div>
+<span class="segs">${segsOf(t)}</span></article>`; };
   const liveNames = new Set(live.map(name));
   const rank = { ask: 0, rev: 1, fin: 2, quiet: 3 }, groups = new Map(); wait.forEach(t => { const g = groups.get(name(t)) || []; g.push(t); groups.set(name(t), g); });   // one card per agent: its most pressing card, and how many
   const waitTile = g => { g.sort((a, b) => rank[kOf(a)] - rank[kOf(b)]); const t = g[0], y = youOf(t), wid = 'wait:' + name(t), verb = y.k === 'ask' ? 'Answer' : y.k === 'rev' ? 'Sign off' : y.k === 'fin' ? 'Close it' : 'Check on it';
@@ -3397,11 +3435,32 @@ function settle(c, glided) {   // the ring at once; a breath of scale once any g
   c.animate([{ transform: 'scale(1.02)' }, { transform: 'none' }], { duration: 240, delay: glided ? 400 : 0, easing: 'ease-out' });
 }
 
+// Is the board there? (card watch-alive-pulse) Read off the poll the page already makes every second: nothing extra is fetched. Live while the polls answer,
+// Slow after 5 s without an answer or a failed poll, Reconnecting (red) after 3 failed polls in a row or 15 s of silence. A hidden tab is not a lost board: its
+// timers are throttled, so the clock starts again when it comes back.
+const conn = { ok: Date.now(), fails: 0, seen: Date.now(), state: '' };
+const CONN_SLOW_S = 5, CONN_DOWN_S = 15, CONN_DOWN_FAILS = 3;
+const connAge = () => (Date.now() - Math.max(conn.ok, conn.seen)) / 1000;
+const connState = () => conn.fails >= CONN_DOWN_FAILS || connAge() >= CONN_DOWN_S ? 'down' : conn.fails > 0 || connAge() >= CONN_SLOW_S ? 'slow' : 'ok';
+function connRender() {
+  const el = $('conn'); if (!el) return;
+  const st = connState(), n = Math.max(1, Math.round(connAge())), at = new Date(conn.ok), hhmm = String(at.getHours()).padStart(2, '0') + ':' + String(at.getMinutes()).padStart(2, '0');
+  el.className = 'ab-conn' + (st === 'ok' ? '' : ' ' + st);
+  el.querySelector('b').textContent = st === 'ok' ? 'Live' : st === 'slow' ? 'Slow' : 'Reconnecting…';
+  el.querySelector('.t').textContent = st === 'down' ? 'last update ' + hhmm : 'updated ' + n + 's ago';
+  if (st !== conn.state) {   // a change is said once, aloud and to the page: the tiles freeze and dim while it is red
+    conn.state = st; document.body.classList.toggle('offline', st === 'down');
+    const sr = $('conn-sr'); if (sr) sr.textContent = st === 'ok' ? 'Connected to the board' : st === 'slow' ? 'The board is slow to answer' : 'Disconnected from the board, reconnecting';
+  }
+}
+document.addEventListener('visibilitychange', () => { if (!document.hidden) { conn.seen = Date.now(); connRender(); } });
 async function load() {
+  connRender(); watchAgeTick();   // the dot's seconds and the tiles' ages move with the clock, on the poll's own beat
   if (dragging) return;
   try {
     const r = await fetch('/api/tasks', { cache: 'no-store', headers: tasksTag ? { 'If-None-Match': tasksTag } : {} });
     if (r.status !== 304 && !r.ok) throw new Error('HTTP ' + r.status);
+    conn.ok = Date.now(); conn.fails = 0;
     const text = r.status === 304 ? raw : await r.text();   // 304: nothing changed since the tag we sent, so the server sent no body
     const tag = r.status === 304 ? tasksTag : (r.headers.get('ETag') || '');
     const ae = document.activeElement;   // never re-render under something being typed (an empty add box is fine to redraw: focus is put back)
@@ -3420,7 +3479,8 @@ async function load() {
     maybeAutoOpen();
     refreshPanel();
     renderThread();   // the head reads the cards: state, last update, the current card
-  } catch (e) { setStatus(false); }
+  } catch (e) { conn.fails++; setStatus(false); }
+  connRender();
   loadChat();
 }
 

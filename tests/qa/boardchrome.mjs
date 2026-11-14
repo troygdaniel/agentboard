@@ -4,6 +4,7 @@
 //     const page = await openPage(board.url, { init });   // headless Chrome (muted, its own profile), one DevTools socket; init runs in every new document
 //     await page.ev(`document.title`);                    // evaluate and get the JSON value back
 //     board.cli(['chat', 'send', 'a line', '--name', 'ORCH']);   // run agentboard against that board, as the shell of an agent would
+//     await board.stopServer(); await board.startServer();   // the board goes away and comes back on the same port (a lost connection)
 //     await stopAll();                                    // stops only the processes started here and removes only the directories made here
 //
 // BOARD_CHECK_SRC=<another checkout's src> runs the check against that code (to see it fail without a fix). Needs Node 22+ (the built-in WebSocket),
@@ -33,11 +34,19 @@ export async function startBoard(tag = 'check') {
   const port = await freePort();
   const env = { ...cleanEnv(), PYTHONPATH: SRC, HOME: join(scratch, 'home'), AGENTBOARD_DIR: join(scratch, 'proj', '.agentboard') };
   const cwd = join(scratch, 'proj');
-  const server = spawn(PY, ['-m', 'agentboard', 'serve', '--no-open', '--port', String(port)], { cwd, env, stdio: 'ignore' }); procs.push(server);
-  for (let i = 0; i < 100; i++) { try { if ((await fetch(`http://127.0.0.1:${port}/`)).ok) break; } catch (e) { /* not up yet */ } await sleep(100); }
+  let server = null;
+  const startServer = async () => {   // also how a check brings the board back after stopServer()
+    server = spawn(PY, ['-m', 'agentboard', 'serve', '--no-open', '--port', String(port)], { cwd, env, stdio: 'ignore' }); procs.push(server);
+    for (let i = 0; i < 100; i++) { try { if ((await fetch(`http://127.0.0.1:${port}/`)).ok) break; } catch (e) { /* not up yet */ } await sleep(100); }
+  };
+  const stopServer = async () => {   // the board goes away mid-session (a lost connection); only the server this call started is stopped
+    const s = server; if (!s) return; server = null;
+    await new Promise(res => { s.once('exit', res); try { s.kill('SIGTERM'); } catch (e) { res(); } setTimeout(res, 3000); });
+  };
+  await startServer();
   // agentboard as an agent's shell runs it: its own environment, no name unless extraEnv gives one
   const cli = (args, extraEnv = {}) => { const r = spawnSync(PY, ['-m', 'agentboard', ...args], { cwd, env: { ...env, ...extraEnv }, encoding: 'utf8' }); return { status: r.status, out: (r.stdout || '') + (r.stderr || '') }; };
-  return { port, url: `http://127.0.0.1:${port}/`, scratch, dir: join(cwd, '.agentboard'), cwd, env, cli };
+  return { port, url: `http://127.0.0.1:${port}/`, scratch, dir: join(cwd, '.agentboard'), cwd, env, cli, startServer, stopServer };
 }
 
 export async function openPage(url, { init = '', ready = 'true', width = 1280, height = 800 } = {}) {

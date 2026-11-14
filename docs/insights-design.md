@@ -1,6 +1,6 @@
 # Insights: can the board recommend how to use its agents?
 
-**Status: v0 built (card `agentboard-insights-v0`): captures 1, 2 and 3 and four rules behind `[insights] enabled`; capture 4, agent state history, built (card `agentboard-insights-agent-states`); the rest is still design.** Card `agentboard-recommend-improvements`, base `main` at `43de497`. The owner approved all six decisions below on 14 Nov 2026.
+**Status: v0 built (card `agentboard-insights-v0`): captures 1, 2 and 3 and four rules behind `[insights] enabled`; capture 4, agent state history, built (card `agentboard-insights-agent-states`); capture 5, the one rework event, built (card `agentboard-insights-rework-event`: `src/agentboard/rework.py`, the five codes `sent-back`, `be-simpler`, `changes-asked`, `reopened`, `re-reviewed`, and the rule *Work comes back*); the rest is still design.** Card `agentboard-recommend-improvements`, base `main` at `43de497`. The owner approved all six decisions below on 14 Nov 2026.
 First real dataset: the Long Haul retrospective (card `space-game-retrospective`, `docs/RETRO.md` in the game repo): 95 cards in 40 hours by seven agents and ORCH.
 
 ## What is asked
