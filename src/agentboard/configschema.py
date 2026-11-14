@@ -69,6 +69,7 @@ SCHEMA = {
         "profile": Field("str", None, "work: the work profile for this board (lock, no plugins, loopback only; `agentboard init` writes it on a machine with no home setup); any value but off, home, no, false, 0 or empty also means work (a mistyped word is a lock, not a hole), and a copied config can add it, never remove it"),
     },
     "ui": {"dispatch": Field("bool", True, "show Copy prompt and the prompt preview")},
+    "insights": {"enabled": Field("bool", False, "turn on `agentboard insights` and its captures: a card's blockers logged when it is made and an Unblocked line when the last finishes, who made a card, and a closing reason on done (counts and timings only; nothing leaves the board)")},
     "hud": {"retired": Field("list[str]", [], "agents hidden from the HUD; their cards and history stay")},
     "voice": {
         "words": Field("list[str]", [], "names the dictation should spell right (yours and the agents' are already included)"),

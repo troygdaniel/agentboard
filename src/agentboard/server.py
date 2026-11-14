@@ -474,7 +474,7 @@ def make_handler(default_store, port):
                 elif path == "/api/tasks":
                     t = self.store.add(body["title"], body.get("description", ""),
                                   body.get("status"), body.get("ctx", []),
-                                  parent_id=body.get("parent_id"))
+                                  parent_id=body.get("parent_id"), actor=self.store.owner)
                     self._send(200, t)
                 elif path == "/api/edit":
                     self._send(200, self.store.edit(body["id"], body.get("title"), body.get("description"), body.get("blocked_by")))
