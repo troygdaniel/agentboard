@@ -15,6 +15,7 @@ One line each. The first three are the ones most people need.
 | [docs/conversation-reliability-analysis.md](conversation-reliability-analysis.md) | Why a line typed to an agent on the board used to go unanswered: the loss paths, ranked, and the fixes in order (listeners, receipts, the Stop hook, the nudge). |
 | [docs/plugins-at-work-design.md](plugins-at-work-design.md) | Design only: how a work machine could run a plugin the owner named and a reviewer checked, off by default; the rules, the install steps, the changes and the choices to approve. |
 | [docs/insights-design.md](insights-design.md) | Design only: can the board recommend how to use its agents? What it records now against what the Long Haul retrospective had to reconstruct, ten capture points ranked by cost, the first rules and what they would have said, privacy, the smallest first build. |
+| [docs/agent-configurations-design.md](agent-configurations-design.md) | Design only: agent configurations (names plus roles), renaming an agent without losing history, role chips and prompts, the day-to-day approval rules, the smallest build and the choices to approve; a clickable mock-up and its captures sit beside it. |
 | [docs/chat-words-design.md](chat-words-design.md) | The words and layout of the chat: who reads a line, receipts, refusals, two sessions under one name. |
 | [docs/settings-tabs-design.md](settings-tabs-design.md) | Settings in tabs: what each tab holds, the plugin tab API, search, the deep link, keyboard and the phone layout; the before and after screenshots and measurements are in `docs/settings-tabs/`. |
 | [docs/ux-review-2026-11-04.md](ux-review-2026-11-04.md) | The Nov 4, 2026 UX review: what was wrong on the board and the HUD, with screenshots. |
@@ -24,7 +25,7 @@ One line each. The first three are the ones most people need.
 Pictures and mockups, from throwaway boards: `docs/board-light.png`, `docs/board-dark.png`, `docs/hud.png` (the README's); `docs/agent-chat/`,
 `docs/by-agent/`, `docs/copied-badge/`, `docs/copied-button/`, `docs/gorgeous-2026-11-04/`, `docs/hud-bughunt/`, `docs/load-strip/`, `docs/panel-header-action/`,
 `docs/ux-five/`, `docs/ux-six/` (screenshots of the UX cards they are named after); `docs/card-colour-mockup.html`, `docs/subtasks-mockup.html`,
-`docs/ux-mockups.html`, `docs/ux-mockups-2.html`, `docs/chat-words-design-mockup.html` (clickable mockups,
+`docs/ux-mockups.html`, `docs/ux-mockups-2.html`, `docs/chat-words-design-mockup.html`, `docs/agent-configurations-mockup.html` (clickable mockups,
 with their `.png` captures beside them).
 | [docs/security-signoff.md](security-signoff.md) | The two-page security sign-off: what was checked on the night of Nov 7-8, how, and what a reviewer can rerun. |
 
