@@ -550,7 +550,7 @@ Findings below come from the audit in `SECURITY.md` in the repository root (v0.2
     [providers.<name>]            # context providers for prompts: markdown | file-tail | http | command
     type = "markdown"             # see the commented examples init writes; off until a task lists one with --ctx
 
-Environment: `AGENTBOARD_DIR` (the board to use from anywhere), `AGENTBOARD_BOARD` (a registered board name), `AGENTBOARD_HOME` (where the registry lives), `AGENTBOARD_NAME` (the default for `--name`).
+Environment: `AGENTBOARD_DIR` (the board to use from anywhere), `AGENTBOARD_BOARD` (a registered board name), `AGENTBOARD_HOME` (where the registry lives), `AGENTBOARD_NAME` (the default for `--name`), `AGENTBOARD_SESSION` (names the session for the chat receipts; without it the session is the agent runtime above the shell).
 
 ## One-shot agents
 

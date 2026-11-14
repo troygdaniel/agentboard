@@ -138,6 +138,7 @@ one CSS colour per agent name, on every card it holds: "AGENT-1" = "#2563eb".
 | `AGENTBOARD_BOARD` | a registered board name (what --board sets) |
 | `AGENTBOARD_HOME` | where the boards registry lives (default ~/.agentboard) |
 | `AGENTBOARD_NAME` | the default for --name |
+| `AGENTBOARD_SESSION` | names this session for the chat receipts (a name wins; without one the session is the agent runtime above the shell, found from the process tree) |
 | `AGENTBOARD_LOCKDOWN` | the master lock: refuses everything that starts a program or sends data out |
 | `AGENTBOARD_NO_PLUGINS` | the narrow lock for plugins |
 | `AGENTBOARD_PLUGINS` | exactly 1: plugins may load |
