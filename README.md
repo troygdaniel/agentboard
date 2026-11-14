@@ -279,6 +279,8 @@ under 40% of the time between its first claim and its last review: work with no 
 "not enough data". Counts, timings and card ids only: no title, result or chat text is read into an observation. It only suggests; it changes no prompt, role or
 card, ranks no one, reads nothing outside the board, starts no program. Design and the ten planned captures: `docs/insights-design.md`.
 
+**Agent state history** (the second capture, same flag): while the server runs, it notes once a minute what each agent is doing and appends a line to `.agentboard/agent-states.jsonl` when it changes (and a heartbeat every 15 minutes, so a gap is time nobody watched): working, quiet, abandoned, waiting for the owner (every open card is a question or a review), waiting for work (no open card and a wait running) or away (no open card and no wait). A line is a name, a state word and a time; no text. With it, `agentboard insights` adds a fifth observation, **waiting for work** (an agent waited for work at least a quarter of the hours the board watched it, once it has watched 8), and says where the night gaps and an agent's missing card time went instead of listing what it cannot see.
+
 **Keep it simple.** The ORCH prompt carries a named `Keep it simple` block (one sentence, one idea, detail on demand) that ORCH copies into every card description and assignment it writes. It is instructed, not checked. `update`, `ask` and `review` take `--body` / `--body-file`, or a multi-line text whose first line is the sentence and the rest the body; the card shows the sentence large and the rest behind a collapsed **Details** fold.
 
 The older three-line shape is still understood and drawn as bands and chips, if an agent prefers it (three lines at most):

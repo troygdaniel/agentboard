@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Insights: agent state history (Nov 14, same flag as insights v0)
+With `[insights] enabled = true` the server now notes once a minute what each agent is doing and appends a line to `.agentboard/agent-states.jsonl` when it changes, plus a heartbeat every 15 minutes (a gap is then time nobody watched, not a long state). States: working, quiet, abandoned, waiting (every open card is a question to the owner), review, listening (no open card and a wait running: waiting for work) and away. A card in review no longer hides the agent's work on another card, as the HUD's own label does. A line is a name, a state word and a time: no text.
+- **`agentboard insights` reads it**: a fifth observation, *waiting for work* (per agent, once 8 hours were watched; fires at a quarter of the time), the night gaps say where their hours went (waiting for work, waiting for the owner, away) and the card-in-hand share shows the measured split, instead of listing what the board cannot see. With no history each says so.
+- Checked: `tests/test_agentstates.py` (30: the state rule, the sampler on a throwaway board, the server thread, intervals, the rules on hand-built lines), `tests/test_insights.py` (42).
+
 ### Insights v0: how the agents are used, from the board's own records (Nov 14, off by default)
 The retrospective of the Long Haul build (95 cards in 40 hours) had to rebuild every timing from logs, chat snapshots and git; `docs/insights-design.md` says what the board should record instead. This is its smallest first build (card `agentboard-insights-v0`).
 - **`[insights] enabled = true` in `config.toml` turns on three captures**, and with it off the board writes exactly what it always did: a card made with blockers logs "Blocked by ..." (only `edit` did), a card whose last blocker finishes gets "Unblocked: every blocker is done", the name that made a card is kept as `actor` on its `Added` entry (not `by`, which the page shows as a human), and a card closed without a reason is `closed_as: shipped`. `agentboard done ID --reason shipped|duplicate|not-reproduced|superseded|not-needed` records one (kept even with the flag off).

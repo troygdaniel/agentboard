@@ -17,6 +17,7 @@ from . import hooks as hookslib
 from . import chatwake, cursors, listeners
 from . import backup as backuplib
 from . import hud as hudlib
+from . import agentstates as agentstateslib
 from . import insights as insightslib
 from . import lifecycle
 from . import lockdown
@@ -541,7 +542,7 @@ def cmd_insights(a):
         since = insightslib.parse_since(a.since)
     except ValueError as e:
         sys.exit(f"agentboard: {e}")
-    result = insightslib.compute(s.load_all(), since, a.agent, a.prefix, datetime.now())
+    result = insightslib.compute(s.load_all(), since, a.agent, a.prefix, datetime.now(), states=agentstateslib.read(s.dir))
     print(insightslib.as_json(result) if a.json else insightslib.render(result), end="")
 
 

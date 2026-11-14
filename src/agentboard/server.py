@@ -639,6 +639,17 @@ def serve(store, port=8765, open_browser=True):
 
     threading.Thread(target=_backups, daemon=True).start()
 
+    def _states():   # insights capture 4: with [insights] on, one line a minute at most when an agent's state changes (agentstates.sample); a problem here never stops a board
+        from . import agentstates
+        while True:
+            try:
+                agentstates.sample(store)
+            except Exception:   # noqa: BLE001
+                pass
+            time.sleep(60)
+
+    threading.Thread(target=_states, daemon=True).start()
+
     def _autopilot():   # [chat] autopilot / casual: the board's own rounds on the cheaper model, when switched on
         from . import agentchat, hud, lockdown, runs
         tick, last_auto = 20.0, 0.0
