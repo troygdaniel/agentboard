@@ -20,6 +20,12 @@ An invalid value is never guessed at: the default applies and the check says so.
 |---|---|---|---|
 | `dispatch` | bool | true | show Copy prompt and the prompt preview. |
 
+## `[insights]`
+
+| Key | Type | Default | Meaning |
+|---|---|---|---|
+| `enabled` | bool | false | turn on `agentboard insights` and its captures: a card's blockers logged when it is made and an Unblocked line when the last finishes, who made a card, and a closing reason on done (counts and timings only; nothing leaves the board). |
+
 ## `[hud]`
 
 | Key | Type | Default | Meaning |

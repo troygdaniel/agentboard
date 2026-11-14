@@ -50,6 +50,7 @@ is the developer's.
 | `static/index.html` | The whole browser side in one file: the board, the detail panel, the Load tab (HUD), chat, Settings, the Terminal tab. It polls `/api/tasks` once a second (`setInterval(load, 1000)`). No framework, no build step, no external resource. |
 | `static/voice.js` | The dictation button's script, served at `/voice.js`. |
 | `hud.py` | Aggregates the board for the Load tab: agents, activity feed, totals, timeline, stale cards (`/api/hud`). |
+| `insights.py` | Insights (off by default, `[insights] enabled`): the flag, the closing reasons, and four rules over the cards' own timings (blocked cards wait, a few cards hold the hours, the nights are idle, a card in hand), each with its number, sample size and what the board cannot see; pure functions, counts and ids only (`agentboard insights`, docs/insights-design.md). |
 | `summary.py` | The Done summary: finished cards by agent and area, as text, a Mermaid mindmap or an HTML page (`agentboard summary`). |
 | `story.py` | The Story page (`/story`): five scenes (the week, the flow, the themes, what needs you, the days) written from card data with fixed templates; every card on it links to `/#<id>`, which opens its panel. No model, no network; the same on the work profile. |
 | `reports.py` | One self-contained HTML report per card entering review or done, in `.agentboard/reports/<card>-<stamp>.html`; `sweep` ages them out after `[reports] keep_hours`, always keeping the newest per card. |
@@ -163,7 +164,7 @@ own prompt). In `store.py` terms:
   one-line status), `agent` (who holds it), `log` (every change, stamped), `ctx` (provider names), `prompt`, `created`, `updated`, and when set
   `parent_id` (a subtask, one level), `blocked_by` (ids), `needs_input` with `question`, `review` with `result`, `reply` (the owner's answer or
   send-back note: `text`, `at`, `by`; cleared by the agent's next update, ask or review), `body_md` (the details behind a sentence), `source`
-  (where a card came from, a fixed set of keys), `report` (the last report written), `run` (a one-shot run's state), `archived`.
+  (where a card came from, a fixed set of keys), `report` (the last report written), `run` (a one-shot run's state), `archived`, `closed_as` (why a done card was closed: shipped, duplicate, not-reproduced, superseded or not-needed; kept by `done --reason`, and set to shipped when insights are on). With insights on, a log entry may also carry `actor` (who made the card; never `by`, which the page shows as a human).
 - `start` creates a card in `doing` under the agent's name (or `claim <id>` takes an existing one; a blocked card is refused without
   `--force`). `update <id> <percent> "<line>"` sets `progress` and `status_text`; a subtask at 100 % closes itself and the parent's percent
   is the mean of its subtasks. `ask` sets `needs_input` with a `question`; the owner's reply (`POST /api/reply`) lands in `reply`, and

@@ -9,7 +9,7 @@ import time
 from pathlib import Path
 
 from . import backup
-from . import tomlread
+from . import insights, tomlread
 from . import chatwake
 from . import listeners
 from . import redact
@@ -229,7 +229,11 @@ class Store:
         with self._lock():
             data = self._read()
             self._archive_after = None
+            on = insights.enabled(self.dir)   # [insights] enabled = true: the captures below (docs/insights-design.md)
+            before = {t["id"]: t["status"] for t in data["tasks"]} if on else None
             yield data["tasks"]
+            if on:
+                _insights_note(data["tasks"], before)
             self._write(data)
             if self._archive_after is not None:
                 self._write_archive(self._archive_after)
@@ -245,7 +249,7 @@ class Store:
         raise BoardError(f"no such task: {task_id}")
 
     def add(self, title, description="", status=None, ctx=None, task_id=None, blocked_by=None,
-            parent_id=None, source=None):
+            parent_id=None, source=None, actor=None):
         """Add a task. With parent_id it becomes a subtask: it follows its parent's column and owner (one level only).
         `source` says where the card came from ({"kind": "text", "key": ..., "at": ...}); a second card with the same source key is refused,
         so a pull that runs twice (or twice at once) can never make the same card twice."""
@@ -292,7 +296,10 @@ class Store:
                 task["parent_id"] = parent["id"]
                 if parent.get("agent") and status == "doing":
                     task["agent"] = parent["agent"]
-            _log(task, f"Added to {status}" + (" from a text" if source and source.get("kind") == "text" else ""))
+            on = insights.enabled(self.dir)
+            _log(task, f"Added to {status}" + (" from a text" if source and source.get("kind") == "text" else ""), actor=actor if on else None)
+            if on and blocked_by:
+                _log_blockers(self, tasks, task, blocked_by)
             if parent or status not in ("todo", "backlog"):
                 tasks.append(task)
             else:   # a new idea goes to the top of Todo or Backlog; the column order is the list order, so move/drag keep working
@@ -352,7 +359,10 @@ class Store:
                 task["blocked_by"] = list(blocked_by)
             if parent:
                 task["parent_id"] = parent["id"]
-            _log(task, f"Started by {name}")
+            on = insights.enabled(self.dir)
+            _log(task, f"Started by {name}", actor=name if on else None)
+            if on and blocked_by:
+                _log_blockers(self, tasks, task, blocked_by)
             tasks.append(task)
             if parent:
                 _touch_parent(tasks, parent)
@@ -677,13 +687,18 @@ class Store:
         return dict(r)
 
     @_reports_after()
-    def update(self, task_id, progress=None, text=None, status=None, body_md=None, by=None):
+    def update(self, task_id, progress=None, text=None, status=None, body_md=None, by=None, closed_as=None):
+        if closed_as is not None and closed_as not in insights.CLOSE_REASONS:
+            raise BoardError(f"reason must be one of {', '.join(insights.CLOSE_REASONS)}")
         if text is not None:
             text, body_md = split_report(text, body_md)
         with self.transaction() as tasks:
             t = self.get(tasks, task_id)
             _must_hold(tasks, t, by, self.owner)
-            return self._update(tasks, t, progress, text, status, body_md)
+            r = self._update(tasks, t, progress, text, status, body_md)
+            if closed_as and t["status"] == "done":
+                t["closed_as"] = closed_as   # why it was closed (insights); with [insights] enabled a card closed without one is "shipped"
+            return r
 
     def checkpoint(self, task_id, text, body_md=None, by=None):
         """The hand-off note on a card its agent still holds: where it stands (done so far, the next step, what it learned), written so the
@@ -1286,13 +1301,16 @@ def _drop_read_reply(t):
         t.pop("reply", None)
 
 
-def _log(t, text, by=None):
-    """Append to the task's activity history (the card's detail view). `by` marks a human entry."""
+def _log(t, text, by=None, actor=None):
+    """Append to the task's activity history (the card's detail view). `by` marks a human entry. `actor` names who did it when the line itself
+    does not (insights: who made a card); the page never shows it."""
     if not text:
         return
     entry = {"at": _now(), "status": t["status"], "progress": t.get("progress", 0), "text": text}
     if by:
         entry["by"] = by
+    if actor:
+        entry["actor"] = str(actor)[:60]
     t.setdefault("log", []).append(entry)
     del t["log"][:-LOG_MAX]
 
@@ -1563,6 +1581,27 @@ def _apply_status(t, status):
         if status == "backlog":
             t["progress"] = 0
             t["status_text"] = ""
+
+
+def _log_blockers(store, tasks, task, blocked_by):
+    """Insights: a card made with blockers says so in its log (edit already did), so the wait for them can be read back exactly."""
+    by_id = {x["id"]: x for x in tasks}
+    _log(task, "Blocked by " + ", ".join(store._scrub(by_id[b]["title"]) for b in blocked_by if b in by_id))
+
+
+def _insights_note(tasks, before):
+    """Insights, at the end of a transaction: a card that just became done gets its closing reason (default "shipped"), and a card whose last
+    blocker just finished is told it is unblocked (a line in its log with the time), so blocked time is recorded and not rebuilt."""
+    newly = {t["id"] for t in tasks if t["status"] == "done" and before.get(t["id"]) not in (None, "done")}
+    if not newly:
+        return
+    for t in tasks:
+        if t["id"] in newly:
+            t.setdefault("closed_as", "shipped")
+    for t in tasks:
+        bb = t.get("blocked_by")
+        if bb and t["status"] != "done" and newly & set(bb) and not _unresolved_blockers(tasks, bb):
+            _log(t, "Unblocked: every blocker is done")
 
 
 def _unresolved_blockers(tasks, blocked_by):

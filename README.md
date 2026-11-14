@@ -266,6 +266,19 @@ phone width. **Copy text** puts the summary on the clipboard as markdown, **Copy
 Mermaid renders (GitHub, Obsidian, Notion), **Save as HTML** downloads the page.
 On the command line: `agentboard summary [--since 7d] [--agent <name>] [--html <path>] [--mermaid]`.
 
+### Insights: how the agents are used (off by default)
+
+The Done summary is about the work; **`agentboard insights`** is about how it went. Put `[insights]` `enabled = true` in `.agentboard/config.toml` and the board
+starts three small captures on new cards (a card's blockers are logged when it is made and an `Unblocked` line when the last one finishes; the name that made a
+card is kept in its `Added` log entry as `actor`; a card closed without a reason is `closed_as: shipped`, or give one: `agentboard done ID --reason duplicate`,
+from `shipped`, `duplicate`, `not-reproduced`, `superseded`, `not-needed`). `agentboard insights [--since 7d|24h|all] [--agent NAME] [--prefix ID_START] [--json]`
+then reads the board's own records and prints four observations, each one number with how many cards it rests on, a threshold, what the board cannot see, and a
+suggestion: **blocked cards wait** (median wait for a blocker of at least 2 h), **a few cards hold the hours** (cards of 3 h or more build hold at least 40% of
+build hours), **the nights are idle** (at least half of the between-card gap hours fall between midnight and 08:00), **a card in hand** (an agent holds a card
+under 40% of the time between its first claim and its last review: work with no card is invisible, so this is not idle time). A rule with fewer than 5 cards says
+"not enough data". Counts, timings and card ids only: no title, result or chat text is read into an observation. It only suggests; it changes no prompt, role or
+card, ranks no one, reads nothing outside the board, starts no program. Design and the ten planned captures: `docs/insights-design.md`.
+
 **Keep it simple.** The ORCH prompt carries a named `Keep it simple` block (one sentence, one idea, detail on demand) that ORCH copies into every card description and assignment it writes. It is instructed, not checked. `update`, `ask` and `review` take `--body` / `--body-file`, or a multi-line text whose first line is the sentence and the rest the body; the card shows the sentence large and the rest behind a collapsed **Details** fold.
 
 The older three-line shape is still understood and drawn as bands and chips, if an agent prefers it (three lines at most):
@@ -610,6 +623,7 @@ Copy prompt button, the CLI and `agentboard prompt` are unaffected.
 | `answer ID [--wait] [--timeout S]` | print the reply you left on a card (agents use it to read your answer) |
 | `reports [--purge] [--hours N]` | list card reports; remove the old ones now |
 | `report [--date YYYY-MM-DD]` | markdown recap of what got done that day, by agent — for a standup or daily log |
+| `insights [--since 7d] [--agent N] [--prefix P] [--json]` | four observations on how the agents are used, from the board's own records (needs `[insights] enabled = true`; see Insights) |
 | `clear` | archive all Done cards: they move to `archive.json` (history and HUD counts kept) |
 | `demo [--live]`, `rm --demo` | sample tasks / simulated agents |
 | `prompt <id> [--public]`, `rebuild [id] [--all]`, `instructions`, `orch` | prompts and the agent snippet; `orch` prints the prompt that boots a session as ORCH (starts nothing) |
@@ -619,7 +633,7 @@ Copy prompt button, the CLI and `agentboard prompt` are unaffected.
 | `start "Title" --name N [--blocked-by ID] [--parent ID] [--force]` | create a task already in Doing; prints its id |
 | `claim <id> --name N [--force]` | take an existing task and its subtasks (refuses while blocked, unless `--force`) |
 | `update <id> <0-100> ["text"]` , `ask <id> "q" [--body MD]`, `review <id> "result" [--body MD]` | report |
-| `done <id>` | user-approved only |
+| `done <id> [--reason R]` | user-approved only |
 | `wait <id> [--status X] [--timeout SECS]` | block until a task reaches a status — sync without polling |
 | `chat send "msg" --name N [--user]`, `chat tail [--limit N] [--follow]` | self-organize with other agents, visible to the user |
 
