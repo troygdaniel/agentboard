@@ -277,7 +277,7 @@ def _gitignore_board(root):
 
 def cmd_add(a):
     t = _store().add(a.title, a.description or "", a.status, a.ctx, a.id, blocked_by=a.blocked_by,
-                     parent_id=a.parent, actor=os.environ.get("AGENTBOARD_NAME") or None)
+                     parent_id=a.parent, actor=os.environ.get("AGENTBOARD_NAME") or None, size=a.size)
     print(f"added {t['id']} ({t['status']})")
     if not a.parent and not sys.stderr.isatty():   # for an agent adding cards (stderr, so a script reading the line above is unaffected); a person at a terminal has no use for it
         print("reminder: every card gets subtasks. The agent adds them as soon as it starts; the card prompt says so, "
@@ -1019,7 +1019,7 @@ def cmd_start(a):
     hookslib.remember_session(_store().dir, _agent_name(a), transcript=a.transcript)
     t, created = _store().start_card(a.title, _agent_name(a), None,   # --color is accepted and ignored
                                      a.description or "", a.id, blocked_by=a.blocked_by, force=a.force,
-                                     parent_id=a.parent)
+                                     parent_id=a.parent, model=a.model, size=a.size)
     if not created:
         print(f"agentboard: you already hold {t['id']}; logged on it, no twin made", file=sys.stderr)
     print(t["id"])  # agents use this id for update/done; the sibling list goes to stderr so $(...) still captures only the id
@@ -1272,7 +1272,7 @@ def cmd_claim(a):
     name = _agent_name(a)
     s = _store()
     hookslib.remember_session(s.dir, name, transcript=a.transcript)
-    t = s.claim(a.id, name, force=a.force)   # --color is accepted and ignored
+    t = s.claim(a.id, name, force=a.force, model=a.model)   # --color is accepted and ignored
     print(f"claimed {t['id']} as {name}")
     _print_role(s, name)
     tasks = s.load()
@@ -2048,6 +2048,8 @@ def main(argv=None):
     sp.add_argument("--parent", metavar="ID", help="make this a subtask of that task (one level deep)")
     sp.add_argument("--blocked-by", action="append", dest="blocked_by", metavar="ID",
                      help="task id this depends on; repeat for multiple")
+    sp.add_argument("--size", type=str.upper, choices=["S", "M", "L"], metavar="S|M|L",
+                    help="your estimate of the card: S (under about an hour), M (up to about three) or L (more); kept for `agentboard insights`, which sets it against how long the card took")
     sp = add("rollup", cmd_rollup, "the whole board in one page for ORCH: what waits on a person, each agent's cards, what is stuck, the Todo queue, what finished and what it learned")
     sp.add_argument("--hours", type=float, default=24, help="how far back 'finished' looks (default 24)")
     sp.add_argument("--json", action="store_true")
@@ -2170,6 +2172,10 @@ def main(argv=None):
     sp.add_argument("--blocked-by", action="append", dest="blocked_by", metavar="ID",
                      help="task id this depends on; repeat for multiple")
     sp.add_argument("--force", action="store_true", help="start even if a blocker is not done")
+    sp.add_argument("--size", type=str.upper, choices=["S", "M", "L"], metavar="S|M|L",
+                    help="your estimate of the card: S (under about an hour), M (up to about three) or L (more); kept for `agentboard insights`, which sets it against how long the card took")
+    sp.add_argument("--model", metavar="NAME",
+                    help="the model you are (kept for `agentboard insights`, with [insights] enabled; or set $AGENTBOARD_MODEL once for the session): a short name such as claude-sonnet-5-5")
     sp = add("instructions", cmd_instructions, "print a snippet to paste into CLAUDE.md / AGENTS.md")
     sp.add_argument("--absolute", action="store_true", help="embed absolute command + board path (works from any directory)")
     sp = add("demo", cmd_demo, "add sample tasks to see the board")
@@ -2184,6 +2190,8 @@ def main(argv=None):
     sp.add_argument("--color", help="ignored: the board colours an agent by name")
     sp.add_argument("--transcript", metavar="PATH", help="this session's transcript .jsonl, for the board's Terminal tab (default: found from $CLAUDE_CODE_SESSION_ID, or $AGENTBOARD_TRANSCRIPT)")
     sp.add_argument("--force", action="store_true")
+    sp.add_argument("--model", metavar="NAME",
+                    help="the model you are (kept for `agentboard insights`, with [insights] enabled; or set $AGENTBOARD_MODEL once for the session): a short name such as claude-sonnet-5-5")
     sp = add("update", cmd_update, "agent: report progress")
     sp.add_argument("id")
     sp.add_argument("progress", metavar="PCT", help="0-100; or, with no PCT, the status text alone")
