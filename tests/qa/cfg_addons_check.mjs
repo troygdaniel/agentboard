@@ -73,6 +73,15 @@ async function main() {
       check('wide: Apply applies the file, says so, and offers Done', /Applied: Test team/.test(ok.ok) && ok.close === 'Done' && ok.apply, JSON.stringify(ok));
       check('wide: the board now has that configuration', exported().name === 'Test team');
       check('wide: the page was told again', await page.ev(`window.__ev.length === 3 && window.__ev[2].applied.name === 'Test team'`));
+      // in the picker panel itself (card agent-config-slice-3 places the add-ons in Settings > Agents)
+      await page.ev(`(() => { document.getElementById('cx-import').close(); return true; })()`);
+      check('wide: ORCH suggests a name on the applied configuration', orch('--add-name', 'Writer-2', '--role', 'writer', '--why', 'one writer waited on another').status === 0);
+      await page.ev(`(toggleMix(true, 'agents'), 1)`);
+      check('wide: Settings > Agents shows the suggestion with Accept and Ignore, and the Import button', await page.waitFor(`!!document.querySelector('#cfg-config .cx-prop') && !!document.querySelector('#cfg-config [data-cx-import]') && document.querySelectorAll('#cfg-config .cx-prop .btn').length === 2`, 15000));
+      await page.ev(`(() => { document.querySelector('#cfg-config [data-cx-decide="accepted"]').click(); return true; })()`);
+      check('wide: Accept in the picker applies it, and the pane draws without the suggestion', await page.waitFor(`!document.querySelector('#cfg-config .cx-prop')`, 10000) && exported().roles[0].names.join() === 'Writer-1,Writer-2', JSON.stringify(exported().roles[0].names));
+      await page.ev(`(() => { document.querySelector('#cfg-config [data-cx-import]').click(); return true; })()`);
+      check('wide: Import a file… in the picker opens the dialog', await page.waitFor(`!!document.getElementById('cx-import')?.open`, 5000));
     }
     check(`${label}: no script errors`, page.errors.length === 0, page.errors.join(' | '));
     page.close();

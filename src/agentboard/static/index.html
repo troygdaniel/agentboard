@@ -6905,7 +6905,7 @@ fetch('/api/boards').then(r => r.json()).then(d => {   // the board switcher: hi
 // What ORCH suggests (Accept / Ignore: only the owner's click applies a change) and the Import dialog (a file is previewed, validated by the board, and applied only on Apply).
 // The picker panel places them: `${cfgAddons.proposalsHtml(state)}` with the state of GET /api/configurations, and `${cfgAddons.importButton()}`; both work from one click handler on the
 // document. After a change the document gets a `cfg-changed` event (detail: the new state) so the panel can redraw. Nothing here starts a program.
-const cfgAddons = (() => {
+window.cfgAddons = (() => {   // a window property, so the picker panel can tell whether it is there (and a check can stand in for it)
   const MAX = 64000;
   let dlg = null, text = '';
   const emit = state => document.dispatchEvent(new CustomEvent('cfg-changed', { detail: state }));
