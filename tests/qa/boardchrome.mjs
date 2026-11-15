@@ -2,7 +2,7 @@
 //
 //     const board = await startBoard('esc');              // a made-up board (tests/qa/seed_render_board.py) served on a free port from this checkout's src/
 //     const page = await openPage(board.url, { init });   // headless Chrome (muted, its own profile), one DevTools socket; init runs in every new document
-//     await page.ev(`document.title`);                    // evaluate and get the JSON value back
+//     await page.ev(`document.title`);                    // evaluate and get the JSON value back (a promise is awaited in the page first: fetch(...).then(...) works)
 //     board.cli(['chat', 'send', 'a line', '--name', 'ORCH']);   // run agentboard against that board, as the shell of an agent would
 //     await board.stopServer(); await board.startServer();   // the board goes away and comes back on the same port (a lost connection)
 //     await stopAll();                                    // stops only the processes started here and removes only the directories made here
@@ -69,7 +69,7 @@ export async function openPage(url, { init = '', ready = 'true', width = 1280, h
     else if (m.method === 'Runtime.consoleAPICalled' && m.params.type === 'error') errors.push('console.error: ' + m.params.args.map(a => a.value ?? a.description).join(' '));
   };
   const send = (method, params = {}) => new Promise((res, rej) => { const i = ++id; pending.set(i, { res, rej }); ws.send(JSON.stringify({ id: i, method, params })); setTimeout(() => { if (pending.has(i)) { pending.delete(i); rej(new Error('timeout: ' + method)); } }, 30000); });
-  const ev = async expr => { const r = await send('Runtime.evaluate', { expression: `JSON.stringify((${expr}))`, returnByValue: true, awaitPromise: true }); if (r.exceptionDetails) throw new Error(r.exceptionDetails.exception?.description || r.exceptionDetails.text); return r.result.value === undefined ? undefined : JSON.parse(r.result.value); };
+  const ev = async expr => { const r = await send('Runtime.evaluate', { expression: `(async () => JSON.stringify(await (${expr})))()`, returnByValue: true, awaitPromise: true }); if (r.exceptionDetails) throw new Error(r.exceptionDetails.exception?.description || r.exceptionDetails.text); return r.result.value === undefined ? undefined : JSON.parse(r.result.value); };
   // poll an expression until it is truthy (the board polls once a second, so a line posted from outside shows within a few seconds)
   const waitFor = async (expr, ms = 15000) => { const end = Date.now() + ms; for (;;) { try { if (await ev(expr)) return true; } catch (e) { /* loading */ } if (Date.now() > end) return false; await sleep(150); } };
   await send('Runtime.enable'); await send('Page.enable');

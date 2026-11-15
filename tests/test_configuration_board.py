@@ -4,6 +4,7 @@
 `GET /api/configuration/export` hands back a file; `POST /api/rename/plan|rename|undo` are the counts, the rename and its Undo, the same functions the
 command line runs. Every write is the owner's click: nothing here starts a program, and an imported file is validated before it is shown or kept."""
 import json
+import re
 import socket
 import tempfile
 import threading
@@ -13,10 +14,11 @@ import urllib.request
 from http.server import ThreadingHTTPServer
 from pathlib import Path
 
-from agentboard import configurations as cfgs
+from agentboard import cli, configurations as cfgs
 from agentboard.server import make_handler
 from agentboard.store import Store
 
+PAGE = (Path(cli.__file__).parent / "static" / "index.html").read_text()
 GOOD = {"configuration": 1, "name": "Mine", "roles": [{"role": "writer", "names": ["Writer-1"], "purpose": "writes"}]}
 
 
@@ -146,6 +148,13 @@ class TheRenameDialog(Base):
         self.assertTrue(r["lines"])
         self.assertEqual(Store.get(self.s.load(), "sc")["agent"], "Scout")
 
+    def test_the_dialog_opens_with_the_counts_before_a_name_is_typed(self):
+        code, r = self.js("/api/rename/plan", {"old": "Scout", "new": ""})
+        self.assertEqual(code, 200)
+        self.assertEqual((r["plan"]["old"], r["plan"]["cards"], r["plan"]["new"]), ("Scout", 1, ""))   # no name yet, and no placeholder leaks into what is shown
+        self.assertNotIn("New-name", " ".join(r["lines"][1:]))
+        self.assertEqual(Store.get(self.s.load(), "sc")["agent"], "Scout")   # and nothing was written
+
     def test_rename_then_undo(self):
         code, r = self.js("/api/rename", {"old": "Scout", "new": "Ives"})
         self.assertEqual((code, r["undo"]), (200, True))
@@ -155,13 +164,78 @@ class TheRenameDialog(Base):
         self.assertEqual(Store.get(self.s.load(), "sc")["agent"], "Scout")
 
     def test_the_refusals_reach_the_dialog_as_sentences(self):
-        for body, word in (({"old": "Scout", "new": "ORCH"}, "keeps for itself"), ({"old": "Scout", "new": ""}, "1 to 40"), ({"old": "Nobody", "new": "Ives"}, "no agent named")):
+        for body, word in (({"old": "Scout", "new": "ORCH"}, "keeps for itself"), ({"old": "Scout", "new": "a/b"}, "1 to 40"), ({"old": "Nobody", "new": "Ives"}, "no agent named")):
             code, err = self.js("/api/rename/plan", body)
             self.assertEqual(code, 400, body)
             self.assertIn(word, err["error"])
         self.assertEqual(self.js("/api/rename", {"old": 1, "new": 2})[0], 400)
         code, err = self.js("/api/rename/undo", {})
         self.assertEqual(code, 400)   # nothing to undo yet
+
+
+def fn(name):
+    m = re.search(rf"function {name}\b.*?\n\}}\n", PAGE, re.S)
+    assert m, name
+    return m.group(0)
+
+
+def has(part, text, what=""):
+    assert part in text, f"missing {part!r} {what}"   # a message that names the part, not the whole function
+
+
+class OnThePage(unittest.TestCase):
+    """The look and the behaviour in a browser are `node tests/qa/config_board_check.mjs`; these pin the code it rests on."""
+
+    def test_the_dialog_is_labelled_modal_and_closes_every_way_a_layer_does(self):
+        has('<div id="rename" role="dialog" aria-modal="true" aria-labelledby="rename-h">', PAGE)
+        has('id="rename-err" role="alert"', PAGE, "(a refused name is read aloud)")
+        has("function renameKey(e) {", PAGE)
+        has("if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); renameClose(); return; }", fn("renameKey"))
+        has("renameOpener?.focus()", fn("renameClose"), "(focus goes back to where it came from)")
+
+    def test_while_it_is_open_no_board_key_runs_behind_it(self):
+        has("if (renameIsOpen()) { renameKey(e); return; }", PAGE, "in the global key handler")
+        self.assertEqual(PAGE.count("|| tourIsOpen() || renameIsOpen()"), 5)   # the three card-key guards, the Esc handler and the start-of-day guard
+        has("if (e.key !== 'Escape' || tourIsOpen() || renameIsOpen()) return;", PAGE)
+
+    def test_the_change_is_only_on_the_button_and_the_counts_change_nothing(self):
+        plan = fn("renamePlan")
+        has("api('/api/rename/plan'", plan)
+        self.assertNotIn("'/api/rename'", plan)
+        has("api('/api/rename', { old: renameOld, new: nw })", PAGE, "(the one write, from the submit handler)")
+        has("api('/api/rename/undo', {})", PAGE)
+        has("$('rename-go').disabled = !nw;", plan, "(Rename stays off until a name is typed)")
+
+    def test_everything_the_picker_draws_from_a_file_is_escaped(self):
+        body = fn("renderCfgPane")
+        self.assertIsNone(re.search(r"\$\{(r|c|t|e\.c|ap|sel)\.\w+\}", body), "a field of an imported file is interpolated without esc()")
+        for part in ("esc(c.name)", "esc(r.purpose)", "esc(t.lines[0])", "esc(e.c.name)", "esc(ap.source)"):
+            has(part, body)
+        self.assertNotIn("innerHTML +=", body)
+
+    def test_the_picker_asks_only_for_the_boards_own_endpoints_and_starts_nothing(self):
+        block = PAGE[PAGE.index("// ---- Agent configurations (card agent-config-slice-3)"):PAGE.index("const intOf = v =>")]
+        calls = set(re.findall(r"""['"](/api/[a-z/-]+)['"]""", block))   # every board endpoint the block names
+        self.assertEqual(calls, {"/api/configurations", "/api/configuration/apply", "/api/configuration/clear", "/api/config", "/api/rename/plan", "/api/rename", "/api/rename/undo"})
+        for forbidden in ("EventSource", "WebSocket", "setInterval", "window.open", "eval("):
+            self.assertNotIn(forbidden, block)
+
+    def test_rename_is_one_click_from_an_agents_row_and_its_thread_head(self):
+        has('data-rename="${esc(n)}">Rename…</button>', fn("renderAgentsPane"))
+        has('data-rename="${esc(name)}">Rename…</button>', fn("threadHeadHtml"))
+        has("isOwner(name) ? ''", fn("threadHeadHtml"), "(the owner is not an agent: no Rename…)")
+
+    def test_the_slots_for_proposals_import_and_export_are_guarded_so_a_board_without_them_draws(self):
+        body = fn("renderCfgPane")
+        has("typeof cfgAddons === 'object' && cfgAddons ? cfgAddons : {}", body)
+        for part in ("add.proposalsHtml ? add.proposalsHtml(st) : ''", "add.importButton ? ", "add.exportHref ? ", "esc(add.exportHref("):
+            has(part, body, "in renderCfgPane()")
+        has("document.addEventListener('cfg-changed', () => cfgLoad());", PAGE)
+
+    def test_the_header_chip_sits_before_the_connection_dot_and_follows_the_listening_count(self):
+        self.assertLess(PAGE.index('id="cfg-chip"'), PAGE.index('id="conn"'))
+        has("renderCfgChip();   // the header chip counts the listening agents of the applied configuration", PAGE, "in loadChat()")
+        has("toggleMix(true, 'agents')", PAGE, "(a click on the chip opens Settings > Agents)")
 
 
 if __name__ == "__main__":

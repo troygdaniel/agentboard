@@ -325,7 +325,9 @@ You pick it; **the board starts nothing**: you type the names into terminals as 
 
 Applying changes the roster and the labels only: a **role chip** beside the name on Now, Map and Watch (the compact Load strip has it in the tooltip), a **role block** in the card prompt and in what an agent
 reads when it claims or starts a card, and a **Configuration** section in the ORCH prompt. A file holds names, roles, a purpose, an advised model and size (S, M, L), what the role may and may not do, and the tools to leave
-enabled; unknown keys are refused, and a file is read as data and never run. `day-to-day` ships with the board (caller, bills, forms, research, planner, family).
+enabled; unknown keys are refused, and a file is read as data and never run. Three ship with the board: `build` (dev x2, qa, architect, designer: nobody merges, pushes or installs), `dream-up` (brainstormer, mockups, proof of concept, tester) and `day-to-day` (caller, bills, forms, research, planner, family).
+
+**On the board:** Settings > Agents and chat has a **Configuration** section: the three that ship, each role with what it may and may not do, **Apply to this board**, and the terminals to type with a Copy button. The applied one shows in the header as a short chip (`Configuration: Build · 4 of 5 listening`). A **Rename…** link beside an agent's name (in Settings, and on its thread head) opens the counts first and changes nothing until you press Rename; the result says what to type in that agent's terminal and has an Undo.
 
 **An action outside the board waits for your word, every time.** In `day-to-day` no role may place a call, send a message, pay or submit a form on its own. The agent proposes the one action:
 

@@ -134,6 +134,43 @@
   .ab-conn.slow i { background: var(--warn); box-shadow: 0 0 0 3px color-mix(in srgb, var(--warn) 22%, transparent); }
   .ab-conn.down { border-color: color-mix(in srgb, var(--err) 45%, var(--line)); } .ab-conn.down i { background: var(--err); box-shadow: 0 0 0 3px color-mix(in srgb, var(--err) 22%, transparent); } .ab-conn.down b { color: var(--err); }
   .ab-conn.down ~ #status { display: none; }
+  /* The applied configuration in the header (card agent-config-slice-3): its short name and how many of its agents are listening; a click opens Settings. */
+  .ab-cfg { display: inline-flex; align-items: center; gap: 6px; font: inherit; font-size: var(--fs-sm); color: var(--muted); padding: 3px 11px; border-radius: 999px; border: 1px solid var(--line); background: var(--chip); white-space: nowrap; cursor: pointer; }
+  .ab-cfg b { font-weight: 650; color: var(--text); } .ab-cfg em { font-style: normal; color: var(--ok); font-weight: 600; } .ab-cfg:hover { border-color: var(--text); }
+  .ab-cfg[hidden] { display: none; }
+  .ab-cfg .cl, .ab-cfg .cw { display: none; }   /* compact: Build 4/5; the words (Configuration: Build 4 of 5 listening) come back on a wide window */
+  @media (min-width: 1560px) { .ab-cfg .cl, .ab-cfg .cw { display: inline; } .ab-cfg .cn { display: none; } }
+  @media (max-width: 900px) { .ab-cfg em { display: none; } }
+  /* The picker in Settings > Agents: what ships, what each role may and may not do, the terminals the owner types. The board starts nothing. */
+  .cfg { display: flex; flex-direction: column; gap: 12px; margin: 6px 0 10px; }
+  .cfg-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 8px; }
+  .cfg-opt { text-align: left; font: inherit; color: var(--text); background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; cursor: pointer; }
+  .cfg-opt[aria-pressed="true"] { border-color: var(--text); box-shadow: inset 0 0 0 1px var(--text); }
+  .cfg-opt b { display: block; font-size: var(--fs-md); } .cfg-opt span { display: block; font-size: var(--fs-sm); color: var(--muted); margin-top: 2px; } .cfg-opt i { font-style: normal; font-size: var(--fs-xs); color: var(--ok); font-weight: 700; }
+  .cfg-detail { border: 1px solid var(--line); border-radius: 12px; padding: 14px; background: var(--surface); min-width: 0; }
+  .cfg-detail h4 { margin: 0 0 4px; font-size: var(--fs-lg); } .cfg-detail .about { color: var(--muted); font-size: var(--fs-sm); margin: 0 0 8px; }
+  .cfg-roles { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+  .cfg-role { border-top: 1px solid var(--line); padding: 9px 0; font-size: var(--fs-sm); } .cfg-role h5 { margin: 0 0 2px; font-size: var(--fs-md); display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; } .cfg-role h5 small { color: var(--muted); font-weight: 500; font-size: var(--fs-sm); }
+  .cfg-role p { margin: 2px 0; color: var(--muted); overflow-wrap: anywhere; } .cfg-role .may { color: var(--ok); } .cfg-role .not { color: var(--err); } .cfg-role p b { font-size: var(--fs-xs); letter-spacing: .1em; text-transform: uppercase; margin-right: 6px; }
+  .cfg-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; } .cfg-head h4 { margin: 0 0 4px; } .cfg-props { margin: 0 0 12px; } .cfg-imp { margin: -2px 0 0; }
+  .cfg-go { display: flex; align-items: center; gap: 12px; justify-content: space-between; margin: 12px 0 4px; flex-wrap: wrap; } .cfg-go p { margin: 0; color: var(--muted); font-size: var(--fs-sm); flex: 1 1 260px; }
+  .cfg-term-h { font-size: var(--fs-xs); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin: 14px 0 6px; font-weight: 700; }
+  .cfg-term { display: grid; grid-template-columns: 84px minmax(0, 1fr) auto; gap: 8px; align-items: center; margin: 4px 0; } .cfg-term b { font-size: var(--fs-sm); } .cfg-term code { background: var(--chip); border-radius: 6px; padding: 4px 8px; font-size: var(--fs-sm); overflow-wrap: anywhere; }
+  .cfg-note { color: var(--muted); font-size: var(--fs-sm); margin: 6px 0 0; } .cfg-cur { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 2px 0 8px; font-size: var(--fs-sm); color: var(--muted); } .cfg-cur b { color: var(--text); }
+  /* Rename (card agent-config-slice-3): a small dialog; the counts first, the change only on the button. */
+  #rename { position: fixed; inset: 0; z-index: 41; display: none; place-items: center; background: rgba(0,0,0,.4); }
+  #rename.on { display: grid; }
+  #rename .sheet { position: relative; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 22px 26px; width: min(460px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); overflow: auto; box-shadow: 0 20px 60px rgba(0,0,0,.35); }
+  #rename h2 { font-size: var(--fs-xl); font-weight: 600; letter-spacing: -.015em; margin: 0 28px 12px 0; }
+  .rn-l, .rn-h { display: block; font-size: var(--fs-xs); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); font-weight: 600; margin: 0 0 6px; } .rn-h { margin-top: 14px; }
+  #rename input { width: 100%; box-sizing: border-box; font: inherit; font-size: var(--fs-lg); padding: 9px 11px; border: 1px solid var(--line); border-radius: 8px; background: var(--chip); color: var(--text); }
+  #rename input:focus-visible { outline: 2px solid var(--text); outline-offset: 1px; }
+  .rn-err { color: var(--err); font-size: var(--fs-sm); margin-top: 6px; } .rn-err[hidden], .rn-done[hidden] { display: none; }
+  .rn-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: var(--fs-md); } .rn-list li { display: grid; grid-template-columns: 16px 1fr; gap: 8px; } .rn-list li i { font-style: normal; color: var(--ok); font-weight: 700; } .rn-list li.kept i { color: var(--muted); }
+  .rn-note { color: var(--muted); font-size: var(--fs-sm); margin: 12px 0; } .rn-note code, .rn-done code { background: var(--chip); border-radius: 5px; padding: 1px 5px; font-size: var(--fs-sm); overflow-wrap: anywhere; }
+  .rn-btns { display: flex; gap: 8px; justify-content: flex-end; }
+  .rn-done { border-left: 3px solid var(--ok); background: var(--chip); border-radius: 6px; padding: 10px 12px; font-size: var(--fs-md); line-height: 1.5; } .rn-done button { font: inherit; color: var(--info); background: none; border: 0; padding: 0; text-decoration: underline; cursor: pointer; }
+  .rn-btn, .rn-link { font: inherit; font-size: var(--fs-sm); color: var(--muted); background: none; border: 0; padding: 0 0 0 8px; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; } .rn-btn:hover, .rn-link:hover { color: var(--text); }
   @media (max-width: 760px) { .ab-conn .t { display: none; } .ab-conn { padding: 3px 9px; } .ab-conn:not(.slow):not(.down) b { display: none; } .ab-conn:not(.slow):not(.down) { padding: 7px; } }
   #filter { display: none; }   /* the filter is driven by the who chips and the attention counts, not typed */
   .filter-clear { width: 28px; height: 28px; min-height: 0; padding: 0; display: inline-grid; place-items: center; margin-left: -4px; }
@@ -2088,6 +2125,7 @@ body.deckview .board{display:block !important;overflow:visible !important;paddin
     <span class="summary" id="summary"></span>
     <span class="fut-ro" id="fut-ro" aria-hidden="true"></span>
     <span class="hicons">
+    <button class="ab-cfg" id="cfg-chip" type="button" hidden title="The applied agent configuration: open Settings to change it"></button>
     <span class="ab-conn" id="conn" aria-live="off" title="The page asks the board every second"><i aria-hidden="true"></i><b>Live</b><span class="t"></span></span><span class="sr" id="conn-sr" role="status"></span>
     <span class="status off" id="status" role="status" hidden><i></i><span>Disconnected; retrying</span></span>
     <button class="status quiet" id="quiet-chip" type="button" hidden></button>
@@ -2223,6 +2261,21 @@ body.deckview .board{display:block !important;overflow:visible !important;paddin
   <div id="sod-body"></div>
 </div></div>
 
+<div id="rename" role="dialog" aria-modal="true" aria-labelledby="rename-h"><div class="sheet">
+  <button class="icon-btn sheet-x" id="rename-close" type="button" aria-label="Close"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+  <h2 id="rename-h">Rename</h2>
+  <form id="rename-form" autocomplete="off">
+    <label class="rn-l" for="rename-new">New name</label>
+    <input id="rename-new" name="new" maxlength="40" spellcheck="false" aria-describedby="rename-err">
+    <div class="rn-err" id="rename-err" role="alert" hidden></div>
+    <div class="rn-h">What carries over</div>
+    <ul class="rn-list" id="rename-counts" aria-live="polite"></ul>
+    <p class="rn-note">Nothing changes until you press Rename. <code id="rename-cmd"></code> prints the same counts.</p>
+    <div class="rn-btns"><button class="btn" type="button" id="rename-cancel">Cancel</button><button class="btn primary" type="submit" id="rename-go" disabled>Rename</button></div>
+  </form>
+  <div class="rn-done" id="rename-done" role="status" hidden></div>
+</div></div>
+
 <div id="mix" role="dialog" aria-label="Settings"><div class="sheet">
   <h2>Settings</h2><button class="icon-btn sheet-x" id="mix-close" type="button" aria-label="Close"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>
   <label class="sh-search"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="7" cy="7" r="4.6" stroke="currentColor" stroke-width="1.5"/><path d="M10.6 10.6L14 14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg><input id="mix-search" type="search" placeholder="Search settings" aria-label="Search settings" aria-controls="mix-results" autocomplete="off" spellcheck="false"><kbd aria-hidden="true">/</kbd></label>
@@ -2244,6 +2297,7 @@ body.deckview .board{display:block !important;overflow:visible !important;paddin
   <h3>Effects (every view)</h3><div id="mix-fx"></div>
       </div>
       <div class="pane" id="pane-agents" role="tabpanel" aria-labelledby="stab-agents" data-tab="agents" hidden>
+        <h3>Configuration</h3><div id="cfg-config"></div>
         <h3>Agent chat</h3><div id="cfg-agents"></div>
         <h3>Who is listening</h3><div id="cfg-listen"></div>
       </div>
@@ -3497,6 +3551,7 @@ async function loadChat() {
     const msgs = d.messages || [];
     const maxSeq = msgs.length ? msgs[msgs.length - 1].seq : 0;
     chatReceipts = d.receipts || { read: {}, delivered: {}, listening: {} };   // who read what, who is listening (see receiptHtml)
+    renderCfgChip();   // the header chip counts the listening agents of the applied configuration
     chatRetired = d.retired || [];   // [hud] retired: a line to one of these gets no warning and no Nudge
     chatNames = Array.isArray(d.names) ? d.names : [];                          // who a line can reach (see whoReads)
     chatAgentsOn = !!d.agents;                                                   // agent chat on or off: Settings > Agents and chat shows it
@@ -3677,7 +3732,7 @@ function threadHeadHtml(name) {
   const cur = cards.find(t => t.needs_input) || cards.find(t => t.review) || cards[0];
   const line1 = `${STATE_WORD2[st] || st}${last ? ` · last update ${ago(last).text}` : ''}${cards.length > 1 ? ` · ${cards.length} cards` : ''}`;
   const line2 = cur ? `on <button class="th-card" type="button" data-open="${esc(cur.id)}">${esc(cur.title)}</button>${cur.needs_input ? ' · <span class="st ask">waiting on you</span>' : cur.review ? ' · <span class="st rev">up for review</span>' : ''}` : 'no card in Doing';
-  return `<span class="av" style="--c:${agentColor(name)}" aria-hidden="true">${esc(nodeGlyph(name))}</span><div class="th-lines"><span class="th-name">${esc(name)}${sessionsChip(name)}</span><span class="th-line">${line1}</span><span class="th-line th-on">${line2}</span></div>`;
+  return `<span class="av" style="--c:${agentColor(name)}" aria-hidden="true">${esc(nodeGlyph(name))}</span><div class="th-lines"><span class="th-name">${esc(name)}${sessionsChip(name)}${isOwner(name) ? '' : `<button class="rn-link" type="button" data-rename="${esc(name)}">Rename…</button>`}</span><span class="th-line">${line1}</span><span class="th-line th-on">${line2}</span></div>`;
 }
 function threadBodyHtml(name) {
   const [recent, older] = recentOf(chatMsgs.filter(m => inThread(m, name)), name);
@@ -4417,7 +4472,7 @@ $('p-move').addEventListener('click', async e => {
 });
 document.addEventListener('keydown', e => {   // Esc on an open card: a field inside it blurs first, a sheet over it closes first, then the card closes. tookPanel: the Esc below leaves Load alone
   if (e.key !== 'Escape' || !openId || panelEdit || $('add').classList.contains('open')) return;
-  if ($('keys').classList.contains('on') || mixIsOpen() || tourIsOpen()) return;
+  if ($('keys').classList.contains('on') || mixIsOpen() || tourIsOpen() || renameIsOpen()) return;
   const el = document.activeElement;
   if (el && el.closest('#p-body') && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)) { el.blur(); e.tookPanel = true; return; }
   closePanel(); e.tookPanel = true;
@@ -5344,9 +5399,135 @@ function renderAgentsPane() {
   const names = (chatNames || []).filter(n => !isOwner(n));
   $('cfg-listen').innerHTML = names.length ? names.map(n => {
     const k = nameKey(chatReceipts.listening, n), s = k ? (chatReceipts.listening[k].sessions || 1) : 0;
-    return `<div class="mix-row plain ro"><span class="nm">${esc(n)}</span><span class="val"><b>${s > 1 ? s + ' sessions' : s ? 'listening' : 'not listening'}</b></span></div>`;
+    return `<div class="mix-row plain ro"><span class="nm">${esc(n)}</span><span class="val"><b>${s > 1 ? s + ' sessions' : s ? 'listening' : 'not listening'}</b><button class="rn-btn" type="button" data-rename="${esc(n)}">Rename…</button></span></div>`;
   }).join('') : '<div class="mix-row plain ro"><span class="nm">Nobody has spoken on this board yet</span><span class="val"></span></div>';
 }
+// ---- Agent configurations (card agent-config-slice-3): the picker in Settings > Agents, the chip in the header, the Rename dialog ----
+// What ships and what is applied come from GET /api/configurations (read when Settings opens and after every change). The board starts nothing: Apply writes the
+// roster and the role labels, and the terminals are shown for the owner to type. Everything drawn is escaped: an imported file is data, never markup.
+let cfgState = null, cfgPick = '';
+const CFG_SHORT = { build: 'Build', 'dream-up': 'Dream up', 'day-to-day': 'Day to day' };
+const cfgAgents = c => c.roles.reduce((n, r) => n + r.names.length, 0);
+const cfgSummary = c => `${cfgAgents(c)} agent${cfgAgents(c) === 1 ? '' : 's'} · ` + c.roles.map(r => r.names.length > 1 ? `${r.role} ×${r.names.length}` : r.role).join(', ');
+async function cfgLoad() {
+  try { const r = await fetch('/api/configurations', { cache: 'no-store' }); if (!r.ok) return; cfgState = await r.json(); } catch (e) { return; }
+  renderCfgPane(); renderCfgChip();
+}
+function cfgEntries() {   // what the list shows: what ships, then the applied one when it is none of those (an imported file)
+  const st = cfgState; if (!st || !st.enabled) return [];
+  const out = st.builtin.map(c => ({ key: c.key, c }));
+  if (st.applied && !st.builtin.some(c => c.name === st.applied.name)) out.push({ key: 'applied', c: st.applied });
+  return out;
+}
+function renderCfgPane() {
+  const el = $('cfg-config'); if (!el) return;
+  const st = cfgState;
+  if (!st) { el.innerHTML = '<div class="mix-row plain ro"><span class="nm">Agent configurations</span><span class="val"><b>…</b></span></div>'; return; }
+  if (!st.enabled) { el.innerHTML = '<div class="mix-row plain ro"><span class="nm">Agent configurations</span><span class="val"><b>off</b></span><span class="mix-about">Names, roles and rules for a kind of work, shown beside the agents. The board starts nothing. Set <code>[agents] configurations = true</code> in config.toml to use them.</span></div>'; return; }
+  const entries = cfgEntries(), ap = st.applied;
+  const add = typeof cfgAddons === 'object' && cfgAddons ? cfgAddons : {};   // slots another card fills (agent-config-slice-3b: ORCH's proposals, import, export); a board without them draws without
+  if (!entries.some(e => e.key === cfgPick)) cfgPick = ((ap && entries.find(e => e.c.name === ap.name)) || entries[0] || {}).key || '';
+  const sel = entries.find(e => e.key === cfgPick);
+  const list = entries.map(e => `<button class="cfg-opt" type="button" data-cfg-pick="${esc(e.key)}" aria-pressed="${e.key === cfgPick}"><b>${esc(e.c.name)}${ap && ap.name === e.c.name ? ' <i>applied</i>' : ''}</b><span>${esc(cfgSummary(e.c))}</span></button>`).join('');
+  const cur = `<div class="cfg-cur">Applied: <b>${ap ? esc(ap.name) : 'none'}</b>${ap ? `<span>(${esc(ap.source)}${ap.at ? ', ' + esc(ap.at.replace('T', ' ').slice(0, 16)) : ''})</span><button class="btn" type="button" data-cfg-clear>Remove</button>` : ''}</div>`;
+  let detail = '';
+  if (sel) {
+    const c = sel.c, isCur = !!ap && ap.name === c.name, cap = x => x ? esc(x[0].toUpperCase() + x.slice(1)) : '';
+    const rows = c.roles.map(r => `<li class="cfg-role"><h5>${esc(r.role)}${r.names.length > 1 ? ` ×${r.names.length}` : ''}<small>${r.names.map(esc).join(', ')}${[cap(r.model), esc(r.size)].filter(Boolean).length ? ' · ' + [cap(r.model), esc(r.size)].filter(Boolean).join(' · ') : ''}</small></h5>`
+      + `${r.purpose ? `<p>${esc(r.purpose)}</p>` : ''}<p class="may"><b>May</b>${r.may.map(esc).join(', ') || 'nothing listed'}</p><p class="not"><b>May not</b>${r.may_not.map(esc).join(', ') || 'nothing listed'}</p></li>`).join('');
+    const terms = c.start.map(t => `<div class="cfg-term"><b>${esc(t.name)}</b><code>${esc(t.lines[0])}</code><button class="btn" type="button" data-cfg-copy="${esc(t.lines[0])}">Copy</button></div>`).join('');
+    detail = `<div class="cfg-detail"><div class="cfg-head"><h4>${esc(c.name)}</h4>${add.exportHref ? `<a class="btn cfg-exp" href="${esc(add.exportHref(sel.key === 'applied' ? '' : sel.key))}" download>Export</a>` : ''}</div>${c.description ? `<p class="about">${esc(c.description)}</p>` : ''}`
+      + `<ul class="cfg-roles">${rows}</ul>`
+      + `<div class="cfg-go"><p>Applying starts nothing. It writes the roster and the role labels, and adds the role to each agent's card prompt.</p>${isCur ? '<button class="btn" type="button" disabled>Applied</button>' : `<button class="btn primary" type="button" data-cfg-apply="${esc(sel.key)}">Apply to this board</button>`}</div>`
+      + `<div class="cfg-term-h">Start these terminals (you type them; the board only watches)</div>${terms}<p class="cfg-note">In each, then set <code>export AGENTBOARD_NAME=&lt;name&gt;</code> and paste the card prompt from the board.</p></div>`;
+  }
+  const props = add.proposalsHtml ? add.proposalsHtml(st) : '';
+  el.innerHTML = (props ? `<div class="cfg-props">${props}</div>` : '') + cur + `<div class="cfg"><div class="cfg-list">${list}</div>${add.importButton ? `<div class="cfg-imp">${add.importButton()}</div>` : ''}${detail}</div>`;
+}
+function renderCfgChip() {   // the applied configuration, short, with how many of its agents are listening: a click opens Settings
+  const el = $('cfg-chip'); if (!el) return;
+  const ap = cfgState && cfgState.enabled && cfgState.applied;
+  if (!ap) { if (!el.hidden) el.hidden = true; return; }
+  const names = ap.roles.flatMap(r => r.names), live = names.filter(n => nameKey(chatReceipts.listening, n)).length;
+  const html = `<span class="cl">Configuration: </span><b>${esc(CFG_SHORT[ap.source] || String(ap.name).slice(0, 24))}</b><em><span class="cw">${live} of ${names.length} listening</span><span class="cn">${live}/${names.length}</span></em>`;
+  if (el.innerHTML !== html) el.innerHTML = html;
+  el.title = `Configuration ${ap.name}: ${live} of ${names.length} agents listening. Click to open Settings.`;
+  el.setAttribute('aria-label', `Configuration ${ap.name}: ${live} of ${names.length} agents listening. Open Settings.`); el.hidden = false;
+}
+document.addEventListener('cfg-changed', () => cfgLoad());   // another card's actions (accept, ignore, import) say so with this event: the pane and the chip read the board again
+async function cfgChange(path, body, said) {
+  try { cfgState = await api(path, body); showError(''); renderCfgPane(); renderCfgChip(); toast(said); cfgRefreshRoles(); } catch (e) { showError(e.message); }
+}
+function cfgRefreshRoles() { fetch('/api/config').then(r => r.json()).then(c => { cfg = c; raw = ''; detailRaw = ''; load(); }).catch(() => {}); }   // the role chips come from /api/config
+// Rename: the counts come first (nothing is written), the change only on the button, and Undo is on the result
+let renameOld = '', renameOpener = null, renameTimer = 0, renameSeq = 0;
+const renameIsOpen = () => $('rename').classList.contains('on');
+function renameShowErr(msg) { const e = $('rename-err'); e.textContent = msg || ''; e.hidden = !msg; }
+function renameCounts(p) {
+  const n = (k, w) => `${k} ${w}${k === 1 ? '' : 's'}`, li = (mark, t, cls = '') => `<li class="${cls}"><i aria-hidden="true">${mark}</i><span>${t}</span></li>`;
+  $('rename-counts').innerHTML = li('✓', `${esc(n(p.cards, 'card'))} it holds or held (${esc(p.open)} still open stay its), with their claims and its colour`)
+    + li('✓', `${esc(n(p.log_lines, 'history line'))} that name it in a field, ${esc(n(p.chat_lines, 'chat line'))} it sent or was sent`)
+    + (p.sides || []).map(x => li('✓', esc(x))).join('') + (p.config || []).map(x => li('✓', 'config.toml, ' + esc(x))).join('')
+    + li('•', `${esc(n(p.kept_lines, 'line'))} that say &ldquo;${esc(p.old)}&rdquo; in their words stay as written: history is history`, 'kept')
+    + (p.notes || []).map(x => li('•', 'note: ' + esc(x), 'kept')).join('');
+}
+async function renamePlan() {
+  const seq = ++renameSeq, nw = $('rename-new').value.trim();
+  try { const d = await api('/api/rename/plan', { old: renameOld, new: nw }); if (seq !== renameSeq) return; renameCounts(d.plan); renameShowErr(''); $('rename-go').disabled = !nw; }
+  catch (e) { if (seq !== renameSeq) return; renameShowErr(nw ? e.message : e.message.startsWith('no agent') ? e.message : ''); $('rename-go').disabled = true; }
+}
+function renameOpen(old, opener) {
+  renameOld = old; renameOpener = opener || document.activeElement; renameSeq++;
+  $('rename-h').textContent = 'Rename ' + old; $('rename-new').value = ''; $('rename-counts').innerHTML = ''; renameShowErr('');
+  $('rename-cmd').textContent = `agentboard rename ${old} NEW --dry-run`; $('rename-form').hidden = false; $('rename-done').hidden = true; $('rename-go').disabled = true;
+  touch('slide', true); $('rename').classList.add('on'); $('rename-new').focus(); renamePlan();
+}
+function renameClose() {
+  if (!renameIsOpen()) return;
+  touch('slide', false); $('rename').classList.remove('on'); renameSeq++;
+  try { renameOpener?.focus(); } catch (e) {}
+}
+function renameKey(e) {
+  if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); renameClose(); return; }
+  if (e.key === 'Tab') {   // focus stays inside the dialog
+    const f = [...$('rename').querySelectorAll('button, input')].filter(b => !b.disabled && b.offsetParent);
+    const first = f[0], last = f[f.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  }
+}
+function renameDone(d, undone) {
+  const p = d.plan, bit = x => `<code>${esc(x)}</code>`;
+  $('rename-form').hidden = true; $('rename-done').hidden = false;
+  $('rename-done').innerHTML = undone ? `<b>Undone.</b> The name is ${esc(p.new)} again. In the terminal that was renamed, type ${bit('/rename ' + p.new)} and ${bit('export AGENTBOARD_NAME=' + p.new)}.`
+    : `<b>Renamed.</b> Cards and chat now say <b>${esc(p.new)}</b>. In the terminal that was ${esc(p.old)}, type ${bit('/rename ' + p.new)} and ${bit('export AGENTBOARD_NAME=' + p.new)}. Until then ${bit('--name ' + p.old)} still works and shows as ${esc(p.new)}. <button type="button" id="rename-undo">Undo</button>`;
+  raw = ''; detailRaw = ''; load(); loadChat(); cfgLoad();   // the board, the chat and the configuration read the new name
+}
+$('rename-new').addEventListener('input', () => { clearTimeout(renameTimer); renameTimer = setTimeout(renamePlan, 250); });
+$('rename-form').addEventListener('submit', async e => {
+  e.preventDefault(); const nw = $('rename-new').value.trim(); if (!nw || $('rename-go').disabled) return;
+  $('rename-go').disabled = true;
+  try { renameDone(await api('/api/rename', { old: renameOld, new: nw }), false); } catch (err) { renameShowErr(err.message); }
+});
+$('rename-cancel').onclick = $('rename-close').onclick = renameClose;
+$('rename').addEventListener('click', async e => {
+  if (e.target === $('rename')) { renameClose(); return; }
+  if (e.target.id === 'rename-undo') { try { renameDone(await api('/api/rename/undo', {}), true); } catch (err) { $('rename-done').textContent = err.message; } }
+});
+document.addEventListener('click', async e => {   // the picker, the chip and every Rename… link (Settings rows, an agent's thread head)
+  const t = e.target.closest('[data-cfg-pick], [data-cfg-apply], [data-cfg-clear], [data-cfg-copy], [data-rename], #cfg-chip');
+  if (!t) return;
+  if (t.dataset.rename !== undefined) { e.preventDefault(); e.stopPropagation(); renameOpen(t.dataset.rename, t); return; }
+  if (t.id === 'cfg-chip') { toggleMix(true, 'agents'); return; }
+  if (t.dataset.cfgPick !== undefined) { cfgPick = t.dataset.cfgPick; renderCfgPane(); return; }
+  if (t.dataset.cfgApply !== undefined) { await cfgChange('/api/configuration/apply', { key: t.dataset.cfgApply }, 'Applied. Nothing was started: type the terminals shown.'); return; }
+  if (t.hasAttribute('data-cfg-clear')) { await cfgChange('/api/configuration/clear', {}, 'Removed. The roster is the one in config.toml again.'); return; }
+  if (t.dataset.cfgCopy !== undefined) {
+    const text = t.dataset.cfgCopy;
+    try { await navigator.clipboard.writeText(text); t.textContent = 'Copied'; } catch (err) { t.textContent = 'Select it'; }
+    setTimeout(() => { t.textContent = 'Copy'; }, 1500);
+  }
+}, true);
 const intOf = v => Number.isFinite(v) ? Math.trunc(v) : 0;   // a number into markup is always a whole number, whatever the server sent
 const agoMin = m => m == null ? 'never' : m < 1 ? 'just now' : m < 90 ? m + ' min ago' : m < 48 * 60 ? Math.floor(m / 60) + ' h ago' : Math.floor(m / 1440) + ' days ago';
 async function loadSettingsInfo() {
@@ -5369,7 +5550,7 @@ function renderStatusRows() {   // read-only: each row says what it is and names
     + ro('Sync copy', I.backup.sync ? (I.backup.last_sync_min == null ? 'on' : 'on · ' + agoMin(n(I.backup.last_sync_min))) : 'off', I.lockdown && !I.backup.sync ? 'Locked off on this machine: the board copies no data out of its own folder. Backups stay beside the board.' : 'A nightly copy of the newest backup to a folder you name in <code>[backup] sync_dir</code> in config.toml.')
     + ro('Data folder', I.data_private ? 'private' : 'readable by others', I.data_private ? "Only you can read the board's data (mode 700)." : 'Other accounts on this machine can read it. <code>agentboard doctor</code> shows the fix.', !I.data_private);
 }
-function renderSettingsPanes() { renderThemeRow(); renderBoardRows(); renderAgentsPane(); loadSettingsInfo(); }
+function renderSettingsPanes() { renderThemeRow(); renderBoardRows(); renderAgentsPane(); renderCfgPane(); cfgLoad(); loadSettingsInfo(); }
 // search: every row of every pane (a hidden tab's too); Enter or a click opens its tab, scrolls it to the top and marks it for a second
 function settingsIndex() {
   const out = [];
@@ -5773,7 +5954,7 @@ document.addEventListener('click', async e => {
 const escLeavesField = el => !!el && (el.tagName === 'TEXTAREA' || el.isContentEditable || (el.tagName === 'INPUT' && !/^(checkbox|radio|range|button|submit|reset|file|image|color)$/.test(el.type)))
   && el.id !== 'title' && el.id !== 'ed-field' && !(el.id === 'mix-search' && el.value);
 window.addEventListener('keydown', e => {
-  if (e.key !== 'Escape' || tourIsOpen()) return;
+  if (e.key !== 'Escape' || tourIsOpen() || renameIsOpen()) return;
   const el = document.activeElement;
   if (!escLeavesField(el)) return;
   if (e.isComposing || e.keyCode === 229) { e.stopImmediatePropagation(); return; }   // the IME's Esc: no panel closes under it, and the browser still gets it
@@ -6145,6 +6326,7 @@ function goView(i) {
 }
 document.addEventListener('keydown', e => {
   if (e.metaKey || e.ctrlKey) return;
+  if (renameIsOpen()) { renameKey(e); return; }   // the Rename dialog has the keys while it is open: Esc and Tab stay inside it (typing goes to its field)
   if (tourIsOpen()) { tourKey(e); return; }   // the tour has the keys while it is open: Esc, the arrows and Tab stay inside it
   const typing = isTyping();
   if (e.key === 'Escape') {
@@ -6230,7 +6412,7 @@ async function startOfDay(auto) {
     if (!d || d.none || !d.date) { if (!auto) toast('No wrap-up saved yet: ORCH saves one when you say go at the end of a day'); return; }
     if (auto) {
       let seen = ''; try { seen = localStorage.getItem(SOD_KEY) || ''; } catch (e) { return; }   // site storage blocked: it cannot know you have seen it, so it does not open by itself (w still opens it)
-      const busy = isTyping() || openId || hudIsOpen() || $('keys').classList.contains('on') || mixIsOpen() || tourIsOpen();
+      const busy = isTyping() || openId || hudIsOpen() || $('keys').classList.contains('on') || mixIsOpen() || tourIsOpen() || renameIsOpen();
       if (d.date >= localDay() || seen === d.date + ' ' + d.at || busy) return;   // wrapped today, already seen, or something is in use: stay out of the way
     }
     openSod(d);
@@ -6496,7 +6678,7 @@ function aimedCard() {
 }
 // d: what the Done button does (the same move), on the card c would copy. One settle sound once it has landed.
 async function markDoneByKey() {
-  if ($('keys').classList.contains('on') || mixIsOpen() || tourIsOpen()) return;   // not behind an open sheet
+  if ($('keys').classList.contains('on') || mixIsOpen() || tourIsOpen() || renameIsOpen()) return;   // not behind an open sheet
   const id = aimedCard();
   if (!id) { toast('Point at a card, or open one, then press d to mark it done'); return; }
   const t = byId.get(id);
@@ -6523,7 +6705,7 @@ async function backToTodo(id) {
   return ok;
 }
 async function backToTodoByKey() {
-  if ($('keys').classList.contains('on') || mixIsOpen() || tourIsOpen()) return;   // not behind an open sheet
+  if ($('keys').classList.contains('on') || mixIsOpen() || tourIsOpen() || renameIsOpen()) return;   // not behind an open sheet
   const id = aimedCard();
   if (!id) { toast('Point at a card, or open one, then press b to send it back to Todo'); return; }
   await backToTodo(id);
@@ -6704,7 +6886,7 @@ fetch('/api/boards').then(r => r.json()).then(d => {   // the board switcher: hi
   sw.hidden = false;
   sw.onchange = () => { location.href = sw.value; };
 }).catch(() => {});
-fetch('/api/config').then(r => r.json()).then(c => { cfg = c; OWNER = c.owner || OWNER; document.body.classList.toggle('no-dispatch', !c.dispatch); raw = ''; detailRaw = ''; load(); }).catch(() => {});
+fetch('/api/config').then(r => r.json()).then(c => { cfg = c; OWNER = c.owner || OWNER; document.body.classList.toggle('no-dispatch', !c.dispatch); raw = ''; detailRaw = ''; load(); cfgLoad(); }).catch(() => {});
 load(); setInterval(load, 1000);
 if (SOLO) {
   document.body.classList.add('solo');

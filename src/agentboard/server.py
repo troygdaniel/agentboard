@@ -527,7 +527,13 @@ def make_handler(default_store, port):
                 elif path == "/api/rename/plan":   # the dialog's counts: what a rename would touch (nothing is written)
                     if not (isinstance(body.get("old"), str) and isinstance(body.get("new"), str)):
                         raise BoardError("old and new must be names")
-                    p = rename.plan(self.store, body["old"], body["new"])
+                    if body["new"].strip():
+                        p = rename.plan(self.store, body["old"], body["new"])
+                    else:   # the dialog opens with the counts, before a new name is typed: the counts do not depend on the new name, so a free placeholder stands in
+                        used = {x.lower() for x in self.store.known_names()}
+                        spare = next(n for n in ("New-name", "New-name-2", "New-name-3", "New-name-4") if n.lower() not in used)
+                        p = rename.plan(self.store, body["old"], spare)
+                        p["new"] = ""
                     self._send(200, {"plan": p, "lines": rename.describe(p, dry=True)})
                 elif path == "/api/rename":
                     if not (isinstance(body.get("old"), str) and isinstance(body.get("new"), str)):
