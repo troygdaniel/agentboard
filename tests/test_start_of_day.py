@@ -68,7 +68,7 @@ class ThePage(unittest.TestCase):
     def test_it_opens_by_itself_only_when_nothing_is_in_use_and_it_is_new(self):
         f = body("startOfDay")
         self.assertIn("fetch('/api/wrapup', { cache: 'no-store' })", f)
-        self.assertIn("const busy = isTyping() || openId || hudIsOpen() || $('keys').classList.contains('on') || mixIsOpen() || tourIsOpen();", f)
+        self.assertIn("const busy = isTyping() || openId || hudIsOpen() || $('keys').classList.contains('on') || mixIsOpen() || tourIsOpen() || renameIsOpen();", f)
         self.assertIn("if (d.date >= localDay() || seen === d.date + ' ' + d.at || busy) return;", f)          # today's, seen, or busy: stay out of the way
         self.assertIn("if (!auto) toast('No wrap-up saved yet", f)                                              # w says so; the automatic one stays silent
         self.assertIn("if (!SOLO && location.hash.length <= 1) setTimeout(() => startOfDay(true), 1500);", PAGE)   # not at a card hash, not in the pop-out
