@@ -187,14 +187,17 @@ def _tail(path, n=8):
     return lines[-n:]
 
 
+clock = time.monotonic   # not time.time(): a run's minutes are time the run had, and the wall clock jumps when the Mac sleeps (a run was stopped at its limit after a sleep, card tests-flake-list)
+
+
 def _stop(proc, grace=KILL_GRACE_S):
     """Stop the claude process group: SIGTERM, then SIGKILL after the grace period."""
     try:
         os.killpg(proc.pid, signal.SIGTERM)
     except (ProcessLookupError, PermissionError):
         return
-    t0 = time.time()
-    while proc.poll() is None and time.time() - t0 < grace:
+    t0 = clock()
+    while proc.poll() is None and clock() - t0 < grace:
         time.sleep(0.1)
     if proc.poll() is None:
         with_suppress(lambda: os.killpg(proc.pid, signal.SIGKILL))
@@ -264,7 +267,7 @@ def run_card(store, card_id, *, name=None, color=None, cwd=None, budget=None, mi
         env.pop("AGENTBOARD_COLOR", None)   # `color` is accepted and ignored: the board colours an agent by name
         argv =[claude, "-p", "--output-format", "json", "--max-budget-usd", f"{budget:g}", "--name", name]
         out_f, err_f = open(rdir / "stdout.json", "wb"), open(rdir / "stderr.log", "wb")
-        t0 = time.time()
+        t0 = clock()
         proc = subprocess.Popen(argv, cwd=workdir, env=env, stdin=subprocess.PIPE, stdout=out_f, stderr=err_f, start_new_session=True, **private.child())   # claude writes your project with your umask
         out_f.close()
         err_f.close()
@@ -277,13 +280,13 @@ def run_card(store, card_id, *, name=None, color=None, cwd=None, budget=None, mi
         while proc.poll() is None:
             if killed["flag"] or (rdir / "KILL").exists():
                 reason = "killed"
-            elif time.time() - t0 > minutes * 60:
+            elif clock() - t0 > minutes * 60:
                 reason = "timeout"
             if reason:
                 _stop(proc)
                 break
             time.sleep(POLL_S)
-        duration = round(time.time() - t0, 1)
+        duration = round(clock() - t0, 1)
         code = proc.returncode
     except BaseException as e:
         if proc is not None and proc.poll() is None:

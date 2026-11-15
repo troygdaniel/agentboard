@@ -17,7 +17,7 @@ HANDLER = HTML[HANDLER_AT: HTML.index("}, true);", HANDLER_AT) + len("}, true);"
 
 class EscLeavesFieldTests(unittest.TestCase):
     def test_it_is_one_window_handler_in_the_capture_phase(self):
-        self.assertIn("window.addEventListener('keydown', e => {\n  if (e.key !== 'Escape' || tourIsOpen()) return;", HANDLER)
+        self.assertIn("window.addEventListener('keydown', e => {\n  if (e.key !== 'Escape' || tourIsOpen() || renameIsOpen()) return;", HANDLER)
         self.assertTrue(HANDLER.rstrip().endswith("}, true);"))
 
     def test_it_blurs_keeps_the_text_and_stops_the_press(self):

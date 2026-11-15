@@ -88,7 +88,7 @@ class OneEntryPerProcess(Base):
         listeners.register(self.s.dir, "AGENT-1", "inbox")
         self.assertEqual(listeners.receipts(self.s.dir)["listening"]["AGENT-1"]["sessions"], 2)
         page = (Path(listeners.__file__).parent / "static" / "index.html").read_text()
-        for needle in ("function sessionsChip(name)", "chatReceipts.listening[k].sessions", "${n} sessions</span>", "${esc(name)}${sessionsChip(name)}</span>",
+        for needle in ("function sessionsChip(name)", "chatReceipts.listening[k].sessions", "${n} sessions</span>", "${esc(name)}${sessionsChip(name)}${isOwner(name)",
                        "const twins = sessionsChip(m.to);", ".chip.sessions {"):
             self.assertIn(needle, page)
         listeners.unregister(self.s.dir, "AGENT-1", pid=1)

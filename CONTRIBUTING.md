@@ -25,7 +25,7 @@ the code is built; `CLAUDE.md` is the prompt the agents read, and the source of 
 
 Run all of these on your branch before you say a card is ready. The orchestrator runs them again after the merge.
 
-1. **The whole suite is exactly OK.** `python3 -m unittest discover -s tests` (with `PYTHONPATH=src` or an editable install). Run it alone:
+1. **The whole suite is exactly OK.** `python3 -m unittest discover -s tests` (with `PYTHONPATH=src` or an editable install). A failure that is not yours: rerun that test alone, and see `docs/FLAKES.md` (the tests that fail on a busy or sleeping machine, and why) before you call it a flake. Run it alone:
    the masker's wall-clock tests trip when several suites share the machine, and that is not a failure of the code.
 2. **The repo guard finds nothing.** `python3 tests/publiccheck.py`. It fails on key-shaped strings, phone numbers that are not fictional
    (area code 555, or 555-01xx), emails outside the allow-list, a real account's `/Users/<name>/` path and your private words (one per line in

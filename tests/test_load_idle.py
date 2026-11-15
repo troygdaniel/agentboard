@@ -13,7 +13,7 @@ class LoadIdleTests(unittest.TestCase):
         for gone in ("idleOpen", "h-fold", "agentboard-idle", "h-idle", "h-fchip", "h-fold-card"):
             self.assertNotIn(gone, PAGE, gone)
         self.assertIn("const agents = teleOrder(d.agents);", PAGE)                       # every agent, in the telemetry order
-        self.assertIn("const key = agents.map(a => a.name).join('|');", PAGE)            # the list is rebuilt only when the agents change
+        self.assertIn("const key = agents.map(a => a.name + '/' + (roleOf(a.name)?.role || '')).join('|');", PAGE)   # the list is rebuilt only when the agents (or the role an applied configuration gives one) change
 
     def test_an_idle_agent_is_a_quiet_card(self):
         self.assertIn("r.dataset.status = a.state === 'idle' ? 'done' : 'doing';", PAGE)
