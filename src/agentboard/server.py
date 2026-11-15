@@ -621,6 +621,10 @@ class BoundedHTTPServer(ThreadingHTTPServer):
     """A thread per connection, but at most MAX_CONNECTIONS at once: one more is answered 503 and closed at once. Each connection holds its thread
     for at most the handler's 15 s timeout, so a program that opens thousands of idle sockets could otherwise pile up threads without end."""
     MAX_CONNECTIONS = 128
+    # How many finished handshakes the kernel queues while the accept loop is busy. The default of 5 made a burst of connections (a browser opening many at once, the flood
+    # check in selfcheck.py) stall or get reset by the kernel before this server could answer 503. The operating system caps it (128 on macOS), which is enough: the
+    # accept loop answers the extra ones at once.
+    request_queue_size = 256
 
     def __init__(self, *a, **kw):
         self._slots = threading.BoundedSemaphore(self.MAX_CONNECTIONS)

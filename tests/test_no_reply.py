@@ -59,12 +59,25 @@ class Base(unittest.TestCase):
         self.addCleanup(t.join)
         t.start()
 
+    def once_listening(self, name, then, seen, limit=30):
+        """Run `then` as soon as `name` shows in the listener list (copied into `seen` first), not after a guessed delay: how long the waiting command takes to
+        start depends on the machine's load. If it never shows within `limit` seconds, `then` runs anyway and the test's own assertions fail."""
+        def go():
+            end = time.time() + limit
+            while time.time() < end:
+                now = listeners.listening(self.s.dir)
+                if name in now:
+                    seen.update(now)
+                    break
+                time.sleep(0.02)
+            then()
+        self.later(go, 0.02)
+
 
 class TheListenerList(Base):
     def test_a_wait_registers_itself_and_leaves_no_trace_after(self):
         seen = {}
-        self.later(lambda: seen.update(listeners.listening(self.s.dir)), 0.3)
-        self.later(lambda: self.s.chat_send(self.s.owner, "hello four", kind="user", to="AGENT-4"), 0.6)
+        self.once_listening("AGENT-4", lambda: self.s.chat_send(self.s.owner, "hello four", kind="user", to="AGENT-4"), seen)
         code, out, _err = self.run_cli("chat", "inbox", "--name", "AGENT-4", "--wait", "5", "--interval", "0.1")
         self.assertIn("hello four", out)
         self.assertEqual(seen["AGENT-4"]["what"], "inbox")
@@ -75,8 +88,7 @@ class TheListenerList(Base):
         self.s.start("Card", "AGENT-4")
         self.s.add("step", parent_id="card")
         seen = {}
-        self.later(lambda: seen.update(listeners.listening(self.s.dir)), 0.5)
-        self.later(lambda: self.s.reply("card", "go"), 0.8)
+        self.once_listening("AGENT-4", lambda: self.s.reply("card", "go"), seen)
         _code, out, _err = self.run_cli("answer", "card", "--wait", "--timeout", "5", "--interval", "0.1")
         self.assertEqual(out.strip(), "go")
         self.assertEqual(seen["AGENT-4"]["what"], "answer card")

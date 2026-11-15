@@ -1,0 +1,190 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Agent status mockup</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  /* Mockup, not the real board: every name, count and time is made up. The tokens, .chip and the agent hues are the board's own, copied so each piece
+     maps to one class in the build. #dark or #light in the address forces a theme (the PNGs use it); otherwise it follows the system. */
+  :root {
+    --bg: #fafaf9; --surface: #ffffff; --line: #e7e5e4; --text: #1c1917; --muted: #6b6560; --accent: #1c1917;
+    --run: #c2570c; --warn: #b45309; --ok: #15803d; --err: #b42318; --neutral: #a8a29e; --info: #1d4ed8;
+    --chip: #f2f0ee; --shadow: 0 1px 2px rgba(28,25,23,.05), 0 1px 1px rgba(28,25,23,.03);
+    --glow1: rgba(99,102,241,.08); --dot: rgba(28,25,23,.07); --on-agent: #ffffff; --hatch: rgba(28,25,23,.16);
+    --a1: #2563eb; --a2: #7c3aed; --a3: #db2777; --a4: #0e7490; --a5: #b45309; --a6: #15803d;
+    --fs-xs: 11px; --fs-sm: 12px; --fs-md: 13px; --fs-base: 14px; --fs-lg: 15px; --tr-label: .16em;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #070b12; --surface: #0f1722; --line: #1c2a3a; --text: #d6e9ff; --muted: #7f95ad; --accent: #d6e9ff;
+      --run: #ff9a3c; --warn: #ffc857; --ok: #5dffb0; --err: #ff6b6b; --neutral: #4b5f75; --info: #5ee7ff;
+      --chip: #15202e; --shadow: inset 0 1px 0 rgba(255,255,255,.03); --glow1: rgba(94,231,255,.12); --dot: rgba(110,190,255,.05); --on-agent: #0b1220; --hatch: rgba(214,233,255,.18);
+      --a1: #60a5fa; --a2: #c084fc; --a3: #f472b6; --a4: #22d3ee; --a5: #fbbf24; --a6: #5dffb0; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #070b12; --surface: #0f1722; --line: #1c2a3a; --text: #d6e9ff; --muted: #7f95ad; --accent: #d6e9ff;
+    --run: #ff9a3c; --warn: #ffc857; --ok: #5dffb0; --err: #ff6b6b; --neutral: #4b5f75; --info: #5ee7ff;
+    --chip: #15202e; --shadow: inset 0 1px 0 rgba(255,255,255,.03); --glow1: rgba(94,231,255,.12); --dot: rgba(110,190,255,.05); --on-agent: #0b1220; --hatch: rgba(214,233,255,.18);
+    --a1: #60a5fa; --a2: #c084fc; --a3: #f472b6; --a4: #22d3ee; --a5: #fbbf24; --a6: #5dffb0; color-scheme: dark;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body { background: radial-gradient(1000px 460px at 10% -8%, var(--glow1), transparent 70%) no-repeat, radial-gradient(var(--dot) 1px, transparent 1px) 0 0 / 22px 22px, var(--bg);
+    min-height: 100vh; color: var(--text); font: var(--fs-base)/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+  .wrap { width: min(100%, 1240px); margin: 0 auto; padding: 18px 16px 36px; }
+  header.top { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding-bottom: 14px; margin-bottom: 16px; border-bottom: 1px solid var(--line); }
+  h1 { font-size: var(--fs-lg); font-weight: 600; letter-spacing: -.015em; }
+  .mock, h2 { font-size: var(--fs-xs); font-weight: 600; letter-spacing: var(--tr-label); text-transform: uppercase; color: var(--muted); }
+  h2 { margin: 0 0 8px; }
+  section { margin-bottom: 22px; }
+  .tabs { display: flex; gap: 6px; margin-left: auto; } .tab { font-size: var(--fs-sm); border: 1px solid var(--line); border-radius: 8px; padding: 3px 10px; background: var(--surface); color: var(--muted); }
+  .tab.on { color: var(--text); border-color: var(--accent); }
+  .chip { display: inline-flex; align-items: center; gap: 5px; font-size: var(--fs-xs); background: var(--chip); border: 1px solid var(--line); border-radius: 999px; padding: 1px 8px; color: var(--muted); white-space: nowrap; }
+  .chip.ok { color: var(--ok); } .chip.warn { color: var(--warn); } .chip.err { color: var(--err); } .chip.info { color: var(--info); } .chip.dim { opacity: .65; }
+  .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); padding: 12px 14px; }
+  /* the answer strip: one look */
+  .strip { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
+  .kpi { border: 1px solid var(--line); border-radius: 12px; background: var(--surface); padding: 10px 12px; border-top: 3px solid var(--c, var(--neutral)); }
+  .kpi b { font-size: 26px; line-height: 1; letter-spacing: -.02em; } .kpi span { display: block; font-size: var(--fs-xs); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-top: 4px; }
+  .kpi small { display: block; font-size: var(--fs-xs); color: var(--muted); margin-top: 2px; }
+  .kpi.you { --c: var(--warn); } .kpi.stuck { --c: var(--err); } .kpi.others { --c: var(--info); } .kpi.work { --c: var(--ok); } .kpi.idle { --c: var(--neutral); }
+  /* the rows */
+  .layout { display: grid; grid-template-columns: minmax(0, 1fr) 270px; gap: 14px; align-items: start; }
+  .rows { display: grid; gap: 8px; }
+  .row { display: grid; grid-template-columns: 148px minmax(0, 1.25fr) minmax(0, 1.15fr) 150px; gap: 12px; align-items: center; border: 1px solid var(--line); border-left: 4px solid var(--c, var(--neutral));
+    border-radius: 12px; background: var(--surface); padding: 9px 12px; }
+  .row.you { background: linear-gradient(90deg, color-mix(in srgb, var(--warn) 10%, var(--surface)), var(--surface) 60%); }
+  .who { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .av { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font-size: var(--fs-xs); font-weight: 700; background: var(--c); color: var(--on-agent); flex: none; }
+  .who b { font-size: var(--fs-md); }
+  .what { min-width: 0; } .what .t { font-size: var(--fs-md); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .what .s { font-size: var(--fs-sm); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .state { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-xs); font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--sc, var(--muted)); }
+  .state i { width: 8px; height: 8px; border-radius: 50%; background: var(--sc, var(--neutral)); }
+  /* the lifecycle: six steps, the current one lit */
+  .life { display: flex; gap: 3px; margin-top: 5px; } .life i { flex: 1; height: 5px; border-radius: 3px; background: var(--line); } .life i.done { background: var(--ok); opacity: .55; } .life i.now { background: var(--sc, var(--run)); }
+  .lifelab { display: flex; gap: 3px; font-size: 9.5px; color: var(--muted); letter-spacing: .02em; } .lifelab span { flex: 1; text-align: center; white-space: nowrap; overflow: hidden; } .lifelab span.now { color: var(--text); font-weight: 700; }
+  .time { text-align: right; font-size: var(--fs-sm); color: var(--muted); } .time b { display: block; color: var(--text); font-size: var(--fs-md); }
+  .row.you { --sc: var(--warn); } .row.stuck { --sc: var(--err); } .row.others { --sc: var(--info); } .row.work { --sc: var(--ok); } .row.idle { --sc: var(--neutral); }
+  /* 6-hour strip with the board-asleep band */
+  .tl { position: relative; height: 22px; border-radius: 6px; background: var(--chip); overflow: hidden; border: 1px solid var(--line); }
+  .tl i { position: absolute; top: 0; bottom: 0; background: var(--sc); opacity: .85; }
+  .tl .asleep { position: absolute; top: 0; bottom: 0; background: repeating-linear-gradient(135deg, var(--hatch) 0 4px, transparent 4px 8px); z-index: 2; pointer-events: none; }
+  .axis { display: flex; justify-content: space-between; font-size: 9.5px; color: var(--muted); margin-top: 2px; }
+  /* the shared queues */
+  .queue { border: 1px solid var(--line); border-radius: 12px; background: var(--surface); padding: 10px 12px; margin-bottom: 10px; }
+  .queue h3 { font-size: var(--fs-xs); letter-spacing: var(--tr-label); text-transform: uppercase; color: var(--muted); font-weight: 600; margin-bottom: 6px; display: flex; justify-content: space-between; }
+  .q { display: grid; grid-template-columns: 18px 1fr auto; gap: 8px; align-items: center; padding: 4px 0; font-size: var(--fs-sm); border-top: 1px solid var(--line); } .q:first-of-type { border-top: 0; }
+  .q em { font-style: normal; font-size: var(--fs-xs); color: var(--muted); } .q .av { width: 18px; height: 18px; font-size: 10px; }
+  .bar { height: 5px; border-radius: 3px; background: var(--line); margin-top: 6px; overflow: hidden; } .bar i { display: block; height: 100%; background: var(--info); }
+  .sleep { display: flex; gap: 10px; align-items: center; border: 1px dashed var(--neutral); border-radius: 12px; padding: 8px 12px; font-size: var(--fs-sm); color: var(--muted); margin-bottom: 12px; background: repeating-linear-gradient(135deg, var(--hatch) 0 1px, transparent 1px 9px); }
+  .sleep b { color: var(--text); }
+  .digest { font-size: var(--fs-sm); } .digest li { display: flex; gap: 8px; padding: 3px 0; list-style: none; } .digest li::before { content: "•"; color: var(--muted); }
+  .digest { padding: 0; margin: 0; }
+  .ask { display: flex; gap: 6px; margin-top: 8px; } .ask div { flex: 1; border: 1px solid var(--line); border-radius: 8px; padding: 5px 10px; color: var(--muted); font-size: var(--fs-sm); background: var(--bg); }
+  .ask span { border: 1px solid var(--line); border-radius: 8px; padding: 5px 10px; font-size: var(--fs-sm); background: var(--surface); }
+  code { font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--chip); border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: var(--fs-xs); color: var(--muted); margin-top: 8px; } .legend span { display: inline-flex; align-items: center; gap: 5px; } .legend i { width: 9px; height: 9px; border-radius: 3px; }
+  @media (max-width: 980px) { .layout { grid-template-columns: minmax(0, 1fr); } .strip { grid-template-columns: repeat(2, minmax(0, 1fr)); } .row { grid-template-columns: minmax(0, 1fr) auto; } .row .life-col, .row .what { grid-column: 1 / -1; } }
+</style>
+<div class="wrap">
+  <header class="top">
+    <h1>Agent status</h1><span class="mock">Mockup · made-up names and times · design only</span>
+    <nav class="tabs" aria-label="Pages"><span class="tab">Now</span><span class="tab on">Watch</span><span class="tab">Map</span></nav>
+  </header>
+
+  <section aria-label="The answer in one look">
+    <h2>One look: is anyone waiting on me, what is stuck, who waits on whom</h2>
+    <div class="strip">
+      <div class="kpi you"><b>1</b><span>Waiting on you</span><small>oldest 14 min</small></div>
+      <div class="kpi stuck"><b>1</b><span>Stuck</span><small>silent 41 min, board awake</small></div>
+      <div class="kpi others"><b>3</b><span>Waiting on others</span><small>queue, review, merge</small></div>
+      <div class="kpi work"><b>1</b><span>Working</span><small>touched in the last 10 min</small></div>
+      <div class="kpi idle"><b>1</b><span>Idle</span><small>listening for work</small></div>
+    </div>
+  </section>
+
+  <div class="sleep"><b>Board asleep 2 h 05 (04:20 to 06:25).</b> The time is hatched below and never counted: nobody is marked silent or abandoned for the Mac sleeping.</div>
+
+  <div class="layout">
+    <section aria-label="Every agent">
+      <h2>Every agent: state, card, where the card is in its life, what it waits on</h2>
+      <div class="rows">
+        <div class="row you" style="--c: var(--a3)">
+          <div class="who"><span class="av">E</span><div><b>echo</b><br><span class="state"><i></i>Waiting on you</span></div></div>
+          <div class="what"><div class="t">Harden webhook retries</div><div class="s">Asked: retry limit 3 or 5?</div></div>
+          <div class="life-col"><div class="life"><i class="now"></i><i></i><i></i><i></i><i></i><i></i></div><div class="lifelab"><span class="now">Building</span><span>Tests</span><span>Review</span><span>Merged</span><span>Gated</span><span>Signed</span></div></div>
+          <div class="time"><b>14 min</b>waits on <span style="color:var(--warn)">you</span></div>
+        </div>
+        <div class="row others" style="--c: var(--a4)">
+          <div class="who"><span class="av">N</span><div><b>nova</b><br><span class="state"><i></i>In review</span></div></div>
+          <div class="what"><div class="t">Trim bundle size</div><div class="s">Result: 412 kb to 271 kb · tests pass</div></div>
+          <div class="life-col"><div class="life"><i class="done"></i><i class="done"></i><i class="now"></i><i></i><i></i><i></i></div><div class="lifelab"><span>Building</span><span>Tests</span><span class="now">Review</span><span>Merged</span><span>Gated</span><span>Signed</span></div></div>
+          <div class="time"><b>22 min</b>waits on <span style="color:var(--info)">orch</span> (merge)</div>
+        </div>
+        <div class="row others" style="--c: var(--a1)">
+          <div class="who"><span class="av">A</span><div><b>atlas</b><br><span class="state"><i></i>In test queue</span></div></div>
+          <div class="what"><div class="t">Refactor billing module</div><div class="s">2nd in line for the test slot · ETA was 30 min, 20 late</div></div>
+          <div class="life-col"><div class="life"><i class="done"></i><i class="now"></i><i></i><i></i><i></i><i></i></div><div class="lifelab"><span>Building</span><span class="now">Tests</span><span>Review</span><span>Merged</span><span>Gated</span><span>Signed</span></div></div>
+          <div class="time"><b>9 min</b>waits on <span style="color:var(--info)">bolt</span> (slot)</div>
+        </div>
+        <div class="row work" style="--c: var(--a2)">
+          <div class="who"><span class="av">B</span><div><b>bolt</b><br><span class="state"><i></i>Working</span></div></div>
+          <div class="what"><div class="t">Set up CI</div><div class="s">Holds the test slot · 3 of 5 jobs green</div></div>
+          <div class="life-col"><div class="life"><i class="done"></i><i class="now"></i><i></i><i></i><i></i><i></i></div><div class="lifelab"><span>Building</span><span class="now">Tests</span><span>Review</span><span>Merged</span><span>Gated</span><span>Signed</span></div></div>
+          <div class="time"><b>2 min ago</b>last touch</div>
+        </div>
+        <div class="row stuck" style="--c: var(--a5)">
+          <div class="who"><span class="av">S</span><div><b>scribe</b><br><span class="state"><i></i>Silent</span></div></div>
+          <div class="what"><div class="t">Draft API docs</div><div class="s">No update for 41 min (board awake) · was at 30%</div></div>
+          <div class="life-col"><div class="life"><i class="now"></i><i></i><i></i><i></i><i></i><i></i></div><div class="lifelab"><span class="now">Building</span><span>Tests</span><span>Review</span><span>Merged</span><span>Gated</span><span>Signed</span></div></div>
+          <div class="time"><b>41 min</b>ask orch to nudge</div>
+        </div>
+        <div class="row idle" style="--c: var(--a6)">
+          <div class="who"><span class="av">K</span><div><b>kite</b><br><span class="state"><i></i>Idle</span></div></div>
+          <div class="what"><div class="t">No card</div><div class="s">Listening for work since 06:40</div></div>
+          <div class="life-col"></div>
+          <div class="time"><b>1 h 05</b>free</div>
+        </div>
+      </div>
+
+      <h2 style="margin-top:16px">The last six hours, one strip each</h2>
+      <div class="panel">
+        <div class="rows" style="gap:6px">
+          <div style="display:grid;grid-template-columns:70px 1fr;gap:10px;align-items:center"><b style="font-size:12px">echo</b><div class="tl"><i style="--sc:var(--ok);left:0%;width:20%"></i><i style="--sc:var(--info);left:20%;width:10.6%"></i><i style="--sc:var(--ok);left:65.3%;width:30.8%"></i><i style="--sc:var(--warn);left:96.1%;width:3.9%"></i><span class="asleep" style="left:30.6%;width:34.7%"></span></div></div>
+          <div style="display:grid;grid-template-columns:70px 1fr;gap:10px;align-items:center"><b style="font-size:12px">nova</b><div class="tl"><i style="--sc:var(--ok);left:0%;width:25%"></i><i style="--sc:var(--info);left:25%;width:5.6%"></i><i style="--sc:var(--ok);left:65.3%;width:28.6%"></i><i style="--sc:var(--info);left:93.9%;width:6.1%"></i><span class="asleep" style="left:30.6%;width:34.7%"></span></div></div>
+          <div style="display:grid;grid-template-columns:70px 1fr;gap:10px;align-items:center"><b style="font-size:12px">atlas</b><div class="tl"><i style="--sc:var(--ok);left:0%;width:30.6%"></i><i style="--sc:var(--ok);left:65.3%;width:32.2%"></i><i style="--sc:var(--info);left:97.5%;width:2.5%"></i><span class="asleep" style="left:30.6%;width:34.7%"></span></div></div>
+          <div style="display:grid;grid-template-columns:70px 1fr;gap:10px;align-items:center"><b style="font-size:12px">bolt</b><div class="tl"><i style="--sc:var(--ok);left:0%;width:18%"></i><i style="--sc:var(--neutral);left:18%;width:12.6%"></i><i style="--sc:var(--ok);left:65.3%;width:34.7%"></i><span class="asleep" style="left:30.6%;width:34.7%"></span></div></div>
+          <div style="display:grid;grid-template-columns:70px 1fr;gap:10px;align-items:center"><b style="font-size:12px">scribe</b><div class="tl"><i style="--sc:var(--ok);left:0%;width:30.6%"></i><i style="--sc:var(--ok);left:65.3%;width:23.3%"></i><i style="--sc:var(--err);left:88.6%;width:11.4%"></i><span class="asleep" style="left:30.6%;width:34.7%"></span></div></div>
+          <div style="display:grid;grid-template-columns:70px 1fr;gap:10px;align-items:center"><b style="font-size:12px">kite</b><div class="tl"><i style="--sc:var(--neutral);left:0%;width:30.6%;opacity:.5"></i><i style="--sc:var(--neutral);left:65.3%;width:34.7%;opacity:.5"></i><span class="asleep" style="left:30.6%;width:34.7%"></span></div></div>
+        </div>
+        <div style="display:grid;grid-template-columns:70px 1fr;gap:10px"><span></span><div class="axis"><span>02:30</span><span>03:30</span><span>04:30</span><span>05:30</span><span>06:30</span><span>07:30</span><span>08:30</span></div></div>
+        <div class="legend"><span><i style="background:var(--ok)"></i>working</span><span><i style="background:var(--info)"></i>waiting on others</span><span><i style="background:var(--warn)"></i>waiting on you</span><span><i style="background:var(--err)"></i>silent</span><span><i style="background:var(--neutral)"></i>idle</span><span><i style="background:repeating-linear-gradient(135deg,var(--hatch) 0 2px,transparent 2px 4px);border:1px solid var(--neutral)"></i>board asleep (not counted)</span></div>
+      </div>
+    </section>
+
+    <aside aria-label="Shared resources and what changed">
+      <h2>What everyone shares</h2>
+      <div class="queue"><h3><span>Test slot</span><span class="chip ok">held</span></h3>
+        <div class="q"><span class="av" style="--c:var(--a2)">B</span><span>bolt runs <b>Set up CI</b></span><em>6 min</em></div>
+        <div class="q"><span class="av" style="--c:var(--a1)">A</span><span>atlas waits</span><em>9 min</em></div>
+        <div class="bar"><i style="width:48%"></i></div><small style="font-size:11px;color:var(--muted)">median wait today 7 min · longest 31</small>
+      </div>
+      <div class="queue"><h3><span>Merge</span><span class="chip">1 waiting</span></h3>
+        <div class="q"><span class="av" style="--c:var(--a4)">N</span><span>nova: <b>Trim bundle size</b></span><em>22 min</em></div>
+      </div>
+      <div class="queue"><h3><span>Gate</span><span class="chip dim">empty</span></h3>
+        <div class="q"><span></span><span style="color:var(--muted)">nothing waits for the full test run</span><em></em></div>
+      </div>
+      <h2 style="margin-top:14px">Since you last looked (04:00)</h2>
+      <div class="queue"><ul class="digest">
+        <li><span><b>2</b> cards merged</span></li><li><span><b>1</b> sent back by review</span></li><li><span><b>1</b> new blocker: <code>Set up CI</code> waits on the test slot</span></li><li><span>board slept <b>2 h 05</b></span></li></ul>
+        <div class="ask"><div>Ask the board: what does echo need?</div><span>Ask</span></div>
+        <small style="display:block;margin-top:6px;font-size:11px;color:var(--muted)">echo needs your answer: retry limit 3 or 5. Nothing else is waiting on you.</small>
+      </div>
+    </aside>
+  </div>
+</div>
+<script>
+  // #dark or #light forces a theme (the PNGs); the page is static, nothing else runs
+  var m = /#(dark|light)/.exec(location.hash); if (m) document.documentElement.setAttribute('data-theme', m[1]);
+</script>
