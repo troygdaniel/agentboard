@@ -4428,7 +4428,8 @@ function panelHtml(t) {
   return `${headTop}${tabs}${youPanel(t)}${askC}${revC}${prog}${carried}${result}
     ${par}${subsList}
     <details class="p-fold"${pFoldOpen ? ' open' : ''}><summary data-p-fold>More<small>activity · description · blockers · prompt</small></summary>
-    ${blocked}${tl}${desc}${details}${prompt}<div class="p-actions">${copy}<button class="btn danger" id="p-del">Delete</button></div></details>`;
+    ${blocked}${tl}${desc}${details}${prompt}</details>
+    <div class="p-actions">${copy}<button class="btn danger" id="p-del">Delete</button></div>`;   // the buttons stay out of the fold: a card nobody has started (Todo, Later) was undeletable behind a closed "More"
 }
 
 async function refreshPanel() {

@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### A Todo or Later card can be deleted again (Nov 15)
+The card's panel kept Delete (and Copy prompt, Back to Todo, Stop run) inside the closed "More" fold since Nov 12, so a card nobody had started showed no way to delete it. The buttons now sit under the fold, always visible, for Later, Todo and Doing cards the way they already did for a card in review or done. Test: `node tests/qa/delete_cards_check.mjs` (34 checks: the Later drawer, the Map's Todo and Doing columns, wide and 390 px; it fails on the old page) and a page pin in `tests/test_you_line.py`.
+
 ### The details panel is readable (Nov 14)
 The panel beside a card on Watch (and beside the pile) showed a task as one wall of text, and on Watch a second open cut it off mid-line with no way to read the rest.
 - **One sentence to a line:** a long plain paragraph in the task or in the agent's report is split into its sentences, each on its own line. A paragraph with markup in it, and a short one, are left as they were. "e.g.", "i.e." and "vs." do not end a sentence.

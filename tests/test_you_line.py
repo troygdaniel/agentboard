@@ -78,6 +78,14 @@ class CalmTests(unittest.TestCase):
         self.assertIn("@media (hover: hover) { .card[data-status=todo] .meta", PAGE)    # with no hover (a phone) the buttons stay
         self.assertIn(".card[data-status=todo] .meta:has(.copied)", PAGE)               # a copied prompt keeps showing that it was
 
+    def test_the_panels_buttons_are_not_behind_the_fold(self):
+        """Delete, Copy prompt and Back to Todo are actions: a card nobody had started (Todo, Later) showed no way to delete it while they sat inside the closed More fold."""
+        b = body("panelHtml")
+        fold = b[b.index('<details class="p-fold"'):]
+        self.assertIn('${prompt}</details>\n    <div class="p-actions">${copy}<button class="btn danger" id="p-del">Delete</button></div>`;', fold)
+        self.assertEqual(b.count('id="p-del"'), 2)                                      # the finished-card layout and this one, both outside a fold
+        self.assertNotIn('id="p-del">Delete</button></div></details>', b)
+
     def test_one_fact_once(self):
         self.assertIn(".col.acol h2 em { display: none; }", PAGE)                       # the lane's state word
         self.assertIn(".ls-g .ls-tx span { display: none; }", PAGE)                     # the ring's caption
