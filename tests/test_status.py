@@ -244,5 +244,50 @@ class TheWiring(unittest.TestCase):
         self.assertIn("awake.tick(store.dir)", src[src.index("def _states():"):src.index("threading.Thread(target=_states")])
 
 
+class ThePage(unittest.TestCase):
+    """Source checks on the Watch page (the look was checked in a real browser: light, dark and 420 wide, against a throwaway board)."""
+    HTML = (Path(status.__file__).parent / "static" / "index.html").read_text()
+
+    def body(self, fn):
+        import re
+        m = re.search(r"(?:async )?function " + fn + r"\(.*?\n}\n", self.HTML, re.S)
+        self.assertTrue(m, fn)
+        return m.group(0)
+
+    def test_the_status_comes_from_the_hud_feed_the_strip_already_reads(self):
+        self.assertIn("watchTake(hudJson.status)", self.body("stripLoad"))
+        self.assertEqual(__import__("re").findall(r"fetch\(([^,)]*)", self.body("stripLoad")), ["'/api/hud'"])   # still the one route, no new request
+
+    def test_watch_draws_rows_when_it_has_the_status_and_the_tiles_when_it_has_not(self):
+        w = self.body("watchHtml")
+        self.assertIn("const rowsMode = !!(watchStatus && Array.isArray(watchStatus.agents));", w)
+        self.assertIn("watchRowHtml(r,", w)
+        self.assertIn("tile(t)", w)   # the old grid is the fallback
+
+    def test_a_status_that_arrives_while_someone_types_waits_for_the_next_draw(self):
+        take = self.body("watchTake")
+        self.assertIn("/INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName || '')", take)
+
+    def test_a_row_is_calm_one_state_word_and_the_rest_on_hover_or_focus(self):
+        row = self.body("watchRowHtml")
+        self.assertEqual(row.count('class="wr-state"'), 1)
+        self.assertIn('class="wr-d"', row)
+        for sel in (".w-row:hover .wr-d", ".w-row.sel .wr-d", ".w-row:focus-visible .wr-d"):
+            self.assertIn(sel, self.HTML)
+        self.assertIn(".wr-d { display: grid; grid-template-rows: 0fr; opacity: 0;", self.HTML)   # shut at rest
+        self.assertIn("@media (prefers-reduced-motion: reduce) { .wr-d { transition: none; } }", self.HTML)
+
+    def test_the_new_classes_do_not_take_a_name_the_page_already_styles(self):
+        self.assertNotIn(".wk.you", self.HTML)   # the page's own .you (the owner's chip) styled the first tile
+        self.assertIn(".wr-orb { position: relative;", self.HTML)   # .orb is absolute: a row gives it a box of its own
+
+    def test_the_eight_state_words_are_the_servers_and_none_is_about_software(self):
+        words = __import__("re").search(r"const WATCH_STATE = \{(.*?)\};", self.HTML, __import__("re").S).group(1)
+        for state in status.STATES:
+            self.assertIn(state + ":", words)
+        for word in ("build", "merge", "commit", "test"):
+            self.assertNotIn(word, words.lower())
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -14,6 +14,8 @@ import json
 from datetime import datetime, timedelta
 from pathlib import Path
 
+from .backup import write_atomic
+
 HEART = "awake.json"
 FILE = "asleep.jsonl"
 GAP_S = 180            # more than this since the last tick: the board was not running (a closed lid, a stopped server)
@@ -73,12 +75,12 @@ def tick(board_dir, now=None):
                 if path.stat().st_size > MAX_BYTES:   # keep the recent ones only
                     cut = now - timedelta(days=KEEP_DAYS)
                     keep = [(a, b) for a, b in _lines(board) if b >= cut]
-                    path.write_text("".join(json.dumps({"from": _stamp(a), "to": _stamp(b)}) + "\n" for a, b in keep))
+                    write_atomic(path, "".join(json.dumps({"from": _stamp(a), "to": _stamp(b)}) + "\n" for a, b in keep), keep_previous=False)
             except OSError:
                 pass
             with open(path, "a") as f:
                 f.write(json.dumps({"from": _stamp(last), "to": _stamp(now)}) + "\n")
-        (board / HEART).write_text(json.dumps({"last": _stamp(now)}))
+        write_atomic(board / HEART, json.dumps({"last": _stamp(now)}), keep_previous=False)
         return gap
     except OSError:
         return 0
