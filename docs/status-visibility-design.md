@@ -8,7 +8,7 @@ Design only. Nothing here is built and nothing will be until the owner approves 
 
 Decision 1 changed once there was something to look at. The first draft replaced Watch's tiles with a row per agent under a strip of five counts; the owner liked the calm of the second draft
 (one state word, detail on hover, room) and asked for **Watch to keep its 3x3 tiles and for the strip of counts to go**. So slice 1 is: one state word in one colour on each tile, the
-"heard" line on hover, and the one quiet board-asleep line. The rows, the strip and the six-hour strips below describe the design as approved; the page now draws only the tile words and
+"heard" line on hover, a tint on each tile in the hue of its word (asked for on seeing it: the first pictures looked too alike), and the one quiet board-asleep line. The rows, the strip and the six-hour strips below describe the design as approved; the page now draws only the tile words and
 the sleep line. The server still works out the counts and a row per agent (`status.py`) for the digest and the Ask box. The eight words must read the same for any kind of card; the track
 under a card (slice 3) will be one per kind: a build (build, review, merged, gated, signed off), research or design (draft, review, signed off), an errand or a call (prepare, your approval, done).
 

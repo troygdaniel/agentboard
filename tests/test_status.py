@@ -280,6 +280,14 @@ class ThePage(unittest.TestCase):
             self.assertIn(sel, self.HTML)
         self.assertIn("@media (prefers-reduced-motion: reduce) { .w-tile .w-heard { transition: none; } }", self.HTML)
 
+    def test_a_tile_is_tinted_by_its_state_in_the_hue_of_its_word(self):
+        w = self.body("watchHtml")
+        self.assertEqual(w.count("${watchTint("), 2)   # a working tile and a waiting tile
+        for state in ("working", "silent", "gone", "blocked"):
+            self.assertIn(".w-tile.s-" + state, self.HTML)
+        self.assertIn(".w-tile.w-waiting.s-waiting { --y: var(--warn); } .w-tile.w-waiting.s-review { --y: var(--info); }", self.HTML)
+        self.assertIn("st !== 'idle' && st !== 'away'", self.HTML)   # a resting tile stays as it was
+
     def test_how_long_since_an_agent_was_heard_leaves_out_the_time_the_board_slept(self):
         w = self.body("wSecs") if False else self.HTML[self.HTML.index("const wSecs = t => {"):self.HTML.index("// How long since an agent was heard")]
         self.assertIn("watchStatus.asleep", w)
