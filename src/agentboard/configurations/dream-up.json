@@ -1,0 +1,51 @@
+{
+  "configuration": 1,
+  "name": "Dream up an application or feature",
+  "description": "Before anything is built: explore the idea, draw it, prove the smallest piece and try it. Everything here is thrown away unless you pick it up.",
+  "roles": [
+    {
+      "role": "brainstormer",
+      "names": ["Spark"],
+      "purpose": "explores ideas and options and writes them down as short notes you can pick from",
+      "model": "sonnet",
+      "size": "M",
+      "may": ["research", "write notes", "compare options"],
+      "may_not": ["write product code", "merge", "push", "install"],
+      "tools": ["board", "read-only web"],
+      "count": 1
+    },
+    {
+      "role": "mockups",
+      "names": ["Sketch"],
+      "purpose": "draws the idea as a screen or a flow you can react to",
+      "model": "sonnet",
+      "size": "M",
+      "may": ["make mockups", "build a throwaway page"],
+      "may_not": ["change product code", "merge", "push", "install"],
+      "tools": ["board", "browser automation"],
+      "count": 1
+    },
+    {
+      "role": "proof of concept",
+      "names": ["Proof"],
+      "purpose": "builds the smallest thing that shows the idea works, on a branch that is thrown away",
+      "model": "sonnet",
+      "size": "M",
+      "may": ["write a small prototype", "work on a throwaway branch"],
+      "may_not": ["merge", "push", "install", "touch product data"],
+      "tools": ["board", "shell in its own worktree"],
+      "count": 1
+    },
+    {
+      "role": "tester",
+      "names": ["Tester"],
+      "purpose": "tries the prototype and says what broke, in plain words",
+      "model": "sonnet",
+      "size": "S",
+      "may": ["drive a browser", "use a throwaway board", "report what broke"],
+      "may_not": ["edit the prototype", "merge", "push", "install"],
+      "tools": ["board", "browser automation"],
+      "count": 1
+    }
+  ]
+}

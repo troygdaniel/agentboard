@@ -12,7 +12,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-from . import boards, configurations, demo, hud, lifecycle, private
+from . import boards, configurations, demo, hud, lifecycle, private, rename
 from . import profile as profilelib
 from . import hooks as hookslib
 from . import listeners, watchdog
@@ -370,6 +370,20 @@ def make_handler(default_store, port):
                 self._send_cached(_derived(self.store, "hud", key, build_hud))
             elif url.path == "/api/settings":
                 self._send(200, settingsview.status(self.store.dir))   # Settings > Security and Backup: booleans, counts and ages only; nothing here changes anything
+            elif url.path == "/api/configurations":   # the picker: is it on, what is applied, what ships (never a card or a line of chat)
+                self._send(200, configurations.page_state(self.store.dir, self.store.owner))
+            elif url.path == "/api/configuration/export":   # a configuration as a file to keep or share: ?key=build, or ?applied=1
+                try:
+                    if not configurations.enabled(self.store.dir):
+                        raise BoardError("agent configurations are off: add [agents] configurations = true to config.toml")
+                    key = (q.get("key") or [""])[0]
+                    cfg = configurations.builtin(key, self.store.owner) if key else configurations.applied(self.store.dir)
+                    if cfg is None:
+                        raise BoardError("no configuration is applied: pick one, or give ?key=")
+                except BoardError as e:   # a refusal is the asker's to fix (a GET's other errors are the server's)
+                    self._send(400, {"error": str(e)})
+                    return
+                self._send(200, configurations.export_text(cfg).encode(), extra={"Content-Disposition": f'attachment; filename="{configurations.filename(cfg)}"'})
             elif url.path == "/api/config":
                 conf = _config(self.store)
                 colors = conf.get("agent_colors")   # [agent_colors] AGENT-1 = "#2563eb": overrides the palette slot a name gets
@@ -490,6 +504,39 @@ def make_handler(default_store, port):
                     moved = self.store.move(body["id"], body["status"], body.get("before"))
                     note = self.store.unsigned_note(prev) if body["status"] == "done" else None   # the owner signed off a card ORCH had not: say so, tell ORCH
                     self._send(200, {"task": moved, "prev": prev, "prev_before": prev_before, "prev_kids": prev_kids, "heads_up": note})
+                elif path == "/api/configuration/preview":   # what an imported file holds: validated and shown, nothing applied or written
+                    if not isinstance(body.get("text"), str):
+                        raise BoardError("text must be the file's contents")
+                    self._send(200, configurations.detail(configurations.loads(body["text"], self.store.owner)))
+                elif path == "/api/configuration/apply":   # the owner's Apply: a shipped one by key, or an imported file's text; changes the roster and labels only
+                    if not configurations.enabled(self.store.dir):
+                        raise BoardError("agent configurations are off: add [agents] configurations = true to config.toml")
+                    if isinstance(body.get("key"), str) and body["key"]:
+                        cfg, source = configurations.builtin(body["key"], self.store.owner), body["key"]
+                    elif isinstance(body.get("text"), str):
+                        cfg, source = configurations.loads(body["text"], self.store.owner), "imported file"
+                    else:
+                        raise BoardError("say which: a shipped key, or the text of a file")
+                    configurations.apply(self.store.dir, cfg, source)
+                    self._send(200, configurations.page_state(self.store.dir, self.store.owner))
+                elif path == "/api/configuration/clear":
+                    if not configurations.enabled(self.store.dir):
+                        raise BoardError("agent configurations are off: add [agents] configurations = true to config.toml")
+                    configurations.clear(self.store.dir)
+                    self._send(200, configurations.page_state(self.store.dir, self.store.owner))
+                elif path == "/api/rename/plan":   # the dialog's counts: what a rename would touch (nothing is written)
+                    if not (isinstance(body.get("old"), str) and isinstance(body.get("new"), str)):
+                        raise BoardError("old and new must be names")
+                    p = rename.plan(self.store, body["old"], body["new"])
+                    self._send(200, {"plan": p, "lines": rename.describe(p, dry=True)})
+                elif path == "/api/rename":
+                    if not (isinstance(body.get("old"), str) and isinstance(body.get("new"), str)):
+                        raise BoardError("old and new must be names")
+                    p = rename.apply(self.store, body["old"], body["new"])
+                    self._send(200, {"plan": p, "lines": rename.describe(p), "undo": True})
+                elif path == "/api/rename/undo":
+                    p = rename.undo(self.store)
+                    self._send(200, {"plan": p, "lines": rename.describe(p)})
                 elif path == "/api/restore":
                     self._send(200, self.store.restore(body["task"], body.get("before"), body.get("kids")))
                 elif path == "/api/bulk-move":

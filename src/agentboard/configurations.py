@@ -25,7 +25,8 @@ from .store import BoardError
 VERSION = 1
 FILE = "configuration.json"
 BUILTIN_DIR = Path(__file__).parent / "configurations"
-BUILTIN = {"day-to-day": "day-to-day.json"}
+BUILTIN = {"build": "build.json", "dream-up": "dream-up.json", "day-to-day": "day-to-day.json"}
+BUILTIN_ORDER = ("build", "dream-up", "day-to-day")   # the order the board lists them in
 SIZES = ("S", "M", "L")
 MAX_ROLES, MAX_NAMES, MAX_LIST = 12, 8, 12
 TOP_KEYS = {"configuration", "name", "description", "roles"}
@@ -139,8 +140,13 @@ def validate(d, owner="you"):
     return {"configuration": VERSION, "name": name, "description": desc, "roles": roles}
 
 
+MAX_BYTES = 64_000
+
+
 def loads(text, owner="you"):
     """Validate a configuration given as JSON text."""
+    if len(text.encode("utf-8", "replace")) > MAX_BYTES:
+        raise ConfigurationError("not a valid configuration: the file is over 64 KB")
     try:
         d = json.loads(text)
     except ValueError as e:
@@ -150,6 +156,11 @@ def loads(text, owner="you"):
 
 def builtin_names():
     return sorted(BUILTIN)
+
+
+def builtin_list(owner="you"):
+    """Every configuration that ships, in the board's order, each as {key, ...the validated configuration}: what the picker lists."""
+    return [{"key": k, **builtin(k, owner)} for k in BUILTIN_ORDER]
 
 
 def builtin(name, owner="you"):
@@ -301,6 +312,34 @@ def start_lines(cfg):
         for n in r["names"]:
             out.append((n, r["role"], [f"/rename {n}", f"export AGENTBOARD_NAME={n}"]))
     return out
+
+
+def detail(cfg):
+    """A configuration as the picker shows it: the validated file plus the terminals the owner types (the board starts nothing)."""
+    return {**cfg, "start": [{"name": n, "role": r, "lines": cmds} for n, r, cmds in start_lines(cfg)]}
+
+
+def page_state(board_dir, owner="you"):
+    """GET /api/configurations: is the setting on, what is applied, and what ships (each with its terminals). Off: only {"enabled": false}, so the page can say how to turn it on."""
+    if not enabled(board_dir):
+        return {"enabled": False}
+    rec = statefile.load(path(board_dir), {})
+    cur = applied(board_dir)
+    return {"enabled": True,
+            "applied": {"name": cur["name"], "source": str(rec.get("source", ""))[:80], "at": str(rec.get("applied_at", ""))[:19], **detail(cur)} if cur else None,
+            "builtin": [{"key": c["key"], **detail({k: v for k, v in c.items() if k != "key"})} for c in builtin_list(owner)]}
+
+
+def export_text(cfg):
+    """The configuration as the file the owner can share: the validated fields only (never a card, a line of chat or a path), indented JSON."""
+    keep = {k: cfg[k] for k in ("configuration", "name", "description", "roles")}
+    return json.dumps(keep, indent=2) + "\n"
+
+
+def filename(cfg):
+    """A safe file name for an exported configuration: the name in lower case with hyphens."""
+    slug = "".join(c if c.isalnum() else "-" for c in cfg["name"].lower()).strip("-")
+    return (slug[:40].strip("-") or "configuration") + ".json"
 
 
 def describe(cfg, source=None, applied_now=False):

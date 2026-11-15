@@ -1,0 +1,51 @@
+{
+  "configuration": 1,
+  "name": "Build or improve an application",
+  "description": "A small team that builds: developers on their own branches, a QA that tries the change in a browser, an architect, a designer. Nobody merges, pushes or installs.",
+  "roles": [
+    {
+      "role": "dev",
+      "names": ["Dev-1", "Dev-2"],
+      "purpose": "builds a card on its own branch, with tests",
+      "model": "sonnet",
+      "size": "M",
+      "may": ["write code", "write tests", "work on its own branch and worktree"],
+      "may_not": ["merge", "push", "install", "restart the board"],
+      "tools": ["board", "shell in its own worktree"],
+      "count": 2
+    },
+    {
+      "role": "qa",
+      "names": ["QA-1"],
+      "purpose": "tries the change in a browser on a throwaway board and reports a failing test first",
+      "model": "sonnet",
+      "size": "M",
+      "may": ["drive a browser", "use a throwaway board", "write a failing test"],
+      "may_not": ["edit product code", "merge", "push", "install"],
+      "tools": ["board", "browser automation", "shell"],
+      "count": 1
+    },
+    {
+      "role": "architect",
+      "names": ["Arch"],
+      "purpose": "writes design notes, splits cards and reviews the plan before anyone builds",
+      "model": "fable",
+      "size": "L",
+      "may": ["write docs", "read the code", "split and order cards"],
+      "may_not": ["merge", "push", "install", "edit tests"],
+      "tools": ["board", "read-only code"],
+      "count": 1
+    },
+    {
+      "role": "designer",
+      "names": ["Design"],
+      "purpose": "looks after the look and feel: mockups, styles and the words on the screen",
+      "model": "sonnet",
+      "size": "M",
+      "may": ["make mockups", "change styles", "write copy"],
+      "may_not": ["change data", "edit tests", "merge", "push", "install"],
+      "tools": ["board", "browser automation"],
+      "count": 1
+    }
+  ]
+}
