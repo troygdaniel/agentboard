@@ -192,10 +192,10 @@ class TaskTextTests(_Http):
 
     def test_the_panel_draws_it_as_rich_text_and_cuts_a_long_one(self):
         m = body("deckMoreHtml")
-        self.assertIn('<section class="deck-task"><h3>The task</h3>${d.description_html ? `<div class="rich-body">${d.description_html}</div>`', m)
+        self.assertIn('<section class="deck-task"><h3>The task</h3>${d.description_html ? `<div class="rich-body">${deckSentences(d.description_html)}</div>`', m)   # a long plain paragraph is split into sentences on the way in (tests/test_details_panel.py)
         self.assertIn('`<div class="rich-body fmt">${fmt(d.description)}</div>`', m)   # an older server: the board's own formatter, still escaped
         self.assertNotIn("<p>${esc(d.description)}</p>", PAGE)
-        self.assertIn(".deck-task .rich-body{max-height:230px;overflow:hidden}", PAGE)
+        self.assertIn(".deck-task .rich-body{max-height:190px;overflow:hidden}", PAGE)
         self.assertIn("more.hidden = !long;", body("deckTaskFit"))                     # a short task has no button
         self.assertIn(".deck-more .rich-body :is(h1,h2,h3,h4,h5,h6){", PAGE)           # a heading in the text is not styled as the panel's own label
 

@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### The details panel is readable (Nov 14)
+The panel beside a card on Watch (and beside the pile) showed a task as one wall of text, and on Watch a second open cut it off mid-line with no way to read the rest.
+- **One sentence to a line:** a long plain paragraph in the task or in the agent's report is split into its sentences, each on its own line. A paragraph with markup in it, and a short one, are left as they were. "e.g.", "i.e." and "vs." do not end a sentence.
+- **Cut, with a Show all that works:** the task shows about seven lines with a fade, then **Show all** / **Show less**. On Watch the button was missing after the first open (the panel was drawn from what was kept and never measured); it is measured now, and again once the panel has opened to its width.
+- **Calmer labels:** each section label (The task, Lately, ...) has a thin rule after it, in the page's own line colour, so light and dark both follow.
+- Checked: `tests/test_details_panel.py` (6) and `node tests/qa/details_panel_check.mjs` in headless Chrome on a throwaway board (the split, the cut, Show all and Show less, a second open, a short task, the labels, dark, 390 px).
+
 ### Agent configurations on the board: the picker, the header chip and the Rename dialog (Nov 14, slice 3 of the agent configurations)
 Until now a configuration and a rename were command-line only. The board has the same two things, the way the approved mock-up drew them. Nothing here starts a program: the owner types the terminals, and the board reflects them.
 - **Settings > Agents and chat > Configuration:** the shipped configurations (Build or improve an application, Dream up an application or feature, Day to day), each role with what it may and may not do, **Apply to this board** (the roster and the role labels; no card, claim or chat line changes), **Remove**, and the terminals to type with a Copy button. With `[agents] configurations` off the section says how to turn it on.
