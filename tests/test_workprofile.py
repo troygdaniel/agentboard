@@ -13,6 +13,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -589,6 +590,23 @@ class TheLinesSayExactlyWhatWasChecked(unittest.TestCase):
         self.assertIn("30 more were refused with 503", line)
         self.assertNotIn("158 idle connections held", line)
 
+    def test_the_flood_line_holds_when_the_accept_loop_is_slow(self):
+        """A busy machine accepts connections slowly, and the kernel's accept queue (128 at most) overflows during the 158-connection burst. The earlier check then held
+        65 to 84, refused none and failed (3 runs of 3 with the accept loop 3 ms slower per connection; 4 of the 13 full suite runs on this Mac failed on its line). This one
+        opens its connections in groups, reads them all with one select and tries a flood again when the kernel reset some; it still demands exactly the cap held, at least
+        one refused and a further request refused (card tests-flake-list)."""
+        orig = server.BoundedHTTPServer.process_request
+
+        def slow(srv, request, client_address):
+            time.sleep(0.003)
+            return orig(srv, request, client_address)
+        with mock.patch.object(server.BoundedHTTPServer, "process_request", slow):
+            res = {n: (lvl, text) for lvl, n, text in selfcheck.runtime_checks()}
+        level, line = res["http: a flood of connections is capped"]
+        self.assertEqual(level, selfcheck.PASS, line)
+        self.assertIn("128 are held idle (the cap, 128)", line)
+        self.assertIn("30 more were refused with 503", line)
+
     def test_the_lock_lines_say_the_lock_not_the_features_code_path(self):
         self.assertIn("covered by the lock's tests", self.res["profile: claude rounds refused"])
 
@@ -596,6 +614,16 @@ class TheLinesSayExactlyWhatWasChecked(unittest.TestCase):
         line = self.res["static: addresses in the code"]
         self.assertIn("docstrings are not read", line)
         self.assertIn("built from pieces at run time would not show", line)
+
+
+def patient(seconds):
+    """A watchdog limit for a command run in a subprocess, stretched by how busy the machine is (the one-minute load per core, never under 1). The limit is there to
+    catch a hang, not to time the command: `agentboard selfcheck` takes a few seconds on an idle Mac and went past a flat 60 s when the load average was over 80."""
+    try:
+        load = os.getloadavg()[0] / (os.cpu_count() or 1)
+    except (OSError, AttributeError):
+        load = 1.0
+    return seconds * max(1.0, load)
 
 
 class TheProfileSaysWhereItCameFrom(unittest.TestCase):
@@ -611,7 +639,7 @@ class TheProfileSaysWhereItCameFrom(unittest.TestCase):
                      "PYTHONDONTWRITEBYTECODE": "1", "AGENTBOARD_DIR": str(self.board)}
 
     def run_cli(self, *args, **env):
-        r = subprocess.run([sys.executable, "-m", "agentboard", *args], env={**self.base, **env}, capture_output=True, text=True, timeout=60)
+        r = subprocess.run([sys.executable, "-m", "agentboard", *args], env={**self.base, **env}, capture_output=True, text=True, timeout=patient(60))
         return r.returncode, r.stdout + r.stderr
 
     def machine(self, on=True):

@@ -25,6 +25,7 @@ import io
 import json
 import os
 import re
+import select
 import shutil
 import socket
 import subprocess
@@ -419,6 +420,52 @@ class Audit:
     def verb(self, method, path="/api/tasks"):
         return raw(self.port, f"{method} {path} HTTP/1.1\r\nHost: {self.host}\r\nConnection: close\r\n\r\n".encode())
 
+    def _flood(self, port, host, cap):
+        """One flood: open cap + 30 idle connections (in groups of 16 with a short pause, so the accept loop is not asked for more than the kernel's accept queue
+        holds), then see which the server answered or closed. Returns (opened, failed to open, held, refused, lost, the status of one more request). One select over
+        all of them, repeated until at most the cap are still silent (the rest are refusals whose 503 is on its way) or 10 s have passed: reading them one by one with a
+        0.1 s wait each took over 15 s on a busy Mac, long enough for the server's own idle timeout to close the ones read last, and a 503 that arrived late was counted
+        as nothing. A silent connection is held (the server keeps a thread for it); one with a 503 was refused; one that was reset or closed with no answer is lost."""
+        held, failed = [], 0
+        try:
+            for i in range(cap + 30):
+                if i and i % 16 == 0:
+                    time.sleep(0.02)
+                for attempt in range(4):
+                    try:
+                        held.append(socket.create_connection(("127.0.0.1", port), timeout=5))
+                        break
+                    except OSError:
+                        time.sleep(0.2)
+                else:
+                    failed += 1
+                    break
+            time.sleep(0.5)
+            deadline = time.time() + 10
+            while True:
+                answered = select.select(held, [], [], 0)[0]
+                if len(held) - len(answered) <= cap or time.time() > deadline:
+                    break
+                time.sleep(0.1)
+            kept, refused, lost = len(held) - len(answered), 0, 0
+            for c in answered:
+                c.settimeout(1)
+                try:
+                    data = c.recv(64)
+                except OSError:
+                    lost += 1
+                    continue
+                if data.startswith(b"HTTP/1.0 503"):
+                    refused += 1
+                else:
+                    lost += 1
+            over = raw(port, f"GET /api/tasks HTTP/1.1\r\nHost: {host}\r\n\r\n".encode(), timeout=3)
+            return len(held), failed, kept, refused, lost, over
+        finally:
+            for c in held:
+                with contextlib.suppress(OSError):
+                    c.close()
+
     def alive(self):
         return self.get("/api/tasks").status == 200
 
@@ -667,43 +714,26 @@ class Audit:
         self.ok(took < 5 and self.alive(), "http: a stalled client is dropped", f"a body that never finishes was cut after {took:.1f} s (the handler timeout; 15 s in the real server)", f"held for {took:.1f} s")
         timeout_cfg = self.handler.timeout
         # a flood of idle connections: count what was really held and what was refused at once
-        held, failed = [], 0
+        cap = self.srv.MAX_CONNECTIONS
         self.handler.timeout = 30   # (the short timeout set for the stalled-client check would free the early connections before the last one is open)
+        tries = 0
         try:
-            for _ in range(self.srv.MAX_CONNECTIONS + 30):
-                for attempt in range(4):
-                    try:
-                        held.append(socket.create_connection(("127.0.0.1", port), timeout=5))
-                        break
-                    except OSError:
-                        time.sleep(0.2)
-                else:
-                    failed += 1
+            while True:
+                tries += 1
+                held_n, failed, kept, refused, lost, over = self._flood(port, host, cap)
+                if not (failed or lost) or tries == 3:
                     break
-            time.sleep(0.5)
-            kept, refused = 0, 0
-            for c in held:
-                c.settimeout(0.1)
-                try:
-                    data = c.recv(64)
-                except socket.timeout:
-                    kept += 1   # idle and still open: the server holds a thread for it
-                    continue
-                except OSError:
-                    continue
-                refused += 1 if data.startswith(b"HTTP/1.0 503") else 0
-            over = raw(port, f"GET /api/tasks HTTP/1.1\r\nHost: {host}\r\n\r\n".encode(), timeout=3)
+                time.sleep(1.0)   # the operating system queues at most 128 connections that the server has not accepted yet (the kernel's accept queue) and resets the rest: not
+                                  # the cap's doing, so the flood is tried again; a server that closes held connections itself fails all three tries the same way
         finally:
-            for c in held:
-                with contextlib.suppress(OSError):
-                    c.close()
             self.handler.timeout = 2
         time.sleep(0.5)
-        cap = self.srv.MAX_CONNECTIONS
-        judged = len(held) > cap and not failed
+        judged = held_n > cap and not failed and not lost
+        again = f" (try {tries}: the earlier ones lost connections to the operating system's accept queue, not to the server)" if tries > 1 else ""
         self.ok(judged and kept == cap and refused >= 1 and over.status == 503 and self.alive(), "http: a flood of connections is capped",
-                f"{len(held)} connections opened: {kept} are held idle (the cap, {cap}), {refused} more were refused with 503 at once, one more request got 503, and the server answers normally after they close",
-                (f"could only open {len(held)} connections (cap {cap}): the check could not judge" if not judged else f"{kept} held idle (cap {cap}), {refused} refused with 503, a further request got {over.status}; alive={self.alive()}"))
+                f"{held_n} connections opened: {kept} are held idle (the cap, {cap}), {refused} more were refused with 503 at once, one more request got 503, and the server answers normally after they close{again}",
+                (f"could only open {held_n} connections (cap {cap}), or {lost} of them were reset or closed before an answer, in {tries} tries: the check could not judge" if not judged
+                 else f"{kept} held idle (cap {cap}), {refused} refused with 503, a further request got {over.status}; alive={self.alive()}"))
         old = raw(port, b"GET /api/tasks\r\n\r\n")
         absolute = raw(port, f"GET http://evil.example/api/tasks HTTP/1.1\r\nHost: evil.example\r\nConnection: close\r\n\r\n".encode())
         self.ok(b'"title"' not in old.raw and b'"tasks"' not in old.raw, "http: a request with no version and no Host", "nothing of the board comes back (no Host to check, so it is refused)", f"{old.status}: {old.raw[:60]!r}")

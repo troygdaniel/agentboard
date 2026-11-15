@@ -22,6 +22,8 @@ open(os.environ["FAKE_RECORD"], "w").write(json.dumps(rec))
 card = os.environ.get("FAKE_CARD", "")
 if mode == "sleep":
     time.sleep(60)
+if mode == "slow":
+    time.sleep(1.5)
 if mode == "touch":
     open("left-behind.txt", "w").write("x")
 if mode == "commit":
@@ -157,6 +159,35 @@ class RunTests(Base):
         self.assertEqual(rec["status"], "timeout")
         self.assertIn("minute limit", self.card()["question"])
         self.assertFalse(runs.pid_alive(rec["pid"]))
+
+    def test_a_mac_that_sleeps_mid_run_does_not_use_up_the_minutes(self):
+        """The limit is minutes the run had, on the monotonic clock. The wall clock jumps when the Mac sleeps: a run was stopped at its 1-minute limit after a sleep,
+        before its agent had written anything (card tests-flake-list, 'recorded run file missing'). Here the wall clock jumps an hour half a second into a run that
+        lasts about 1.5 s; the control gives the run a clock that ticks asleep, and the limit stops it."""
+        os.environ["FAKE_MODE"] = "slow"
+        real_wall = time.time
+        skew = {"s": 0}
+        jump = lambda: real_wall() + skew["s"]   # noqa: E731
+        timer = threading.Timer(0.5, lambda: skew.update(s=3600))
+        timer.start()
+        self.addCleanup(timer.cancel)
+        with mock.patch.object(time, "time", jump):
+            rec = self.run_it(name="RUN-1", minutes=1)
+        self.assertEqual(rec["status"], "finished")
+        self.assertLess(self.card()["run"]["duration_s"], 30)
+        self.assertEqual(self.recorded()["cwd"], str(self.work))   # the agent ran to the end and wrote its record
+
+    def test_control_a_clock_that_ticks_asleep_does_stop_the_run_at_its_limit(self):
+        os.environ["FAKE_MODE"] = "slow"
+        real_wall = time.time
+        skew = {"s": 0}
+        jump = lambda: real_wall() + skew["s"]   # noqa: E731
+        timer = threading.Timer(0.5, lambda: skew.update(s=3600))
+        timer.start()
+        self.addCleanup(timer.cancel)
+        with mock.patch.object(runs, "clock", jump), mock.patch.object(runs, "KILL_GRACE_S", 1):
+            rec = self.run_it(name="RUN-1", minutes=1)
+        self.assertEqual(rec["status"], "timeout")   # the old behaviour: an hour of sleep used up the minute
 
     def test_the_kill_switch_stops_a_live_run(self):
         os.environ["FAKE_MODE"] = "sleep"
