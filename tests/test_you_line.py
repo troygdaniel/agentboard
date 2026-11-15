@@ -20,7 +20,7 @@ class YouLineTests(unittest.TestCase):
         self.assertIn("if (!t || t.status !== 'doing' || isKid(t)) return null;", y)   # only a card in Doing, never a subtask
         order = ["k: 'ask'", "k: 'rev'", "k: 'fin'", "k: 'quiet'", "k: 'none'"]          # a question beats a sign-off beats the clock
         self.assertEqual(order, sorted(order, key=y.index))
-        self.assertIn("old = a.min >= (cfg.stale_minutes || DEFAULT_STALE_MIN)", y)     # quiet and finished use the board's own stale rule
+        self.assertIn("a = agoAwake(t), old = a.min >= (cfg.stale_minutes || DEFAULT_STALE_MIN)", y)     # quiet and finished use the board's own stale rule, with the time the board slept taken out (agent-status-slice-1)
         self.assertIn("if (old && full) return { k: 'fin'", y)                          # at 100% and never handed in is not "abandoned?"
         self.assertIn("return { k: 'none', verb: 'Nothing'", y)                         # needing nothing is said, not left to a missing flag
 

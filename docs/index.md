@@ -26,7 +26,7 @@ One line each. The first three are the ones most people need.
 
 Pictures and mockups, from throwaway boards: `docs/board-light.png`, `docs/board-dark.png`, `docs/hud.png` (the README's); `docs/agent-chat/`,
 `docs/agent-configurations/` (role chips and the approval card), `docs/by-agent/`, `docs/copied-badge/`, `docs/copied-button/`, `docs/gorgeous-2026-11-04/`, `docs/hud-bughunt/`, `docs/load-strip/`, `docs/panel-header-action/`,
-`docs/ux-five/`, `docs/ux-six/` (screenshots of the UX cards they are named after), `docs/status-slice-1/` (Watch's status rows, light, dark and narrow); `docs/card-colour-mockup.html`, `docs/subtasks-mockup.html`,
+`docs/ux-five/`, `docs/ux-six/` (screenshots of the UX cards they are named after), `docs/status-slice-1/` (Watch's tiles with a state word, light, dark and narrow); `docs/card-colour-mockup.html`, `docs/subtasks-mockup.html`,
 `docs/ux-mockups.html`, `docs/ux-mockups-2.html`, `docs/chat-words-design-mockup.html`, `docs/agent-configurations-mockup.html`, `docs/status-visibility-mockup.html` (clickable mockups,
 with their `.png` captures beside them).
 | [docs/security-signoff.md](security-signoff.md) | The two-page security sign-off: what was checked on the night of Nov 7-8, how, and what a reviewer can rerun. |

@@ -580,30 +580,14 @@
   .w-tile.w-idling { cursor: default; background: none; box-shadow: inset 0 0 0 1px var(--line); opacity: .55; } .w-idling .w-ring { border-radius: 50%; box-shadow: inset 0 0 0 2px var(--line); } .w-idling .w-ring span, .w-idling .w-tx b { color: var(--muted); } .w-idling .w-now { color: var(--muted); font-weight: 500; }
   .w-tile.sel.w-waiting { outline: 2px solid var(--text); outline-offset: 3px; } .w-tile { align-content: center; }
   @media (prefers-reduced-motion: reduce) { .w-track { transition: none; } .w-dot.ping { animation: none; } }
-  /* Agent status (card agent-status-slice-1, docs/status-visibility-design.md), kept as calm as the rest of Watch: one soft panel for the five counts, one quiet line when the board slept,
-     and a roomy row per agent with its name, its card and ONE state word in one colour; the rest (what it says, how long, who it waits on) shows on hover, focus or the open card */
-  .w-look { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); max-width: 1140px; margin: 18px auto 0; padding: 6px 0; border: 1px solid var(--line); border-radius: 20px; background: var(--surface); box-shadow: var(--shadow); transition: opacity .35s, filter .35s; }
-  .wk { padding: 12px 22px; min-width: 0; border-left: 1px solid var(--line); } .wk:first-child { border-left: 0; }
-  .wk b { display: block; font-size: 30px; font-weight: 600; line-height: 1.1; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
-  .wk span { display: flex; align-items: center; gap: 7px; margin-top: 3px; font-size: 12px; color: var(--muted); } .wk span::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--c, var(--neutral)); flex: none; }
-  .wk-you { --c: var(--warn); } .wk-stuck { --c: var(--run); } .wk-others { --c: var(--info); } .wk-work { --c: var(--ok); } .wk-idle { --c: var(--neutral); }
-  .wk.zero b { opacity: .35; }
-  .w-sleep { max-width: 1140px; margin: 14px auto 0; padding: 0 22px; font-size: 12px; color: var(--muted); transition: opacity .35s, filter .35s; } .w-sleep b { font-weight: 500; color: var(--text); font-variant-numeric: tabular-nums; }
-  .deck.watch.focused .w-look, .deck.watch.focused .w-sleep { opacity: .12; filter: blur(3px); pointer-events: none; }
-  .w-page.rows { grid-template-columns: minmax(0, 1fr); grid-auto-rows: auto; gap: 12px; max-width: 1140px; margin: 0 auto; padding: 4px 0; }
-  .w-row { --sc: var(--muted); border: 1px solid var(--line); border-radius: 20px; background: var(--surface); box-shadow: var(--shadow); cursor: pointer; transition: box-shadow .2s, border-color .2s; }
-  .w-row:hover, .w-row.sel { box-shadow: var(--shadow-hover); border-color: color-mix(in srgb, var(--sc) 45%, var(--line)); } .w-row.sel { outline: 2px solid var(--text); outline-offset: 2px; } .w-row:focus-visible { outline: 2px solid var(--run); outline-offset: 2px; }
-  .w-row.st-working { --sc: var(--ok); } .w-row.st-silent { --sc: var(--run); } .w-row.st-gone, .w-row.st-blocked { --sc: var(--err); } .w-row.st-waiting, .w-row.st-rvyou { --sc: var(--warn); } .w-row.st-review { --sc: var(--info); } .w-row.st-idle, .w-row.st-away { --sc: var(--neutral); }
-  .w-row.st-idle, .w-row.st-away { cursor: default; opacity: .65; }
-  .wr-top { display: grid; grid-template-columns: 44px minmax(0, 170px) minmax(0, 1fr) auto; gap: 20px; align-items: center; padding: 18px 24px; }
-  .wr-orb { position: relative; display: block; width: 44px; height: 44px; } .wr-orb .orb { width: 40px; height: 40px; margin: -20px 0 0 -20px; } .wr-orb .orb i { font-size: 17px; } .wr-name { font-size: 15px; font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .wr-t { font-size: 14px; color: var(--muted); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .wr-state { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--sc); white-space: nowrap; } .wr-state i { width: 9px; height: 9px; border-radius: 50%; background: var(--sc); flex: none; }
-  .wr-d { display: grid; grid-template-rows: 0fr; opacity: 0; transition: grid-template-rows .25s ease, opacity .25s ease; }
-  .wr-d > div { overflow: hidden; padding: 0 24px 0 88px; font-size: 13px; color: var(--muted); } .wr-d b { font-weight: 500; color: var(--text); }
-  .w-row:hover .wr-d, .w-row.sel .wr-d, .w-row:focus-visible .wr-d { grid-template-rows: 1fr; opacity: 1; } .w-row:hover .wr-d > div, .w-row.sel .wr-d > div, .w-row:focus-visible .wr-d > div { padding-bottom: 18px; }
-  @media (prefers-reduced-motion: reduce) { .wr-d { transition: none; } }
-  @media (max-width: 979px) { .w-look { grid-template-columns: repeat(2, minmax(0, 1fr)); } .wk { border-left: 0; } .wr-top { grid-template-columns: 44px minmax(0, 1fr) auto; gap: 14px; padding: 16px 18px; } .wr-t { grid-column: 2 / -1; grid-row: 2; } .wr-d > div { padding-left: 76px; } .w-sleep { padding: 0 12px; } }
+  /* Agent status (card agent-status-slice-1, docs/status-visibility-design.md): Watch keeps its 3x3 tiles. A tile says ONE state word in one colour at its top right (working, silent, presumed gone,
+     blocked, waiting on you, in review); how long since the agent was heard shows when you hover or focus the tile. One quiet line says when the board itself slept. */
+  .w-state { --sc: var(--muted); position: absolute; right: 20px; top: 16px; font-style: normal; font-size: 11px; font-weight: 700; letter-spacing: .06em; color: var(--sc); white-space: nowrap; }
+  .w-state.s-working { --sc: var(--ok); } .w-state.s-silent { --sc: var(--run); } .w-state.s-gone, .w-state.s-blocked { --sc: var(--err); } .w-state.s-waiting { --sc: var(--warn); } .w-state.s-review { --sc: var(--info); }
+  .w-tile .w-heard { opacity: 0; transition: opacity .2s; } .w-tile:hover .w-heard, .w-tile.sel .w-heard, .w-tile:focus-visible .w-heard { opacity: 1; }
+  .w-sleep { max-width: 1180px; margin: 14px auto 0; padding: 0 22px; font-size: 12px; color: var(--muted); transition: opacity .35s, filter .35s; } .w-sleep b { font-weight: 500; color: var(--text); font-variant-numeric: tabular-nums; }
+  .deck.watch.focused .w-sleep { opacity: .12; filter: blur(3px); pointer-events: none; }
+  @media (prefers-reduced-motion: reduce) { .w-tile .w-heard { transition: none; } }
   /* Three tabs, and a Watch that shows the whole team and shows its changes as changes */
   .w-h { position: relative; max-width: 1180px; margin: 34px auto 12px; font-size: 11px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); } .w-h b { margin-left: 6px; color: var(--text); } .w-grid { margin-top: 0 !important; }
   .w-keys { margin-left: auto; display: flex; gap: 5px; opacity: .4; font-style: normal; } .w-keys kbd { font: inherit; font-size: 11px; border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; }
@@ -2483,13 +2467,19 @@ const unresolvedBlockers = t => (t.blocked_by || [])
   .map(id => tasks.find(x => x.id === id))
   .filter(b => b && b.status !== 'done');
 
-function ago(iso) {
-  const ms = Date.now() - new Date(iso).getTime();
-  if (!iso || isNaN(ms)) return { text: '', min: 0 };
-  const m = Math.max(0, Math.floor(ms / 60000));
+function agoFromMin(minutes) {
+  const m = Math.max(0, Math.floor(minutes));
   const text = m < 1 ? 'just now' : m < 60 ? m + 'm ago' : m < 1440 ? Math.floor(m / 60) + 'h ago' : Math.floor(m / 1440) + 'd ago';
   return { text, min: m };
 }
+function ago(iso) {
+  const ms = Date.now() - new Date(iso).getTime();
+  if (!iso || isNaN(ms)) return { text: '', min: 0 };
+  return agoFromMin(ms / 60000);
+}
+// How long a card has been quiet, WITHOUT the time the board itself was asleep (card agent-status-slice-1): every "has it gone quiet?" check reads this, so a closed lid is not silence
+// anywhere; "updated 3h ago" and the like stay on the wall clock (ago). With no sleep to take out it is the same number as ago(t.updated).
+const agoAwake = t => agoFromMin(wSecs(t) / 60);
 
 // Calendar days for the Done column — midnight-based (not a rolling 24h window), so "Yesterday"
 // means the previous calendar day, matching how people actually think about "what did we finish
@@ -2563,7 +2553,7 @@ function youSteps(md) { const m = /(?:^|\n)##\s*Next\s*\n([\s\S]*?)(?=\n##|\n```
 let nowWatch = location.pathname.replace(/\/+$/, '').endsWith('/watch');   // Now's second face: the agents at work
 function youOf(t) {
   if (!t || t.status !== 'doing' || isKid(t)) return null;
-  const a = ago(t.updated), old = a.min >= (cfg.stale_minutes || DEFAULT_STALE_MIN), full = (t.progress || 0) >= 100, n = a.text.replace(' ago', '');
+  const a = agoAwake(t), old = a.min >= (cfg.stale_minutes || DEFAULT_STALE_MIN), full = (t.progress || 0) >= 100, n = a.text.replace(' ago', '');
   if (t.needs_input) return { k: 'ask', verb: 'Answer', say: t.question || t.status_text || '' };
   if (t.review) { const steps = youSteps(t.details);   // how many of them you have done is kept on the card (/api/owner-mark): the same on every screen
     if (steps.length > 1) { const i = Math.min(t.owner_step || 0, steps.length); return i < steps.length ? { k: 'rev', verb: `Step ${i + 1} of ${steps.length}`, say: steps[i], sub: t.result || '', step: i, steps: steps.length } : { k: 'rev', verb: 'Sign off', say: t.result || t.status_text || '', sub: `All ${steps.length} steps done` }; }
@@ -2720,8 +2710,8 @@ function agentState(cards) {
   const limit = cfg.stale_minutes || DEFAULT_STALE_MIN;
   if (cards.some(t => t.needs_input)) return 'ask';
   if (cards.some(t => t.review)) return 'review';
-  if (cards.some(t => ago(t.updated).min >= limit)) return 'abandoned';
-  if (cards.every(t => ago(t.updated).min >= STALE_MIN)) return 'quiet';
+  if (cards.some(t => agoAwake(t).min >= limit)) return 'abandoned';
+  if (cards.every(t => agoAwake(t).min >= STALE_MIN)) return 'quiet';
   return 'working';
 }
 function workingAgents(list) {
@@ -2955,7 +2945,7 @@ try { deckOpen = localStorage.getItem('ab-deck-details') === '1'; } catch (e) {}
 const deckMore = new Map();   // card id -> [updated, html]: the open card's details, kept so a redraw never blanks them
 const DECK_NEAR = 3, DECK_STRIP = 34;   // strips shown each way before "+N more"; a strip's height
 const dkSent = t => t.needs_input && t.reply && t.reply.text && !t.reply.state;
-const dkStale = t => !!t && t.status === 'doing' && !isKid(t) && ago(t.updated).min >= (cfg.stale_minutes || DEFAULT_STALE_MIN);   // the board's own "abandoned?": the same rule the card's red line and the header count use
+const dkStale = t => !!t && t.status === 'doing' && !isKid(t) && agoAwake(t).min >= (cfg.stale_minutes || DEFAULT_STALE_MIN);   // the board's own "abandoned?": the same rule the card's red line and the header count use
 // Why a quiet card is in the pile: the watchdog's finding when it has one (nothing will wake its agent), and otherwise the board's own
 // "abandoned?" mark (no update past the stale threshold while its agent still listens). The second carries the same release, the watchdog's.
 const dkDog = id => (boardDog || []).find(f => f.id === id && (f.kind === 'stuck' || f.kind === 'claimed-idle'))
@@ -2969,7 +2959,12 @@ const dkClamp = (x, a, b) => Math.max(a, Math.min(b, x));
 const orb = (name, extra = '') => { let h = 0; for (const ch of String(name || '')) h = (h * 31 + ch.charCodeAt(0)) >>> 0;   // each agent's own little planet: its board colour, a second hue and a highlight from its name
   return `<div class="orb ${extra}" style="--h2:${h % 360};--ox:${22 + h % 46}%;--oy:${18 + (h >> 4) % 40}%;--spin:${(h >> 7) % 360}deg"><i>${esc(nodeGlyph(name || ''))}</i></div>`; };
 const watchPrev = new Map(); let watchSel = null, watchSeen = false, watchBurst = false, watchLiveWas = new Set(), watchTilt = null;   // what each tile showed last time, so a change can be shown as a change
-const wSecs = t => Math.max(0, (Date.now() - (Date.parse(t.updated) || 0)) / 1000);
+let watchStatus = null, watchStatusKey = '', watchRows = new Map();   // the server's status block (see watchTake)
+const wSecs = t => {   // seconds since the agent was heard, without the stretch the board itself was asleep (a closed lid is not silence)
+  const upd = Date.parse(t.updated) || 0, raw = Math.max(0, (Date.now() - upd) / 1000), a = watchStatus && watchStatus.asleep; if (!a) return raw;
+  const lo = Math.max(upd, Date.parse(a.from) || 0), hi = Math.min(Date.now(), a.open ? Date.now() : Date.parse(a.to) || 0);
+  return Math.max(0, raw - Math.max(0, (hi - lo) / 1000));
+};
 // How long since an agent was heard (card watch-alive-pulse): the one honest signal a tile has. Fresh under a minute (a steady pulse), ageing from there
 // (slower and dimmer), silent from [board] silent_minutes (default 10: amber, no pulse). Read from the card's own `updated`; the percent never moves for it.
 const wState = secs => secs < 60 ? 'fresh' : secs < (cfg.silent_minutes || STALE_MIN) * 60 ? 'ageing' : 'silent';
@@ -2991,22 +2986,20 @@ function watchHtml(by, n) {   // The whole team. Working agents are tiles (alive
     return `<article class="w-tile w-nav ${st}${moved ? ' moved' : ''}${isNew ? ' new' : ''}${watchSel === t.id ? ' sel' : ''}${watchOpenId === t.id ? ' lifted' : ''}" style="--c:${colorOf(t)}" data-watch="${esc(t.id)}" data-wid="${esc(t.id)}" data-p="${p}" data-was="${was ? was.p : p}" data-dn="${dn}" data-spark="${sparkAt}" data-line="${esc(line)}" data-upd="${esc(t.updated)}" tabindex="0" role="button" aria-label="${esc(name(t))}, ${esc(line)}, ${p}%, ${st === 'silent' ? 'last heard ' : 'heard '}${secs < 90 ? Math.max(1, Math.round(secs)) + ' seconds ago' : esc(ago(t.updated).text)}">
 <div class="w-ring"><svg viewBox="0 0 80 80" aria-hidden="true"><circle class="tr" cx="40" cy="40" r="34"/><circle class="fg" cx="40" cy="40" r="34" pathLength="100" stroke-dasharray="${was ? was.p : p} 100"/>${p > 0 && p < 100 ? `<circle class="tip" r="3.2" cx="${(40 + 34 * Math.cos(p / 100 * 2 * Math.PI)).toFixed(2)}" cy="${(40 + 34 * Math.sin(p / 100 * 2 * Math.PI)).toFixed(2)}"/>` : ''}</svg>${orb(t.agent)}<em>${was ? was.p : p}</em>${dp > 0 ? `<u class="w-delta">+${dp}%</u>` : ''}</div>
 <div class="w-tx"><b>${esc(name(t))}${roleChip(t.agent)}</b><span class="w-now${was && was.line !== line ? ' swap' : ''}" title="${esc(line)}">${esc(line)}</span>${was && was.line !== line ? `<span class="w-was" aria-hidden="true">${esc(was.line)}</span>` : ''}<span class="w-card">${esc(t.title)}${(t._more || []).length ? `<i class="w-more-n" title="${esc(t._more.map(x => x.title).join(' · '))}"> · +${t._more.length} more</i>` : ''}</span><span class="w-heard">${wHeard(secs, t.updated)}</span></div>
-<span class="segs">${segsOf(t)}</span></article>`; };
+<span class="segs">${segsOf(t)}</span>${watchWord(t.agent)}</article>`; };
   const liveNames = new Set(live.map(name));
   const rank = { ask: 0, rev: 1, fin: 2, quiet: 3 }, groups = new Map(); wait.forEach(t => { const g = groups.get(name(t)) || []; g.push(t); groups.set(name(t), g); });   // one card per agent: its most pressing card, and how many
   const waitTile = g => { g.sort((a, b) => rank[kOf(a)] - rank[kOf(b)]); const t = g[0], y = youOf(t), wid = 'wait:' + name(t), verb = y.k === 'ask' ? 'Answer' : y.k === 'rev' ? 'Sign off' : y.k === 'fin' ? 'Close it' : 'Check on it';
     return `<article class="w-tile w-nav w-waiting ${y.k}${watchSeen && watchLiveWas.has(name(t)) && !liveNames.has(name(t)) ? ' flipin' : ''}${watchSel === wid ? ' sel' : ''}${watchOpenId === wid ? ' lifted' : ''}" style="--c:${colorOf(t)}" data-wait="${esc(t.id)}" data-wid="${esc(wid)}" tabindex="0" role="button" aria-label="${esc(name(t))} is waiting on you: ${esc(verb)}, ${g.length} card${g.length === 1 ? '' : 's'}">
 <div class="w-ring">${orb(t.agent)}${g.length > 1 ? `<em class="n">${g.length}</em>` : ''}</div>
-<div class="w-tx"><b>${esc(name(t))}${roleChip(t.agent)}</b><span class="w-now">${esc(y.say || verb)}</span><span class="w-card"><i class="w-verb">You · ${esc(verb)}</i></span></div><i class="w-age">waiting</i></article>`; };
+<div class="w-tx"><b>${esc(name(t))}${roleChip(t.agent)}</b><span class="w-now">${esc(y.say || verb)}</span><span class="w-card"><i class="w-verb">You · ${esc(verb)}</i></span></div>${watchWord(name(t), '<i class="w-age">waiting</i>')}</article>`; };
   const idleTile = a => `<article class="w-tile w-nav w-idling${watchSel === 'idle:' + a ? ' sel' : ''}" data-wid="${esc('idle:' + a)}" tabindex="0" aria-label="${esc(a)} is idle"><div class="w-ring">${orb(a)}<i class="zz" aria-hidden="true">z</i><i class="zz" aria-hidden="true">z</i><i class="zz" aria-hidden="true">z</i></div><div class="w-tx"><b>${esc(a)}${roleChip(a)}</b><span class="w-now">Resting</span><span class="w-card">Nothing in hand</span></div></article>`;
   const liveBy = new Map(); live.forEach(t => { const g = liveBy.get(name(t)) || []; g.push(t); liveBy.set(name(t), g); });   // one card per agent: the card it last reported on, and how many more it holds
   const mains = [...liveBy.values()].map(g => { g.sort((a, b) => (Date.parse(b.updated) || 0) - (Date.parse(a.updated) || 0)); g[0]._more = g.slice(1); return g[0]; });
   const byAgent = n => n === 'Unassigned' ? '\uffff' : n;   // by agent name, Unassigned last; one agent's working tile, then its waiting tile, then resting: a tile always lands in the same place
   const cards = [...mains.map(t => [name(t), 0, tile(t)]), ...[...groups.values()].map(g => [name(g[0]), 1, waitTile(g)]), ...idle.map(a => [a, 2, idleTile(a)])]
     .sort((x, y) => byAgent(x[0]).localeCompare(byAgent(y[0]), undefined, { numeric: true }) || x[1] - y[1]).map(x => x[2]), per = watchPer(), pages = [];
-  const rowsMode = !!(watchStatus && Array.isArray(watchStatus.agents));   // the server's status block is here: a row per agent, the most pressing first, instead of the tiles
-  const shown = rowsMode ? watchStatus.agents.map(r => watchRowHtml(r, groups.has(r.name) ? 'wait:' + r.name : r.task_id && r.state !== 'idle' && r.state !== 'away' ? r.task_id : 'idle:' + r.name)) : cards;   // an agent a card of yours waits on opens that card, answer box and all
-  const perPage = rowsMode ? 8 : per; for (let k = 0; k < shown.length; k += perPage) pages.push(shown.slice(k, k + perPage));
+  for (let k = 0; k < cards.length; k += per) pages.push(cards.slice(k, k + per));
   watchPages = Math.max(1, pages.length); watchPage = Math.min(watchPage, watchPages - 1);
   pages.forEach((pg, k) => { if (k !== watchPage && pg.some(h => h.includes(' moved'))) watchPing.add(k); }); watchPing.delete(watchPage);
   const pinged = pages.map((_, k) => watchPing.has(k));   // something changed on a page you have not looked at since
@@ -3021,43 +3014,28 @@ function watchHtml(by, n) {   // The whole team. Working agents are tiles (alive
   return `<section class="deck watch deck-clear${focus ? ' focused' : ''}" data-status="deck" aria-label="Watch: the whole team">
 <div class="deck-rings live" aria-hidden="true"><i></i><i></i><i></i><b class="orbit o1"><u></u></b><b class="orbit o2"><u></u></b></div>${watchBurst ? '<div class="w-burst" aria-hidden="true"><i></i><i></i><i></i></div>' : ''}
 <div class="watch-head"><div class="deck-cleared flat" aria-label="Cleared this session">${deckClearedHtml()}</div>${!n && clearTimes.length > 1 ? `<em class="w-stat">in ${(m => m < 1 ? 'under a minute' : m < 90 ? Math.round(m) + ' min' : (m / 60).toFixed(1) + ' h')((clearTimes[clearTimes.length - 1] - clearTimes[0]) / 60000)}</em>` : ''}</div>
-${rowsMode ? watchLookHtml(watchStatus) + watchSleepHtml(watchStatus.asleep) : ''}
-<div class="w-pages"><div class="w-track" style="transform:translateX(${-watchPage * 100}%)">${pages.map((pg, k) => `<div class="w-page${rowsMode ? ' rows' : ''}${k === watchPage ? ' cur' : ''}" data-page="${k}"${k === watchPage ? '' : ' inert'}>${pg.join('')}</div>`).join('') || '<p class="w-none">Nobody is here yet.</p>'}</div></div>${live.length ? '' : orchOffer()}
+${watchSleepHtml(watchStatus && watchStatus.asleep)}
+<div class="w-pages"><div class="w-track" style="transform:translateX(${-watchPage * 100}%)">${pages.map((pg, k) => `<div class="w-page${k === watchPage ? ' cur' : ''}" data-page="${k}"${k === watchPage ? '' : ' inert'}>${pg.join('')}</div>`).join('') || '<p class="w-none">Nobody is here yet.</p>'}</div></div>${live.length ? '' : orchOffer()}
 ${focus}${watchPages > 1 ? `<nav class="w-dots" aria-label="Pages"><button type="button" class="w-arrow" data-wpage="${watchPage - 1}" aria-label="Previous page"${watchPage ? '' : ' disabled'}>‹</button>${pages.map((_, k) => `<button type="button" class="w-dot${k === watchPage ? ' on' : ''}${pinged[k] ? ' ping' : ''}" data-wpage="${k}" aria-label="Page ${k + 1} of ${watchPages}"${k === watchPage ? ' aria-current="true"' : ''}></button>`).join('')}<button type="button" class="w-arrow" data-wpage="${watchPage + 1}" aria-label="Next page"${watchPage < watchPages - 1 ? '' : ' disabled'}>›</button></nav>` : ''}</section>`;
 }
 let watchPage = 0, watchPages = 1, watchOpenId = null, watchOpenNew = false, watchDimNew = false; const watchPing = new Set();
-// Agent status (card agent-status-slice-1): /api/hud carries `status` (status.py): the five counts, a row per agent with one of eight state words, and the latest
-// stretch the board was not running. The server works it out; the page only draws it. Without it (the first moments, a feed that fails) Watch draws the tiles as before.
-let watchStatus = null, watchStatusKey = '';
+// Agent status (card agent-status-slice-1): /api/hud carries `status` (status.py): a row per agent with one of eight state words, and the latest stretch the board was not running. The
+// server works it out; the page only draws it. A tile shows its agent's state word; and how long since the agent was heard leaves out the time the board was asleep.
 const WATCH_STATE = { working: 'Working', silent: 'Silent', gone: 'Presumed gone', blocked: 'Blocked', waiting: 'Waiting on you', review: 'In review', idle: 'Idle', away: 'Away' };
 const watchDur = m => m == null ? '' : m < 1 ? 'now' : m < 60 ? Math.round(m) + ' min' : Math.floor(m / 60) + ' h ' + String(Math.round(m % 60)).padStart(2, '0');
 const watchClock = iso => new Date(Date.parse(iso)).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
 function watchTake(st) {   // from stripLoad: keep the server's status block, and redraw Watch when it changed (not while someone is typing: it draws with the next card change)
   const key = JSON.stringify(st || null); if (key === watchStatusKey) return;
-  watchStatusKey = key; watchStatus = st || null;
+  watchStatusKey = key; watchStatus = st || null; watchRows = new Map(((st && st.agents) || []).map(r => [r.name, r]));
   if (!(nowWatch && MEFIRST) || /INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName || '')) return;
   render();
 }
-function watchLookHtml(st) {   // the five counts in one soft panel; how old the oldest is waits in the tooltip
-  const c = st.counts || {}, n = g => (c[g] || {}).n || 0, age = g => watchDur((c[g] || {}).oldest_min);
-  const k = (g, cls, label, tip) => `<div class="wk wk-${cls}${n(g) ? '' : ' zero'}" title="${esc(tip)}"><b>${n(g)}</b><span>${label}</span></div>`;
-  return `<div class="w-look" role="group" aria-label="The team at a glance">${k('you', 'you', 'Waiting on you', n('you') ? 'The oldest has waited ' + age('you') : 'Nothing needs you')}${k('stuck', 'stuck', 'Stuck', n('stuck') ? 'Quiet for up to ' + age('stuck') : 'Nobody is stuck')}`
-    + `${k('others', 'others', 'Waiting on others', n('others') ? 'The oldest has waited ' + age('others') : 'Nobody waits on anyone else')}${k('working', 'work', 'Working', 'Touched in the last ' + STALE_MIN + ' minutes')}${k('idle', 'idle', 'Idle', 'Listening for work, or away')}</div>`;
-}
+const watchStateOf = name => (watchRows.get(name) || {}).state || '';
+const watchWord = (name, fallback) => { const st = watchStateOf(name); return st && WATCH_STATE[st] ? `<i class="w-state s-${esc(st)}">${esc(WATCH_STATE[st])}</i>` : fallback || ''; };   // one word, one colour; nothing when the server has not said
 function watchSleepHtml(a) {   // one quiet line: the stretch the board was not running is never counted as an agent's silence
   if (!a) return '';
   const when = a.open ? 'Board asleep or just woke (' + watchDur(a.minutes) + ')' : 'Board asleep ' + watchDur(a.minutes) + ' (' + watchClock(a.from) + ' to ' + watchClock(a.to) + ')';
   return `<div class="w-sleep" role="note"><b>${esc(when)}</b> · not counted as silence</div>`;
-}
-function watchRowHtml(r, wid) {   // one agent, calm: its name, its card, ONE state word. What it says, how long and who it waits on show on hover or focus
-  const idleish = r.state === 'idle' || r.state === 'away', sel = watchSel === wid, you = r.state === 'review' && r.waits_on === 'you';
-  const t = r.quiet_min == null || idleish ? '' : watchDur(r.quiet_min), word = WATCH_STATE[r.state] || r.state;
-  const phrase = { waiting: 'waits on you' + (t ? ' · ' + t : ''), review: (you ? 'waits on you' : 'waits on ' + (r.waits_on || 'orch')) + (t ? ' · ' + t : ''), blocked: 'blocked by ' + (r.waits_on || '?'),
-    working: t ? 'last touch ' + t + ' ago' : '', silent: t ? 'no word for ' + t : '', gone: t ? 'no word for ' + t : '', idle: 'listening for work', away: 'away' }[r.state] || '';
-  const bits = [r.line ? esc(r.line) : '', phrase ? `<b>${esc(phrase)}</b>` : '', r.task_id && !idleish ? (r.progress || 0) + '%' : ''].filter(Boolean);
-  return `<article class="w-row w-nav st-${esc(r.state)}${you ? ' st-rvyou' : ''}${sel ? ' sel' : ''}${watchOpenId === wid ? ' lifted' : ''}" style="--c:${agentColor(r.name)}" data-wid="${esc(wid)}" tabindex="0" role="button" aria-label="${esc(r.name)}, ${esc(word)}${r.task ? ', ' + esc(r.task) : ''}${t ? ', ' + esc(t) : ''}">`
-    + `<div class="wr-top"><span class="wr-orb">${orb(r.name)}</span><b class="wr-name">${esc(r.name)}${roleChip(r.name)}</b><span class="wr-t">${esc(r.task || (idleish ? (r.state === 'idle' ? 'Listening for work' : 'Nothing in hand') : ''))}</span><span class="wr-state"><i></i>${esc(word)}</span></div>`
-    + (bits.length ? `<div class="wr-d"><div>${bits.join(' · ')}</div></div>` : '') + `</article>`;
 }
 async function watchFill(id) {   // the same details the pile shows, from the same feed
   const t = byId.get(id), kept = deckMore.get(id); if (kept && t && kept[0] === t.updated) return;
@@ -3411,7 +3389,7 @@ function render() {
     paneHtml = by.doing.length ? by.doing.map(card).join('') : `<div class="empty">${(q || flagFilter) ? 'No matches' : EMPTY.doing}</div>`;
     hudPane = false;
   }
-  const activeNow = by.doing.filter(t => t.agent && !t.needs_input && !t.review && ago(t.updated).min < STALE_MIN);
+  const activeNow = by.doing.filter(t => t.agent && !t.needs_input && !t.review && agoAwake(t).min < STALE_MIN);
   const pres = [...new Map(activeNow.map(t => [t.agent, colorOf(t)])).entries()]
     .map(([n, c]) => `<i style="--c:${c}" title="${esc(n)} is working"></i>`).join('');
   const cols = COLUMNS.filter(([k]) => k !== 'backlog');
@@ -3505,7 +3483,7 @@ function render() {
   $('later-n').textContent = parked.length ? '(' + parked.length + ')' : '';
   renderLater(parked);
   const quiet = working.filter(t => ago(t.updated).min >= STALE_MIN && ago(t.updated).min < (cfg.stale_minutes || DEFAULT_STALE_MIN)).length;
-  const abandoned = working.filter(t => ago(t.updated).min >= (cfg.stale_minutes || DEFAULT_STALE_MIN)).length;
+  const abandoned = working.filter(t => agoAwake(t).min >= (cfg.stale_minutes || DEFAULT_STALE_MIN)).length;
   { const needAg = new Set(working.filter(t => { const y = youOf(t); return y && y.k !== 'none'; }).map(t => t.agent)); requestAnimationFrame(() => document.querySelectorAll('.ls-g').forEach(g => g.classList.toggle('calm', !needAg.has(g.dataset.agent)))); }
   // The header keeps two numbers, each a filter: what to answer and what to sign off. The cards say the rest (how long, how stuck), the strip
   // says who is working, and the Needs you tab carries the total. With nothing waiting it says so in two words.
@@ -4361,7 +4339,7 @@ $('p-chat-form').addEventListener('submit', e => { e.preventDefault(); sendLine(
 
 function panelHtml(t) {
   const doing = t.status === 'doing', stale = doing && ago(t.updated).min >= STALE_MIN;
-  const abandoned = doing && ago(t.updated).min >= (cfg.stale_minutes || DEFAULT_STALE_MIN);
+  const abandoned = doing && agoAwake(t).min >= (cfg.stale_minutes || DEFAULT_STALE_MIN);
   const who = t.agent ? `<div class="p-who"><button class="agent-pill" type="button" data-thread="${esc(t.agent)}" title="Talk to ${esc(t.agent)}" aria-label="Talk to ${esc(t.agent)}" style="--c:${colorOf(t)}"><span class="av ${doing && !stale ? 'live' : ''}" aria-hidden="true">${esc(nodeGlyph(t.agent))}</span><span class="name">${esc(t.agent)}</span>${roleChip(t.agent)}</button><span class="p-when">${t.status === 'done' ? 'finished' : 'working'} ${ago(t.updated).text}</span></div>` : '';
   const prog = doing ? `<div class="p-sec"><div class="bar" style="margin:0" role="progressbar" aria-valuenow="${t.progress || 0}" aria-valuemin="0" aria-valuemax="100" aria-label="Progress"><b style="width:${t.progress || 0}%;background:${colorOf(t)}"></b></div><div class="p-pct"><span>${t.review || t.needs_input ? '' : esc(t.status_text || '')}</span><b>${t.progress || 0}%${(kidsMap.get(t.id) || []).length ? '<small> overall</small>' : ''}</b></div>${abandoned ? `<div class="p-pct"><span style="color:var(--err)">⚠ No update for ${ago(t.updated).text.replace(' ago', '')} — possibly abandoned</span></div>` : stale ? `<div class="p-pct"><span style="color:var(--warn)">No update for ${ago(t.updated).text.replace(' ago', '')}</span></div>` : ''}</div>` : '';
   const bodyHtml = t.body_html ? `<div class="rich-body">${t.body_html}</div>` : '';   // server-rendered + sanitized; safe to insert as-is

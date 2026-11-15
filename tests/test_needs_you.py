@@ -127,7 +127,7 @@ class StuckAndClearedTests(unittest.TestCase):
 
     def test_a_card_the_board_marks_abandoned_is_in_the_pile_even_when_its_agent_still_listens(self):
         # the watchdog skips a holder with a wait running, so its finding alone left out cards the board itself shows as "abandoned?"
-        self.assertIn("const dkStale = t => !!t && t.status === 'doing' && !isKid(t) && ago(t.updated).min >= (cfg.stale_minutes || DEFAULT_STALE_MIN);", PAGE)
+        self.assertIn("const dkStale = t => !!t && t.status === 'doing' && !isKid(t) && agoAwake(t).min >= (cfg.stale_minutes || DEFAULT_STALE_MIN);", PAGE)   # the board's own sleep is not quiet (agent-status-slice-1)
         self.assertIn("|| (dkStale(byId.get(id)) ? { id, kind: 'abandoned',", PAGE)
         self.assertIn("fix: { action: 'release', id, label: 'Release to Todo' } } : null);", PAGE)   # the same release, the watchdog's
         head = body("deckHeadHtml")

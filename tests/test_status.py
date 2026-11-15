@@ -258,28 +258,42 @@ class ThePage(unittest.TestCase):
         self.assertIn("watchTake(hudJson.status)", self.body("stripLoad"))
         self.assertEqual(__import__("re").findall(r"fetch\(([^,)]*)", self.body("stripLoad")), ["'/api/hud'"])   # still the one route, no new request
 
-    def test_watch_draws_rows_when_it_has_the_status_and_the_tiles_when_it_has_not(self):
+    def test_watch_keeps_its_three_by_three_tiles_and_has_no_strip_of_counts(self):   # the owner: "remove the top strip with stuck, etc.. keep this 3x3"
         w = self.body("watchHtml")
-        self.assertIn("const rowsMode = !!(watchStatus && Array.isArray(watchStatus.agents));", w)
-        self.assertIn("watchRowHtml(r,", w)
-        self.assertIn("tile(t)", w)   # the old grid is the fallback
+        self.assertIn("per = watchPer()", w)
+        self.assertIn("const watchPer = () => innerWidth >= 1180 ? 9 : innerWidth >= 780 ? 6 : 3;", self.HTML)
+        for gone in ("w-look", "watchLookHtml", "watchRowHtml", "wr-top", "rowsMode"):
+            self.assertNotIn(gone, self.HTML)
+        self.assertIn("watchSleepHtml(watchStatus && watchStatus.asleep)", w)   # the one quiet line, only when the board slept
 
     def test_a_status_that_arrives_while_someone_types_waits_for_the_next_draw(self):
         take = self.body("watchTake")
         self.assertIn("/INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName || '')", take)
 
-    def test_a_row_is_calm_one_state_word_and_the_rest_on_hover_or_focus(self):
-        row = self.body("watchRowHtml")
-        self.assertEqual(row.count('class="wr-state"'), 1)
-        self.assertIn('class="wr-d"', row)
-        for sel in (".w-row:hover .wr-d", ".w-row.sel .wr-d", ".w-row:focus-visible .wr-d"):
+    def test_a_tile_says_one_state_word_and_the_heard_line_waits_for_a_hover(self):
+        self.assertIn("${watchWord(t.agent)}</article>", self.body("watchHtml"))   # a working tile
+        self.assertIn("watchWord(name(t), '<i class=\"w-age\">waiting</i>')", self.body("watchHtml"))   # a waiting tile: the word in place of "waiting"
+        word = self.body("watchWord") if False else self.HTML[self.HTML.index("const watchWord ="):self.HTML.index("function watchSleepHtml")]
+        self.assertEqual(word.count('class="w-state'), 1)
+        self.assertIn(".w-tile .w-heard { opacity: 0;", self.HTML)   # at rest it is quiet
+        for sel in (".w-tile:hover .w-heard", ".w-tile.sel .w-heard", ".w-tile:focus-visible .w-heard"):
             self.assertIn(sel, self.HTML)
-        self.assertIn(".wr-d { display: grid; grid-template-rows: 0fr; opacity: 0;", self.HTML)   # shut at rest
-        self.assertIn("@media (prefers-reduced-motion: reduce) { .wr-d { transition: none; } }", self.HTML)
+        self.assertIn("@media (prefers-reduced-motion: reduce) { .w-tile .w-heard { transition: none; } }", self.HTML)
 
-    def test_the_new_classes_do_not_take_a_name_the_page_already_styles(self):
-        self.assertNotIn(".wk.you", self.HTML)   # the page's own .you (the owner's chip) styled the first tile
-        self.assertIn(".wr-orb { position: relative;", self.HTML)   # .orb is absolute: a row gives it a box of its own
+    def test_how_long_since_an_agent_was_heard_leaves_out_the_time_the_board_slept(self):
+        w = self.body("wSecs") if False else self.HTML[self.HTML.index("const wSecs = t => {"):self.HTML.index("// How long since an agent was heard")]
+        self.assertIn("watchStatus.asleep", w)
+        self.assertIn("raw - Math.max(0, (hi - lo) / 1000)", w)
+
+    def test_every_gone_quiet_check_on_the_page_reads_the_awake_clock(self):   # the Now pile, Watch, By agent: a closed lid is not silence anywhere
+        import re
+        self.assertIn("const agoAwake = t => agoFromMin(wSecs(t) / 60);", self.HTML)
+        for fn in ("youOf", "agentState"):
+            self.assertIn("agoAwake(", self.body(fn), fn)
+            self.assertNotRegex(self.body(fn), r"ago\(t\.updated\)\.min >=", fn)
+        self.assertIn("const dkStale = t => !!t && t.status === 'doing' && !isKid(t) && agoAwake(t).min >=", self.HTML)
+        self.assertNotIn("ago(t.updated).min >= (cfg.stale_minutes", self.HTML)
+        self.assertEqual(len(re.findall(r"function agoMin\(", self.HTML)), 0)   # the Settings page's own agoMin is a const, mine is agoFromMin: no clash
 
     def test_the_eight_state_words_are_the_servers_and_none_is_about_software(self):
         words = __import__("re").search(r"const WATCH_STATE = \{(.*?)\};", self.HTML, __import__("re").S).group(1)
