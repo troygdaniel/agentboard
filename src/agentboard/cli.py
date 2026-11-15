@@ -21,6 +21,7 @@ from . import agentstates as agentstateslib
 from . import insights as insightslib
 from . import lifecycle
 from . import lockdown
+from . import configproposals as proposalslib
 from . import configurations as configurationslib
 from . import names as namesmod
 from . import rename as renamelib
@@ -2364,8 +2365,13 @@ def main(argv=None):
     csp.add_argument("--model", help="claude model for the drafts (default: [chat] idle_model)")
 
     sp = add("configuration", cmd_configuration, "agent configurations: the names and roles the board shows (show, apply, clear); needs [agents] configurations = true; the board starts no agent")
-    sp.add_argument("action", nargs="?", choices=["show", "apply", "clear"], default="show")
-    sp.add_argument("what", nargs="?", help="a shipped configuration's name (day-to-day) or the path of a configuration file")
+    sp.add_argument("action", nargs="?", choices=["show", "apply", "clear", "export", "propose", "proposals", "accept", "ignore"], default="show")
+    sp.add_argument("what", nargs="?", help="a shipped configuration's name (day-to-day) or the path of a configuration file; for accept and ignore, the number of the proposal")
+    sp.add_argument("-o", "--out", metavar="FILE", help="export: write the file here (a new file: an existing one is not overwritten); without it the file is printed")
+    sp.add_argument("--apply", dest="p_apply", metavar="NAME", help="propose: switch to this configuration that ships with the board")
+    sp.add_argument("--add-name", dest="p_name", metavar="NAME", help="propose: add this name to a role of the applied configuration (with --role)")
+    sp.add_argument("--role", dest="p_role", metavar="ROLE", help="propose: the role the new name joins")
+    sp.add_argument("--why", dest="p_why", metavar="TEXT", help="propose: one sentence with the counts that led to it")
 
     sp = add("rename", cmd_rename, "give an agent a new name and keep its cards, claims, chat and colour (the old name keeps working for a day)")
     sp.add_argument("old", nargs="?", help="the agent's current name")
@@ -2429,6 +2435,25 @@ def cmd_configuration(a):
     s = _store()
     if not configurationslib.enabled(s.dir):
         raise BoardError("agent configurations are off: add [agents] configurations = true to config.toml (see `agentboard config docs`)")
+    if a.action in ("propose", "proposals", "accept", "ignore"):
+        return _cmd_configuration_proposals(a, s)
+    if a.action == "export":   # a configuration as a small file to keep or share: names, roles and rules only (configurations.export_text)
+        cfg = configurationslib.read_source(a.what, s.owner)[0] if a.what else configurationslib.applied(s.dir)
+        if cfg is None:
+            raise BoardError(f"no configuration is applied: name one to export (shipped: {', '.join(configurationslib.builtin_names())}) or apply one first")
+        text = configurationslib.export_text(cfg)
+        if not a.out:
+            sys.stdout.write(text)
+            return
+        out = Path(a.out).expanduser()
+        if out.exists():
+            raise BoardError(f"{out} already exists: choose a new file name (nothing was written)")
+        try:
+            out.write_text(text)
+        except OSError as e:
+            raise BoardError(f"cannot write {out}: {e.__class__.__name__}") from e
+        print(f"Wrote {cfg['name']} to {out}: names, roles and rules only. Import it anywhere with: agentboard configuration show {out.name}   then   apply")
+        return
     if a.action == "clear":
         print("Removed the applied configuration; the roster is the one in config.toml again." if configurationslib.clear(s.dir) else "No configuration is applied.")
         return
@@ -2449,6 +2474,32 @@ def cmd_configuration(a):
               + ".\nSee one: agentboard configuration show NAME     Apply it: agentboard configuration apply NAME")
         return
     print("\n".join(configurationslib.describe(cfg, "applied")))
+
+
+def _cmd_configuration_proposals(a, s):
+    """ORCH proposes a change, the owner accepts or ignores it (configproposals.py). `propose` changes nothing; accept and ignore are the owner's."""
+    who = os.environ.get("AGENTBOARD_NAME")
+    if a.action == "proposals":
+        rows = proposalslib.read(s.dir)
+        print("\n".join(f"#{r['id']}  {r['status']:<9} {proposalslib.describe(r)}" for r in rows) if rows else "No proposals.")
+        return
+    if a.action == "propose":
+        if bool(a.p_apply) == bool(a.p_name):
+            raise BoardError("propose one change: --apply NAME, or --add-name NAME --role ROLE (with --why)")
+        change = {"configuration": a.p_apply} if a.p_apply else {"role": a.p_role, "name": a.p_name}
+        rec = proposalslib.propose(s.dir, who, "apply" if a.p_apply else "add-name", change, a.p_why, s.owner)
+        print(f"Proposed #{rec['id']}: {proposalslib.describe(rec)}\nNothing has changed. {s.owner} accepts or ignores it on the board, or with: agentboard configuration accept {rec['id']}  /  ignore {rec['id']}")
+        return
+    if a.action == "accept":
+        rec, cfg = proposalslib.accept(s.dir, a.what, s.owner, who)
+        print(f"Accepted #{rec['id']}: {proposalslib.describe(rec)}")
+        if rec["kind"] == "add-name":
+            print(f"In a new terminal for it, type: /rename {rec['change']['name']}   then   export AGENTBOARD_NAME={rec['change']['name']}")
+        else:
+            print("\n".join(configurationslib.describe(cfg, rec["change"]["configuration"], applied_now=True)))
+        return
+    rec = proposalslib.ignore(s.dir, a.what, s.owner, who)
+    print(f"Ignored #{rec['id']}: {proposalslib.describe(rec)}\nORCH is told not to ask for the same change for {proposalslib.IGNORE_QUIET_DAYS} days.")
 
 
 def cmd_rename(a):

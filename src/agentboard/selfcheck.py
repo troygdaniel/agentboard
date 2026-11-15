@@ -632,15 +632,17 @@ class Audit:
         line = S.chat_send(S.owner, "anyone there?", kind="user", to="AGENT-9")
         go("/api/chat-nudge", {"seq": line["seq"]})
         go("/api/chat-agents", {"on": False})
-        # agent configurations (card agent-config-slice-3) and rename: the setting on in this throwaway board, a shipped file previewed and applied, the configuration taken off;
-        # then a rename, its counts and its undo. A step that fails leaves its route without a real payload, and the line below says which.
+        # agent configurations (cards agent-config-slice-2, 3 and 3b) and rename: the setting on in this throwaway board, a shipped file previewed and applied, ORCH's suggestion accepted,
+        # the configuration taken off; then a rename, its counts and its undo. A step that fails leaves its route without a real payload, and the line below says which.
         with contextlib.suppress(Exception):
-            from . import configurations
+            from . import configproposals, configurations
             cfgfile = os.path.join(str(S.dir), "config.toml")
             with open(cfgfile, "a") as f:
                 f.write("\n[agents]\nconfigurations = true\n")
             go("/api/configuration/preview", {"text": configurations.export_text(configurations.builtin("day-to-day"))})
             go("/api/configuration/apply", {"key": "day-to-day"})
+            sug = configproposals.propose(S.dir, "ORCH", "add-name", {"role": "caller", "name": "Caller-9"}, "selfcheck", S.owner)
+            go("/api/configuration/proposal", {"id": sug["id"], "decision": "accepted"})
             go("/api/configuration/clear", {})
             S.start("Selfcheck rename", "AGENT-7", None)
             go("/api/rename/plan", {"old": "AGENT-7", "new": "Selfcheck-7"})

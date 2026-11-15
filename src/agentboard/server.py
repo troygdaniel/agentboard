@@ -12,7 +12,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-from . import boards, configurations, demo, hud, lifecycle, private, rename
+from . import boards, configproposals, configurations, demo, hud, lifecycle, private, rename
 from . import profile as profilelib
 from . import hooks as hookslib
 from . import listeners, watchdog
@@ -124,6 +124,13 @@ def make_handler(default_store, port):
             return promptlib.load_config(store.dir)
         except BoardError:
             return {}
+
+    def _configurations_state(store):
+        """GET /api/configurations plus what ORCH has suggested and the owner has not answered (each with its one line); off: only {"enabled": false}."""
+        state = configurations.page_state(store.dir, store.owner)
+        if state.get("enabled"):
+            state["proposals"] = [{"id": r["id"], "at": r["at"], "kind": r["kind"], "change": r["change"], "why": r["why"], "text": configproposals.describe(r)} for r in configproposals.pending(store.dir)]
+        return state
 
     allowed_hosts = {f"localhost:{port}", f"127.0.0.1:{port}"}
 
@@ -370,8 +377,8 @@ def make_handler(default_store, port):
                 self._send_cached(_derived(self.store, "hud", key, build_hud))
             elif url.path == "/api/settings":
                 self._send(200, settingsview.status(self.store.dir))   # Settings > Security and Backup: booleans, counts and ages only; nothing here changes anything
-            elif url.path == "/api/configurations":   # the picker: is it on, what is applied, what ships (never a card or a line of chat)
-                self._send(200, configurations.page_state(self.store.dir, self.store.owner))
+            elif url.path == "/api/configurations":   # the picker: is it on, what is applied, what ships, what ORCH suggests (never a card or a line of chat)
+                self._send(200, _configurations_state(self.store))
             elif url.path == "/api/configuration/export":   # a configuration as a file to keep or share: ?key=build, or ?applied=1
                 try:
                     if not configurations.enabled(self.store.dir):
@@ -519,6 +526,14 @@ def make_handler(default_store, port):
                         raise BoardError("say which: a shipped key, or the text of a file")
                     configurations.apply(self.store.dir, cfg, source)
                     self._send(200, configurations.page_state(self.store.dir, self.store.owner))
+                elif path == "/api/configuration/proposal":   # the owner's Accept or Ignore of what ORCH suggested (configproposals.py): only this click applies it
+                    if not (isinstance(body.get("id"), int) and body.get("decision") in ("accepted", "ignored")):
+                        raise BoardError("id must be a proposal number and decision accepted or ignored")
+                    if body["decision"] == "accepted":
+                        configproposals.accept(self.store.dir, body["id"], self.store.owner)
+                    else:
+                        configproposals.ignore(self.store.dir, body["id"], self.store.owner)
+                    self._send(200, _configurations_state(self.store))
                 elif path == "/api/configuration/clear":
                     if not configurations.enabled(self.store.dir):
                         raise BoardError("agent configurations are off: add [agents] configurations = true to config.toml")
