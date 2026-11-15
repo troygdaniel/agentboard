@@ -172,9 +172,13 @@ def builtin(name, owner="you"):
 
 
 def read_source(what, owner="you"):
-    """A configuration from a shipped name or a file path (a path is read as text and validated; nothing else of it is used)."""
+    """A configuration from a shipped name or a file path (a path is read as text and validated; nothing else of it is used). A bare shipped name (build, day-to-day) is the
+    shipped one even when a folder or a file of that name sits in the current directory (the board's own checkout has a build/ folder); a file is named with a .json ending or a path."""
     p = Path(str(what)).expanduser()
-    if p.suffix.lower() == ".json" or p.exists():
+    bare = p.suffix.lower() != ".json" and not any(c in str(what) for c in "/\\~")
+    if bare and str(what or "").strip().lower().replace(" ", "-") in BUILTIN:
+        return builtin(what, owner), str(what)
+    if p.suffix.lower() == ".json" or p.is_file():
         try:
             if p.stat().st_size > 64_000:
                 raise ConfigurationError("not a valid configuration: the file is over 64 KB")

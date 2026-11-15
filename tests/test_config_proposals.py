@@ -315,6 +315,27 @@ class Export(Base):
         code, out = self.run_cli("configuration", "apply", str(target))
         self.assertIn("Applied: Day to day", out)
 
+    def test_a_shipped_name_is_not_hidden_by_a_folder_or_file_of_that_name(self):
+        """The board's own checkout has a build/ folder: `export build` there must still be the Build configuration (it read the folder as a file path)."""
+        here = Path.cwd()
+        work = self.d.parent / "cwd-with-clashing-names"
+        (work / "build").mkdir(parents=True)
+        (work / "day-to-day").write_text("not a configuration")
+        os.chdir(work)
+        try:
+            code, out = self.run_cli("configuration", "export", "build")
+            self.assertFalse(code, out)
+            self.assertEqual(json.loads(out)["name"], "Build or improve an application")
+            code, out = self.run_cli("configuration", "show", "day-to-day")
+            self.assertIn("Configuration: Day to day", out)
+            code, out = self.run_cli("configuration", "export", "./build")   # a path stays a path: a folder is not a configuration file
+            self.assertIn("no configuration named", out)
+            (work / "mine.json").write_text(json.dumps(json.loads(cfgs.export_text(cfgs.builtin("build")))))
+            code, out = self.run_cli("configuration", "show", "mine.json")
+            self.assertIn("Configuration: Build or improve an application", out)
+        finally:
+            os.chdir(here)
+
     def test_nothing_applied_and_no_name_says_what_to_do(self):
         cfgs.clear(self.d)
         code, out = self.run_cli("configuration", "export")
