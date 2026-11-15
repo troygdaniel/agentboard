@@ -2365,8 +2365,9 @@ def main(argv=None):
     csp.add_argument("--model", help="claude model for the drafts (default: [chat] idle_model)")
 
     sp = add("configuration", cmd_configuration, "agent configurations: the names and roles the board shows (show, apply, clear); needs [agents] configurations = true; the board starts no agent")
-    sp.add_argument("action", nargs="?", choices=["show", "apply", "clear", "propose", "proposals", "accept", "ignore"], default="show")
+    sp.add_argument("action", nargs="?", choices=["show", "apply", "clear", "export", "propose", "proposals", "accept", "ignore"], default="show")
     sp.add_argument("what", nargs="?", help="a shipped configuration's name (day-to-day) or the path of a configuration file; for accept and ignore, the number of the proposal")
+    sp.add_argument("-o", "--out", metavar="FILE", help="export: write the file here (a new file: an existing one is not overwritten); without it the file is printed")
     sp.add_argument("--apply", dest="p_apply", metavar="NAME", help="propose: switch to this configuration that ships with the board")
     sp.add_argument("--add-name", dest="p_name", metavar="NAME", help="propose: add this name to a role of the applied configuration (with --role)")
     sp.add_argument("--role", dest="p_role", metavar="ROLE", help="propose: the role the new name joins")
@@ -2436,6 +2437,23 @@ def cmd_configuration(a):
         raise BoardError("agent configurations are off: add [agents] configurations = true to config.toml (see `agentboard config docs`)")
     if a.action in ("propose", "proposals", "accept", "ignore"):
         return _cmd_configuration_proposals(a, s)
+    if a.action == "export":   # a configuration as a small file to keep or share: names, roles and rules only (configurations.export_text)
+        cfg = configurationslib.read_source(a.what, s.owner)[0] if a.what else configurationslib.applied(s.dir)
+        if cfg is None:
+            raise BoardError(f"no configuration is applied: name one to export (shipped: {', '.join(configurationslib.builtin_names())}) or apply one first")
+        text = configurationslib.export_text(cfg)
+        if not a.out:
+            sys.stdout.write(text)
+            return
+        out = Path(a.out).expanduser()
+        if out.exists():
+            raise BoardError(f"{out} already exists: choose a new file name (nothing was written)")
+        try:
+            out.write_text(text)
+        except OSError as e:
+            raise BoardError(f"cannot write {out}: {e.__class__.__name__}") from e
+        print(f"Wrote {cfg['name']} to {out}: names, roles and rules only. Import it anywhere with: agentboard configuration show {out.name}   then   apply")
+        return
     if a.action == "clear":
         print("Removed the applied configuration; the roster is the one in config.toml again." if configurationslib.clear(s.dir) else "No configuration is applied.")
         return

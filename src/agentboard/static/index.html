@@ -302,6 +302,21 @@
   .rolechip { display: inline-block; flex: 0 1 auto; margin-left: 6px; padding: 0 7px; border: 1px solid var(--line); border-radius: 999px; background: var(--chip); color: var(--muted);
     font-size: var(--fs-xs); font-weight: 600; letter-spacing: .02em; text-transform: none; line-height: 1.5; white-space: nowrap; max-width: 8.5em; overflow: hidden; text-overflow: ellipsis; vertical-align: 1px; }
   .deck-slot:not(.front) .who .rolechip { display: none; }
+  /* agent configurations, add-ons (card agent-config-slice-3b): what ORCH suggests with Accept and Ignore, and the Import dialog. Placed by the picker panel (cfgAddons below); every text is escaped */
+  .cx-prop { margin: 10px 0; padding: 10px 14px; border: 1px solid var(--line); border-left: 3px solid var(--info, #1d4ed8); border-radius: 10px; background: var(--surface); }
+  .cx-prop .cx-k { font-size: var(--fs-xs); font-weight: 600; letter-spacing: var(--tr-label); text-transform: uppercase; color: var(--info, #1d4ed8); }
+  .cx-prop p { margin: 4px 0 8px; font-size: var(--fs-md); overflow-wrap: anywhere; }
+  .cx-prop .cx-acts { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; } .cx-prop small { color: var(--muted); font-size: var(--fs-xs); }
+  .cx-dlg { width: min(560px, calc(100vw - 32px)); max-height: calc(100vh - 48px); padding: 0; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); color: var(--text); box-shadow: 0 24px 70px -20px rgba(0,0,0,.5); overflow: auto; }
+  .cx-dlg::backdrop { background: rgba(10, 14, 22, .45); }
+  .cx-dlg .cx-in { padding: 16px 18px 14px; } .cx-dlg h3 { margin: 0 0 6px; font-size: var(--fs-lg); font-weight: 600; letter-spacing: -.01em; }
+  .cx-dlg .cx-note { margin: 0 0 10px; color: var(--muted); font-size: var(--fs-sm); } .cx-dlg input[type=file] { max-width: 100%; font: inherit; font-size: var(--fs-sm); }
+  .cx-dlg .cx-err { margin: 10px 0 0; padding: 8px 10px; border-radius: 8px; border: 1px solid color-mix(in srgb, var(--err) 45%, var(--line)); color: var(--err); font-size: var(--fs-sm); overflow-wrap: anywhere; }
+  .cx-dlg .cx-ok { margin: 10px 0 0; padding: 8px 10px; border-radius: 8px; border: 1px solid color-mix(in srgb, var(--ok) 45%, var(--line)); color: var(--ok); font-size: var(--fs-sm); }
+  .cx-dlg .cx-role { margin: 8px 0 0; padding-top: 8px; border-top: 1px solid var(--line); font-size: var(--fs-sm); } .cx-dlg .cx-role b { font-size: var(--fs-md); } .cx-dlg .cx-role span { color: var(--muted); }
+  .cx-dlg .cx-role .may { color: var(--ok); } .cx-dlg .cx-role .not { color: var(--err); } .cx-dlg .cx-role div { margin-top: 2px; overflow-wrap: anywhere; }
+  .cx-dlg .cx-term { margin: 10px 0 0; font-size: var(--fs-sm); color: var(--muted); } .cx-dlg .cx-term code { font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--chip); border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; }
+  .cx-dlg .cx-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 14px; flex-wrap: wrap; }
   @media (max-width: 600px) { .top .who .rolechip { display: none; } }   /* a phone shows the name; the role stays in the tooltip and the panel */
   .card.done .who { color: color-mix(in srgb, var(--text) 82%, var(--muted)); }
   /* the holder's name is the card's first thing to find (2026-11-01): 14px/650 in full text colour (the title is 15px),
@@ -6886,6 +6901,74 @@ fetch('/api/boards').then(r => r.json()).then(d => {   // the board switcher: hi
   sw.hidden = false;
   sw.onchange = () => { location.href = sw.value; };
 }).catch(() => {});
+// --- agent configurations, add-ons (card agent-config-slice-3b) ---------------------------------------------------------------------------------
+// What ORCH suggests (Accept / Ignore: only the owner's click applies a change) and the Import dialog (a file is previewed, validated by the board, and applied only on Apply).
+// The picker panel places them: `${cfgAddons.proposalsHtml(state)}` with the state of GET /api/configurations, and `${cfgAddons.importButton()}`; both work from one click handler on the
+// document. After a change the document gets a `cfg-changed` event (detail: the new state) so the panel can redraw. Nothing here starts a program.
+const cfgAddons = (() => {
+  const MAX = 64000;
+  let dlg = null, text = '';
+  const emit = state => document.dispatchEvent(new CustomEvent('cfg-changed', { detail: state }));
+  const proposalsHtml = state => ((state && state.proposals) || []).map(p => {
+    const label = p.kind === 'add-name' ? `Accept (adds ${esc(p.change.name)} to the roster)` : `Accept (applies ${esc(p.change.configuration)})`;
+    return `<div class="cx-prop" data-cx-prop="${p.id}"><div class="cx-k">ORCH suggests · from the insights counts</div><p>${esc(p.text)}</p>`
+      + `<div class="cx-acts"><button type="button" class="btn primary" data-cx-decide="accepted" data-id="${p.id}">${label}</button><button type="button" class="btn" data-cx-decide="ignored" data-id="${p.id}">Ignore</button><small>Nothing changes until you accept.</small></div></div>`;
+  }).join('');
+  const importButton = () => `<button type="button" class="btn" data-cx-import>Import a file…</button>`;
+  const exportHref = key => '/api/configuration/export?' + (key ? 'key=' + encodeURIComponent(key) : 'applied=1');
+  const list = (label, items, cls) => items && items.length ? `<div><span>${label}</span> <span class="${cls}">${items.map(esc).join('; ')}</span></div>` : '';
+  const detailHtml = d => `<h4 style="margin:12px 0 0;font-size:var(--fs-md)">${esc(d.name)}</h4>` + (d.description ? `<div class="cx-note">${esc(d.description)}</div>` : '')
+    + d.roles.map(r => `<div class="cx-role"><b>${esc(r.role)}</b> <span>${r.names.map(esc).join(', ')}${r.model || r.size ? ' · ' + [r.model, r.size].filter(Boolean).map(esc).join(' · ') : ''}</span>`
+      + (r.purpose ? `<div>${esc(r.purpose)}</div>` : '') + list('may', r.may, 'may') + list('may not', r.may_not, 'not') + list('tools to leave enabled', r.tools, '') + `</div>`).join('')
+    + `<p class="cx-term">The board starts nothing. You would type, in a new terminal for each: ` + (d.start || []).map(s => `<code>${esc(s.lines[0])}</code>`).join(' ') + `</p>`;
+  const ensure = () => {
+    if (dlg) return dlg;
+    dlg = document.createElement('dialog'); dlg.className = 'cx-dlg'; dlg.id = 'cx-import'; dlg.setAttribute('aria-labelledby', 'cx-import-h');
+    dlg.innerHTML = `<div class="cx-in"><h3 id="cx-import-h">Import a configuration</h3><p class="cx-note">Pick a file. The board shows what it holds and applies nothing until you press Apply.</p>`
+      + `<input type="file" id="cx-file" accept=".json,application/json" aria-label="A configuration file"><div id="cx-out" aria-live="polite"></div>`
+      + `<div class="cx-actions"><button type="button" class="btn" data-cx-close>Cancel</button><button type="button" class="btn primary" data-cx-apply disabled>Apply this configuration</button></div></div>`;
+    document.body.appendChild(dlg);
+    dlg.querySelector('#cx-file').addEventListener('change', onFile);
+    return dlg;
+  };
+  const out = () => dlg.querySelector('#cx-out'), applyBtn = () => dlg.querySelector('[data-cx-apply]');
+  async function onFile(e) {
+    const f = e.target.files && e.target.files[0];
+    text = ''; applyBtn().disabled = true; out().innerHTML = '';
+    if (!f) return;
+    if (f.size > MAX) { out().innerHTML = `<div class="cx-err">That file is over 64 KB: a configuration is a small file. Nothing was read.</div>`; return; }
+    try { text = await f.text(); } catch (err) { out().innerHTML = `<div class="cx-err">The file could not be read.</div>`; return; }
+    try {
+      const d = await api('/api/configuration/preview', { text });
+      out().innerHTML = detailHtml(d); applyBtn().disabled = false;
+    } catch (err) { text = ''; out().innerHTML = `<div class="cx-err">${esc(err.message)}</div>`; }
+  }
+  const openImport = () => { ensure(); text = ''; dlg.querySelector('#cx-file').value = ''; out().innerHTML = ''; applyBtn().disabled = true; applyBtn().hidden = false; dlg.querySelector('[data-cx-close]').textContent = 'Cancel'; dlg.showModal(); dlg.querySelector('#cx-file').focus(); };
+  document.addEventListener('click', async e => {
+    const imp = e.target.closest?.('[data-cx-import]');
+    if (imp) { e.preventDefault(); openImport(); return; }
+    if (e.target.closest?.('[data-cx-close]')) { dlg?.close(); return; }
+    const ap = e.target.closest?.('[data-cx-apply]');
+    if (ap && text) {
+      ap.disabled = true;
+      try {
+        const state = await api('/api/configuration/apply', { text });
+        out().innerHTML = `<div class="cx-ok">Applied: ${esc(state.applied ? state.applied.name : '')}. The roster and the labels follow it; nothing was started.</div>`;
+        ap.hidden = true; dlg.querySelector('[data-cx-close]').textContent = 'Done'; text = ''; emit(state);
+      } catch (err) { out().insertAdjacentHTML('afterbegin', `<div class="cx-err">${esc(err.message)}</div>`); ap.disabled = false; }
+      return;
+    }
+    const dec = e.target.closest?.('[data-cx-decide]');
+    if (dec) {
+      dec.disabled = true;
+      try {
+        const state = await api('/api/configuration/proposal', { id: +dec.dataset.id, decision: dec.dataset.cxDecide });
+        dec.closest('.cx-prop')?.remove(); showError(''); emit(state);
+      } catch (err) { showError('Could not decide: ' + err.message); dec.disabled = false; }
+    }
+  });
+  return { proposalsHtml, importButton, openImport, exportHref };
+})();
 fetch('/api/config').then(r => r.json()).then(c => { cfg = c; OWNER = c.owner || OWNER; document.body.classList.toggle('no-dispatch', !c.dispatch); raw = ''; detailRaw = ''; load(); cfgLoad(); }).catch(() => {});
 load(); setInterval(load, 1000);
 if (SOLO) {

@@ -84,7 +84,7 @@ class Propose(Base):
     def test_refusals_for_a_change_that_cannot_work(self):
         for role, name, word in (("nobody", "Caller-2", "no role named"), ("caller", "Caller-1", "also the name of caller"), ("caller", "caller-1", "also the name of caller"),
                                  ("caller", "Bills-1", "Bills-1 is also the name of"), ("caller", "ORCH", "keeps for itself"), ("caller", "Pat", "keeps for itself"),
-                                 ("caller", 'Ba"d', "is not a name"), ("caller", "", "is not a name")):
+                                 ("caller", 'Ba"d', "the new name is 1 to 40"), ("caller", "", "the new name is 1 to 40")):
             with self.assertRaises(BoardError, msg=f"{role} {name}") as e:
                 self.add_name(name=name, role=role)
             self.assertIn(word, str(e.exception), f"{role} {name}")
@@ -275,6 +275,51 @@ class CommandLine(Base):
     def test_no_proposals_yet(self):
         code, out = self.run_cli("configuration", "proposals")
         self.assertIn("No proposals", out)
+
+
+class Export(Base):
+    def test_export_prints_a_file_that_validates_and_round_trips(self):
+        code, out = self.run_cli("configuration", "export")
+        self.assertFalse(code, out)
+        d = json.loads(out)
+        self.assertEqual(set(d), {"configuration", "name", "description", "roles"})   # the validated fields only
+        self.assertEqual(cfgs.loads(out), cfgs.applied(self.d))
+        code, out = self.run_cli("configuration", "export", "build")
+        self.assertEqual(json.loads(out)["name"], "Build or improve an application")
+
+    def test_export_reflects_an_accepted_proposal(self):
+        self.add_name()
+        cp.accept(self.d, 1, "Pat")
+        code, out = self.run_cli("configuration", "export")
+        caller = next(r for r in json.loads(out)["roles"] if r["role"] == "caller")
+        self.assertEqual(caller["names"], ["Caller-1", "Caller-2"])
+
+    def test_export_to_a_file_never_overwrites(self):
+        target = self.d.parent / "mine.json"
+        code, out = self.run_cli("configuration", "export", "-o", str(target))
+        self.assertIn("Wrote Day to day", out)
+        self.assertEqual(cfgs.loads(target.read_text())["name"], "Day to day")
+        code, out = self.run_cli("configuration", "export", "-o", str(target))
+        self.assertIn("already exists", out)
+        self.assertEqual(cfgs.loads(target.read_text())["name"], "Day to day")   # untouched
+        code, out = self.run_cli("configuration", "export", "build", "-o", str(self.d.parent / "no-such-folder" / "x.json"))
+        self.assertIn("cannot write", out)
+
+    def test_an_exported_file_can_be_shown_and_applied_back(self):
+        target = self.d.parent / "team.json"
+        self.run_cli("configuration", "export", "-o", str(target))
+        cfgs.clear(self.d)
+        code, out = self.run_cli("configuration", "show", str(target))
+        self.assertIn("Configuration: Day to day", out)
+        self.assertIsNone(cfgs.applied(self.d))   # show applies nothing
+        code, out = self.run_cli("configuration", "apply", str(target))
+        self.assertIn("Applied: Day to day", out)
+
+    def test_nothing_applied_and_no_name_says_what_to_do(self):
+        cfgs.clear(self.d)
+        code, out = self.run_cli("configuration", "export")
+        self.assertIn("no configuration is applied", out)
+        self.assertIn("day-to-day", out)
 
 
 if __name__ == "__main__":

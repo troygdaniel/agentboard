@@ -322,12 +322,17 @@ You pick it; **the board starts nothing**: you type the names into terminals as 
     agentboard configuration show day-to-day       # look at one without applying it (a name, or the path of a file)
     agentboard configuration apply day-to-day      # the roster, the role chips and the prompts follow it; cards, claims and chat do not change
     agentboard configuration clear                 # back to the roster in config.toml
+    agentboard configuration export [NAME] [-o F]  # a configuration as a small file to keep or share (the applied one by default); never overwrites
 
 Applying changes the roster and the labels only: a **role chip** beside the name on Now, Map and Watch (the compact Load strip has it in the tooltip), a **role block** in the card prompt and in what an agent
 reads when it claims or starts a card, and a **Configuration** section in the ORCH prompt. A file holds names, roles, a purpose, an advised model and size (S, M, L), what the role may and may not do, and the tools to leave
 enabled; unknown keys are refused, and a file is read as data and never run. Three ship with the board: `build` (dev x2, qa, architect, designer: nobody merges, pushes or installs), `dream-up` (brainstormer, mockups, proof of concept, tester) and `day-to-day` (caller, bills, forms, research, planner, family).
 
 **On the board:** Settings > Agents and chat has a **Configuration** section: the three that ship, each role with what it may and may not do, **Apply to this board**, and the terminals to type with a Copy button. The applied one shows in the header as a short chip (`Configuration: Build · 4 of 5 listening`). A **Rename…** link beside an agent's name (in Settings, and on its thread head) opens the counts first and changes nothing until you press Rename; the result says what to type in that agent's terminal and has an Undo.
+
+**Share one, and let ORCH suggest changes.** `export` writes a file of names, roles and rules only; the board's **Import a file…** (and `show FILE`, then `apply FILE`) validates it, shows what it holds and applies nothing until you confirm.
+ORCH may suggest a change from the counts in `agentboard insights`, as `agentboard configuration propose --add-name QA-2 --role qa --why "<the counts>"` (one more name on a role) or `--apply build` (switch to one that ships).
+It is a suggestion: **only you apply it**, with Accept or Ignore on the board (or `agentboard configuration accept|ignore N`; a shell with an agent name set is refused), and an ignored one is not asked again for a week.
 
 **An action outside the board waits for your word, every time.** In `day-to-day` no role may place a call, send a message, pay or submit a form on its own. The agent proposes the one action:
 
@@ -657,7 +662,7 @@ Copy prompt button, the CLI and `agentboard prompt` are unaffected.
 | `reports [--purge] [--hours N]` | list card reports; remove the old ones now |
 | `report [--date YYYY-MM-DD]` | markdown recap of what got done that day, by agent — for a standup or daily log |
 | `insights [--since 7d] [--agent N] [--prefix P] [--json]` | four observations on how the agents are used, from the board's own records (needs `[insights] enabled = true`; see Insights) |
-| `configuration [show\|apply\|clear] [NAME\|FILE]` | agent configurations: the names and roles the board shows (needs `[agents] configurations = true`; the board starts no agent) |
+| `configuration [show\|apply\|clear\|export\|propose\|proposals\|accept\|ignore] [NAME\|FILE\|N]` | agent configurations: the names and roles the board shows (needs `[agents] configurations = true`; the board starts no agent) |
 | `rename OLD NEW [--dry-run]`, `rename --undo` | give an agent a new name and keep its cards, claims, chat, read position, roster entry and colour (a `--dry-run` prints the counts and writes nothing); the old name keeps working for a day after its last use, so a terminal not yet renamed still reports; `--undo` reverses the last one |
 | `clear` | archive all Done cards: they move to `archive.json` (history and HUD counts kept) |
 | `demo [--live]`, `rm --demo` | sample tasks / simulated agents |
