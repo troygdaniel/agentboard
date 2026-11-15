@@ -562,6 +562,9 @@ def build_orch_prompt(tasks, board_dir, port=8765):
 
     if cfg:
         sections.append(configurations.orch_section(cfg, owner_ref(board_dir)))
+    if configurations.enabled(board_dir):
+        from . import configproposals   # (imports configurations)
+        sections.append(configproposals.orch_note(board_dir, owner_ref(board_dir), agentboard_cmd(board_dir)))
     peers = "\n".join(f"- {n}" + (f" ({configurations.role_of(cfg, n)['role']})" if cfg and configurations.role_of(cfg, n) else "") for n in roster)
     from . import agentchat
     if agentchat.is_on(board_dir):
