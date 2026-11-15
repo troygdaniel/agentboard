@@ -8,16 +8,17 @@ import secrets
 import threading
 import time
 import webbrowser
+from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-from . import boards, configproposals, configurations, demo, hud, lifecycle, private, rename
+from . import awake, boards, configproposals, configurations, demo, hud, lifecycle, private, rename
 from . import profile as profilelib
 from . import hooks as hookslib
 from . import listeners, watchdog
 from . import transcript as transcriptlib
-from . import plugins, reports, runs, serverstate, settingsview, story, summary, voice
+from . import plugins, reports, runs, serverstate, settingsview, status as statuslib, story, summary, voice
 from . import markdown as mdlib
 from . import prompt as promptlib
 from . import wrapup as wrapuplib
@@ -362,8 +363,11 @@ def make_handler(default_store, port):
             elif url.path == "/api/hud":
                 def build_hud():
                     conf = _config(self.store)
-                    data = hud.build(self.store.load_all(), abandoned_min=hud.stale_minutes(conf), retired=hud.retired(conf),
-                                     roster=configurations.merge(hud.roster(conf), self.store.dir), owner=self.store.owner)
+                    cards, clock = self.store.load_all(), datetime.now()
+                    asleep = awake.windows(self.store.dir, clock)   # the stretches the board was not running: never counted as an agent's silence
+                    data = hud.build(cards, now=clock, abandoned_min=hud.stale_minutes(conf), retired=hud.retired(conf),
+                                     roster=configurations.merge(hud.roster(conf), self.store.dir), owner=self.store.owner, asleep=asleep)
+                    data["status"] = statuslib.build(data["agents"], cards, clock, listeners.listening(self.store.dir), asleep)   # the Watch page's one look and its rows
                     data["backup"] = self.store.backups.status()   # {last_backup_min, snapshots, last_sync, sync_dir}: the HUD's "backup N min ago" chip
                     data["watchdog"] = watchdog.findings(self.store, stale_min=hud.stale_minutes(conf))   # the ways the board is stuck between agents, each with its fix
                     return json.dumps(data).encode()
@@ -719,9 +723,13 @@ def serve(store, port=8765, open_browser=True):
 
     threading.Thread(target=_backups, daemon=True).start()
 
-    def _states():   # insights capture 4: with [insights] on, one line a minute at most when an agent's state changes (agentstates.sample); a problem here never stops a board
+    def _states():   # once a minute: the board's own sleep is noted (awake.tick, always), and with [insights] on one line when an agent's state changes (insights capture 4, agentstates.sample); a problem here never stops a board
         from . import agentstates
         while True:
+            try:
+                awake.tick(store.dir)
+            except Exception:   # noqa: BLE001
+                pass
             try:
                 agentstates.sample(store)
             except Exception:   # noqa: BLE001

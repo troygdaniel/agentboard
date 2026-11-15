@@ -3,6 +3,7 @@ import functools
 import re
 from datetime import datetime, timedelta
 
+from . import awake
 from .store import DEFAULT_OWNER, parse_stamp
 
 FMT = "%Y-%m-%dT%H:%M:%S"
@@ -279,11 +280,12 @@ def dur(minutes):
     return f"{m}m" if m < 60 else f"{m // 60}h{m % 60:02d}"
 
 
-def build(tasks, now=None, feed_limit=60, abandoned_min=None, retired=(), roster=(), owner=DEFAULT_OWNER):
+def build(tasks, now=None, feed_limit=60, abandoned_min=None, retired=(), roster=(), owner=DEFAULT_OWNER, asleep=()):
     """retired: agent names to leave out of agents/lanes/actions (see retired()); their cards still
     count in the totals, feed and timeline, so history is untouched. roster: agent names that belong on
     the HUD even with no card yet (they show as idle, folded with the other idle agents). owner: the human's name, as the board's
-    config sets it; the actions that wait on a person are theirs."""
+    config sets it; the actions that wait on a person are theirs. asleep: the stretches the board was not running (awake.windows): they never
+    count towards an agent's quiet, so a closed lid does not make every agent silent."""
     now = now or datetime.now()
     abandoned_min = ABANDONED_MIN if abandoned_min is None else abandoned_min
     retired = set(retired or ())
@@ -352,8 +354,9 @@ def build(tasks, now=None, feed_limit=60, abandoned_min=None, retired=(), roster
         reviewing = [t for t in doing if t.get("review")]
         cur = (asking or reviewing or doing or ts)[0]
         last = _t(cur.get("updated"))
-        quiet = bool(doing) and (last is None or (now - last) > timedelta(minutes=STALE_MIN))
-        abandoned = bool(doing) and (last is None or (now - last) > timedelta(minutes=abandoned_min))
+        idle_awake = awake.awake_minutes(last, now, asleep) if last is not None else None   # minutes since it was last heard that the board was running
+        quiet = bool(doing) and (last is None or idle_awake > STALE_MIN)
+        abandoned = bool(doing) and (last is None or idle_awake > abandoned_min)
         state = ("waiting" if asking else "review" if reviewing else
                  "idle" if not doing else ("abandoned" if abandoned else "quiet" if quiet else "working"))
         times = [_t(e["at"]) for e in events if e["agent"] == name]
@@ -372,6 +375,7 @@ def build(tasks, now=None, feed_limit=60, abandoned_min=None, retired=(), roster
             "done": sum(1 for t in ts if t["status"] == "done"),
             "done_today": agent_done_today.get(name, 0),
             "open": len(doing),                                    # cards this agent holds in Doing
+            "quiet_min": None if idle_awake is None else round(idle_awake),   # minutes since it was last heard, the board asleep not counted (None: never)
             "open_titles": [t["title"] for t in doing[:4]],
             "spark": _bucket([x for x in times if x], now, SPARK_BUCKETS, SPARK_MIN),
         })
