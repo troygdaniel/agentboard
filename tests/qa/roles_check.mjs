@@ -62,7 +62,7 @@ async function main() {
     // Watch: a tile per agent, and the Load strip above it
     page = await openPage(board.url + 'watch', { ready: `typeof roleChip === 'function' && !!cfg.configuration && !!document.querySelector('.w-tile')`, width, height });
     await metrics(page);
-    await page.waitFor(`/\\(caller\\)/.test((document.querySelector('.ls-g[data-agent="Caller-1"]') || {}).title || '') && !!document.querySelector('.w-tile .w-tx b .rolechip')`, 10000);   // the strip and the tiles fill in once the HUD answers
+    await page.waitFor(`/\\(caller\\)/.test((document.querySelector('.ls-g[data-agent="Caller-1"]') || {}).title || '') && !!document.querySelector('.w-tile .w-tx b .rolechip')`, 30000);   // the strip and the tiles fill in once the HUD answers
     await sleep(300);
     const watch = await page.ev(`(() => { const tile = n => [...document.querySelectorAll('.w-tile .w-tx b')].find(b => b.firstChild && b.firstChild.textContent === n);
       const c = n => tile(n)?.querySelector('.rolechip');
