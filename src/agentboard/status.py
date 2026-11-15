@@ -11,7 +11,10 @@ whom", worked out on the server from what the board already holds, so the page o
 The eight state words: working, silent, gone (presumed gone, the HUD's "abandoned"), blocked, waiting (on you), review, idle (a wait is running: listening for work)
 and away. "In queue" (waiting for a shared resource) is slice 2; it needs a wait note from the project's test runner.
 
-A card in review waits on ORCH until ORCH has recorded its sign-off (signoff.py) and on the owner after it. Counts, names and cards' own words only; nothing is stored."""
+A card in review waits on ORCH until ORCH has recorded its sign-off (signoff.py) and on the owner after it, but only on a board where ORCH signs cards off at all (some
+card carries a sign-off); on any other board it waits on the owner. None of the eight words is about software: a call to book, a bill to pay and a build are all "working",
+"waiting on you" or "in review". A later per-kind track (build, review, merged...; draft, review, signed off; prepare, approval, done) is a second reading of the same card
+and changes none of them. Counts, names and cards' own words only; nothing is stored."""
 from . import awake
 
 STATES = ("working", "silent", "gone", "blocked", "waiting", "review", "idle", "away")
@@ -29,7 +32,7 @@ def _blocker(card, by_id):
     return None
 
 
-def _row(a, by_id, listening):
+def _row(a, by_id, listening, orch):
     card = by_id.get(a.get("task_id") or "")
     hud_state = a.get("state") or "idle"
     state = _FROM_HUD.get(hud_state)
@@ -42,8 +45,8 @@ def _row(a, by_id, listening):
             state, waits = "blocked", blocker
     if state == "waiting":
         waits = "you"
-    elif state == "review":
-        waits = "you" if (card or {}).get("signoff") else "orch"
+    elif state == "review":   # on a board where ORCH signs cards off, a card waits on ORCH until it has; on any other board (no sign-off ever recorded) it waits on the owner
+        waits = "orch" if orch and not (card or {}).get("signoff") else "you"
     group = ("you" if state == "waiting" or (state == "review" and waits == "you") else
              "others" if state == "review" else
              "stuck" if state in ("silent", "gone", "blocked") else
@@ -58,7 +61,8 @@ def build(hud_agents, tasks, now, listening=(), asleep=()):
     asleep: awake.windows(). `now` is the clock the HUD was built at."""
     by_id = {t.get("id"): t for t in tasks if isinstance(t, dict)}
     live = {str(n).lower() for n in listening or ()}
-    rows = [_row(a, by_id, live) for a in hud_agents]
+    orch = any(isinstance(t, dict) and t.get("signoff") for t in tasks)   # this board has an ORCH that signs cards off
+    rows = [_row(a, by_id, live, orch) for a in hud_agents]
     rows.sort(key=lambda r: (_ORDER[r["group"]], r["state"] != "waiting", str(r["name"]).lower()))
     counts = {}
     for g in GROUPS:

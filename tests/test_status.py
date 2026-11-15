@@ -153,11 +153,16 @@ class TheRows(unittest.TestCase):
         self.assertEqual(self.by(self.rows([card()], listening={"kite"}))["kite"]["state"], "idle")
         self.assertEqual(self.by(self.rows([card()]))["kite"]["state"], "away")
 
-    def test_a_card_in_review_waits_on_orch_until_orch_has_signed_it_off_then_on_you(self):
-        plain = self.by(self.rows([card(updated=3, review=True)]))["atlas"]
+    def test_on_a_board_where_orch_signs_off_a_card_in_review_waits_on_orch_then_on_you(self):
+        elsewhere = card("e", "echo", updated=9, review=True, signoff={"merged": "abc1234", "tests": []})   # a sign-off exists on this board
+        plain = self.by(self.rows([card(updated=3, review=True), elsewhere]))["atlas"]
         signed = self.by(self.rows([card(updated=3, review=True, signoff={"merged": "abc1234", "tests": []})]))["atlas"]
         self.assertEqual((plain["state"], plain["waits_on"], plain["group"]), ("review", "orch", "others"))
         self.assertEqual((signed["state"], signed["waits_on"], signed["group"]), ("review", "you", "you"))
+
+    def test_on_a_board_with_no_orch_a_card_in_review_waits_on_you(self):   # a call to book or a bill to pay is not signed off by anybody but the owner
+        r = self.by(self.rows([card(updated=3, review=True)]))["atlas"]
+        self.assertEqual((r["state"], r["waits_on"], r["group"]), ("review", "you", "you"))
 
     def test_an_agent_whose_card_waits_on_an_unfinished_card_is_blocked_and_names_it(self):
         cards = [card("a", "atlas", blocked_by=["b"]), card("b", status="todo", agent=None)]
@@ -168,14 +173,15 @@ class TheRows(unittest.TestCase):
 
     def test_the_five_counts_and_how_old_the_oldest_is(self):
         cards = [card("a", "echo", updated=14, needs_input=True), card("n", "nova", updated=22, review=True), card("w", "bolt", updated=2),
-                 card("s", "scribe", updated=41)]
+                 card("s", "scribe", updated=41), card("d", status="done", agent=None, signoff={"merged": "abc1234", "tests": []})]
         c = self.rows(cards)["counts"]
         self.assertEqual({g: c[g]["n"] for g in c}, {"you": 1, "stuck": 1, "others": 1, "working": 1, "idle": 1})   # kite is the roster's idle one
         self.assertEqual((c["you"]["oldest_min"], c["stuck"]["oldest_min"], c["others"]["oldest_min"]), (14, 41, 22))
         self.assertIsNone(c["idle"]["oldest_min"])
 
     def test_attention_first_you_then_stuck_then_others_then_working_then_idle(self):
-        cards = [card("w", "a-work", updated=1), card("a", "z-asks", updated=5, needs_input=True), card("s", "m-silent", updated=40), card("r", "r-review", updated=7, review=True)]
+        cards = [card("w", "a-work", updated=1), card("a", "z-asks", updated=5, needs_input=True), card("s", "m-silent", updated=40), card("r", "r-review", updated=7, review=True),
+                 card("d", status="done", agent=None, signoff={"merged": "abc1234", "tests": []})]
         self.assertEqual([r["name"] for r in self.rows(cards)["agents"]], ["z-asks", "m-silent", "r-review", "a-work", "kite"])
 
     def test_a_sleep_shows_and_keeps_the_agent_out_of_stuck(self):
