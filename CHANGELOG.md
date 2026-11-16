@@ -9,6 +9,11 @@ New ids are checked where a card is made (the entry on card ids). A card an olde
 - The report writer, the reader of `reports/<id>.md` and the run folder refuse any id that is not of the accepted shape, before a path is built.
 - Checked: `tests/test_card_ids.py`.
 
+### Agent text can no longer carry terminal escape codes, and a name no invisible character (Nov 15, night sweep)
+`list`, `chat tail`, `chat inbox` and `rollup` print card and chat text as stored. An agent's title or chat line could clear the screen, overwrite the start of its own line with a made-up sender (a bare carriage return), or show its words in another order (a right-to-left override); a sender name could hide a zero-width character and read exactly as ORCH.
+- Where agent text enters the store, control characters other than a line break and a tab are dropped, and so are the direction overrides. A name loses every invisible character.
+- What the owner types is left as written, as before. Text already stored is not rewritten.
+- Checked: `tests/test_control_chars.py` (three cases fail on the old code).
 ### `update ID 12.5` and `update ID 50%` no longer pretend a percent was set (Nov 15, night sweep)
 A lone number that was not a whole number (`12.5`, `50%`, `1e1`, `.5`) was taken as the status line, and the command answered "ID: 0%" as though the percent had been set. It now stops with "progress is a whole number from 0 to 100, got '12.5': write 50, not 50% or 12.5" and changes nothing; with words after it the command already refused. Whole numbers, and words alone ("half done", "v2", "3 of 5 steps") work as before. `tests/test_update_percent.py` (3).
 ### The chat archive names its day files only from a real date (Nov 15, night sweep)
