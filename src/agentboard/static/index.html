@@ -146,7 +146,7 @@
   .ab-night b { color: inherit; } .ab-night .nu { display: none; } @media (min-width: 1100px) { .ab-night .nu { display: inline; } }
   .ab-night:hover { border-color: var(--text); }
   .nq-on { color: var(--info); font-weight: 700; } .nq-off { color: var(--muted); font-weight: 700; }
-  .nq-list { list-style: none; margin: 6px 0 0; padding: 0; counter-reset: nq; width: 100%; }
+  .nq-list { list-style: none; margin: 0 0 8px; padding: 0; counter-reset: nq; }
   .nq-list li { counter-increment: nq; display: grid; grid-template-columns: 22px 1fr auto; gap: 8px; padding: 4px 0; font-size: var(--fs-sm); border-top: 1px dashed var(--line); align-items: baseline; }
   .nq-list li::before { content: counter(nq); color: var(--muted); font-variant-numeric: tabular-nums; }
   .nq-list .t { overflow-wrap: anywhere; } .nq-list .id { color: var(--muted); font-family: ui-monospace, monospace; font-size: var(--fs-xs); } .nq-list .blk { color: var(--warn); font-size: var(--fs-xs); }
@@ -5512,10 +5512,10 @@ function renderNightPane() {
   const n = st.queue.length;
   const state = st.on ? `<span class="nq-on">on until ${esc(nightTime(st.until))}</span>` : `<span class="nq-off">${st.ended ? 'ended ' + esc(nightTime(st.until)) : 'off'}</span>`;
   const btn = st.on ? '<button class="btn" type="button" data-night="off">Turn off</button>' : '<button class="btn" type="button" data-night="on">Turn on until 08:00</button>';
-  const about = st.on ? 'Agents take the next ready card themselves with <code>agentboard night next --name NAME</code>. No push, no spend, no live restarts, no personal cards. Only ORCH or you put cards on the queue.'
-    : `Agents take the next card from the queue themselves while it is on. It ends by itself at 08:00. ${n ? `${n} card${n === 1 ? ' is' : 's are'} lined up.` : 'Nothing is lined up: ORCH adds cards with <code>agentboard night queue add ID</code>.'}`;
+  const about = st.on ? 'Agents take the next ready card with <code>agentboard night next</code>. No push, no spend, no live restarts, no personal cards.'
+    : `Agents take the next card from the queue themselves while it is on; it ends by itself at 08:00. ${n ? `${n} card${n === 1 ? ' is' : 's are'} lined up.` : 'Nothing is lined up: ORCH adds cards with <code>agentboard night queue add</code>.'}`;
   const list = n && st.on ? `<ol class="nq-list">${st.queue.map(r => `<li><span class="t">${esc(r.title)}</span><span class="id">${esc(r.id)}</span>${r.blocked_by.length ? `<span class="blk">blocked by ${r.blocked_by.map(esc).join(', ')}</span>` : ''}</li>`).join('')}</ol>` : '';
-  el.innerHTML = `<div class="mix-row plain ro"><span class="nm">Night queue</span><span class="val">${state}${btn}</span><span class="mix-about">${about}${list}</span></div>`;
+  el.innerHTML = `<div class="mix-row plain ro"><span class="nm">Night queue</span><span class="val">${state}${btn}</span><span class="mix-about">${about}</span></div>${list}`;   // the list sits under the row: the row's own text is cut to two lines
 }
 document.addEventListener('click', async e => {
   const t = e.target.closest('[data-night], #night-chip');

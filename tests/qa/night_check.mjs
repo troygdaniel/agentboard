@@ -23,7 +23,9 @@ async function main() {
   const page = await openPage(board.url, { width: 1280, height: 900, init: `try { localStorage.setItem('ab-greeted', new Date().toDateString()); } catch (e) {}`, ready: `typeof renderNightPane === 'function' && !!document.getElementById('cfg-night')` });
   const { send, ev, waitFor, errors } = page;
   const shot = async name => { if (!SHOTS) return; mkdirSync(SHOTS, { recursive: true }); const r = await send('Page.captureScreenshot', { format: 'png' }); writeFileSync(join(SHOTS, name), Buffer.from(r.data, 'base64')); };
-  const row = () => ev(`(() => { const r = document.querySelector('#cfg-night .mix-row'); return r ? { state: r.querySelector('.val span').textContent.trim(), button: r.querySelector('button').textContent.trim(), items: [...r.querySelectorAll('.nq-list li')].map(li => li.textContent), markup: r.querySelectorAll('.nq-list i').length } : null; })()`);
+  const row = () => ev(`(() => { const r = document.querySelector('#cfg-night .mix-row'); return r ? { state: r.querySelector('.val span').textContent.trim(), button: r.querySelector('button').textContent.trim(), items: [...document.querySelectorAll('#cfg-night .nq-list li')].map(li => li.textContent), markup: document.querySelectorAll('#cfg-night .nq-list i').length } : null; })()`);
+  // really on screen, not only in the DOM: the row's own text is cut to two lines, and a list inside it was once there and invisible
+  const seen = () => ev(`[...document.querySelectorAll('#cfg-night .nq-list li')].map(li => { const b = li.getBoundingClientRect(), at = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2); return b.height > 8 && !!at && li.contains(at); })`);
   const chip = () => ev(`(() => { const c = document.getElementById('night-chip'); return { hidden: c.hidden, text: c.textContent.trim() }; })()`);
 
   console.log('A: off by default');
@@ -47,6 +49,8 @@ async function main() {
   check('the row says on until 08:00 and offers Turn off', /^on until 08:00$/.test(r.state) && r.button === 'Turn off', JSON.stringify(r));
   check('the queue is listed in order, each with its id', r.items.length === 2 && r.items[0].startsWith('Calm the star field') && r.items[0].endsWith(a) && r.items[1].endsWith(b), JSON.stringify(r.items));
   check('a title with markup stays text', r.markup === 0 && r.items[1].includes('<i>unknown</i>'), JSON.stringify(r.items));
+  check('every queued card is really visible on screen, not clipped', JSON.stringify(await seen()) === '[true,true]', JSON.stringify(await seen()));
+  check('the description under the switch is not cut mid-sentence', await ev(`(() => { const a = document.querySelector('#cfg-night .mix-about'); return a.scrollHeight <= a.clientHeight + 1; })()`));
   const posted = board.cli(['chat', 'tail', '--limit', '3']);
   check('turning it on posted one line to the chat', /night mode is on until 08:00: 2 cards queued/.test(posted.out), posted.out);
   await shot('night-on.png');
