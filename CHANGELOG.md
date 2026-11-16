@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Two cards can no longer be made to wait on each other (Nov 15, night sweep)
+The board's blocked-by edit refused a card waiting on its own subtask and dropped a card waiting on itself, but accepted A waits on B while B waits on A, and longer rings. Neither card could then be claimed without `--force` (which agents are told never to use), and the night queue skipped both: a deadlock nobody was told about. The edit that would close a loop is refused with the cards named (`blocked-by: that would make a loop (a waits on b waits on a): neither card could be claimed`) and nothing is changed; waiting on several cards, and a diamond (a waits on b and c, which both wait on d), are fine. `tests/test_blocked_by_cycles.py` (6; three fail without the fix).
+
 ### The agent's own report file is read only when it is a regular file (Nov 15, night sweep)
 A symlink placed at `reports/<card>.md` was followed, so the report page could show a file from outside the board, and a FIFO there would have blocked the page build for good. `reports.extras_md` now opens the file without following a final symlink and reads it only when it is a regular file, the rule `lookup` already applied to the same files. Test: `tests/test_reports.py` (the agent's own markdown file is read only when it is a regular file).
 ### `agentboard insights` survives a log entry with no text string (Nov 15, night sweep)
