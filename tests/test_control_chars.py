@@ -9,7 +9,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from agentboard.store import Store
+from agentboard.store import BoardError, Store
 
 ESC, BEL, CR, RLO, ZWSP, ZWJ = "\x1b", "\x07", "\r", "‮", "​", "‍"
 
@@ -33,11 +33,13 @@ class AgentTextIsPlain(unittest.TestCase):
         self.assertIn("\n", m["detail"])
 
     def test_a_name_holds_no_invisible_character(self):
-        m = self.s.chat_send(f"ORCH{ZWSP}{ESC}[1m", "hello")
-        self.assertEqual(m["sender"], "ORCH[1m")   # what is left is visible: it no longer reads as ORCH
+        m = self.s.chat_send(f"AGENT{ZWSP}-9", "hello")
+        self.assertEqual(m["sender"], "AGENT-9")   # a zero-width space is dropped: two names that look the same are the same
+        with self.assertRaises(BoardError):        # a control character in a name is refused outright (names.check)
+            self.s.chat_send(f"ORCH{ESC}[1m", "hello")
         self.s.add("A card", status="todo", task_id="c2")
-        self.assertEqual(self.s.claim("c2", f"AGENT{ZWSP}-2{RLO}")["agent"], "AGENT-2")
-        self.assertEqual(self.s.start("Another", f"Scout{ESC}")["agent"], "Scout")
+        self.assertEqual(self.s.claim("c2", f"AGENT{ZWSP}-2")["agent"], "AGENT-2")
+        self.assertEqual(self.s.start("Another", f"Scout{ZWSP}")["agent"], "Scout")
 
     def test_ordinary_text_is_untouched(self):
         text = f"café 日本語 👩{ZWJ}💻 tabs\tand\nlines"

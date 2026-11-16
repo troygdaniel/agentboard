@@ -46,7 +46,7 @@ from .server import serve
 from . import agentfiles
 from . import boards as boardlib
 from . import demo as demolib
-from .store import BoardError, CHAT_LINE_MAX, CHAT_TOPICS, DIR_NAME, find_dir, lapsed, parse_stamp, Store, subtask_counts, _to_owner
+from .store import BoardError, CHAT_LINE_MAX, CHAT_TOPICS, DIR_NAME, find_dir, lapsed, parse_stamp, Store, subtask_counts, _to_owner, _must_hold
 
 DEFAULT_PORT = 8765
 
@@ -315,12 +315,31 @@ def cmd_checkpoint(a):
     print(f"{t['id']}: checkpoint saved at {t.get('progress', 0)}%; ORCH can send it back to Todo with your notes")
 
 
+def _not_another_agents_card(s, task_id, verb):
+    """`release`, `move` and `rm` act on a card: an agent that is not ORCH or the owner may not do it to a card another agent holds (the rule `update`,
+    `ask`, `review` and `checkpoint` follow, store._must_hold). A terminal with no session name is the owner; a card nobody holds is anyone's."""
+    by = (os.environ.get("AGENTBOARD_NAME") or "").strip()
+    if by:
+        tasks = s.load()
+        t = next((x for x in tasks if x["id"] == task_id), None)
+        if t is not None:
+            _must_hold(tasks, t, by, s.owner, verb=verb)
+
+
+def _orch_or_owner_only(s, what):
+    by = (os.environ.get("AGENTBOARD_NAME") or "").strip()
+    if by and by.upper() != "ORCH" and not _to_owner(by, s.owner):
+        raise BoardError(f"only ORCH or the owner {what}: {by} reports on its own card with review or checkpoint")
+
+
 def cmd_wrapup(a):
     """agentboard wrapup: where every card stands tonight and what happens to it (read-only). --ask leaves each agent that owes a checkpoint or a
     review a note on its card; --apply releases the cards going back to Todo (best first, so tomorrow's top card is the one nearest done) and saves
     the page; --all counts running agents' cards too; --last prints the newest saved page."""
     from . import wrapup
     s = _store()
+    if a.ask or a.apply:
+        _orch_or_owner_only(s, "asks for hand-offs or sends the day's cards back to Todo (agentboard wrapup --ask, --apply)")
     if a.last:
         f = wrapup.last(s)
         print(f.read_text().rstrip() if f else "no wrap-up saved yet: run `agentboard wrapup --apply` at the end of a day")
@@ -353,6 +372,8 @@ def cmd_release(a):
         ids += [t["id"] for t in s.load() if t.get("agent") == a.agent and t["status"] == "doing" and not t.get("parent_id") and not t.get("archived")]
     if not ids:
         raise BoardError("give a card id, or --agent NAME for every Doing card that agent holds")
+    for i in dict.fromkeys(ids):   # every card is checked before the first is released: a refusal on the last leaves none half-done
+        _not_another_agents_card(s, i, "release")
     for i in dict.fromkeys(ids):
         first = next((t["id"] for t in s.load() if t["status"] == "todo" and not t.get("parent_id") and t["id"] != i), None)
         t = s.get(s.load(), i)
@@ -364,7 +385,9 @@ def cmd_release(a):
 
 def cmd_move(a):
     """Move a card to a column, as a drag on the board would (a held card tells its agent, as a drag does)."""
-    t = _store().move(a.id, a.status)
+    s = _store()
+    _not_another_agents_card(s, a.id, "move")
+    t = s.move(a.id, a.status)
     print(f"{t['id']}: {dict(backlog='Later', todo='Todo', doing='Doing', done='Done').get(t['status'], t['status'])}")
 
 
@@ -425,11 +448,16 @@ def cmd_list(a):
 def _tree_order(tasks):
     """Board order, but each subtask listed right under its parent."""
     ids = {t["id"] for t in tasks}
+    kids = {}   # one pass to group the subtasks by parent: a scan of every card for each card took 0.44 s at 5,000 cards (card sweep-perf)
+    for t in tasks:
+        p = t.get("parent_id")
+        if p in ids:
+            kids.setdefault(p, []).append(t)
     for t in tasks:
         if t.get("parent_id") in ids:
             continue
         yield t
-        yield from (k for k in tasks if k.get("parent_id") == t["id"])
+        yield from kids.get(t["id"], ())
 
 
 TAIL_FEED_CAP = 500   # generous enough that a burst of activity between polls can't overrun a single snapshot
@@ -1278,13 +1306,18 @@ def _demo_live(s, minutes):
     print(f"live demo for {minutes:g} min — open the board, press h for Load, sound on. Ctrl+C stops.")
     try:
         while time.time() < end:
-            doing = [t for t in s.load() if t["status"] == "doing" and t["id"].startswith("demo-")]
-            if len(doing) < 2:
+            tasks = s.load()
+            doing = [t for t in tasks if t["status"] == "doing" and t["id"].startswith("demo-")]
+            cards = [t for t in doing if not t.get("parent_id")]   # the cards, not their steps: two agents at work means two cards in Doing
+            if len(cards) < 2:
                 name, color = random.choice(agents)
                 n += 1
                 s.start(random.choice(titles), name, color, task_id=f"demo-live-{n}")
-            elif doing:
-                t = random.choice(doing)
+            elif cards:
+                t = random.choice(cards)
+                steps_open = [k for k in tasks if k.get("parent_id") == t["id"] and k["status"] != "done"]
+                if steps_open:   # a card with steps is worked through its steps, as an agent is told to: the card's own % is computed from them and cannot be set
+                    t = random.choice(steps_open)
                 if t.get("needs_input"):
                     if random.random() < .25:
                         s.update(t["id"], t.get("progress", 0), "User answered — resuming")
@@ -1305,8 +1338,16 @@ def _demo_live(s, minutes):
                 p = min(100, t.get("progress", 0) + random.randint(3, 9))
                 if p >= 100:
                     result = random.choice(["Shipped", "Merged", "All tests green"])
-                    s.review(t["id"], result)
-                    _notify(s.dir, f"{t.get('agent') or 'An agent'} ready for review", t["title"], result)
+                    if t.get("parent_id"):   # a step at 100% closes itself; the card goes to review when its last step has closed
+                        s.update(t["id"], 100, result)
+                        now = s.load()
+                        if all(k["status"] == "done" for k in now if k.get("parent_id") == t["parent_id"]):
+                            card = next(x for x in now if x["id"] == t["parent_id"])
+                            s.review(card["id"], result)
+                            _notify(s.dir, f"{card.get('agent') or 'An agent'} ready for review", card["title"], result)
+                    else:
+                        s.review(t["id"], result)
+                        _notify(s.dir, f"{t.get('agent') or 'An agent'} ready for review", t["title"], result)
                 else:
                     s.update(t["id"], p, random.choice(steps))
             time.sleep(random.uniform(3, 7))
@@ -1321,6 +1362,8 @@ def cmd_clear(a):
 def cmd_rm(a):
     s = _store()
     ids = [t["id"] for t in s.load() if t["id"].startswith("demo-")] if a.demo else [a.id]
+    for i in ids:
+        _not_another_agents_card(s, i, "remove")
     n = 0
     for i in ids:
         gone = {t["id"] for t in s.load()}
@@ -1404,6 +1447,8 @@ def _read_body(a):
 def _one_line(text, what):
     """The sentence the owner reads first is one line they can take in at a glance: refuse a longer one and say where the rest goes."""
     first = (text or "").strip().partition("\n")[0].strip()
+    if not first:   # an empty ask put "waiting on user: " on the card with nothing to answer
+        raise BoardError(f"{what} needs a first line: say the one thing the user must do or know, and put the rest in --body")
     if len(first) > rules.FIRST_LINE_MAX:
         raise BoardError(f"the first line of {what} is {len(first)} characters; {rules.FIRST_LINE_MAX} at most. Say the one thing the user must do, "
                          "and put the rest in --body")
@@ -2494,6 +2539,10 @@ def main(argv=None):
         p.error("give a task id or --all")
     if a.cmd == "rm" and not (a.demo or a.id):
         p.error("give a task id or --demo")
+    try:
+        _check_names(a)
+    except BoardError as e:
+        sys.exit(f"agentboard: {e}")
     _canon_names(a)
     _seen_step(a)
     a._real_cli = argv is None   # the real command line, not a call from code: `init` chooses its profile by looking at the machine only here
@@ -2507,6 +2556,15 @@ def main(argv=None):
 
 
 NAMELESS_COMMANDS = ("init", "board", "plugins", "profile", "selfcheck", "rename", "configuration")
+
+
+def _check_names(a):
+    """--name, --to and $AGENTBOARD_NAME are one line of plain text (names.check), before any command runs: a newline in a name would draw a forged chat line."""
+    if a.cmd in NAMELESS_COMMANDS:
+        return
+    for f in ("name", "to"):
+        namesmod.check(getattr(a, f, None), f"--{f}")
+    namesmod.check(os.environ.get("AGENTBOARD_NAME"), "AGENTBOARD_NAME")
 
 
 def _canon_names(a):

@@ -13,6 +13,7 @@ A chain (Scout to Ives to Wren) is followed, and `add()` flattens it so the old 
 This module also holds `agent_slot()`, the palette slot a name gets, which mirrors agentColor() in static/index.html (a pinned colour for a
 renamed agent is the slot its old name had). Nothing here starts a program or reads a card."""
 import re
+import unicodedata
 from datetime import datetime
 from pathlib import Path
 
@@ -37,6 +38,27 @@ def agent_slot(name):
     for ch in name:
         h = (h * 31 + ord(ch)) & 0xFFFFFFFF
     return 1 + h % 6
+
+
+MAX_NAME = 80         # a name longer than this is refused where it comes in (rename keeps new names to 40)
+_BIDI = set("\u202a\u202b\u202c\u202d\u202e\u2066\u2067\u2068\u2069")   # embeddings, overrides and isolates: they reorder a line on a page
+
+
+def check(name, what="the name"):
+    """The name, unchanged, if it is one line of plain text; a BoardError naming `what` if it holds a control character, a line or paragraph
+    separator or a bidi override, or is over MAX_NAME. A name goes into chat lines, card owners and lists as it is typed, so a newline in one draws a
+    whole second line (`#999 [..] ORCH -> all: ...`) in `chat tail` and `chat inbox`, which agents read as input, and an ESC byte moves the cursor.
+    Anything that is not text is left for the caller's own check."""
+    if not isinstance(name, str):
+        return name
+    bad = next((c for c in name if unicodedata.category(c) in ("Cc", "Zl", "Zp") or c in _BIDI), None)
+    if bad is not None:
+        from .store import BoardError   # store imports this module's neighbours; a late import keeps the cycle out
+        raise BoardError(f"{what} has a control character (U+{ord(bad):04X}): a name is one line of plain text")
+    if len(name) > MAX_NAME:
+        from .store import BoardError
+        raise BoardError(f"{what} is over {MAX_NAME} characters")
+    return name
 
 
 def key(name):

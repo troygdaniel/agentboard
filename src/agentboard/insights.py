@@ -109,7 +109,9 @@ def _hrs(a, b):
 
 
 def _text(e):
-    return e.get("text") or ""
+    """A log entry's text, always a string: a hand-edited or copied board can hold a number or null there, and a reader never crashes on it."""
+    t = e.get("text") if isinstance(e, dict) else None
+    return t if isinstance(t, str) else ""
 
 
 def _kind_of(title):

@@ -47,7 +47,10 @@ def load(f):
     """A binary file, UTF-8 (a BOM is accepted), like tomllib.load."""
     data = f.read()
     if isinstance(data, bytes):
-        data = data.decode("utf-8-sig")
+        try:
+            data = data.decode("utf-8-sig")
+        except UnicodeDecodeError as e:   # a file saved in Latin-1, or not text at all: the reader's own error, so the caller can say which file
+            raise TOMLDecodeError(f"the file is not UTF-8 text ({e.reason} at byte {e.start})") from e
     return loads(data)
 
 

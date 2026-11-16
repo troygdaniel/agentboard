@@ -503,9 +503,12 @@ class NotifyTests(unittest.TestCase):
              unittest.mock.patch("agentboard.cli.subprocess.run") as run:
             cli.cmd_ask(argparse.Namespace(id="ship-it", question="Staging or prod?", body=None, body_file=None))
             cli.cmd_review(argparse.Namespace(id="ship-it", text="All green", body=None, body_file=None, next="nothing"))
-        self.assertEqual(run.call_count, 2)
-        self.assertIn("Staging or prod?", run.call_args_list[0].args[0][2])
-        self.assertIn("All green", run.call_args_list[1].args[0][2])
+        # the patch is on the one shared subprocess module, so it also sees review's git check when the test runs inside a checkout:
+        # count the notifier's own calls only
+        notes = [c.args[0] for c in run.call_args_list if c.args and c.args[0][:1] == ["osascript"]]
+        self.assertEqual(len(notes), 2)
+        self.assertIn("Staging or prod?", notes[0][2])
+        self.assertIn("All green", notes[1][2])
 
     def test_ask_does_not_shell_out_when_disabled(self):
         from agentboard.store import Store

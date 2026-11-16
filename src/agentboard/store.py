@@ -15,6 +15,7 @@ from . import rework
 from . import chatarchive
 from . import chatwake
 from . import listeners
+from . import names as namesmod
 from . import redact
 from . import rules
 from . import signoff as signofflib
@@ -182,6 +183,14 @@ class Store:
         _check_cards(tasks, self.archive_path)
         return tasks
 
+    def _archived_ids(self):
+        """The ids in archive.json (lock held by the caller), so a new card never takes one. A damaged archive is no reason to refuse a card: the
+        live board keeps working, as it did, and the archive's own readers say what is wrong."""
+        try:
+            return {t["id"] for t in self._read_archive()}
+        except BoardError:
+            return set()
+
     def _write_archive(self, tasks):
         backup.write_atomic(self.archive_path, json.dumps({"tasks": tasks}, indent=2))   # atomic; the previous version stays as archive.json.bak
 
@@ -268,6 +277,7 @@ class Store:
         source = _clean_source(source)
         if not (isinstance(ctx or [], list) and all(isinstance(c, str) for c in ctx or [])):
             raise BoardError("ctx must be a list of strings")
+        ctx = [self._scrub(c, 600) for c in ctx or []]   # a provider spec is agent text too: masked like the title
         with self.transaction() as tasks:
             parent = _check_parent(tasks, parent_id)
             if parent:
@@ -275,8 +285,9 @@ class Store:
                     raise BoardError(f"a subtask follows its parent ({parent['status']}); drop --status")
                 status = parent["status"]
             status = status or "backlog"
-            tid = task_id or _unique_id(title, {t["id"] for t in tasks}, prefix=parent["id"] if parent else None)   # a subtask's id starts with its parent's
-            if any(t["id"] == tid for t in tasks):
+            taken = {t["id"] for t in tasks} | self._archived_ids()   # an archived card keeps its id: the archive holds one card per id, so a reused id would replace the old card
+            tid = task_id or _unique_id(title, taken, prefix=parent["id"] if parent else None)   # a subtask's id starts with its parent's
+            if tid in taken:
                 raise BoardError(f"task id already exists: {tid}")
             if source and source.get("key") and any((t.get("source") or {}).get("key") == source["key"] for t in tasks):
                 raise BoardError(f"already on the board: {source['key']}")
@@ -696,13 +707,18 @@ class Store:
         """The model to record on a card at claim or start: the explicit --model (a bad one is refused), else $AGENTBOARD_MODEL when [insights] is enabled
         (an implicit read must not change what a board with insights off writes; a bad value there is ignored, never a failed claim). None for none."""
         if model is not None and str(model).strip():
+            if self._scrub(str(model)) != str(model):   # a key has a model name's shape (letters, digits, dashes) but never belongs on a card
+                raise BoardError("a model name must not look like a key or a secret")
             try:
                 return insights.clean_model(model)
             except ValueError as e:
                 raise BoardError(str(e))
         if insights.enabled(self.dir):
+            env = os.environ.get("AGENTBOARD_MODEL")
+            if env and self._scrub(env) != env:
+                return None
             try:
-                return insights.clean_model(os.environ.get("AGENTBOARD_MODEL"))
+                return insights.clean_model(env)
             except ValueError:
                 return None
         return None
@@ -1054,8 +1070,11 @@ class Store:
         is kept at the top of the detail."""
         if kind not in ("agent", "user"):
             raise BoardError("kind must be 'agent' or 'user'")
+        namesmod.check(sender, "the sender")   # a name is one line of plain text: a newline in one would draw a second chat line
+        namesmod.check(to, "to")
         if kind == "agent":   # what the owner types is left as written (redact.py)
-            sender = plain_name(self._scrub(sender))
+            sender = plain_name(self._scrub(sender))   # namesmod.check above refused a control character; this also drops what is merely invisible (a zero-width space)
+            to = self._scrub(to) if isinstance(to, str) else to   # a name, so a real one is untouched; a mirrored line keeps an unknown one, masked
             text = self._scrub(text, CHAT_LINE_MAX + CHAT_DETAIL_MAX)
             detail = self._scrub(detail, CHAT_DETAIL_MAX)
             if isinstance(files, list):
@@ -1309,6 +1328,21 @@ class Store:
                 return [m for m in msgs if m["seq"] > after]
             return msgs[-limit:]
 
+    def chat_view(self, after=None, limit=100):
+        """(chat_list(after, limit), chat_agents(), known_names()) from ONE read of the board file: the page's chat poll asked for the three
+        separately, and each parsed the whole file (25 ms apiece at 5,000 cards)."""
+        with self._lock():
+            data = self._read()
+            msgs = data["chat"]
+            shown = [m for m in msgs if m["seq"] > after] if after is not None else msgs[-limit:]
+            return shown, bool(data.get("chat_agents", False)), self._known_names(data)
+
+    def snapshot(self, chat_limit=500):
+        """(load(), chat_list(limit=chat_limit)) from ONE read of the board file: the watchdog asked for the two separately, and each parsed the whole file."""
+        with self._lock():
+            data = self._read()
+            return data["tasks"], data["chat"][-chat_limit:]
+
 
 LOG_MAX = 200
 CHAT_MAX = 500
@@ -1321,19 +1355,33 @@ STAMP = "%Y-%m-%dT%H:%M:%S"   # every time the board writes: card updated/create
 _STAMP_SHAPE = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}")
 
 
+_STAMPS = {}        # stamp text -> its datetime: a datetime cannot change, so one object is handed out every time (card sweep-perf)
+STAMPS_MAX = 100_000   # a board of 5,000 cards has about 30,000 distinct stamps; past this the memo starts again rather than grow
+
+
 def parse_stamp(s):
-    """A board stamp as a datetime, or None when it is not one (the one parser: hud, the chat, the cursors and the CLI all use it)."""
-    from datetime import datetime
+    """A board stamp as a datetime, or None when it is not one (the one parser: hud, the chat, the cursors and the CLI all use it).
+    Remembered by its text: one HUD build at 5,000 cards asked 100,000 times about the same few thousand stamps."""
     s = str(s)[:19]
+    hit = _STAMPS.get(s)
+    if hit is not None:
+        return hit
+    from datetime import datetime
+    out = None
     if _STAMP_SHAPE.fullmatch(s):   # fromisoformat first, for the board's own shape only: strptime is ten times slower and ran 130,000 times per HUD poll at 5,000 cards
         try:
-            return datetime.fromisoformat(s)
+            out = datetime.fromisoformat(s)
         except ValueError:
             pass
-    try:
-        return datetime.strptime(s, STAMP)
-    except (TypeError, ValueError):
-        return None
+    if out is None:
+        try:
+            out = datetime.strptime(s, STAMP)
+        except (TypeError, ValueError):
+            return None
+    if len(_STAMPS) >= STAMPS_MAX:
+        _STAMPS.clear()
+    _STAMPS[s] = out
+    return out
 
 
 def _seconds_between(earlier, later):
@@ -1548,16 +1596,20 @@ def _parent_must_be_doing(parent, t, verb):
         raise BoardError(f"cannot {verb} {t['id']}: its parent {parent['id']} is in {parent['status']}; claim the parent first")
 
 
-def _must_hold(tasks, t, by, owner):
+def _must_hold(tasks, t, by, owner, verb=None):
     """An agent reports only on the card it holds (overnight-rel-agent-protocol-3: two agents on one card). `by` is the session's
     name, when the CLI knows it; the owner, ORCH, a session with no name and a card with no holder are all let through, and a
-    subtask with no holder of its own answers to its parent's. The refusal says the fix."""
+    subtask with no holder of its own answers to its parent's. The refusal says the fix. With `verb` ("release", "move", "remove") it
+    guards an act on the card instead of a report on it: the same people pass, and the refusal says who may."""
     if not by:
         return
     holder = t.get("agent") or ((_parent_of(tasks, t) or {}).get("agent") if t.get("parent_id") else None)
     b = str(by).strip()
     if not holder or b.lower() == str(holder).lower() or b.upper() == "ORCH" or _to_owner(b, owner):
         return
+    if verb:
+        raise BoardError(f"{t['id']} is held by {holder}: only {holder}, ORCH or the owner can {verb} it, so ask {holder} or ORCH "
+                         f"(if {holder} is gone, `agentboard watchdog` releases it)")
     where = "in Doing" if t.get("status") == "doing" else f"in {str(t.get('status', '')).title()}"
     raise BoardError(f"{t['id']} is held by {holder}, not {b}: claim it first (agentboard claim {t['id']} --name {b}; while {holder} holds it {where} "
                      f"that is refused, so ask {holder} or ORCH), and if {holder} is gone, `agentboard watchdog` releases it")

@@ -310,6 +310,7 @@ steps written as `(1) … (2) …` render one per line. Details that don't chang
 - If you started the server in the background, stop it with `pkill -f "agentboard serve"` (Ctrl+C when it runs in the foreground).
 - **Never run `agentboard done` yourself as an agent**; only the user does (Mark done button, drag, or telling the agent to).
 - **What `agentboard done` leaves behind:** after `<card>: done` it prints the card's worktree and branch (found by the agent's name in the folder, or the card id in the folder or branch) and whether it is merged into main, then the other worktrees that are merged, clean and not in use, each as a `git worktree remove <path>` line to copy. It only lists: the board never removes a worktree or a branch. It looks in the board's own repo (`[reports] repo` in config.toml, else the board's parent folder); `--repo /absolute/path` looks in another. Outside git, under the work profile or the lockdown it prints nothing extra.
+- **Another agent's card is not yours to release, move or remove:** `update`, `ask`, `review` and `checkpoint` already refuse a card another agent holds; `release`, `move` and `rm` now do too (the holder, ORCH, the owner and a terminal with no session name pass; a card nobody holds is anyone's), and `wrapup --ask` and `--apply` are ORCH's and the owner's. The refusal names the holder.
 - **ORCH's sign-off:** before the user signs off a card in review, ORCH records what it holds with `agentboard signoff <id> --merged <hash> --test "full smoke=pass" --gate pass` (or `--not-merged`). The card shows it under your sentence, so you never need to write it yourself; if the user signs off before ORCH has, the board says so and tells ORCH.
 - One task per deliverable, not per command; keep status lines to one line.
 
@@ -708,7 +709,9 @@ What to expect when you clone this onto a managed machine (the full audit and ch
 3. **Set the master lock in the shell profile that starts the board:** `export AGENTBOARD_LOCKDOWN=1`. It refuses everything that would start a program or send
    data out (the `claude` rounds and `agentboard run`, the `command` and `http` providers, the `[backup] sync_dir` copy, voice, spawn and every plugin), even if a
    copied `config.toml` says otherwise. Add `export AGENTBOARD_NO_PLUGINS=1` as a second lock for plugins. Do not set `AGENTBOARD_PLUGINS`.
-4. **Check it:** `agentboard doctor` prints PASS / WARN / FAIL lines you can paste into a review (want 0 FAIL, 0 WARN with the lock set). `agentboard plugins` says
+4. **Check it:** `agentboard doctor` prints PASS / WARN / FAIL lines you can paste into a review: want 0 FAIL. Two WARN lines are normal here and need no fix: the Stop hook
+   is not installed (optional; it only nudges an agent that went quiet) and the list of modules that could make a connection (each is off under the lock, and
+   `agentboard selfcheck` proves nothing connects); [`WORK-SETUP.md`](WORK-SETUP.md) is the one-page version of this list for a work computer. `agentboard plugins` says
    plugins are locked; `lsof -nP -a -p $(pgrep -f "agentboard serve" | head -1) -i` shows one line, `127.0.0.1:8765 (LISTEN)`.
 5. **Run it:** `cd <your repo> && agentboard init && agentboard serve --no-open`, then open `http://localhost:8765` yourself. The server listens on `127.0.0.1` only.
    **There is no login:** any program running as the same user can reach the port (websites cannot). It is for one person per machine; an optional key-cookie lock was

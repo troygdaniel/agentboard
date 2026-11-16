@@ -45,14 +45,14 @@ def findings(store, now=None, stale_min=None):
     """Every way this board is stuck right now, most urgent first. Read-only."""
     now = now or datetime.now()
     stale_min = threshold(store) if stale_min is None else stale_min
-    tasks = store.load()
+    tasks, chat = store.snapshot(500)   # one read of the board file for both (it was two parses, 25 ms apiece at 5,000 cards)
     by_id = {t["id"]: t for t in tasks}
     live = {t["id"]: t for t in tasks if not t.get("archived")}
     listening = listeners.listening(store.dir)
     lk = {n.lower() for n in listening}
     said = {str(n).lower() for n in (r.get("name") for r in hooks.read_sessions(store.dir).values() if isinstance(r, dict)) if n}
     chat_last = {}
-    for m in store.chat_list(limit=500):
+    for m in chat:
         if m.get("kind") == "agent" and m.get("sender") and not m.get("via"):
             chat_last[m["sender"].lower()] = m.get("at")
     out = []
@@ -67,10 +67,14 @@ def findings(store, now=None, stale_min=None):
             continue
         add("twins", tw, f"{tw['id']} is a second card for {k['id']} (same agent, same title): two histories for one piece of work",
             {"action": "merge", "id": tw["id"], "label": f"Merge into {k['id']}"})
+    open_by = {}   # parent id -> the agents holding its open subtasks: one pass, not a scan of every card for each Doing card (45 x 5,000 at the sweep's size)
+    for k in tasks:
+        if k.get("parent_id") and k["status"] != "done" and k.get("agent"):
+            open_by.setdefault(k["parent_id"], set()).add(k["agent"])
     for t in live.values():
         if t.get("status") != "doing" or t.get("parent_id") in by_id:
             continue
-        others = sorted({k.get("agent") for k in _kids(tasks, t["id"]) if k["status"] != "done" and k.get("agent") and k.get("agent") != t.get("agent")})
+        others = sorted(a for a in open_by.get(t["id"], ()) if a != t.get("agent"))
         if t.get("agent") and others:
             add("split-card", t, f"{t['agent']} holds the card but {', '.join(others)} hold{'s' if len(others) == 1 else ''} open subtasks of it: two agents on one card",
                 {"action": "hand", "id": t["id"], "label": f"Hand the subtasks to {t['agent']}"})

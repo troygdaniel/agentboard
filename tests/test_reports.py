@@ -143,6 +143,39 @@ class WritingTests(Base):
         self.assertIn("More from the agent", self.page())
         self.assertIn("Faster by 30%", self.page())
 
+    def test_the_agents_own_markdown_file_is_masked_like_every_other_agent_text(self):
+        """A card's text is masked on the way in (redact.py); the hand-written reports/<card>.md never passes the store, so the page masks it on the way
+        out (sweep-sec-data, Nov 15). The key is assembled from pieces so this file never holds a whole one."""
+        key = "sk" + "-ant-" + "q3Z7k9M2p5R8t1V4w6Y0a2C4e6G8i0K2"
+        self.s.start("Extra", "a")
+        reports.reports_dir(self.s.dir).mkdir(parents=True)
+        (reports.reports_dir(self.s.dir) / "extra.md").write_text(f"## Notes\nran with ANTHROPIC_API_KEY={key}\nthen api_key = \"{key}\"\n")
+        self.s.review("extra", "ready")
+        page = self.page()
+        self.assertIn("More from the agent", page)
+        self.assertNotIn(key, page)
+        self.assertIn("[redacted", page)
+        self.assertNotIn(key, reports.extras_md(self.s.dir, "extra"))
+
+    def test_the_agents_own_markdown_file_is_read_only_when_it_is_a_regular_file(self):
+        """A symlink at reports/<card>.md is not followed (lookup refuses one the same way), and a FIFO there never blocks the page build."""
+        self.s.start("Extra", "a")
+        d = reports.reports_dir(self.s.dir)
+        d.mkdir(parents=True)
+        secret = self.root / "elsewhere.txt"
+        secret.write_text("the text of a file outside the board")
+        (d / "extra.md").symlink_to(secret)
+        self.assertEqual(reports.extras_md(self.s.dir, "extra"), "")
+        self.s.review("extra", "ready")
+        self.assertNotIn("outside the board", self.page())
+        (d / "extra.md").unlink()
+        os.mkfifo(d / "extra.md")
+        done = []
+        t = threading.Thread(target=lambda: done.append(reports.extras_md(self.s.dir, "extra")), daemon=True)
+        t.start()
+        t.join(5)
+        self.assertEqual(done, [""], "a FIFO at reports/<card>.md must not block the read")
+
     def test_commits_files_and_links_come_from_the_repo_the_card_was_open_in(self):
         git = lambda *a: subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@t", *a], cwd=self.proj, check=True, capture_output=True)
         git("init", "-q")

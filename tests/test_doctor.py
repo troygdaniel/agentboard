@@ -3,6 +3,7 @@ import os
 import re
 import socket
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -76,6 +77,24 @@ class Locks(unittest.TestCase):
         self.assertEqual(doctor.check_locks({})[0][0], doctor.WARN)
         self.assertEqual(doctor.check_locks({"AGENTBOARD_LOCKDOWN": "1"})[0][0], doctor.PASS)
         self.assertEqual(doctor.check_locks({"AGENTBOARD_LOCKDOWN": "0"})[0][0], doctor.WARN)
+
+    def test_a_lock_the_work_profile_turned_on_is_not_called_the_shells_own(self):
+        """profile.apply() exports AGENTBOARD_LOCKDOWN=1 for what it starts. The README's work-laptop step 3 asks the reviewer to export it in
+        the shell and step 4 to read doctor's lock line to see that it took: so when only the profile turned it on, the line must say so, and
+        say "in this shell" only when the shell did. Run in a subprocess: apply() installs process-wide guards."""
+        code = ("import os\nfrom agentboard import profile, doctor\n"
+                "os.environ['AGENTBOARD_PROFILE'] = 'work'\nprofile.apply(None)\n"
+                "print(doctor.check_locks(os.environ)[0][2])\n")
+        with tempfile.TemporaryDirectory() as home:
+            base = {k: v for k, v in os.environ.items() if not k.startswith("AGENTBOARD_")}
+            base.update(HOME=home, XDG_CONFIG_HOME=home, PYTHONPATH=str(Path(doctor.__file__).resolve().parents[1]), PYTHONDONTWRITEBYTECODE="1")
+            run = lambda env: subprocess.run([sys.executable, "-c", code], env=env, capture_output=True, text=True, timeout=60)
+            by_profile = run(base)
+            self.assertEqual(by_profile.returncode, 0, by_profile.stderr)
+            self.assertIn("work profile", by_profile.stdout)
+            self.assertNotIn("in this shell", by_profile.stdout)
+            by_shell = run({**base, "AGENTBOARD_LOCKDOWN": "1"})
+            self.assertIn("in this shell", by_shell.stdout)
 
     def test_narrow_locks_are_found_by_reading_the_package_not_from_a_list(self):
         with tempfile.TemporaryDirectory() as d:
