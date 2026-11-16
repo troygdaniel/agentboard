@@ -189,6 +189,34 @@ class CommandTests(Base):
         self.assertEqual(code, 0)
         self.assertEqual([t["id"] for t in self.s.load()], ["a"])
 
+    def test_restore_finds_a_snapshot_by_the_label_it_was_given(self):
+        """`backup --label before-cleanup` then `restore before-cleanup` said "no such backup": only the full file name worked (night sweep)."""
+        self.assertEqual(self.run_cli("backup", "--label", "before-cleanup")[0], 0)
+        self.s.add("B", status="todo")
+        self.assertEqual(len(self.s.load()), 2)
+        code, out, _ = self.run_cli("restore", "before-cleanup", "--yes")
+        self.assertEqual(code, 0)
+        self.assertEqual([t["id"] for t in self.s.load()], ["a"])
+        self.assertIn("before-cleanup", out)
+        self.s.add("C", status="todo")
+        self.assertEqual(self.run_cli("restore", "Before Cleanup", "--yes")[0], 0)   # the label is written the way it was named: case and spaces do not matter
+        self.assertEqual([t["id"] for t in self.s.load()], ["a"])
+
+    def test_a_label_used_twice_restores_the_newest(self):
+        self.b.take("milestone", when=datetime(2026, 11, 1, 9, 0))
+        self.s.add("B", status="todo")
+        self.b.take("milestone", when=datetime(2026, 11, 1, 10, 0))
+        self.s.add("C", status="todo")
+        self.assertEqual(self.run_cli("restore", "milestone", "--yes")[0], 0)
+        self.assertEqual(sorted(t["id"] for t in self.s.load()), ["a", "b"])
+
+    def test_an_unknown_label_says_where_to_look_and_a_path_is_still_a_path(self):
+        code, out, err = self.run_cli("restore", "no-such-label", "--yes")
+        self.assertNotEqual(code, 0)
+        self.assertIn("backup --list", out + err)
+        self.assertNotEqual(self.run_cli("restore", "../outside", "--yes")[0], 0)
+        self.assertEqual([t["id"] for t in self.s.load()], ["a"])
+
     def test_restore_refuses_a_bad_file_and_a_missing_one(self):
         bad = self.root / "bad.json"
         bad.write_text('{"tasks": [{"id": "x", "status": "weird"}]}')

@@ -2241,7 +2241,7 @@ def main(argv=None):
     sp.add_argument("--label", help="name this snapshot (it is then never pruned), e.g. before-cleanup")
     sp.add_argument("--list", action="store_true", help="list snapshots and the nightly-copy status")
     sp.add_argument("--sync", action="store_true", help="copy the newest snapshot to [backup] sync_dir now")
-    sp = add("restore", cmd_restore, "put a snapshot back as the board: a file, a name in .agentboard/backups, `latest`, or `previous` (the version before the last save)")
+    sp = add("restore", cmd_restore, "put a snapshot back as the board: a file, a name in .agentboard/backups, the label you gave `backup --label`, `latest`, or `previous` (the version before the last save)")
     sp.add_argument("which")
     sp.add_argument("--yes", action="store_true", help="do not ask (the board as it is now is kept first as a before-restore snapshot)")
     sp = add("config", cmd_config, "config.toml you can trust: show what applies (and where each value came from), check for typos, wrong types and unsafe values, docs from the schema")

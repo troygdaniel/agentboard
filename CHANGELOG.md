@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### `agentboard restore before-cleanup` finds a snapshot by the label you gave it (Nov 15, night sweep)
+`agentboard backup --label before-cleanup` makes a snapshot that pruning never touches, but `agentboard restore before-cleanup` answered "no such backup": only the full file name from `backup --list` (`tasks-20261115-1930-before-cleanup.json.gz`) or a path worked. `restore` now also takes the label, written the way you named it (case and spaces do not matter), and restores the newest snapshot that carries it. A label nothing matches says where to look (`agentboard backup --list`); a path, a file name, `latest` and `previous` work as before. `tests/test_backups.py` (3 new).
+
 ### Small text on a coloured fill reads at 4.5:1 (Nov 15, sweep-ux)
 The count beside **Now** (white, 11 px, on the orange) and the initial on a direct line to an agent were 3.58:1, and the Configuration chip's green count in the light theme was 4.41:1: all under the 4.5:1 small text needs. The orange under white text is now the same orange mixed 20% towards black (`--need-fill`, 5.3:1 measured in Chrome); the chip's count mixes 18% black into its green (6:1). The brighter orange stays on the decorative uses (the aura, the dial, the ring).
 - Checked: `tests/test_need_badge_contrast.py` (4: works the ratio out from the page's own CSS; the first three fail on the old page). A walk of every view in light and dark, wide and phone, found no other text under 4.5:1 on a solid fill.
