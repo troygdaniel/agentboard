@@ -1434,6 +1434,8 @@ def _read_body(a):
 def _one_line(text, what):
     """The sentence the owner reads first is one line they can take in at a glance: refuse a longer one and say where the rest goes."""
     first = (text or "").strip().partition("\n")[0].strip()
+    if not first:   # an empty ask put "waiting on user: " on the card with nothing to answer
+        raise BoardError(f"{what} needs a first line: say the one thing the user must do or know, and put the rest in --body")
     if len(first) > rules.FIRST_LINE_MAX:
         raise BoardError(f"the first line of {what} is {len(first)} characters; {rules.FIRST_LINE_MAX} at most. Say the one thing the user must do, "
                          "and put the rest in --body")
