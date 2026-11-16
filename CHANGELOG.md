@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### A config.toml that is not UTF-8 now says which file and why (Nov 15, night sweep)
+An editor that saved `owner = "José"` in Latin-1 made every command print only `decoding with 'utf-8-sig' codec failed` (no file named), and the HUD and `/api/config` answered 500 with the same line. The TOML reader let the codec's error out instead of its own, so the one place that names the file to fix never saw it. It now says `.../config.toml is not valid config (the file is not UTF-8 text ...); fix or delete it`, as for a typo in the file. `tests/test_config_not_utf8.py` (4).
+
 ### A command provider can no longer be made to run card text (Nov 15, night sweep)
 A `type = "command"` provider filled `{arg}` and then `{title}`. An arg that was the text `{title}` was quoted, and the card's title was then pasted inside those quotes, so a quote in the title ended the string and the rest ran as shell. Both come from a card (its `--ctx` and its title).
 - Both placeholders are now filled in one pass: text that arrives through one value is never read again as a placeholder. Only boards with a command provider set up were exposed; none ships.
