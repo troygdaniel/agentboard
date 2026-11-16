@@ -8,7 +8,7 @@ the installed package, so it stays right when a feature moves out into a plugin.
 loads them exactly as `agentboard serve` would, says which failed (by error class), and prints each plugin's own checks as <plugin>:<name>
 lines (masked, one line each); with plugins off or locked, nothing is imported.
 
-    agentboard doctor [--project DIR] [--strict]      exit 1 on any FAIL (with --strict, on any WARN too)
+    agentboard doctor [--project DIR] [--strict]      exit 1 on any FAIL (with --strict, on any WARN too; under the work profile its two usual WARNs do not count)
 """
 import importlib.metadata
 import os
@@ -700,5 +700,14 @@ def render(results, board_dir):
     return "\n".join(lines)
 
 
-def exit_code(results, strict=False):
-    return 1 if any(r[0] == FAIL or (strict and r[0] == WARN) for r in results) else 0
+def expected_under_work(result):
+    """Is this one of the two WARN lines every correct work-profile machine shows (README, the work-laptop steps): the Stop hook is not installed (it is
+    optional there), and the list of modules that could make a connection (each off under the lock)."""
+    level, name, text = result[0], result[1], str(result[2])
+    return level == WARN and (name == "code" or (name == "Stop hook" and text.startswith("not installed")))
+
+
+def exit_code(results, strict=False, work=False):
+    """1 on any FAIL; with `strict`, on any WARN too. Under the work profile (`work`) the two WARNs that profile always shows do not count for
+    --strict, so a reviewer gets exit 0 on a correct work setup; any other WARN still fails it (tests/test_doctor_strict_work.py)."""
+    return 1 if any(r[0] == FAIL or (strict and r[0] == WARN and not (work and expected_under_work(r))) for r in results) else 0
