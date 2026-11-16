@@ -48,6 +48,18 @@ def _t(s):
     return parse_stamp(s)
 
 
+def _stamp_text(e):
+    """A log line's stamp as text: a null, a number or a missing stamp is an empty one, so lines sort without comparing text to a number."""
+    at = e.get("at")
+    return at if isinstance(at, str) else ""
+
+
+def _line_text(e):
+    """A log line's words as text (a number in a hand-edited line is shown as its digits)."""
+    v = e.get("text")
+    return v if isinstance(v, str) else "" if v is None else str(v)
+
+
 def _marked_at(t):
     """Timestamp of a task's most recent 'marked done' log entry, or None."""
     at = None
@@ -404,8 +416,8 @@ def build(tasks, now=None, feed_limit=60, abandoned_min=None, retired=(), roster
                      cur.get("created"))
         feed = [(e, "") for e in cur.get("log", [])] + [
             (e, k["title"] + ": ") for k in kids_of.get(cur["id"], []) for e in k.get("log", [])]
-        feed.sort(key=lambda x: x[0].get("at", ""))
-        recent = [{"at": e["at"], "text": pre + e.get("text", "")} for e, pre in reversed(feed)][:3]   # newest first
+        feed.sort(key=lambda x: _stamp_text(x[0]))
+        recent = [{"at": _stamp_text(e), "text": pre + _line_text(e)} for e, pre in reversed(feed)][:3]   # newest first; a line with no usable stamp counts as an empty one
         agents.append({
             "name": name,
             "state": state, "chart": chart(cur, kids_of.get(cur["id"], []), now),

@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### A log line with no usable stamp no longer stops the HUD and its feed (Nov 15, night sweep)
+`hud.build` sorts an agent's recent lines by their stamp and reads the stamp and text of the three newest. A line whose stamp was null or a number raised a TypeError against the others' text, a line with no stamp at all raised a KeyError, and a line whose words were a number raised a TypeError: `/api/hud` answered 500, so the whole HUD and feed were gone for as long as the line stayed in a card (a hand edit, an older version). Such a line now counts as an empty stamp and its words as text; the lines with good stamps come out exactly as before. Found by another agent's fuzz of `hud.build`. `tests/test_hud_log_stamps.py` (3; all fail without the fix).
+
 ### The phone menu closes when you press anywhere outside it (Nov 15, sweep-ux)
 The Menu button's sheet closed on a click outside it, but some things on the Now deck (its stacked cards, in some layouts) handle their own tap and stop it there, so the sheet stayed open over them. It now closes on the press itself, in the capture phase, before any such handler.
 - Checked: `node tests/qa/phone_menu_check.mjs` (29 checks; the new one puts an element that stops its own click on the page and taps it, and fails on the old page, plus a tap on every stacked card) and `tests/test_phone_menu.py` (6).
