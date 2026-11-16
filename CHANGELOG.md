@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### A tasks.json of the wrong shape stops with one line, not a traceback (Nov 15, night sweep)
+A `tasks.json` that was valid JSON but not a board (`[]`, `null`, `"text"`, `5`: a hand edit, a bad merge, a sync conflict that left an empty list) made `list`, `rollup` and `watchdog` die with "AttributeError: 'list' object has no attribute 'setdefault'"; text that is not JSON at all already named the file and the recovery. Now the wrong shape does too: "<file> is JSON but not a board (it should be an object with a list of cards, not list)" followed by the same recovery hint, and a `chat` that is not a list is refused the same way. A good file and a missing file are as before. `tests/test_tasks_json_shape.py` (4).
+
 ### Two cards can no longer be made to wait on each other (Nov 15, night sweep)
 The board's blocked-by edit refused a card waiting on its own subtask and dropped a card waiting on itself, but accepted A waits on B while B waits on A, and longer rings. Neither card could then be claimed without `--force` (which agents are told never to use), and the night queue skipped both: a deadlock nobody was told about. The edit that would close a loop is refused with the cards named (`blocked-by: that would make a loop (a waits on b waits on a): neither card could be claimed`) and nothing is changed; waiting on several cards, and a diamond (a waits on b and c, which both wait on d), are fine. `tests/test_blocked_by_cycles.py` (6; three fail without the fix).
 ### A card that already has an odd id builds no file path (Nov 15, night sweep)

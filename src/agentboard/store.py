@@ -134,7 +134,11 @@ class Store:
             return {"tasks": [], "chat": [], "chat_seq": 0}
         except ValueError as e:
             raise BoardError(f"{self.path} is not valid JSON ({e}). {recovery_hint(self.path)}") from e
+        if not isinstance(data, dict):   # valid JSON of the wrong shape ([], null, "text"): a hand edit or a sync conflict, not a traceback
+            raise BoardError(f"{self.path} is JSON but not a board (it should be an object with a list of cards, not {type(data).__name__}). {recovery_hint(self.path)}")
         data.setdefault("tasks", [])
+        if not isinstance(data.get("chat", []), list):
+            raise BoardError(f"{self.path} has a chat that is not a list. {recovery_hint(self.path)}")
         _check_cards(data["tasks"], self.path)   # a hand edit, a bad merge or a copied file fails here with one readable line, not a KeyError somewhere later
         data.pop("projects", None)   # projects were removed on 4 Nov 2026: an old file's list is dropped on the next save
         data.setdefault("chat", [])
