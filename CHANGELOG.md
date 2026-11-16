@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Phone tap targets are 24 px or more (Nov 15, sweep-ux)
+At 390 px the controls a finger uses on the Now card and in Settings were 16 to 23 px tall: the "Show only ..." name chips, the card's own links (Talk it through, Simpler, Later, Why?), the Go ahead chip, the subtask toggle, the Settings switches and the Settings search. WCAG 2.5.8 asks for 24 px. At 700 px and under they now ask for 32 (a card behind the front one is drawn at 75%, so it is still 24 there) and the Settings switches are 24 px. Above 700 px nothing changes.
+- Checked: `tests/test_tap_targets.py` (4, pins the one phone block) and `node tests/qa/tap_targets_check.mjs` in headless Chrome on a throwaway board at 390 px (8 checks: each control measured, no sideways scroll; 6 of them fail on the old page). Screenshots of the Now card and Settings, light and dark, show no layout change beyond the extra height.
+
 ### `agentboard restore before-cleanup` finds a snapshot by the label you gave it (Nov 15, night sweep)
 `agentboard backup --label before-cleanup` makes a snapshot that pruning never touches, but `agentboard restore before-cleanup` answered "no such backup": only the full file name from `backup --list` (`tasks-20261115-1930-before-cleanup.json.gz`) or a path worked. `restore` now also takes the label, written the way you named it (case and spaces do not matter), and restores the newest snapshot that carries it. A label nothing matches says where to look (`agentboard backup --list`); a path, a file name, `latest` and `previous` work as before. `tests/test_backups.py` (3 new).
 ### An agent cannot sign a chat line as the owner with an invisible character in the name (Nov 15, night sweep review)
