@@ -46,7 +46,7 @@ from .server import serve
 from . import agentfiles
 from . import boards as boardlib
 from . import demo as demolib
-from .store import BoardError, CHAT_LINE_MAX, CHAT_TOPICS, DIR_NAME, find_dir, lapsed, parse_stamp, Store, subtask_counts, _to_owner
+from .store import BoardError, CHAT_LINE_MAX, CHAT_TOPICS, DIR_NAME, find_dir, lapsed, parse_stamp, Store, subtask_counts, _to_owner, _must_hold
 
 DEFAULT_PORT = 8765
 
@@ -315,12 +315,31 @@ def cmd_checkpoint(a):
     print(f"{t['id']}: checkpoint saved at {t.get('progress', 0)}%; ORCH can send it back to Todo with your notes")
 
 
+def _not_another_agents_card(s, task_id, verb):
+    """`release`, `move` and `rm` act on a card: an agent that is not ORCH or the owner may not do it to a card another agent holds (the rule `update`,
+    `ask`, `review` and `checkpoint` follow, store._must_hold). A terminal with no session name is the owner; a card nobody holds is anyone's."""
+    by = (os.environ.get("AGENTBOARD_NAME") or "").strip()
+    if by:
+        tasks = s.load()
+        t = next((x for x in tasks if x["id"] == task_id), None)
+        if t is not None:
+            _must_hold(tasks, t, by, s.owner, verb=verb)
+
+
+def _orch_or_owner_only(s, what):
+    by = (os.environ.get("AGENTBOARD_NAME") or "").strip()
+    if by and by.upper() != "ORCH" and not _to_owner(by, s.owner):
+        raise BoardError(f"only ORCH or the owner {what}: {by} reports on its own card with review or checkpoint")
+
+
 def cmd_wrapup(a):
     """agentboard wrapup: where every card stands tonight and what happens to it (read-only). --ask leaves each agent that owes a checkpoint or a
     review a note on its card; --apply releases the cards going back to Todo (best first, so tomorrow's top card is the one nearest done) and saves
     the page; --all counts running agents' cards too; --last prints the newest saved page."""
     from . import wrapup
     s = _store()
+    if a.ask or a.apply:
+        _orch_or_owner_only(s, "asks for hand-offs or sends the day's cards back to Todo (agentboard wrapup --ask, --apply)")
     if a.last:
         f = wrapup.last(s)
         print(f.read_text().rstrip() if f else "no wrap-up saved yet: run `agentboard wrapup --apply` at the end of a day")
@@ -353,6 +372,8 @@ def cmd_release(a):
         ids += [t["id"] for t in s.load() if t.get("agent") == a.agent and t["status"] == "doing" and not t.get("parent_id") and not t.get("archived")]
     if not ids:
         raise BoardError("give a card id, or --agent NAME for every Doing card that agent holds")
+    for i in dict.fromkeys(ids):   # every card is checked before the first is released: a refusal on the last leaves none half-done
+        _not_another_agents_card(s, i, "release")
     for i in dict.fromkeys(ids):
         first = next((t["id"] for t in s.load() if t["status"] == "todo" and not t.get("parent_id") and t["id"] != i), None)
         t = s.get(s.load(), i)
@@ -364,7 +385,9 @@ def cmd_release(a):
 
 def cmd_move(a):
     """Move a card to a column, as a drag on the board would (a held card tells its agent, as a drag does)."""
-    t = _store().move(a.id, a.status)
+    s = _store()
+    _not_another_agents_card(s, a.id, "move")
+    t = s.move(a.id, a.status)
     print(f"{t['id']}: {dict(backlog='Later', todo='Todo', doing='Doing', done='Done').get(t['status'], t['status'])}")
 
 
@@ -1326,6 +1349,8 @@ def cmd_clear(a):
 def cmd_rm(a):
     s = _store()
     ids = [t["id"] for t in s.load() if t["id"].startswith("demo-")] if a.demo else [a.id]
+    for i in ids:
+        _not_another_agents_card(s, i, "remove")
     n = 0
     for i in ids:
         gone = {t["id"] for t in s.load()}
