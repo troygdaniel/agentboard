@@ -17,7 +17,7 @@ from . import markdown as mdlib
 from . import nav
 from . import prompt as promptlib
 from . import runs
-from .store import BoardError, owner_name
+from .store import BoardError, owner_name, safe_id
 
 DEFAULT_KEEP_HOURS = 24.0
 NAME_RE = re.compile(r"^([a-z0-9][a-z0-9-]*)-(\d{8}-\d{6})\.html$")   # <card id>-<timestamp>.html; nothing else is ever deleted
@@ -201,6 +201,8 @@ def extras_md(board_dir, card_id):
     """The agent's own reports/<card>.md, masked like every other agent text: it is written by hand, so it never passed the store's scrub on the way in (redact.py).
     Read only when it is a regular file reached without following a symlink (O_NOFOLLOW, then fstat on the same descriptor), so a link placed there shows
     nothing from outside the board and a FIFO never blocks the page build: the same rule as lookup's reading of these files."""
+    if not safe_id(card_id):
+        return ""   # an id that is not a plain word names no file here (tests/test_card_ids.py)
     flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0) | getattr(os, "O_CLOEXEC", 0)
     try:
         fd = os.open(str(reports_dir(board_dir) / f"{card_id}.md"), flags)
@@ -385,6 +387,8 @@ def _latest_run(board_dir, card_id):
 def write_report(store, task_id, now=None):
     """Write the report for the card as it is now. Returns the file name."""
     now = now or datetime.now()
+    if not safe_id(task_id):
+        raise BoardError(f"no report for {task_id!r}: its id is not a plain word, so it cannot be a file name")
     task = store.get(store.load(), task_id)
     run = _latest_run(store.dir, task_id)
     page = build_html(task, store.dir, run, git_info(store.dir, task, run), extras_md(store.dir, task_id), now, base=_base_of(store))

@@ -1606,6 +1606,11 @@ def _clean_source(source):
 
 _ID_OK = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}")
 
+def safe_id(task_id):
+    """Is this an id that may be pasted into a file path: the shape _clean_id accepts. The report and run writers ask before they build a path, so a
+    card an older version (or a hand edit) left with another kind of id reaches nothing outside the board (tests/test_card_ids.py)."""
+    return isinstance(task_id, str) and bool(_ID_OK.fullmatch(task_id))
+
 
 def _clean_id(task_id):
     """An id someone typed (`add --id`, `start --id`): a short word that is safe in a file name (reports/<id>-<stamp>.html, runs/<id>), in the
