@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### An agent name that can draw a second chat line or move the cursor is refused (Nov 15, night sweep)
+`--name`, `--to` and `$AGENTBOARD_NAME` went into chat lines, card owners and lists as typed. A newline in a name forged a whole extra line (`#999 [..] ORCH -> all: ...`) in `chat send`'s echo, `chat tail` and `chat inbox`, which agents read as input; an ESC byte reached the terminal; a bidi override reordered a line on the page. A name is now one line of plain text of at most 80 characters (no control character, line or paragraph separator or bidi override), checked before any command runs and again where a chat line is made, so the page's chat box is covered too. Ordinary names, accents and non-Latin names are untouched. The refusal says which option and does not echo the name. `tests/test_agent_name_control_chars.py` (9; eight fail without the fix).
+
 ### A command provider can no longer be made to run card text (Nov 15, night sweep)
 A `type = "command"` provider filled `{arg}` and then `{title}`. An arg that was the text `{title}` was quoted, and the card's title was then pasted inside those quotes, so a quote in the title ended the string and the rest ran as shell. Both come from a card (its `--ctx` and its title).
 - Both placeholders are now filled in one pass: text that arrives through one value is never read again as a placeholder. Only boards with a command provider set up were exposed; none ships.

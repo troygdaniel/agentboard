@@ -2499,6 +2499,10 @@ def main(argv=None):
         p.error("give a task id or --all")
     if a.cmd == "rm" and not (a.demo or a.id):
         p.error("give a task id or --demo")
+    try:
+        _check_names(a)
+    except BoardError as e:
+        sys.exit(f"agentboard: {e}")
     _canon_names(a)
     _seen_step(a)
     a._real_cli = argv is None   # the real command line, not a call from code: `init` chooses its profile by looking at the machine only here
@@ -2512,6 +2516,15 @@ def main(argv=None):
 
 
 NAMELESS_COMMANDS = ("init", "board", "plugins", "profile", "selfcheck", "rename", "configuration")
+
+
+def _check_names(a):
+    """--name, --to and $AGENTBOARD_NAME are one line of plain text (names.check), before any command runs: a newline in a name would draw a forged chat line."""
+    if a.cmd in NAMELESS_COMMANDS:
+        return
+    for f in ("name", "to"):
+        namesmod.check(getattr(a, f, None), f"--{f}")
+    namesmod.check(os.environ.get("AGENTBOARD_NAME"), "AGENTBOARD_NAME")
 
 
 def _canon_names(a):

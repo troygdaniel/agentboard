@@ -14,6 +14,7 @@ from . import rework
 from . import chatarchive
 from . import chatwake
 from . import listeners
+from . import names as namesmod
 from . import redact
 from . import rules
 from . import signoff as signofflib
@@ -1053,6 +1054,8 @@ class Store:
         is kept at the top of the detail."""
         if kind not in ("agent", "user"):
             raise BoardError("kind must be 'agent' or 'user'")
+        namesmod.check(sender, "the sender")   # a name is one line of plain text: a newline in one would draw a second chat line
+        namesmod.check(to, "to")
         if kind == "agent":   # what the owner types is left as written (redact.py)
             sender = self._scrub(sender)
             text = self._scrub(text, CHAT_LINE_MAX + CHAT_DETAIL_MAX)
