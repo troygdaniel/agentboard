@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### On Watch, Enter opens a tile you reached with Tab (Nov 16, sweep2-ux)
+A Watch tile can be reached with Tab, but only the arrow keys and a click told the page which tile was selected, and Enter opens the selected one: a tile reached with Tab did nothing. Worse, the Now pile's key handler also runs on the Watch: it took the Enter, called `deckDetails()`, which sets the text of a Details button the Watch does not have, threw a TypeError after it had cancelled the key, and flipped the pile's saved Details setting (`ab-deck-details`). A tile that takes focus is now the selected one, and the pile's handler leaves the Watch alone (the Watch has its own Enter, Esc and arrows).
+- Checked: `node tests/qa/watch_keys_check.mjs` in headless Chrome on a throwaway board (12 checks: Tab to a tile, Enter, Esc, a second tile, no exception, the saved setting untouched; 7 fail on the old page) and `tests/test_watch_keys.py` (4, pins the two changes). The suites that read the page pass (131), and so do `esc_field_check` and `watch_alive_check`.
+
 ### A log line with no usable stamp no longer stops the HUD and its feed (Nov 15, night sweep)
 `hud.build` sorts an agent's recent lines by their stamp and reads the stamp and text of the three newest. A line whose stamp was null or a number raised a TypeError against the others' text, a line with no stamp at all raised a KeyError, and a line whose words were a number raised a TypeError: `/api/hud` answered 500, so the whole HUD and feed were gone for as long as the line stayed in a card (a hand edit, an older version). Such a line now counts as an empty stamp and its words as text; the lines with good stamps come out exactly as before. Found by another agent's fuzz of `hud.build`. `tests/test_hud_log_stamps.py` (3; all fail without the fix).
 
