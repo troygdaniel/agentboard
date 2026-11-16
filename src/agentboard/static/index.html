@@ -531,10 +531,13 @@
   #ribbon u { position: absolute; bottom: 5px; width: 1px; height: 9px; background: var(--line); text-decoration: none; font-size: 9px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); white-space: nowrap; text-indent: 6px; line-height: 0; }
   #ribbon .rb { position: absolute; bottom: 6px; width: 7px; height: 7px; margin-left: -3px; border-radius: 50%; background: var(--c); pointer-events: auto; cursor: default; opacity: .8; transition: transform .2s; } #ribbon .rb:hover { transform: scale(1.8); opacity: 1; }
   #ribbon .rb.ask, #ribbon .rb.rev, #ribbon .rb.fin, #ribbon .rb.quiet { height: 15px; border-radius: 4px; width: 5px; margin-left: -2px; cursor: pointer; } #ribbon .rb.ask { background: var(--err); } #ribbon .rb.rev { background: var(--ok); } #ribbon .rb.fin, #ribbon .rb.quiet { background: var(--need); }
-  #ribbon .rb.done { background: none; box-shadow: inset 0 0 0 1.5px var(--ok); } #ribbon b { position: absolute; right: 22px; bottom: 5px; width: 9px; height: 9px; border-radius: 50%; background: var(--text); box-shadow: 0 0 0 4px color-mix(in srgb, var(--text) 18%, transparent); animation: rbnow 2.4s ease-in-out infinite; } @keyframes rbnow { 50% { box-shadow: 0 0 0 8px transparent; } }
+  #ribbon .rb.done { background: none; box-shadow: inset 0 0 0 1.5px var(--ok); } #ribbon b { position: absolute; right: 22px; bottom: 5px; width: 9px; height: 9px; border-radius: 50%; background: var(--text); isolation: isolate; }
+  /* the halo is a disc behind the dot (the same 4 px ring), and the pulse scales and fades it: a box-shadow animation repaints on the main thread
+     every frame, the whole page restyling 60 times a second at rest; transform and opacity run on the compositor (tests/test_idle_animations.py) */
+  #ribbon b::before { content: ''; position: absolute; left: -4px; top: -4px; width: 17px; height: 17px; border-radius: 50%; z-index: -1; background: color-mix(in srgb, var(--text) 18%, transparent); animation: rbnow 2.4s ease-in-out infinite; will-change: transform, opacity; } @keyframes rbnow { 50% { transform: scale(1.4706); opacity: 0; } }
   #ribbon .rb, #ribbon u { margin-left: 0; } #ribbon .rb { translate: 24px 0; } #ribbon u { translate: 24px 0; }
   body:has(#panel.open) #ribbon { display: none; }
-  @media (prefers-reduced-motion: reduce) { .w-tile.fresh .orb::before, #ribbon b { animation: none; } }
+  @media (prefers-reduced-motion: reduce) { .w-tile.fresh .orb::before, #ribbon b::before { animation: none; } }
   /* Small pleasures: the greeting, the burst, ORCH's answer, resting agents */
   .sparkle { position: fixed; z-index: 60; width: 0; height: 0; pointer-events: none; } .sparkle i { position: absolute; left: -3px; top: -3px; border-radius: 50%; }
   .greet { position: fixed; z-index: 55; left: 50%; top: 31%; transform: translateX(-50%); text-align: center; pointer-events: none; animation: greetin .9s cubic-bezier(.2,.8,.2,1) both, greetout .8s 2.6s ease-in both; }
