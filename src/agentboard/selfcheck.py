@@ -648,6 +648,7 @@ class Audit:
             go("/api/configuration/proposal", {"id": sug["id"], "decision": "accepted"})
             go("/api/configuration/clear", {})
             S.start("Selfcheck rename", "AGENT-7", None)
+            go("/api/rename/suggest", {"old": "AGENT-7"})
             go("/api/rename/plan", {"old": "AGENT-7", "new": "Selfcheck-7"})
             go("/api/rename", {"old": "AGENT-7", "new": "Selfcheck-7"})
             go("/api/rename/undo", {})

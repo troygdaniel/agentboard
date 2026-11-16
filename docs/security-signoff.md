@@ -40,11 +40,11 @@ writes a file this table does not name, or with another mode.
 | `backups/tasks-<stamp>.json.gz` | hourly snapshots (`backup.py:97`) | 600 (folder 700) |
 | `config.toml`, `.lock` | providers and switches; the write lock | 600 |
 | `sessions.json`, `chat-cursors.json`, `chat-delivered.json`, `chat-listeners.json`, `chat-presence.json`, `chat-wake.json`, `server-<pid>.json` | session name per Claude Code id and transcript path; where each agent read to; which wait runs (pid); when a named session last showed a sign of life (names and times only, `presence.py`); how the server was started (flags) | 600 (`serverstate.py:72`: `O_EXCL\|O_NOFOLLOW`) |
-| `.listeners.lock`, `.cursors.lock`, `chat-presence.json.lock`, `sessions.json.lock`, `aliases.json.lock`, `renames.json.lock`, `night.json.lock`, `configuration.json.lock`, `configuration-proposals.json.lock` | empty lock files (`listeners.py:48-61`; `statefile.py` `locked` makes `<file>.lock` beside each state file it updates, `statefile.py:21,56`) | 600 |
+| `.listeners.lock`, `.cursors.lock`, `chat-presence.json.lock`, `sessions.json.lock`, `aliases.json.lock`, `renames.json.lock`, `rename-waiting.json.lock`, `night.json.lock`, `configuration.json.lock`, `configuration-proposals.json.lock` | empty lock files (`listeners.py:48-61`; `statefile.py` `locked` makes `<file>.lock` beside each state file it updates, `statefile.py:21,56`) | 600 |
 | `reports/<card>.html`, `runs/<card>/<id>/{run.json,prompt.md,stdout.json,stderr.log}` | a card's report; one-shot run records (opt-in) | 600 (folders 700) |
 | `chat-casual.json`, `chat-autopilot.json` | only with the opt-in chat rounds on | 600 |
 | `archive.json`, `archive.json.bak` | cleared cards (`agentboard clear`, `store.py:107`); the previous version | 600 |
-| `aliases.json`, `renames.json` | `rename`: an old name to the new one, with its last use (`names.py:21`); the last 20 renames (`rename.py:26`) | 600 |
+| `aliases.json`, `renames.json`, `rename-waiting.json` | `rename`: an old name to the new one, with its last use (`names.py:21`); the last 20 renames (`rename.py:26`); the renamed agents that have not yet run a command as their new name (`rename.py:36`) | 600 |
 | `night.json` | night mode: on until when, and the queue of card ids (`night.py:20`) | 600 |
 | `configuration.json`, `configuration-proposals.json` | only with `[agents] configurations` on: the applied configuration and the proposals (`configurations.py:27`, `configproposals.py:19`) | 600 |
 | `awake.json`, `asleep.jsonl` | the server's minute tick: the time of the last tick; the stretches the Mac slept, two times each, 14 days (`awake.py:19-20`) | 600 |
