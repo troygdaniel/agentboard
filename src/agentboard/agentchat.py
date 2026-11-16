@@ -95,7 +95,10 @@ STOP = set("the a an and or of to in on for with is are was were be it this that
 
 
 def _words(text):
-    return [w for w in re.findall(r"[a-z0-9][a-z0-9_./-]{1,}", str(text or "").lower()) if w not in STOP]
+    """The words of a query: letters and digits of any script (an accented or Japanese word is one word, not the ASCII pieces around its
+    letters), with . / - _ inside. One ASCII character alone is filler; one character of another script is a word."""
+    found = re.findall(r"[^\W_][\w./-]*", str(text or "").lower())
+    return [w for w in found if (len(w) > 1 or not w.isascii()) and w not in STOP]
 
 
 def recall(tasks, chat, query="", agent=None, card=None, limit=10, log_lines=6):

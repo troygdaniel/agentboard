@@ -10,7 +10,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from agentboard import cli, doctor, lockdown, lookup, plugins, reports, untrusted
+from agentboard import agentchat, cli, doctor, lockdown, lookup, plugins, reports, untrusted
 from agentboard.store import BoardError, Store
 
 ESC = "\x1b"
@@ -121,6 +121,29 @@ class Cards(Base):
         with self.assertRaises(BoardError) as cm:
             lookup.lookup(self.s, "widget", only="notes")
         self.assertIn("cards, reports", str(cm.exception))
+
+
+class NonAscii(Base):
+    """A word with an accent, or in another script, is one word: not the ASCII pieces around its letters (card sweep-fix-queue)."""
+
+    def test_words_keep_accented_and_other_script_words_whole(self):
+        self.assertEqual(lookup.words_of("naïve café résumé"), ["naïve", "café", "résumé"])
+        self.assertEqual(lookup.words_of("日本語のテスト"), ["日本語のテスト"])
+        self.assertEqual(lookup.words_of("本"), ["本"])                  # one character is a word in that script
+        self.assertEqual(lookup.words_of("a b c"), [])                  # one ASCII letter is still filler
+        self.assertEqual(lookup.words_of("fail-fast e6-generator v1.2.3"), ["fail-fast", "e6-generator", "v1.2.3"])   # ASCII is as it was
+
+    def test_an_accented_word_does_not_match_the_plain_words_that_share_its_pieces(self):
+        self.finish("menu-card", "Cafeteria summary report", "a plain menu")
+        self.finish("cv-card", "Café résumé update")
+        self.assertEqual([h["where"] for h in lookup.lookup(self.s, "résumé")[0]], ["cv-card [done]"])
+        self.assertEqual([h["where"] for h in lookup.lookup(self.s, "café")[0]], ["cv-card [done]"])
+
+    def test_a_japanese_query_finds_a_japanese_card_and_recall_shares_the_fix(self):
+        self.finish("jp-note", "日本語のテスト notes")
+        self.assertEqual(lookup.lookup(self.s, "日本語のテスト")[0][0]["where"], "jp-note [done]")
+        rows = agentchat.recall(self.s.load_all(), [], "日本語のテスト")
+        self.assertEqual([r["id"] for r in rows if r["kind"] == "card"], ["jp-note"])
 
 
 class Masking(Base):
