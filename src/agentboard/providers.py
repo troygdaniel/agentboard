@@ -141,11 +141,13 @@ def http(arg, conf, task, base_dir):
 
 
 def command(arg, conf, task, base_dir):
-    """Run a shell command (cwd = project root). {arg} and {title} are
-    substituted shell-quoted."""
+    """Run a shell command (cwd = project root). {arg} and {title} are substituted shell-quoted, in ONE pass: a value that
+    itself holds the text "{title}" stays text. Two passes pasted the title inside the arg's quotes, and a quote in the title then
+    ended the string, so card text ran as shell (tests/test_provider_command_quoting.py)."""
     import shlex
     _not_locked()
-    cmd = conf["run"].replace("{arg}", shlex.quote(arg)).replace("{title}", shlex.quote(task["title"]))
+    values = {"{arg}": shlex.quote(str(arg)), "{title}": shlex.quote(str(task["title"]))}
+    cmd = re.sub(r"\{arg\}|\{title\}", lambda m: values[m.group(0)], conf["run"])
     try:
         r = subprocess.run(cmd, shell=True, capture_output=True, text=True,
                            timeout=conf.get("timeout", TIMEOUT), cwd=Path(base_dir).parent, **private.child())

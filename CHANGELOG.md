@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### A command provider can no longer be made to run card text (Nov 15, night sweep)
+A `type = "command"` provider filled `{arg}` and then `{title}`. An arg that was the text `{title}` was quoted, and the card's title was then pasted inside those quotes, so a quote in the title ended the string and the rest ran as shell. Both come from a card (its `--ctx` and its title).
+- Both placeholders are now filled in one pass: text that arrives through one value is never read again as a placeholder. Only boards with a command provider set up were exposed; none ships.
+- Checked: `tests/test_provider_command_quoting.py` (the case fails on the old code).
+
 ### A night queue: agents take the next card themselves (Nov 15, card retro-night-queue, retro rec 13)
 Off by default; with the switch off, or never used, nothing on the board changes. When the owner (or ORCH, at their word) turns Night on, ORCH lines up specified Todo cards and an agent with a free hand takes the next one itself instead of waiting for a message.
 - **The switch:** `agentboard night on [--until HH:MM]`, `off`, `status`, and a **Night queue** row in Settings > Agents and chat. It ends by itself at 08:00 unless told another time. While it is on the header shows a chip (`Night · 3 queued · until 08:00`); turning it on or off posts one line to the chat.
