@@ -79,7 +79,7 @@ class Watch(unittest.TestCase):
         self.assertIn("esc(t._more.map(x => x.title).join(' · '))", w)
         for part in ("esc(name(t))", "esc(line)", "esc(t.title)", "esc(y.say || verb)", "esc(a)", "esc(t.id)"):
             self.assertIn(part, w)
-        self.assertIn("const watchPer = () => innerWidth >= 1180 ? 9 : innerWidth >= 780 ? 6 : 3;", PAGE)
+        self.assertIn("const watchPer = () => (innerWidth >= 1180 ? 3 : innerWidth >= 780 ? 2 : 1) * watchFitRows();", PAGE)
 
     def test_a_change_is_shown_as_a_change(self):
         w = body("watchHtml")

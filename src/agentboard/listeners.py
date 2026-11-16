@@ -198,5 +198,6 @@ def read_cursors(board_dir):
 def receipts(board_dir):
     """What the chat panel needs to say sent / delivered / seen / answered and whether anyone will wake: the cursors (seen), what was
     printed to each name and when (delivered), and the listeners."""
-    from . import cursors
-    return {**cursors.receipts(board_dir), "listening": listening(board_dir), "seen": presence.read(board_dir)}
+    from . import cursors, rename
+    return {**cursors.receipts(board_dir), "listening": listening(board_dir), "seen": presence.read(board_dir),
+            "renames": rename.waiting(board_dir)}   # renamed agents that have not yet answered to their new name (rename-from-board)

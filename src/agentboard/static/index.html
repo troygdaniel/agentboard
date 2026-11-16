@@ -281,6 +281,9 @@
   .cards { display: flex; flex-direction: column; gap: 10px; flex: 1; min-height: 48px; overflow-y: auto; padding: 4px 6px 10px; }
   .cards::-webkit-scrollbar { width: 6px; } .cards::-webkit-scrollbar-thumb { background: var(--line); border-radius: 3px; }
   .cards::-webkit-scrollbar-thumb:hover { background: var(--neutral); }
+  /* the ORCH line floats over the bottom 45 px of every column (sweep2-ux): a list scrolled to its end leaves its last card clear of it, and the Show more button under the list sits above it
+     (tests/qa/orch_line_clear_check.mjs). Desktop widths only: the phone layout is its own. */
+  @media (min-width: 701px) { .board .col .cards { padding-bottom: 56px; } .board .col .more { margin-bottom: 48px; } }
 
   .card {
     background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
@@ -519,7 +522,9 @@
   .orb { position: absolute; left: 50%; top: 50%; width: 54px; height: 54px; margin: -27px 0 0 -27px; border-radius: 50%; overflow: hidden; display: grid; place-items: center; background: color-mix(in srgb, var(--c) 34%, var(--surface)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c) 45%, transparent), inset 0 -8px 14px color-mix(in srgb, #000 22%, transparent); }
   .orb::before { content: ''; position: absolute; inset: -30%; background: conic-gradient(from var(--spin), transparent 0 55%, color-mix(in srgb, var(--c) 55%, transparent) 78%, transparent 100%); opacity: .7; }   /* one soft band of its own colour, turning while it works */
   .orb::after { content: ''; position: absolute; inset: 0; border-radius: 50%; background: radial-gradient(circle at var(--ox) var(--oy), color-mix(in srgb, #fff 22%, transparent), transparent 46%); }
-  .orb i { position: relative; z-index: 1; font-style: normal; font-size: 21px; font-weight: 700; color: var(--c); }
+  /* text in an agent's or a state's own colour sits on a tile or an orb tinted with that colour: it is mixed toward the text colour (darker in the light theme, lighter in the dark one) so it reads
+     (sweep2-ux: the orb's digit, the tile's agent name, state word and You line; tests/qa/tile_contrast_check.mjs) */
+  .orb i { position: relative; z-index: 1; font-style: normal; font-size: 21px; font-weight: 700; color: color-mix(in srgb, var(--c) 80%, var(--text)); }
   .w-tile:not(.fresh) .orb::before { opacity: .35; }
   .w-tile.fresh .orb::before { animation: orbspin 16s linear infinite; } @keyframes orbspin { to { transform: rotate(360deg); } }
   .w-idling .orb { filter: grayscale(1); opacity: .55; animation: wrest 5s ease-in-out infinite; } .w-waiting .orb { --c: var(--y); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--y) 45%, transparent), 0 0 0 3px var(--bg), 0 0 0 5px color-mix(in srgb, var(--y) 60%, transparent); } .w-waiting .orb::before { display: none; } .w-waiting .w-ring { box-shadow: none; }
@@ -598,8 +603,12 @@
   /* Watch is only large cards, nine to a page, in agent-name order; the arrows walk them and, past an edge, slide in the next nine */
   .w-pages { position: relative; max-width: 1220px; margin: 8px auto 0; overflow: hidden; padding: 6px 0 44px; }
   .w-track { display: flex; transition: transform .7s cubic-bezier(.2,.8,.2,1); will-change: transform; }
-  .w-page { flex: 0 0 100%; min-width: 0; box-sizing: border-box; padding: 0 20px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-auto-rows: 150px; gap: 16px; align-content: start; transition: opacity .5s; } .w-page:not(.cur) { opacity: .25; }
+  .w-page { flex: 0 0 100%; min-width: 0; box-sizing: border-box; padding: 0 20px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-auto-rows: var(--w-row, 150px); gap: 16px; align-content: start; transition: opacity .5s; } .w-page:not(.cur) { opacity: .25; }
   @media (max-width: 1179px) { .w-page { grid-template-columns: repeat(2, minmax(0, 1fr)); } } @media (max-width: 779px) { .w-page { grid-template-columns: minmax(0, 1fr); } }
+  /* a short desktop window (sweep2-ux): the rows shrink from 150 px to 120 so three still fit above the pager (56 px under the grid) and the ORCH line (the bottom 67 px of the window, 4 px to spare); --w-top is
+     where the grid starts (the header wraps under 1200 px) and --w-rows is set by watchFitRows(): 3 unless even 120 px rows will not fit. tests/qa/watch_pager_check.mjs */
+  @media (min-width: 780px) { .w-pages { --w-rows: 3; --w-top: 200px; --w-row: clamp(120px, calc((100vh - var(--w-top) - 127px - (var(--w-rows) - 1) * 16px) / var(--w-rows)), 150px); } }
+  @media (min-width: 780px) and (max-width: 1199px) { .w-pages { --w-top: 252px; } }
   .w-dots { position: relative; display: flex; justify-content: center; align-items: center; gap: 10px; margin-top: -18px; }
   .w-dot { width: 9px; height: 9px; padding: 0; border-radius: 50%; border: 0; background: color-mix(in srgb, var(--text) 22%, transparent); cursor: pointer; transition: width .3s, background .3s; } .w-dot.on { width: 26px; border-radius: 99px; background: var(--text); }
   .w-dot.ping { background: var(--need); animation: wping 1.6s ease-in-out infinite; } @keyframes wping { 50% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--need) 25%, transparent); } }
@@ -607,13 +616,13 @@
   .w-tile.w-waiting { --y: var(--need); background: radial-gradient(140% 100% at 0 0, color-mix(in srgb, var(--y) 12%, transparent), transparent 60%), color-mix(in srgb, var(--surface) 70%, transparent); box-shadow: inset 0 0 0 1px transparent, 0 18px 40px -24px color-mix(in srgb, var(--y) 45%, transparent); outline: 1.5px dashed color-mix(in srgb, var(--y) 60%, transparent); outline-offset: -1.5px; }
   .w-tile.w-waiting.ask { --y: var(--err); } .w-tile.w-waiting.rev { --y: var(--ok); }
   .w-waiting .w-ring { border-radius: 50%; box-shadow: inset 0 0 0 3px color-mix(in srgb, var(--y) 55%, transparent); } .w-waiting .w-ring span { color: var(--y); } .w-ring em.n { right: -2px; bottom: -2px; min-width: 22px; height: 22px; border-radius: 99px; display: grid; place-items: center; background: var(--y); color: var(--bg); font-size: 12px; } .w-ring em.n::after { content: ''; }
-  .w-waiting .w-tx b { color: var(--text); } .w-verb { font-style: normal; font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--y); } .w-waiting .w-age { color: var(--y); }
+  .w-waiting .w-tx b { color: var(--text); } .w-verb { font-style: normal; font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: color-mix(in srgb, var(--y) 80%, var(--text)); } .w-waiting .w-age { color: var(--y); }
   .w-tile.w-idling { cursor: default; background: none; box-shadow: inset 0 0 0 1px var(--line); opacity: .55; } .w-idling .w-ring { border-radius: 50%; box-shadow: inset 0 0 0 2px var(--line); } .w-idling .w-ring span, .w-idling .w-tx b { color: var(--muted); } .w-idling .w-now { color: var(--muted); font-weight: 500; }
   .w-tile.sel.w-waiting { outline: 2px solid var(--text); outline-offset: 3px; } .w-tile { align-content: center; }
   @media (prefers-reduced-motion: reduce) { .w-track { transition: none; } .w-dot.ping { animation: none; } }
   /* Agent status (card agent-status-slice-1, docs/status-visibility-design.md): Watch keeps its 3x3 tiles. A tile says ONE state word in one colour at its top right (working, silent, presumed gone,
      blocked, waiting on you, in review); how long since the agent was heard shows when you hover or focus the tile. One quiet line says when the board itself slept. */
-  .w-state { --sc: var(--muted); position: absolute; right: 20px; top: 16px; font-style: normal; font-size: 11px; font-weight: 700; letter-spacing: .06em; color: var(--sc); white-space: nowrap; }
+  .w-state { --sc: var(--muted); position: absolute; right: 20px; top: 16px; font-style: normal; font-size: 11px; font-weight: 700; letter-spacing: .06em; color: color-mix(in srgb, var(--sc) 80%, var(--text)); white-space: nowrap; }
   .w-state.s-working { --sc: var(--ok); } .w-state.s-silent { --sc: var(--run); } .w-state.s-gone, .w-state.s-blocked { --sc: var(--err); } .w-state.s-waiting { --sc: var(--warn); } .w-state.s-review { --sc: var(--info); }
   /* a tile is tinted by its state, in the hue of its word: working green, silent orange, gone or blocked red, waiting on you amber, in review blue. A resting tile stays untinted. */
   .w-tile.s-working { --st: var(--ok); } .w-tile.s-silent { --st: var(--run); } .w-tile.s-gone, .w-tile.s-blocked { --st: var(--err); }
@@ -660,7 +669,7 @@
   .w-ring span { position: absolute; inset: 0; display: grid; place-items: center; font-size: 24px; font-weight: 700; color: var(--c); } .w-ring em { position: absolute; right: -4px; bottom: -2px; font-style: normal; font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--muted); }
   .w-ring em::after { content: '%'; font-weight: 500; }
   .w-tile.fresh .w-ring::after { content: ''; position: absolute; inset: -4px; border-radius: 50%; border: 2px solid var(--c); opacity: 0; animation: wpulse 2.2s ease-out infinite; } @keyframes wpulse { 0% { transform: scale(.86); opacity: .55; } 100% { transform: scale(1.22); opacity: 0; } }
-  .w-tx { min-width: 0; display: flex; flex-direction: column; gap: 3px; } .w-tx b { font-size: 13px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--c); }
+  .w-tx { min-width: 0; display: flex; flex-direction: column; gap: 3px; } .w-tx b { font-size: 13px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: color-mix(in srgb, var(--c) 78%, var(--text)); }
   .w-now { font-size: 17px; font-weight: 650; line-height: 1.28; letter-spacing: -.01em; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; text-wrap: balance; } .w-card { font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .w-tile .segs { grid-column: 1 / -1; } .w-age { position: absolute; right: 20px; top: 16px; font-style: normal; font-size: 11px; color: var(--muted); } .w-tile.fresh .w-age { color: var(--c); font-weight: 700; }
   .card .stepbtn { border-color: var(--ok); } .you-help { display: flex; gap: 14px; justify-content: flex-end; margin-top: 10px; }
@@ -3049,7 +3058,7 @@ function watchHtml(by, n) {   // The whole team. Working agents are tiles (alive
   const mains = [...liveBy.values()].map(g => { g.sort((a, b) => (Date.parse(b.updated) || 0) - (Date.parse(a.updated) || 0)); g[0]._more = g.slice(1); return g[0]; });
   const byAgent = n => n === 'Unassigned' ? '\uffff' : n;   // by agent name, Unassigned last; one agent's working tile, then its waiting tile, then resting: a tile always lands in the same place
   const cards = [...mains.map(t => [name(t), 0, tile(t)]), ...[...groups.values()].map(g => [name(g[0]), 1, waitTile(g)]), ...idle.map(a => [a, 2, idleTile(a)])]
-    .sort((x, y) => byAgent(x[0]).localeCompare(byAgent(y[0]), undefined, { numeric: true }) || x[1] - y[1]).map(x => x[2]), per = watchPer(), pages = [];
+    .sort((x, y) => byAgent(x[0]).localeCompare(byAgent(y[0]), undefined, { numeric: true }) || x[1] - y[1]).map(x => x[2]), per = (watchPerWas = watchPer()), pages = [];
   for (let k = 0; k < cards.length; k += per) pages.push(cards.slice(k, k + per));
   watchPages = Math.max(1, pages.length); watchPage = Math.min(watchPage, watchPages - 1);
   pages.forEach((pg, k) => { if (k !== watchPage && pg.some(h => h.includes(' moved'))) watchPing.add(k); }); watchPing.delete(watchPage);
@@ -3066,7 +3075,7 @@ function watchHtml(by, n) {   // The whole team. Working agents are tiles (alive
 <div class="deck-rings live" aria-hidden="true"><i></i><i></i><i></i><b class="orbit o1"><u></u></b><b class="orbit o2"><u></u></b></div>${watchBurst ? '<div class="w-burst" aria-hidden="true"><i></i><i></i><i></i></div>' : ''}
 <div class="watch-head"><div class="deck-cleared flat" aria-label="Cleared this session">${deckClearedHtml()}</div>${!n && clearTimes.length > 1 ? `<em class="w-stat">in ${(m => m < 1 ? 'under a minute' : m < 90 ? Math.round(m) + ' min' : (m / 60).toFixed(1) + ' h')((clearTimes[clearTimes.length - 1] - clearTimes[0]) / 60000)}</em>` : ''}</div>
 ${watchSleepHtml(watchStatus && watchStatus.asleep)}
-<div class="w-pages"><div class="w-track" style="transform:translateX(${-watchPage * 100}%)">${pages.map((pg, k) => `<div class="w-page${k === watchPage ? ' cur' : ''}" data-page="${k}"${k === watchPage ? '' : ' inert'}>${pg.join('')}</div>`).join('') || '<p class="w-none">Nobody is here yet.</p>'}</div></div>${live.length ? '' : orchOffer()}
+<div class="w-pages" style="--w-rows:${watchFitRows()}"><div class="w-track" style="transform:translateX(${-watchPage * 100}%)">${pages.map((pg, k) => `<div class="w-page${k === watchPage ? ' cur' : ''}" data-page="${k}"${k === watchPage ? '' : ' inert'}>${pg.join('')}</div>`).join('') || '<p class="w-none">Nobody is here yet.</p>'}</div></div>${live.length ? '' : orchOffer()}
 ${focus}${watchPages > 1 ? `<nav class="w-dots" aria-label="Pages"><button type="button" class="w-arrow" data-wpage="${watchPage - 1}" aria-label="Previous page"${watchPage ? '' : ' disabled'}>‹</button>${pages.map((_, k) => `<button type="button" class="w-dot${k === watchPage ? ' on' : ''}${pinged[k] ? ' ping' : ''}" data-wpage="${k}" aria-label="Page ${k + 1} of ${watchPages}"${k === watchPage ? ' aria-current="true"' : ''}></button>`).join('')}<button type="button" class="w-arrow" data-wpage="${watchPage + 1}" aria-label="Next page"${watchPage < watchPages - 1 ? '' : ' disabled'}>›</button></nav>` : ''}</section>`;
 }
 let watchPage = 0, watchPages = 1, watchOpenId = null, watchOpenNew = false, watchDimNew = false; const watchPing = new Set();
@@ -3105,7 +3114,16 @@ function watchToggle(wid) {   // Enter, or a click: this card's details open whe
       return; } }
   watchDimNew = open && !watchOpenId; watchOpenId = open ? wid : null; watchOpenNew = open; { const tt = wid ? (wid.startsWith('wait:') ? wid.slice(5) : (byId.get(wid) || {}).agent) : ''; touch(open ? 'rise' : 'settle', tt); } render();
 }
-const watchPer = () => innerWidth >= 1180 ? 9 : innerWidth >= 780 ? 6 : 3;   // three across and three down on a wide window, two across and three down on a medium one
+// Three across on a wide window, two across on a medium one, one on a narrow one; three rows down. On a short desktop window (sweep2-ux) the page arrows and dots, 26 px under the last row, would sit
+// behind the ORCH line (it floats over the bottom 67 px of the window), so the rows get shorter (CSS: --w-row, 150 px down to 120, from the window's height); only when even 120 px rows will not fit
+// does the page take two rows, or one. Under 780 px wide the layout is the phone's and stays at three.
+const WATCH_ROW_MIN = 120;
+const watchFitRows = () => { if (innerWidth < 780) return 3; const room = innerHeight - (innerWidth >= 1200 ? 200 : 252) - 127;   // below the grid's top: the pager (56 px under the grid) and the ORCH line (67 px), 4 px to spare
+  for (let n = 3; n > 1; n--) if ((room - (n - 1) * 16) / n >= WATCH_ROW_MIN) return n;
+  return 1; };
+const watchPer = () => (innerWidth >= 1180 ? 3 : innerWidth >= 780 ? 2 : 1) * watchFitRows();
+let watchPerWas = 0, watchResizeT = 0;   // a window resized to another size re-splits the pages (the cards are not redrawn until something changes otherwise)
+addEventListener('resize', () => { clearTimeout(watchResizeT); watchResizeT = setTimeout(() => { if (document.querySelector('.deck.watch') && watchPer() !== watchPerWas) render(); }, 150); });
 function watchGo(k, pickEdge) {   // to another page: the cards slide across; nothing is redrawn
   if (k < 0 || k >= watchPages) { touch('bump'); return false; }
   const track = document.querySelector('.w-track'); if (!track) return false;
@@ -3146,6 +3164,10 @@ function watchMove(dx, dy) {   // the arrows walk the cards on this page; past i
 }
 function watchPick(el) { watchSel = el.dataset.wid; document.querySelectorAll('.w-nav.sel').forEach(x => x.classList.remove('sel')); el.classList.add('sel'); el.focus({ preventScroll: true }); }
 function watchOpen(el) { watchToggle(el.dataset.wid); }
+document.addEventListener('focusin', e => {   // a tile reached with Tab is the selected one, as it is after an arrow key or a click: Enter opens it (sweep2-ux)
+  const w = e.target.closest?.('.deck.watch .w-nav'); if (!w || w.dataset.wid === watchSel) return;
+  watchSel = w.dataset.wid; document.querySelectorAll('.w-nav.sel').forEach(x => x.classList.remove('sel')); w.classList.add('sel');
+});
 document.addEventListener('keydown', e => {
   if (!(MEFIRST && nowWatch) || hudIsOpen() || openId || e.metaKey || e.ctrlKey || e.altKey || /INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName || '')) return;
   const d = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[e.key];
@@ -3234,6 +3256,7 @@ function deckPose(p, mode = 'glide', opts = {}) {
   if (top && (deckIds[at] !== deckTop || !deck.querySelector('.deck-head').firstChild || mode === 'still')) {
     if (deckIds[at] !== deckTop && deckArm) deckDisarm(true);
     const prevAt = deckIds.indexOf(deckTop); deckTop = deckIds[at]; deck.querySelector('.deck-head').innerHTML = deckHeadHtml(top, at, n); deckAgent = top.agent || ''; gaugesSync();
+    if (deckArm === deckTop) { const b = deckArmTarget(); if (b) b.classList.add('deck-armed'); }   // a redraw (a poll, another card's update) rebuilt the card: the arm is still live, so its button shows it again
     const m = $('deck-more'); if (m && m.dataset.for !== deckTop) { m.dataset.for = deckTop; if (deckOpen) { const k = deckMore.get(deckTop); m.innerHTML = k ? k[1] : '<p class="deck-wait">Loading the details…</p>'; deckFill(); } }
     if (mode !== 'still' && performance.now() - deckFlipAt > 45) { deckFlipAt = performance.now(); deckSound('flip', top.agent, at - prevAt); }   // each card you pass turns with a sound, in its agent's voice; a fast drag is not a rattle
   }
@@ -3332,9 +3355,12 @@ function deckDetails(on) {   // the details slide out beside the card; the card 
   m.tabIndex = on ? 0 : -1; if (on) { m.removeAttribute('aria-hidden'); m.dataset.for = deckTop; const k = deckMore.get(deckTop); m.innerHTML = k ? k[1] : '<p class="deck-wait">Loading the details…</p>'; deckFill(); } else m.setAttribute('aria-hidden', 'true');
 }
 function deckDisarm(quiet) { clearTimeout(deckArmT); const was = deckArm; deckArm = null; if (was && !quiet) deckSound('disarm'); document.querySelectorAll('.deck-armed').forEach(x => x.classList.remove('deck-armed')); if (was && !quiet) { const t = byId.get(deckTop), d = $('board').querySelector('.deck-head'); if (t && d) d.innerHTML = deckHeadHtml(t, deckIds.indexOf(deckTop), deckIds.length); } }
+function deckArmTarget() {   // the front card's first answer: the button Space arms and then presses
+  const t = byId.get(deckTop), slot = $('board').querySelector('.deck-slot.front'); if (!t || !slot) return null;
+  return dkKind(t) === 0 ? slot.querySelector('[data-quick][data-text="Go ahead"]') : dkKind(t) === 1 ? (slot.querySelector('[data-step]') || slot.querySelector('[data-done]')) : $('board').querySelector('.deck-head .deck-fix');
+}
 function deckSpace() {   // Space arms the card's first answer and shows which; Space again within three seconds sends it. One key never answers.
-  const t = byId.get(deckTop), slot = $('board').querySelector('.deck-slot.front'); if (!t || !slot) return;
-  const btn = dkKind(t) === 0 ? slot.querySelector('[data-quick][data-text="Go ahead"]') : dkKind(t) === 1 ? (slot.querySelector('[data-step]') || slot.querySelector('[data-done]')) : $('board').querySelector('.deck-head .deck-fix'); if (!btn) return;
+  const t = byId.get(deckTop), btn = deckArmTarget(); if (!t || !btn) return;
   if (deckArm === t.id) { deckDisarm(true); btn.click(); return; }
   deckArm = t.id; touch('arm'); btn.classList.add('deck-armed'); $('board').querySelector('.deck-head').innerHTML = deckHeadHtml(t, deckIds.indexOf(deckTop), deckIds.length);
   clearTimeout(deckArmT); deckArmT = setTimeout(() => deckDisarm(false), 3000);
@@ -3344,7 +3370,7 @@ document.addEventListener('click', e => {
   if (nav) deckStep(+nav.dataset.deck); else if (det) deckDetails(!deckOpen); else if (to && !to.classList.contains('front')) { e.preventDefault(); e.stopPropagation(); deckGo(to.dataset.deckTo); }
 }, true);
 document.addEventListener('keydown', e => {
-  if (!MEFIRST || e.metaKey || e.ctrlKey || e.altKey) return;
+  if (!MEFIRST || nowWatch || e.metaKey || e.ctrlKey || e.altKey) return;   // the Watch has its own keys (watchMove, Enter and Esc above): this handler threw there and cancelled the key (sweep2-ux)
   const t = e.target, typing = t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable);
   if (document.querySelector('#panel.open, #tour.open')) return;
   if (typing) { if (e.key === 'Escape') t.blur(); return; }
@@ -3353,7 +3379,7 @@ document.addEventListener('keydown', e => {
     e.preventDefault(); e.stopPropagation(); deckStep(e.key === 'ArrowDown' ? 1 : -1); }
   else if (e.key === 'Home' || e.key === 'End') { e.preventDefault(); e.stopPropagation(); deckStep(e.key === 'Home' ? -999 : 999); }
   else if (e.key === ' ' && !(t && t.closest && t.closest('button, a, [role="button"]'))) { e.preventDefault(); e.stopPropagation(); deckSpace(); }
-  else if (e.key === 'Enter' && !(t && t.closest && t.closest('button, a'))) { e.preventDefault(); e.stopPropagation(); deckDetails(!deckOpen); }   // Enter opens and closes the details, here and on Watch
+  else if (e.key === 'Enter' && !(t && t.closest && t.closest('button, a'))) { e.preventDefault(); e.stopPropagation(); deckDetails(!deckOpen); }   // Enter opens and closes the details (on the Watch: the Watch's own handler, above)
   else if (e.key === 'Escape' && deckOpen) { e.preventDefault(); e.stopPropagation(); deckDetails(false); }
   else if (e.key === 'r' || e.key === 'R') { const inp = $('board').querySelector('.deck-slot.front input[name="text"]'); if (inp) { e.preventDefault(); e.stopPropagation(); inp.focus(); } }   // r puts you in the reply box: it never answers by itself
 }, true);

@@ -134,8 +134,8 @@ class Rename(Base):
         self.assertEqual({self.card(c)["agent"] for c in ("open1", "done1")}, {"Ives"})
         self.assertEqual(self.card("wren1")["agent"], "Wren")
         chat = self.s._read()["chat"]
-        self.assertEqual([m["sender"] for m in chat], ["Ives", "Pat", "Wren"])
-        self.assertEqual(chat[1]["to"], "Ives")
+        self.assertEqual([m["sender"] for m in chat], ["Ives", "Pat", "Wren", "Pat"])   # the last is the board's line telling Ives (test_rename_tells_agent)
+        self.assertEqual((chat[1]["to"], chat[3]["to"], chat[3].get("via")), ("Ives", "Ives", "board"))
         self.assertEqual(cursors.read(self.d), {"ives": 2})
         self.assertEqual(list(cursors.read_delivered(self.d)), ["ives"])
         self.assertEqual(list(listeners._read(self.d)), ["Ives"])
@@ -250,7 +250,9 @@ class Undo(Base):
         p = rename.undo(self.s)
         self.assertEqual((p["old"], p["new"]), ("Ives", "Scout"))
         self.assertEqual([self.card(c)["agent"] for c in ("open1", "done1", "wren1")], before["cards"])
-        self.assertEqual([(m["sender"], m.get("to")) for m in self.s._read()["chat"]], before["chat"])
+        chat = self.s._read()["chat"]
+        self.assertEqual([(m["sender"], m.get("to")) for m in chat[:3]], before["chat"])   # history is as it was; what follows is the board telling the agent, there and back
+        self.assertEqual([(m["sender"], m.get("to"), m.get("via")) for m in chat[3:]], [("Pat", "Scout", "board"), ("Pat", "Scout", "board")])
         self.assertEqual(cursors.read(self.d), before["cursors"])
         self.assertEqual(list(listeners._read(self.d)), before["listeners"])
         self.assertEqual((self.d / "config.toml").read_text(), before["config"])   # the pinned colour and the roster name are as they were

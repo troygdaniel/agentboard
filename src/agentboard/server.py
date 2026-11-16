@@ -602,7 +602,11 @@ def make_handler(default_store, port):
                     if not (isinstance(body.get("old"), str) and isinstance(body.get("new"), str)):
                         raise BoardError("old and new must be names")
                     p = rename.apply(self.store, body["old"], body["new"])
-                    self._send(200, {"plan": p, "lines": rename.describe(p), "undo": True})
+                    self._send(200, {"plan": p, "lines": rename.describe(p), "undo": True, "waiting": p["new"], "posted": p.get("posted")})   # waiting: the board shows the agent as waiting for its new name until it answers to it (receipts.renames)
+                elif path == "/api/rename/suggest":   # the dialog's Suggest button: one plain name from the agent's current card (nothing is written)
+                    if not isinstance(body.get("old"), str):
+                        raise BoardError("old must be a name")
+                    self._send(200, rename.suggest(self.store, body["old"]))
                 elif path == "/api/rename/undo":
                     p = rename.undo(self.store)
                     self._send(200, {"plan": p, "lines": rename.describe(p)})

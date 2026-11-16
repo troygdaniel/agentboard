@@ -756,6 +756,10 @@ def cmd_chat_inbox(a):
             unread = s.chat_inbox(name, after=after, limit=None)
             if unread or not a.wait or time.time() >= deadline:
                 break
+            note = renamed_note(s.dir, name)   # renamed while waiting: this wait ends with the new name, which is what wakes the agent (rename-from-board)
+            if note:
+                print(note)
+                return
             listeners.beat(s.dir, name)   # still here: a wait that dies stops saying so, whoever gets its pid (listeners.STALE_S)
             chatwake.sleep_until_change(s.dir, a.interval, max(0.0, min(chatwake.NET_S, deadline - time.time())))   # a stat a second; the board is read when a line lands
     msgs, more = (unread, []) if a.limit <= 0 else (unread[:a.limit], unread[a.limit:])   # the oldest first; the cursor stops at the last line shown, so the rest come next time
@@ -2036,6 +2040,10 @@ def cmd_answer(a):
                 return
             if not a.wait or time.time() >= deadline:
                 sys.exit(f"agentboard: no reply on {a.id} yet" + (f" after {a.timeout:g}s" if a.wait else ""))
+            note = renamed_note(s.dir, name) if name else None   # the card's agent was renamed while waiting: end with the new name (see chat inbox --wait)
+            if note:
+                print(note)
+                return
             if listener:
                 listeners.beat(s.dir, name, listener[1])   # still here (see chat inbox --wait)
             time.sleep(a.interval)
@@ -2577,6 +2585,7 @@ def main(argv=None):
     sp.add_argument("new", nargs="?", help="its new name (letters, digits, space, dot, hyphen, underscore; up to 40)")
     sp.add_argument("--dry-run", action="store_true", help="say what would change and change nothing")
     sp.add_argument("--undo", action="store_true", help="reverse the last rename (takes no names)")
+    sp.add_argument("--suggest", action="store_true", help="print one name for OLD from the card it is working on, and change nothing")
 
     sp = sub.add_parser("plugins", help="say whether plugins are allowed on this machine and which are loaded (no network call; imports nothing while off)")
     sp.set_defaults(fn=cmd_plugins)
@@ -2597,6 +2606,7 @@ def main(argv=None):
         _check_names(a)
     except BoardError as e:
         sys.exit(f"agentboard: {e}")
+    _switched(a)   # before the alias is followed: a session that says the NEW name itself has switched; one still saying the old name has not
     _canon_names(a)
     _seen_step(a)
     a._real_cli = argv is None   # the real command line, not a call from code: `init` chooses its profile by looking at the machine only here
@@ -2619,6 +2629,41 @@ def _check_names(a):
     for f in ("name", "to"):
         namesmod.check(getattr(a, f, None), f"--{f}")
     namesmod.check(os.environ.get("AGENTBOARD_NAME"), "AGENTBOARD_NAME")
+
+
+def _switched(a):
+    """After `agentboard rename OLD NEW` the board waits for NEW (rename.waiting). A command run as NEW itself (--name NEW, $AGENTBOARD_NAME=NEW,
+    `me --name NEW`) is the session saying it has switched: the wait ends. Run before _canon_names, so a command still run as OLD (which the alias
+    turns into NEW) does not count. Quiet on any trouble: a lost wait never stops a command."""
+    if a.cmd in NAMELESS_COMMANDS:
+        return
+    given = [v for v in (getattr(a, "name", None), os.environ.get("AGENTBOARD_NAME")) if isinstance(v, str) and v.strip()]
+    if not given:
+        return
+    try:
+        board = find_dir()
+        if not renamelib.waiting_path(board).exists():
+            return
+        al = namesmod.read(board)
+        for g in given:
+            if namesmod.key(g) not in al:   # said as itself, not an old name the alias would turn into this one
+                renamelib.switched(board, g)
+    except (BoardError, OSError):
+        return
+
+
+def renamed_note(board_dir, name):
+    """For a wait running under `name`: the sentence to end with when `name` has been renamed meanwhile (the alias says so), else None. The same
+    words as the board line the rename posted, so the agent reads one instruction twice at most, never two."""
+    try:
+        if not namesmod.path(board_dir).exists():
+            return None
+        now = namesmod.resolve(board_dir, name)
+    except OSError:
+        return None
+    if namesmod.key(now) == namesmod.key(name):
+        return None
+    return f"({renamelib.tell_line(name, now)} This wait under {name} has ended: start the next one as {now}.)"
 
 
 def _canon_names(a):
@@ -2724,6 +2769,11 @@ def cmd_rename(a):
             raise BoardError("no rename to undo")
         old, new, undoing = rec["new"], rec["old"], rec
     else:
+        if a.suggest:   # one plain name from the agent's current card, nothing written: what the dialog's Suggest button shows
+            if not a.old or a.new:
+                raise BoardError("--suggest takes the agent's current name alone: agentboard rename OLD --suggest")
+            print(renamelib.suggest(s, a.old)["name"])
+            return
         if not (a.old and a.new):
             raise BoardError("give the old and the new name: agentboard rename OLD NEW  (or --undo)")
         old, new, undoing = a.old, a.new, None

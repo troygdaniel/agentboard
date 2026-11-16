@@ -12,7 +12,15 @@ What moves, and what does not (the table in the design):
 The old name goes on working: names.add() writes the alias FIRST, so a half-finished rename is safe to run again (the same command finishes it), and
 a terminal still started as the old name keeps updating its cards (cli._canon_names). `--undo` runs the last rename the other way and drops the alias.
 Refused: a name another agent has or has had (a card, a line, a state file), ORCH, `all`, the owner's name, anything outside letters, digits, space,
-dot, hyphen and underscore (the new name goes into config.toml as text), and an old name nobody has. `--dry-run` writes nothing. No program is started."""
+dot, hyphen and underscore (the new name goes into config.toml as text), and an old name nobody has. `--dry-run` writes nothing. No program is started.
+
+Telling the running agent (card rename-from-board): the agent takes its name from what it was told, never from its terminal title (no environment variable
+carries the title; a session's own /rename title can be years stale while the board calls it by its real name), so a rename tells it in words. The rename
+posts ONE direct board line to the new name, the owner's line via "board" (tell_line), saying what to run; a `chat inbox --wait` or `answer --wait` started
+under the old name notices the alias on its next poll and ends with that same sentence (cli), which is what wakes the agent. Until a session calls itself
+by the new name (`agentboard me --name X`, or any command run as X: cli._switched), the board is WAITING for it: rename-waiting.json, read by
+waiting() for the page. A command still run under the old name does not end the wait. suggest() proposes a name from the agent's current card; plan()
+says when the agent is busy (a card in Doing)."""
 import json
 import re
 from datetime import datetime
@@ -25,6 +33,9 @@ NAME_RE = re.compile(r"^\w[\w .-]{0,39}$")
 RESERVED = {"orch", "all", "you"}
 RECORDS = "renames.json"
 KEEP_RECORDS = 20
+WAITING = "rename-waiting.json"
+STOP = set("the a an and or of to in on for with is are was were be it this that at by from as into not no new old my our your its "
+           "card cards agent agents board task tasks fix add make build".split())   # words that make no role name
 
 
 def key(name):
@@ -249,8 +260,9 @@ def plan(store, old, new, undoing=None):
             raise BoardError(f"{new} is an old name that still works as an alias for {al[nk]['to']}; pick another, or wait for it to expire")
     text = (d / "config.toml").read_text() if (d / "config.toml").exists() else ""
     _, cfg_lines, _, notes = edit_config(text, old, new, pin=(undoing or {}).get("pin"), undoing=bool(undoing))
+    busy = [{"id": t["id"], "title": str(t.get("title") or "")[:80]} for t in data["tasks"] if key(t.get("agent")) == ok and t.get("status") == "doing"]
     return {"old": old, "new": new, "cards": held, "open": opened, "log_lines": fields + learned, "chat_lines": chat,
-            "kept_lines": said + chat_said, "sides": sides, "config": cfg_lines, "notes": notes, "resume": resume,
+            "kept_lines": said + chat_said, "sides": sides, "config": cfg_lines, "notes": notes, "resume": resume, "busy": busy,
             "nothing": not (held or fields or learned or chat or sides or cfg_lines)}
 
 
@@ -272,12 +284,109 @@ def describe(p, dry=False):
     out.append(f"  {_n(p['kept_lines'], 'line')} that say \"{old}\" in their words stay as written: history is history")
     for n in p["notes"]:
         out.append(f"  note: {n}")
+    for b in p.get("busy") or []:
+        out.append(f"  note: {old} is working on {b['title']} ({b['id']}): safest to rename when idle")
     if dry:
         out.append("Nothing was changed. Run it again without --dry-run to rename.")
     else:
-        out.append(f"In the terminal that was {old}: type /rename {new} and set AGENTBOARD_NAME={new}.")
-        out.append(f"Until then --name {old} still works (it means {new}) for a day after its last use. Undo: agentboard rename --undo")
+        out.append(f"The board told {new} on its thread (line #{p['posted']}): a wait it has running under {old} ends with the same words, and the board waits for {new} until it answers to that name."
+                   if p.get("posted") else f"No board line went to {new} ({p.get('post_failed') or 'the chat refused it'}): tell it yourself.")
+        out.append(f"Its terminal title is yours: /rename {new} there keeps the tab and the session picker tidy. Until it switches, --name {old} still works (it means {new}) for a day. Undo: agentboard rename --undo")
     return out
+
+
+# -- telling the running agent, and waiting for it to switch --------------------------------------------------------------------
+
+def tell_line(old, new):
+    """The one sentence the board says to the renamed agent, and that a wait started under the old name ends with (cli.renamed_note)."""
+    return f"You are now {new} (was {old}): run agentboard me --name {new}, then restart your chat listener as {new}. Your cards, claims and thread came with you."
+
+
+def _tell(store, old, new, p):
+    """Post tell_line to the new name as the owner's board notice. Never fails the rename: the plan says what happened (posted: the line's seq)."""
+    try:
+        m = store.chat_send(store.owner, tell_line(old, new), kind="user", to=new, via="board")
+        p["posted"] = m["seq"]
+    except (BoardError, KeyError, TypeError) as e:
+        p["posted"] = None
+        p["post_failed"] = str(e)
+
+
+def waiting_path(board_dir):
+    return Path(board_dir) / WAITING
+
+
+def waiting(board_dir):
+    """{lower-cased new name: {old, new, at, seq}} for every rename whose agent has not yet called itself by its new name."""
+    d = statefile.load(waiting_path(board_dir), {})
+    return {k: v for k, v in d.items() if isinstance(v, dict) and isinstance(k, str)} if isinstance(d, dict) else {}
+
+
+def _wait_for(board_dir, old, new, seq, now):
+    def put(d):
+        d = d if isinstance(d, dict) else {}
+        d.pop(key(old), None)   # whatever this agent was told before, it is now told this
+        d[key(new)] = {"old": old, "new": new, "at": now.strftime("%Y-%m-%dT%H:%M:%S"), "seq": seq}
+        return d
+    statefile.update(waiting_path(board_dir), put, default={})
+
+
+def switched(board_dir, name):
+    """A session calls itself `name`: the board stops waiting for it. True when it was waiting. Nothing is read or written when no rename is pending."""
+    p = waiting_path(board_dir)
+    if not name or not p.exists():
+        return False
+    k = key(name)
+    hit = []
+
+    def drop(d):
+        d = d if isinstance(d, dict) else {}
+        if k in d:
+            hit.append(d.pop(k))
+        return d
+    statefile.update(p, drop, default={})
+    return bool(hit)
+
+
+# -- a name to suggest -------------------------------------------------------------------------------------------------------------
+
+def _role_word(title):
+    """The first word of a card's title that could name a role: letters only, three or more, not a stopword; Title-cased."""
+    for w in re.findall(r"[A-Za-z][A-Za-z'-]*", str(title or "")):
+        w = w.strip("'-")
+        if len(w) >= 3 and w.lower() not in STOP:
+            return w[0].upper() + w[1:] if w.islower() or w.isupper() else w
+    return None
+
+
+def suggest(store, old):
+    """One plain name for `old`, from the card it is working on (its Doing card, else its newest open card): the first telling word of the title and
+    "Bot", numbered when that name is taken; "Agent-N" when there is nothing to go by. {"name", "from"}; raises BoardError for an agent nobody knows."""
+    old = (old or "").strip()
+    ok = key(old)
+    with store._lock():
+        data, archive = _cards(store)
+        used = _names_in_use(store, data, archive)
+    if ok not in used and ok not in {key(n) for n in store.known_names()}:
+        raise BoardError(f"no agent named {old} on this board")
+    mine = [t for t in data["tasks"] if key(t.get("agent")) == ok and t.get("status") != "done"]
+    mine.sort(key=lambda t: (t.get("status") != "doing", str(t.get("updated") or "")), reverse=False)
+    doing = [t for t in mine if t.get("status") == "doing"]
+    pick = doing[-1] if doing else (sorted(mine, key=lambda t: str(t.get("updated") or ""))[-1] if mine else None)
+    taken = used | names.targets(store.dir) | RESERVED
+    word = _role_word(pick.get("title")) if pick else None
+    if word:
+        base = word if word.lower().endswith("bot") else f"{word}Bot"
+        base = base[:36]
+        source = f"its card {pick['id']}"
+    else:
+        base = "Agent"
+        source = "no card to go by" if not pick else f"its card {pick['id']} has no word to go by"
+    cands = ([base] if word else []) + [f"{base}-{n}" for n in range(1 if not word else 2, 100)]
+    name = next((c for c in cands if key(c) not in taken and NAME_RE.match(c)), None)
+    if name is None:
+        raise BoardError("every name this could suggest is taken: type one")
+    return {"name": name, "from": source}
 
 
 def _rekey(d, ok, new, combine=None):
@@ -383,6 +492,8 @@ def apply(store, old, new, undoing=None, now=None):
         _mark(store.dir, undoing)
     else:
         _record(store.dir, {"old": old, "new": new, "at": now.strftime("%Y-%m-%dT%H:%M:%S"), "pin": pin})
+    _tell(store, old, new, p)   # last: the cards and the thread are already under the new name when the agent reads it
+    _wait_for(store.dir, old, new, p.get("posted"), now)
     return p
 
 
