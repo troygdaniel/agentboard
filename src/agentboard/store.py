@@ -1079,6 +1079,9 @@ class Store:
             raise BoardError("kind must be 'agent' or 'user'")
         namesmod.check(sender, "the sender")   # a name is one line of plain text: a newline in one would draw a second chat line
         namesmod.check(to, "to")
+        if kind == "agent" and isinstance(sender, str) and sender.strip().lower() in (self.owner.strip().lower(), "all"):
+            # `chat tail` and `chat inbox` print "<name>: text" and agents read that as input: only the owner's own line (kind "user") carries the owner's name
+            raise BoardError(f"an agent's line cannot be signed {sender.strip()!r}: that is {'who a line goes to' if sender.strip().lower() == 'all' else 'the owner of this board'}; use your own session name")
         if kind == "agent":   # what the owner types is left as written (redact.py)
             sender = self._scrub(sender)
             to = self._scrub(to) if isinstance(to, str) else to   # a name, so a real one is untouched; a mirrored line keeps an unknown one, masked

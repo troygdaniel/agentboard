@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### An agent's chat line cannot be signed with the owner's name (Nov 15, night sweep)
+`chat send --name <the owner's name>` posted an agent line that read, in `chat tail` and `chat inbox`, as if the owner had written it; agents take those lines as input. "all" as a sender read as a broadcast from everyone.
+- An agent line signed with the owner's name or with "all" (any case, any spaces around it) is refused with one line saying why. The owner's own lines are untouched.
+- Checked: `tests/test_chat_owner_name.py`. Not covered: the board has no login, so a session can still call itself ORCH or any agent's name (SECURITY.md, Known gaps).
+
 ### `update ID 12.5` and `update ID 50%` no longer pretend a percent was set (Nov 15, night sweep)
 A lone number that was not a whole number (`12.5`, `50%`, `1e1`, `.5`) was taken as the status line, and the command answered "ID: 0%" as though the percent had been set. It now stops with "progress is a whole number from 0 to 100, got '12.5': write 50, not 50% or 12.5" and changes nothing; with words after it the command already refused. Whole numbers, and words alone ("half done", "v2", "3 of 5 steps") work as before. `tests/test_update_percent.py` (3).
 ### The chat archive names its day files only from a real date (Nov 15, night sweep)
