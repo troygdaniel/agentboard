@@ -40,9 +40,16 @@ writes a file this table does not name, or with another mode.
 | `backups/tasks-<stamp>.json.gz` | hourly snapshots (`backup.py:97`) | 600 (folder 700) |
 | `config.toml`, `.lock` | providers and switches; the write lock | 600 |
 | `sessions.json`, `chat-cursors.json`, `chat-delivered.json`, `chat-listeners.json`, `chat-presence.json`, `chat-wake.json`, `server-<pid>.json` | session name per Claude Code id and transcript path; where each agent read to; which wait runs (pid); when a named session last showed a sign of life (names and times only, `presence.py`); how the server was started (flags) | 600 (`serverstate.py:72`: `O_EXCL\|O_NOFOLLOW`) |
-| `.listeners.lock`, `.cursors.lock`, `chat-presence.json.lock` | empty lock files (`listeners.py:48-61`, `statefile.py` `locked`) | 600 |
+| `.listeners.lock`, `.cursors.lock`, `chat-presence.json.lock`, `sessions.json.lock`, `aliases.json.lock`, `renames.json.lock`, `night.json.lock`, `configuration.json.lock`, `configuration-proposals.json.lock` | empty lock files (`listeners.py:48-61`; `statefile.py` `locked` makes `<file>.lock` beside each state file it updates, `statefile.py:21,56`) | 600 |
 | `reports/<card>.html`, `runs/<card>/<id>/{run.json,prompt.md,stdout.json,stderr.log}` | a card's report; one-shot run records (opt-in) | 600 (folders 700) |
 | `chat-casual.json`, `chat-autopilot.json` | only with the opt-in chat rounds on | 600 |
+| `archive.json`, `archive.json.bak` | cleared cards (`agentboard clear`, `store.py:107`); the previous version | 600 |
+| `aliases.json`, `renames.json` | `rename`: an old name to the new one, with its last use (`names.py:21`); the last 20 renames (`rename.py:26`) | 600 |
+| `night.json` | night mode: on until when, and the queue of card ids (`night.py:20`) | 600 |
+| `configuration.json`, `configuration-proposals.json` | only with `[agents] configurations` on: the applied configuration and the proposals (`configurations.py:27`, `configproposals.py:19`) | 600 |
+| `awake.json`, `asleep.jsonl` | the server's minute tick: the time of the last tick; the stretches the Mac slept, two times each, 14 days (`awake.py:19-20`) | 600 |
+| `agent-states.jsonl`, `agent-states.jsonl.1`, `chat-archive/chat-<stamp>.jsonl`, `chat-archive/counts.json` | only with `[insights]` on: an agent's state word with a time (`agentstates.py:18`); every chat line as posted, one file a day, and lines per day and sender (`chatarchive.py`) | 600 (folder 700) |
+| `server.log`, `runs/<card>/supervisor.log` | the server's output when `agentboard start` runs it (`lifecycle.py:26`); a detached run's supervisor output (`runs.py:389`) | 600 |
 | `<project>/.gitignore` | `init` adds the line `.agentboard/` | your umask (a project file, `private.py:56`) |
 | `<project>/.claude/{settings.json,settings.json.orig,settings.json.bak}` | `hooks install` adds two entries (below), through a temp file renamed over the target; the pristine file is kept once as `.orig` and the previous version as `.bak` | an existing file keeps its mode; a file agentboard creates is 0600 (`hooks.py:351-379`) |
 | `~/.agentboard/boards.toml` | only if you register named boards (`boards.py:21`) | 600 |
