@@ -1016,6 +1016,16 @@ def _agent_name(a):
     return _store()._scrub(name)   # masked before it is written anywhere (sessions, listeners, cursors), as the store masks it on a card
 
 
+def _worker_name(a):
+    """The name an agent takes work under (claim, start): never the owner's name and never "all". The owner is the exception to "you may only
+    report on your own card" and "all" is who a chat line goes to, so rename refuses both too. The page, the owner's own channel, is not this path."""
+    name = _agent_name(a)
+    k = str(name).strip().lower()
+    if k == "all" or k == str(_store().owner).strip().lower():
+        raise BoardError(f"{str(name).strip()} is a name the board keeps for itself: take the card under your own session name")
+    return name
+
+
 # The agent palette, kept out of the status-color families (--warn/--hwarn amber ~25-50°, --ok/--hok green ~145-165°,
 # --err/--hbad red near 0/360°): an agent's color shows up on its cards' avatar disc and progress bar at all times, so a
 # hue in one of those bands would make a normal in-progress card misread as needing attention at a glance.
@@ -1116,8 +1126,9 @@ def cmd_spawn(a):
 
 
 def cmd_start(a):
-    hookslib.remember_session(_store().dir, _agent_name(a), transcript=a.transcript)
-    t, created = _store().start_card(a.title, _agent_name(a), None,   # --color is accepted and ignored
+    name = _worker_name(a)
+    hookslib.remember_session(_store().dir, name, transcript=a.transcript)
+    t, created = _store().start_card(a.title, name, None,   # --color is accepted and ignored
                                      a.description or "", a.id, blocked_by=a.blocked_by, force=a.force,
                                      parent_id=a.parent, model=a.model, size=a.size)
     if not created:
@@ -1384,7 +1395,7 @@ def cmd_rm(a):
 
 
 def cmd_claim(a):
-    name = _agent_name(a)
+    name = _worker_name(a)
     s = _store()
     hookslib.remember_session(s.dir, name, transcript=a.transcript)
     t = s.claim(a.id, name, force=a.force, model=a.model)   # --color is accepted and ignored
