@@ -29,6 +29,7 @@ _OFF = ("", "0", "false", "no", "off", "home")
 _NET = []   # the network guard, once installed (a second apply does not stack a second one)
 _PROC = []
 _ENV0 = {"seen": False, "value": None}   # what the SHELL put in $AGENTBOARD_PROFILE, noted before apply() writes its own work into the environment
+_LOCK0 = {"seen": False, "value": None}  # the same for $AGENTBOARD_LOCKDOWN: apply() exports it, and doctor must not then call it the shell's own
 
 
 def machine_file():
@@ -68,6 +69,11 @@ def reason(board_dir=None):
     return f"{s[0][0]}: {s[0][1]}" if s else None
 
 
+def shell_lockdown():
+    """$AGENTBOARD_LOCKDOWN as the SHELL set it (None when it did not), whatever apply() has exported since."""
+    return _LOCK0["value"] if _LOCK0["seen"] else os.environ.get(lockdown.ENV)
+
+
 def in_effect():
     """True once apply() has run in this process (or the environment says so): a cheap test for code that must behave differently."""
     return bool(_NET) or _word_is_work(os.environ.get(ENV))
@@ -88,6 +94,7 @@ def apply(board_dir=None):
         return None
     if not _ENV0["seen"]:   # note what the shell itself said before this process writes its own work into the variable (for what it starts)
         _ENV0.update(seen=True, value=os.environ.get(ENV))
+        _LOCK0.update(seen=True, value=os.environ.get(lockdown.ENV))
     os.environ[ENV] = WORK
     os.environ[lockdown.ENV] = "1"
     os.environ["AGENTBOARD_NO_PLUGINS"] = "1"
@@ -109,6 +116,7 @@ def reset():   # tests only: take the guards off again
     _NET.clear()
     _PROC.clear()
     _ENV0.update(seen=False, value=None)
+    _LOCK0.update(seen=False, value=None)
 
 
 # -- is this a machine that looks like the owner's own (a home Mac), or a fresh install on a managed PC? ----------------------------------------------
