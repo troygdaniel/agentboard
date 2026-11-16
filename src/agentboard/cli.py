@@ -1404,13 +1404,20 @@ def _print_subtasks(tasks, parent_id, file=None):
         print(f"  {k['id']}  {k['title']}" + ("  (done)" if k["status"] == "done" else ""), file=file)
 
 
+_NUMBERISH = re.compile(r"\s*[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?\s*%?\s*")   # 12.5, 50%, 1e1, .5: a percent someone meant, not words
+
+
 def _pct_and_text(a):
-    """`update ID 50 "text"`, or text-only `update ID "text"` (the % stays as it was)."""
+    """`update ID 50 "text"`, or text-only `update ID "text"` (the % stays as it was). A lone token that looks like a number but is not a whole
+    one (12.5, 50%, 1e1) was taken as the status line and the command answered "ID: 0%" as if the percent had been set: it is refused instead."""
     try:
         return int(a.progress), a.text
     except ValueError:
         if a.text is not None:
             raise BoardError(f"progress must be a number from 0 to 100, got {a.progress!r}") from None
+        if _NUMBERISH.fullmatch(a.progress):
+            raise BoardError(f"progress is a whole number from 0 to 100, got {a.progress!r}: write 50, not 50% or 12.5 "
+                             "(words alone, like \"waiting on CI\", are a status line)")
         return None, a.progress
 
 
