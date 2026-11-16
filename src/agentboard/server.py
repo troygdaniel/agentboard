@@ -22,7 +22,7 @@ from . import plugins, reports, runs, serverstate, settingsview, status as statu
 from . import markdown as mdlib
 from . import prompt as promptlib
 from . import wrapup as wrapuplib
-from .store import BoardError, Store, subtask_counts, subtask_list
+from .store import BoardError, Store, subtask_counts, subtask_list, viewing
 
 STATIC = Path(__file__).parent / "static"
 BOARD_PATH = re.compile(r"^/b/([a-z0-9][a-z0-9_-]{0,39})(/.*)?$")
@@ -304,6 +304,10 @@ def make_handler(default_store, port):
 
         # -- routes --------------------------------------------------------
         def do_GET(self):
+            with viewing():   # every read in a GET shares one parse of the board file per version of it (store.py: viewing)
+                self._do_get()
+
+        def _do_get(self):
             if not self._guard():
                 return
             url = urlparse(self.path)

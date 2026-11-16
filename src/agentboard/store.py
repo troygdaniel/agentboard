@@ -5,6 +5,7 @@ import functools
 import json
 import os
 import re
+import threading
 import time
 import unicodedata
 from pathlib import Path
@@ -102,6 +103,40 @@ def split_report(text, body=None):
     return first.strip(), (rest + "\n\n" + body.strip()) if body and body.strip() else rest
 
 
+# -- one parse of the board file for every read of a GET request (card sweep-perf) ---------------------------------------------------------
+# The page polls /api/tasks, /api/hud, /api/chat, /api/night and a card's detail, and each answer parsed the whole board file again: 21 ms apiece at
+# 5,000 cards, and each waited for the board lock. Inside `viewing()` (the server wraps every GET in it) the readers below share ONE parse of each
+# version of the file, found by its stat; nothing is shared outside it, so the CLI and every writer parse for themselves as ever. The price is a
+# rule for what a GET does with what it reads: it must not change it. tests/test_shared_parse.py runs every route and checks that nothing moved.
+_VIEW = threading.local()
+_SHARED = {}   # (kind, path of the file) -> (stat key of the file when it was parsed, the parsed value)
+_SHARED_LOCK = threading.Lock()
+
+
+@contextlib.contextmanager
+def viewing():
+    """Reads made inside this block, on this thread, may be served from the shared parse. The server's GET requests only."""
+    was = getattr(_VIEW, "on", False)
+    _VIEW.on = True
+    try:
+        yield
+    finally:
+        _VIEW.on = was
+
+
+def _viewing():
+    return getattr(_VIEW, "on", False)
+
+
+def _stat_key(path):
+    """Which version of a file this is: it is replaced whole (backup.write_atomic), so a new version has a new modified time, size or inode."""
+    try:
+        st = os.stat(path)
+    except OSError:
+        return None
+    return (st.st_mtime_ns, st.st_size, st.st_ino)
+
+
 class Store:
     def __init__(self, board_dir):
         self.dir = Path(board_dir)
@@ -146,6 +181,36 @@ class Store:
         data.setdefault("chat_agents", False)   # the board-wide switch for agents talking to each other; off until the owner turns it on
         return data
 
+    def _board_shared(self):
+        """The parsed board file, shared by every reader of this version of it (the caller holds the lock, or has none to take: see _data_for_reading)."""
+        key = _stat_key(self.path)
+        name = ("board", str(self.path))
+        if key is not None:
+            with _SHARED_LOCK:
+                hit = _SHARED.get(name)
+            if hit and hit[0] == key:
+                return hit[1]
+        data = self._read()
+        if key is not None and _stat_key(self.path) == key:   # the file did not move while it was read
+            with _SHARED_LOCK:
+                _SHARED[name] = (key, data)
+        return data
+
+    def _data_for_reading(self):
+        """The parsed board file for a method that only reads. In a GET (`viewing()`): the shared parse, with no lock when it is already there. Anywhere
+        else: a fresh parse under the lock, a copy nobody else holds."""
+        if not _viewing():
+            with self._lock():
+                return self._read()
+        key = _stat_key(self.path)
+        if key is not None:
+            with _SHARED_LOCK:
+                hit = _SHARED.get(("board", str(self.path)))
+            if hit and hit[0] == key:
+                return hit[1]
+        with self._lock():
+            return self._board_shared()
+
     def _write(self, data):
         """Atomic and flushed to disk, the previous version kept as tasks.json.bak (backup.py); then an hourly snapshot if one is due."""
         _check_cards(data["tasks"], self.path, saving=True)   # whatever asked for this save (a bug, a client's own card), a file the loader refuses is never written
@@ -165,8 +230,7 @@ class Store:
 
     def load(self):
         """The live board: every card still in tasks.json (cleared cards are in archive.json; load_all has both)."""
-        with self._lock():
-            return self._read()["tasks"]
+        return self._data_for_reading()["tasks"]
 
     # -- the archive: cleared cards in their own file ------------------------
     # `clear` (and the page's Archive) used to leave a card in tasks.json with `archived: true`, so a board that had finished two thousand cards
@@ -207,10 +271,26 @@ class Store:
     def load_all(self):
         """Every card: the live board, then the archive. A card in both (an older tasks.json put back by `restore` can still hold one that was
         cleared later) counts once, as the live one."""
+        if not _viewing():
+            with self._lock():
+                live = self._read()["tasks"]
+                seen = {t["id"] for t in live}
+                return live + [t for t in self._read_archive() if t["id"] not in seen]
+        key = (_stat_key(self.path), _stat_key(self.archive_path))   # in a GET: both files read together under the lock, kept while neither has changed
+        name = ("all", str(self.path))
+        if key[0] is not None:
+            with _SHARED_LOCK:
+                hit = _SHARED.get(name)
+            if hit and hit[0] == key:
+                return hit[1]
         with self._lock():
-            live = self._read()["tasks"]
+            live = self._board_shared()["tasks"]
             seen = {t["id"] for t in live}
-            return live + [t for t in self._read_archive() if t["id"] not in seen]
+            out = live + [t for t in self._read_archive() if t["id"] not in seen]
+            if key[0] is not None and (_stat_key(self.path), _stat_key(self.archive_path)) == key:
+                with _SHARED_LOCK:
+                    _SHARED[name] = (key, out)
+            return out
 
     def _move_archived_out(self, tasks):
         """Move the archived cards out of the live list into archive.json. A card goes only when nothing live still hangs on it: a finished
@@ -1052,8 +1132,7 @@ class Store:
 
     def chat_agents(self):
         """Is agent-to-agent chat on for this board?"""
-        with self._lock():
-            return bool(self._read().get("chat_agents", False))
+        return bool(self._data_for_reading().get("chat_agents", False))
 
     def set_chat_agents(self, on, by=None):
         """The board-wide switch (the owner's): with it off, agents may still post status lines, but not talk to each other.
@@ -1240,8 +1319,7 @@ class Store:
 
     def known_names(self):
         """Who a line can reach right now (for the board's composer): ORCH, the owner, card holders, chat senders, listeners."""
-        with self._lock():
-            return self._known_names(self._read())
+        return self._known_names(self._data_for_reading())
 
     def _board_names(self, data, cap=6):
         """The names for a refusal or the composer: ORCH first, then the agents, never the owner's own name; at most `cap`, then "and N more"."""
@@ -1347,26 +1425,23 @@ class Store:
 
     def chat_list(self, after=None, limit=100):
         """Messages after a given seq (for polling), or the last `limit` if after is omitted."""
-        with self._lock():
-            msgs = self._read()["chat"]
-            if after is not None:
-                return [m for m in msgs if m["seq"] > after]
-            return msgs[-limit:]
+        msgs = self._data_for_reading()["chat"]
+        if after is not None:
+            return [m for m in msgs if m["seq"] > after]
+        return msgs[-limit:]
 
     def chat_view(self, after=None, limit=100):
         """(chat_list(after, limit), chat_agents(), known_names()) from ONE read of the board file: the page's chat poll asked for the three
         separately, and each parsed the whole file (25 ms apiece at 5,000 cards)."""
-        with self._lock():
-            data = self._read()
-            msgs = data["chat"]
-            shown = [m for m in msgs if m["seq"] > after] if after is not None else msgs[-limit:]
-            return shown, bool(data.get("chat_agents", False)), self._known_names(data)
+        data = self._data_for_reading()
+        msgs = data["chat"]
+        shown = [m for m in msgs if m["seq"] > after] if after is not None else msgs[-limit:]
+        return shown, bool(data.get("chat_agents", False)), self._known_names(data)
 
     def snapshot(self, chat_limit=500):
         """(load(), chat_list(limit=chat_limit)) from ONE read of the board file: the watchdog asked for the two separately, and each parsed the whole file."""
-        with self._lock():
-            data = self._read()
-            return data["tasks"], data["chat"][-chat_limit:]
+        data = self._data_for_reading()
+        return data["tasks"], data["chat"][-chat_limit:]
 
 
 LOG_MAX = 200
