@@ -124,6 +124,17 @@ class OneLine(Base):
         t = Store.get(self.s.load(), "spa")
         self.assertFalse(t.get("needs_input") or t.get("review"))
 
+    def test_an_empty_first_line_is_refused_for_ask_and_review(self):
+        """An empty ask put "waiting on user: " on the card with nothing to answer; an empty review handed in a card with no sentence (night sweep)."""
+        for text in ("", "   ", "\n"):
+            for argv in (("ask", "spa", text), ("review", "spa", text, "--next", "nothing")):
+                code, out, err = self.run_cli(*argv)
+                self.assertNotEqual(code, 0, argv)
+                self.assertIn("needs a first line", err)
+                self.assertEqual(out, "")
+        t = Store.get(self.s.load(), "spa")
+        self.assertFalse(t.get("needs_input") or t.get("review"))
+
     def test_the_limit_is_on_the_first_line_only_and_a_line_at_the_limit_passes(self):
         code, _, _ = self.run_cli("ask", "spa", "x" * rules.FIRST_LINE_MAX)
         self.assertEqual(code, 0)
