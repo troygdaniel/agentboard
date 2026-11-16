@@ -343,6 +343,16 @@ It shows in that agent's thread (Watch, or the agent's name on a card) as *Needs
 is recorded once, and **lapses 30 minutes after the ask** (the board refuses a late click); the agent reads it with `agentboard chat approvals --name Caller-1`. The board cannot stop an agent from acting in its own
 terminal: the hard stop is that the terminal has no payment method, password or dialing access, which is why each role lists the tools to leave enabled.
 
+### Night queue: agents take the next card themselves (opt-in)
+
+Off by default. By day an agent waits for a card to be assigned; at night, when you say so, it can take the next one itself. You (or ORCH, at your word)
+turn it on with the **Night queue** row in Settings > Agents and chat, or `agentboard night on [--until HH:MM]`; it ends by itself at 08:00 unless you say another time,
+so a forgotten switch cannot run into the day. ORCH lines up specified Todo cards with `agentboard night queue add ID...` (`--first`, `remove`, `clear`; the list is in the same
+row), and an agent with nothing in hand runs `agentboard night next --name NAME`: the first ready card on the queue is claimed for it (a card waiting on another card is skipped
+until that one is done), and the command prints the night rules: no push, no spend, no live restarts, no personal cards. It refuses while the switch is off, and while the agent
+still holds a card it has not handed in. A worker agent cannot turn the switch on or edit the queue. While it is on, the header shows a chip (`Night · 3 queued · until 08:00`).
+With the switch off, or never used, nothing on the board looks or works differently. The design is in `docs/night-queue-design.md`.
+
 ## One orchestrator, several agents
 
 The workflow this was built for: one coordinating session (**ORCH**) and N worker sessions (**AGENT-1 … AGENT-N**),
@@ -664,6 +674,7 @@ Copy prompt button, the CLI and `agentboard prompt` are unaffected.
 | `insights [--since 7d] [--agent N] [--prefix P] [--json]` | four observations on how the agents are used, from the board's own records (needs `[insights] enabled = true`; see Insights) |
 | `configuration [show\|apply\|clear\|export\|propose\|proposals\|accept\|ignore] [NAME\|FILE\|N]` | agent configurations: the names and roles the board shows (needs `[agents] configurations = true`; the board starts no agent) |
 | `rename OLD NEW [--dry-run]`, `rename --undo` | give an agent a new name and keep its cards, claims, chat, read position, roster entry and colour (a `--dry-run` prints the counts and writes nothing); the old name keeps working for a day after its last use, so a terminal not yet renamed still reports; `--undo` reverses the last one |
+| `night [on [--until HH:MM] \| off \| status]`, `night queue [add ID... [--first] \| remove ID... \| clear]` | night mode: the switch (ends by itself at 08:00) and the queue of cards agents take from (ORCH or you) |
 | `clear` | archive all Done cards: they move to `archive.json` (history and HUD counts kept) |
 | `demo [--live]`, `rm --demo` | sample tasks / simulated agents |
 | `prompt <id> [--public]`, `rebuild [id] [--all]`, `instructions`, `orch` | prompts and the agent snippet; `orch` prints the prompt that boots a session as ORCH (starts nothing) |
@@ -676,6 +687,7 @@ Copy prompt button, the CLI and `agentboard prompt` are unaffected.
 | `done <id> [--reason R]` | user-approved only |
 | `wait <id> [--status X] [--timeout SECS]` | block until a task reaches a status — sync without polling |
 | `chat send "msg" --name N [--user]`, `chat tail [--limit N] [--follow]` | self-organize with other agents, visible to the user |
+| `night next --name N` | at night, when night mode is on: take the first ready card on the queue ORCH lined up |
 
 ## On a work laptop
 

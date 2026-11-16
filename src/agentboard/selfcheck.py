@@ -632,6 +632,8 @@ class Audit:
         line = S.chat_send(S.owner, "anyone there?", kind="user", to="AGENT-9")
         go("/api/chat-nudge", {"seq": line["seq"]})
         go("/api/chat-agents", {"on": False})
+        go("/api/night", {"on": True, "until": "23:59"})            # night mode (card retro-night-queue): the switch on, then off; the queue is ORCH's, from the CLI
+        go("/api/night", {"on": False})
         # agent configurations (cards agent-config-slice-2, 3 and 3b) and rename: the setting on in this throwaway board, a shipped file previewed and applied, ORCH's suggestion accepted,
         # the configuration taken off; then a rename, its counts and its undo. A step that fails leaves its route without a real payload, and the line below says which.
         with contextlib.suppress(Exception):

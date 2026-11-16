@@ -141,6 +141,15 @@
   .ab-cfg .cl, .ab-cfg .cw { display: none; }   /* compact: Build 4/5; the words (Configuration: Build 4 of 5 listening) come back on a wide window */
   @media (min-width: 1560px) { .ab-cfg .cl, .ab-cfg .cw { display: inline; } .ab-cfg .cn { display: none; } }
   @media (max-width: 900px) { .ab-cfg em { display: none; } }
+  /* Night queue (card retro-night-queue): the chip is there only while night mode is on; the Settings row carries the switch and the queue in order */
+  .ab-night { color: var(--info); border-color: var(--info); }
+  .ab-night b { color: inherit; } .ab-night .nu { display: none; } @media (min-width: 1100px) { .ab-night .nu { display: inline; } }
+  .ab-night:hover { border-color: var(--text); }
+  .nq-on { color: var(--info); font-weight: 700; } .nq-off { color: var(--muted); font-weight: 700; }
+  .nq-list { list-style: none; margin: 6px 0 0; padding: 0; counter-reset: nq; width: 100%; }
+  .nq-list li { counter-increment: nq; display: grid; grid-template-columns: 22px 1fr auto; gap: 8px; padding: 4px 0; font-size: var(--fs-sm); border-top: 1px dashed var(--line); align-items: baseline; }
+  .nq-list li::before { content: counter(nq); color: var(--muted); font-variant-numeric: tabular-nums; }
+  .nq-list .t { overflow-wrap: anywhere; } .nq-list .id { color: var(--muted); font-family: ui-monospace, monospace; font-size: var(--fs-xs); } .nq-list .blk { color: var(--warn); font-size: var(--fs-xs); }
   /* The picker in Settings > Agents: what ships, what each role may and may not do, the terminals the owner types. The board starts nothing. */
   .cfg { display: flex; flex-direction: column; gap: 12px; margin: 6px 0 10px; }
   .cfg-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 8px; }
@@ -2156,6 +2165,7 @@ body.deckview .board{display:block !important;overflow:visible !important;paddin
     <span class="fut-ro" id="fut-ro" aria-hidden="true"></span>
     <span class="hicons">
     <button class="ab-cfg" id="cfg-chip" type="button" hidden title="The applied agent configuration: open Settings to change it"></button>
+    <button class="ab-cfg ab-night" id="night-chip" type="button" hidden title="Night mode is on: open Settings"></button>
     <span class="ab-conn" id="conn" aria-live="off" title="The page asks the board every second"><i aria-hidden="true"></i><b>Live</b><span class="t"></span></span><span class="sr" id="conn-sr" role="status"></span>
     <span class="status off" id="status" role="status" hidden><i></i><span>Disconnected; retrying</span></span>
     <button class="status quiet" id="quiet-chip" type="button" hidden></button>
@@ -2329,6 +2339,7 @@ body.deckview .board{display:block !important;overflow:visible !important;paddin
       <div class="pane" id="pane-agents" role="tabpanel" aria-labelledby="stab-agents" data-tab="agents" hidden>
         <h3>Configuration</h3><div id="cfg-config"></div>
         <h3>Agent chat</h3><div id="cfg-agents"></div>
+        <h3>Night queue</h3><div id="cfg-night"></div>
         <h3>Who is listening</h3><div id="cfg-listen"></div>
       </div>
       <div class="pane" id="pane-security" role="tabpanel" aria-labelledby="stab-security" data-tab="security" hidden>
@@ -5476,6 +5487,45 @@ function renderAgentsPane() {
     return `<div class="mix-row plain ro"><span class="nm">${esc(n)}</span><span class="val"><b>${s > 1 ? s + ' sessions' : s ? 'listening' : 'not listening'}</b><button class="rn-btn" type="button" data-rename="${esc(n)}">Rename…</button></span></div>`;
   }).join('') : '<div class="mix-row plain ro"><span class="nm">Nobody has spoken on this board yet</span><span class="val"></span></div>';
 }
+// ---- Night queue (card retro-night-queue): the chip while night mode is on, and the Settings row with the switch and the queue in order ----
+// GET /api/night is read when the page loads, every 15 s, when Settings opens and after every click; the page only turns it on or off (the owner's button):
+// ORCH lines up the queue from the terminal. A card's title is escaped like every other text here.
+let nightState = null;
+const nightTime = u => (u || '').slice(11, 16);
+async function nightLoad() {
+  try { const r = await fetch('/api/night', { cache: 'no-store' }); if (!r.ok) return; nightState = await r.json(); } catch (e) { return; }
+  renderNightChip(); renderNightPane();
+}
+function renderNightChip() {
+  const el = $('night-chip'); if (!el) return;
+  const st = nightState;
+  if (!st || !st.on) { if (!el.hidden) el.hidden = true; return; }
+  const n = st.queue.length, html = `<span aria-hidden="true">☾</span><b>Night</b><span>${n} queued</span><span class="nu">until ${esc(nightTime(st.until))}</span>`;
+  if (el.innerHTML !== html) el.innerHTML = html;
+  const tip = `Night mode is on until ${nightTime(st.until)}: ${n} card${n === 1 ? '' : 's'} queued. Click to open Settings.`;
+  el.title = tip; el.setAttribute('aria-label', tip); el.hidden = false;
+}
+function renderNightPane() {
+  const el = $('cfg-night'); if (!el) return;
+  const st = nightState;
+  if (!st) { el.innerHTML = '<div class="mix-row plain ro"><span class="nm">Night queue</span><span class="val"><b>…</b></span></div>'; return; }
+  const n = st.queue.length;
+  const state = st.on ? `<span class="nq-on">on until ${esc(nightTime(st.until))}</span>` : `<span class="nq-off">${st.ended ? 'ended ' + esc(nightTime(st.until)) : 'off'}</span>`;
+  const btn = st.on ? '<button class="btn" type="button" data-night="off">Turn off</button>' : '<button class="btn" type="button" data-night="on">Turn on until 08:00</button>';
+  const about = st.on ? 'Agents take the next ready card themselves with <code>agentboard night next --name NAME</code>. No push, no spend, no live restarts, no personal cards. Only ORCH or you put cards on the queue.'
+    : `Agents take the next card from the queue themselves while it is on. It ends by itself at 08:00. ${n ? `${n} card${n === 1 ? ' is' : 's are'} lined up.` : 'Nothing is lined up: ORCH adds cards with <code>agentboard night queue add ID</code>.'}`;
+  const list = n && st.on ? `<ol class="nq-list">${st.queue.map(r => `<li><span class="t">${esc(r.title)}</span><span class="id">${esc(r.id)}</span>${r.blocked_by.length ? `<span class="blk">blocked by ${r.blocked_by.map(esc).join(', ')}</span>` : ''}</li>`).join('')}</ol>` : '';
+  el.innerHTML = `<div class="mix-row plain ro"><span class="nm">Night queue</span><span class="val">${state}${btn}</span><span class="mix-about">${about}${list}</span></div>`;
+}
+document.addEventListener('click', async e => {
+  const t = e.target.closest('[data-night], #night-chip');
+  if (!t) return;
+  if (t.id === 'night-chip') { toggleMix(true, 'agents'); return; }
+  t.disabled = true;
+  try { nightState = await api('/api/night', { on: t.dataset.night === 'on' }); showError(''); } catch (err) { showError('Could not change night mode: ' + err.message); }
+  nightLoad();
+});
+nightLoad(); setInterval(() => { if (!document.hidden) nightLoad(); }, 15000);
 // ---- Agent configurations (card agent-config-slice-3): the picker in Settings > Agents, the chip in the header, the Rename dialog ----
 // What ships and what is applied come from GET /api/configurations (read when Settings opens and after every change). The board starts nothing: Apply writes the
 // roster and the role labels, and the terminals are shown for the owner to type. Everything drawn is escaped: an imported file is data, never markup.
@@ -5624,7 +5674,7 @@ function renderStatusRows() {   // read-only: each row says what it is and names
     + ro('Sync copy', I.backup.sync ? (I.backup.last_sync_min == null ? 'on' : 'on · ' + agoMin(n(I.backup.last_sync_min))) : 'off', I.lockdown && !I.backup.sync ? 'Locked off on this machine: the board copies no data out of its own folder. Backups stay beside the board.' : 'A nightly copy of the newest backup to a folder you name in <code>[backup] sync_dir</code> in config.toml.')
     + ro('Data folder', I.data_private ? 'private' : 'readable by others', I.data_private ? "Only you can read the board's data (mode 700)." : 'Other accounts on this machine can read it. <code>agentboard doctor</code> shows the fix.', !I.data_private);
 }
-function renderSettingsPanes() { renderThemeRow(); renderBoardRows(); renderAgentsPane(); renderCfgPane(); cfgLoad(); loadSettingsInfo(); }
+function renderSettingsPanes() { renderThemeRow(); renderBoardRows(); renderAgentsPane(); renderCfgPane(); cfgLoad(); nightLoad(); loadSettingsInfo(); }
 // search: every row of every pane (a hidden tab's too); Enter or a click opens its tab, scrolls it to the top and marks it for a second
 function settingsIndex() {
   const out = [];

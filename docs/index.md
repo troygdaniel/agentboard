@@ -19,6 +19,7 @@ One line each. The first three are the ones most people need.
 | [docs/agent-configurations-design.md](agent-configurations-design.md) | Design only: agent configurations (names plus roles), renaming an agent without losing history, role chips and prompts, the day-to-day approval rules, the smallest build and the choices to approve; a clickable mock-up and its captures sit beside it. |
 | [docs/status-visibility-design.md](status-visibility-design.md) | Design only: one page that answers "is anyone waiting on me, what is stuck, who waits on whom": five counters, a row per agent with eight state words and a six-step track, the shared queues, a rule that the board's own sleep never counts as silence, four build slices and six choices to approve; a mock-up and its captures sit beside it. |
 | [docs/retro-2026-11-15.html](retro-2026-11-15.html) | The 27-day retro (20 Oct to 15 Nov 2026), one page with charts, light and dark: how the board was used and where it slipped, how the work ran (ORCH's load, merge conflicts by file, what became of the earlier retro's ten changes), the agent configurations for development work, and twelve ranked improvements written as proposed cards. |
+| [docs/night-queue-design.md](night-queue-design.md) | Design and how it was built: the Night switch, the queue ORCH lines up and the one command an agent uses to take the next card (retro rec 13); a mock-up sits beside it. |
 | [docs/chat-words-design.md](chat-words-design.md) | The words and layout of the chat: who reads a line, receipts, refusals, two sessions under one name. |
 | [docs/settings-tabs-design.md](settings-tabs-design.md) | Settings in tabs: what each tab holds, the plugin tab API, search, the deep link, keyboard and the phone layout; the before and after screenshots and measurements are in `docs/settings-tabs/`. |
 | [docs/ux-review-2026-11-04.md](ux-review-2026-11-04.md) | The Nov 4, 2026 UX review: what was wrong on the board and the HUD, with screenshots. |
@@ -28,7 +29,7 @@ One line each. The first three are the ones most people need.
 Pictures and mockups, from throwaway boards: `docs/board-light.png`, `docs/board-dark.png`, `docs/hud.png` (the README's); `docs/agent-chat/`,
 `docs/agent-configurations/` (role chips and the approval card), `docs/by-agent/`, `docs/copied-badge/`, `docs/copied-button/`, `docs/gorgeous-2026-11-04/`, `docs/hud-bughunt/`, `docs/load-strip/`, `docs/panel-header-action/`,
 `docs/ux-five/`, `docs/ux-six/` (screenshots of the UX cards they are named after), `docs/status-slice-1/` (Watch's tiles with a state word, light, dark and narrow); `docs/card-colour-mockup.html`, `docs/subtasks-mockup.html`,
-`docs/ux-mockups.html`, `docs/ux-mockups-2.html`, `docs/chat-words-design-mockup.html`, `docs/agent-configurations-mockup.html`, `docs/status-visibility-mockup.html` (clickable mockups,
+`docs/ux-mockups.html`, `docs/ux-mockups-2.html`, `docs/chat-words-design-mockup.html`, `docs/agent-configurations-mockup.html`, `docs/status-visibility-mockup.html`, `docs/night-queue-mockup.html` (clickable mockups,
 with their `.png` captures beside them).
 | [docs/security-signoff.md](security-signoff.md) | The two-page security sign-off: what was checked on the night of Nov 7-8, how, and what a reviewer can rerun. |
 

@@ -87,6 +87,7 @@ is the developer's.
 | `configurations.py` | Agent configurations: the JSON file's validator (unknown keys refused, names kept apart from the board's own), the shipped `configurations/day-to-day.json`, `[agents] configurations`, the applied copy `configuration.json`, the roster merge, the role block for a card prompt and the ORCH section. |
 | `configproposals.py` | ORCH's suggestions for the applied configuration (`propose --add-name`/`--apply`), the owner's Accept and Ignore (`configuration-proposals.json`): only ORCH proposes, only the owner applies, an ignored one is not asked again for a week. |
 | `chatwake.py` | The chat wake file `chat-wake.json`: a counter, a time and who a line was for (never its words), moved on every post, so a wait watches one small file and reads the board only when it moved. |
+| `night.py` | The night queue (`docs/night-queue-design.md`): the Night switch (off by default; ends by itself at `until`), an ordered queue of Todo card ids that only ORCH or the owner edit, and `take()`, which claims the first ready card for an agent under the state file's lock. State in `night.json`; the claim itself is the store's `claim`. |
 | `hooks.py` | The two Claude Code hooks `agentboard hooks install` writes into `.claude/settings.json` (or `~/.claude/settings.json` with `--user`): PostToolUse on SendMessage mirrors a message's first line into the chat; Stop tells a session about to go quiet with an unread owner line. Session name to session id lives in `sessions.json`. |
 | `serverstate.py` | `server-<pid>.json`: what a running server was started with (lock on or off, plugins open, plugin names), so `doctor` can check the server rather than its own shell. |
 | `lifecycle.py` | `status`, `stop`, `restart` and `serve --background`: reads the `server-<pid>.json` files, checks with `ps` that a pid is really an `agentboard serve`, asks `/api/health` on the loopback, sends SIGTERM and waits; the port-taken message. |
@@ -123,6 +124,7 @@ Everything is a file. Nothing is a database, a daemon of its own or a cloud.
 | `.agentboard/chat-listeners.json` | `listeners.py` | the chat panel ("listening" / Nudge) | one entry per waiting process, by pid |
 | `.agentboard/agent-states.jsonl` (and `.1`) | `agentstates.py` (the server's minute tick, with `[insights]` on) | `agentboard insights` | one line per state change or 15-minute heartbeat: `at`, `agent`, `state`; rolled at 2 MB |
 | `.agentboard/chat-wake.json` | `chatwake.py` (the store, on every chat post) | `chat inbox --wait`, a scheduled ORCH | a counter and a time, never a word |
+| `.agentboard/night.json` | `night.py` (`agentboard night on/off/queue/next`, `POST /api/night`) | `night.py`, `GET /api/night` (the Settings row and the header chip) | `on`, `until`, the queue of card ids; no file until night mode is first used |
 | `.agentboard/chat-casual.json`, `chat-autopilot.json` | `agentchat.py` | the server's rounds | state of the optional claude rounds |
 | `.agentboard/sessions.json` | `hooks.py` (`me`, `claim`, `start`, `chat` record the name) | the hooks | session name per `CLAUDE_CODE_SESSION_ID` |
 | `.agentboard/aliases.json` | `names.py` (`rename` writes it first; a command that resolves an old name notes its use) | `cli._canon_names`, before any command runs | old name (lower-cased) to the new name, with `at` and `used`; dropped a day after the last use or by `--undo` |
@@ -162,6 +164,7 @@ Then `_route_get` / `do_POST` dispatch on the path. The main ones:
 | `GET /reports/…` | the report pages, with the same frame headers and their own CSP. |
 | `POST /api/tasks`, `/api/edit`, `/api/move`, `/api/bulk-move`, `/api/bulk-archive`, `/api/clear-done`, `/api/unarchive`, `/api/delete`, `/api/restore`, `/api/send-back`, `/api/reply`, `/api/owner-mark`, `/api/run-kill` | the owner's actions on cards: each is one `Store` method under the lock, then the next poll shows the result. |
 | `POST /api/chat`, `/api/chat-agents`, `/api/chat-decide`, `/api/chat-nudge` | the owner's chat line (with `to`, and the `card` it is about when it comes from Talk it through), the agents-talk switch, approving or declining a proposal, asking ORCH to nudge a session. |
+| `GET /api/night`, `POST /api/night` | night mode: on or off, until when, the queue in order (ids and titles); the page's button turns it on or off, never edits the queue. |
 | `POST /api/transcribe` | audio from the dictation button to `whisper-cli` on this machine. |
 | `GET` / `POST /api/x/<plugin>/<path>` | a plugin's own routes and its `page.js`; nothing outside its name. |
 

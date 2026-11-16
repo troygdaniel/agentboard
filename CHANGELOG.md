@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### A night queue: agents take the next card themselves (Nov 15, card retro-night-queue, retro rec 13)
+Off by default; with the switch off, or never used, nothing on the board changes. When the owner (or ORCH, at their word) turns Night on, ORCH lines up specified Todo cards and an agent with a free hand takes the next one itself instead of waiting for a message.
+- **The switch:** `agentboard night on [--until HH:MM]`, `off`, `status`, and a **Night queue** row in Settings > Agents and chat. It ends by itself at 08:00 unless told another time. While it is on the header shows a chip (`Night · 3 queued · until 08:00`); turning it on or off posts one line to the chat.
+- **The queue:** `agentboard night queue add ID... [--first]`, `remove`, `clear`, and no word to list it. Only a Todo card nobody holds can be queued; a card waiting on another is listed `blocked by ...` and skipped until that one is done. A worker agent cannot turn the switch on or edit the queue.
+- **The take:** `agentboard night next --name NAME` claims the first ready card exactly as `claim` does (subtasks, role, log), plus a log line "Taken from the night queue", and prints the night rules: no push, no spend, no live restarts, no personal cards. It refuses while night mode is off or ended, and while the agent still holds a card it has not handed in. Two agents at once never take the same card.
+- **Where:** `src/agentboard/night.py`, state in `.agentboard/night.json` (no new key in `tasks.json`), `GET` and `POST /api/night`. Design: `docs/night-queue-design.md` and `docs/night-queue-mockup.html`.
+- Checked: `tests/test_night.py` (22 checks: the switch and its end, the queue rules, the take, two takers at once, the commands, the routes, the page markup).
+
 ### A Todo or Later card can be deleted again (Nov 15)
 The card's panel kept Delete (and Copy prompt, Back to Todo, Stop run) inside the closed "More" fold since Nov 12, so a card nobody had started showed no way to delete it. The buttons now sit under the fold, always visible, for Later, Todo and Doing cards the way they already did for a card in review or done. Test: `node tests/qa/delete_cards_check.mjs` (34 checks: the Later drawer, the Map's Todo and Doing columns, wide and 390 px; it fails on the old page) and a page pin in `tests/test_you_line.py`.
 

@@ -24,6 +24,7 @@ from . import lockdown
 from . import configproposals as proposalslib
 from . import configurations as configurationslib
 from . import names as namesmod
+from . import night as nightlib
 from . import rename as renamelib
 from .names import AGENT_SLOTS, agent_slot  # noqa: F401  (agent_slot is also used by tests and the spawn command below)
 from . import plugins
@@ -795,6 +796,65 @@ def cmd_chat_idle(a):
         asked = next((m for m in reversed(inbox) if m.get("to") == name), inbox[-1])   # thread to the line that was for this agent
         m = s.chat_send(name, d["text"], to=d["to"], topic=d["topic"], detail=d["detail"], reply_to=asked["seq"])
         print("sent " + _chat_line(m).splitlines()[0])
+
+
+def _night_lines(st):
+    """The state of night mode as lines: the headline, then the queue in order."""
+    n = len(st["queue"])
+    if st["on"]:
+        head = f"night mode is on until {st['until'][11:16]} ({n} queued)"
+    elif st["ended"]:
+        head = f"night mode ended at {st['until'][11:16]} ({n} left in the queue; turn it on again with: agentboard night on)"
+    else:
+        head = f"night mode is off ({n} queued; turn it on with: agentboard night on [--until HH:MM])"
+    rows = [f"  {i}  {r['id']}  {r['title']}" + (f"   (blocked by {', '.join(r['blocked_by'])})" if r["blocked_by"] else "")
+            for i, r in enumerate(st["queue"], 1)]
+    return [head, *rows]
+
+
+def cmd_night(a):
+    s = _store()
+    by = os.environ.get("AGENTBOARD_NAME")   # who runs it: a worker agent may only take (night.py)
+    if a.night_cmd == "on":
+        st = nightlib.turn_on(s, a.until, by=by)
+    elif a.night_cmd == "off":
+        st = nightlib.turn_off(s, by=by)
+    else:
+        st = nightlib.status(s)
+    print("\n".join(_night_lines(st)))
+
+
+def cmd_night_queue(a):
+    s = _store()
+    by = os.environ.get("AGENTBOARD_NAME")
+    if a.queue_cmd == "add":
+        done = nightlib.queue_add(s, a.ids, first=a.first, by=by)
+        print(f"queued {', '.join(done)}" + (" at the front" if a.first else ""))
+    elif a.queue_cmd == "remove":
+        nightlib.queue_remove(s, a.ids, by=by)
+    elif a.queue_cmd == "clear":
+        nightlib.queue_clear(s, by=by)
+    print("\n".join(_night_lines(nightlib.status(s))))
+
+
+def cmd_night_next(a):
+    """For an agent with a free hand: take the first ready card on the night queue, claimed as `agentboard claim` would."""
+    name = _agent_name(a)
+    s = _store()
+    hookslib.remember_session(s.dir, name)
+    got = nightlib.take(s, name)
+    if not got:
+        print("(the night queue is empty, or every card in it is blocked: stay idle and listen)")
+        sys.exit(1)
+    t = got["card"]
+    print(f"took {t['id']}: {t['title']}")
+    print(nightlib.LIMITS)
+    _print_role(s, name)
+    tasks = s.load()
+    _print_subtasks(tasks, t["id"])
+    if _lacks_subtasks(tasks, t["id"]):
+        print(_subtask_nudge(t["id"]))
+    print(f"read it with: agentboard prompt {t['id']}" + (f"   ({got['left']} left in the queue)" if got["left"] else "   (the queue is now empty)"))
 
 
 def cmd_autopilot(a):
@@ -2296,6 +2356,28 @@ def main(argv=None):
     bp = bsub.add_parser("rm", help="forget a board (never deletes its cards)")
     bp.add_argument("name")
     bp.set_defaults(fn=cmd_board_rm)
+
+    sp = sub.add_parser("night", help="night queue: agents take the next card themselves while night mode is on (off by default)")
+    nsub = sp.add_subparsers(dest="night_cmd", required=True)
+    np_ = nsub.add_parser("on", help="turn night mode on (ORCH or the owner); it ends by itself at --until")
+    np_.add_argument("--until", metavar="HH:MM", help="when it ends by itself (default 08:00: the next time that is on the clock)")
+    np_.set_defaults(fn=cmd_night)
+    nsub.add_parser("off", help="turn night mode off (ORCH or the owner)").set_defaults(fn=cmd_night)
+    nsub.add_parser("status", help="is it on, until when, and the queue in order").set_defaults(fn=cmd_night)
+    np_ = nsub.add_parser("queue", help="line up cards for the night (ORCH or the owner): add, remove, clear; no word lists the queue")
+    qsub = np_.add_subparsers(dest="queue_cmd")
+    np_.set_defaults(fn=cmd_night, night_cmd="status")
+    qp = qsub.add_parser("add", help="add cards to the end of the queue (Todo cards nobody holds)")
+    qp.add_argument("ids", nargs="+", metavar="ID")
+    qp.add_argument("--first", action="store_true", help="put them at the front instead")
+    qp.set_defaults(fn=cmd_night_queue)
+    qp = qsub.add_parser("remove", help="take cards off the queue")
+    qp.add_argument("ids", nargs="+", metavar="ID")
+    qp.set_defaults(fn=cmd_night_queue)
+    qsub.add_parser("clear", help="empty the queue").set_defaults(fn=cmd_night_queue)
+    np_ = nsub.add_parser("next", help="take the first ready card on the queue (an agent with nothing in hand; night mode must be on)")
+    np_.add_argument("--name", help="your session name (or $AGENTBOARD_NAME)")
+    np_.set_defaults(fn=cmd_night_next)
 
     sp = sub.add_parser("chat", help="shared channel for agents (and you) to self-organize, visible on the board")
     csub = sp.add_subparsers(dest="chat_cmd", required=True)

@@ -13,7 +13,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
-from . import awake, boards, configproposals, configurations, demo, hud, lifecycle, private, rename
+from . import awake, boards, configproposals, configurations, demo, hud, lifecycle, night, private, rename
 from . import profile as profilelib
 from . import hooks as hookslib
 from . import listeners, watchdog
@@ -381,6 +381,8 @@ def make_handler(default_store, port):
                 self._send_cached(_derived(self.store, "hud", key, build_hud))
             elif url.path == "/api/settings":
                 self._send(200, settingsview.status(self.store.dir))   # Settings > Security and Backup: booleans, counts and ages only; nothing here changes anything
+            elif url.path == "/api/night":   # night mode: on or off, until when, the queue in order (card retro-night-queue); titles and ids only
+                self._send(200, night.status(self.store))
             elif url.path == "/api/configurations":   # the picker: is it on, what is applied, what ships, what ORCH suggests (never a card or a line of chat)
                 self._send(200, _configurations_state(self.store))
             elif url.path == "/api/configuration/export":   # a configuration as a file to keep or share: ?key=build, or ?applied=1
@@ -616,6 +618,12 @@ def make_handler(default_store, port):
                                              card=body.get("card") if isinstance(body.get("card"), str) else None,
                                              reply_to=body.get("reply_to") if isinstance(body.get("reply_to"), int) else None)
                     self._send(200, m)
+                elif path == "/api/night":
+                    # the board UI's button is the owner's: it may turn night mode on or off, never edit the queue (ORCH does, from the CLI)
+                    until = body.get("until")
+                    if until is not None and not isinstance(until, str):
+                        raise BoardError("until must be a time of day like 07:30")
+                    self._send(200, night.turn_on(self.store, until) if body.get("on") else night.turn_off(self.store))
                 elif path == "/api/chat-agents":
                     self._send(200, {"agents": self.store.set_chat_agents(bool(body.get("on")))})
                 elif path == "/api/chat-decide":

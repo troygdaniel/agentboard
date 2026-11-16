@@ -1,0 +1,82 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Night Queue Mockup</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  /* Mockup, not the real board: every card and name is made up. The classes (.ab-cfg chip, .mix-row, .btn) are the board's own, copied so each piece
+     maps to one class in the build. ?theme=dark or ?theme=light forces a theme; otherwise it follows the system. */
+  :root {
+    --bg: #fafaf9; --surface: #ffffff; --line: #e7e5e4; --text: #1c1917; --muted: #6b6560; --accent: #1c1917;
+    --warn: #b45309; --ok: #15803d; --chip: #f2f0ee; --night: #1d4ed8; --night-bg: rgba(29,78,216,.08);
+    --fs-xs: 11px; --fs-sm: 12px; --fs-md: 13px; --fs-base: 14px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #070b12; --surface: #0f1722; --line: #1c2a3a; --text: #d6e9ff; --muted: #7f95ad; --accent: #d6e9ff;
+      --warn: #ffc857; --ok: #5dffb0; --chip: #15202e; --night: #5ee7ff; --night-bg: rgba(94,231,255,.1); color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #070b12; --surface: #0f1722; --line: #1c2a3a; --text: #d6e9ff; --muted: #7f95ad; --accent: #d6e9ff;
+    --warn: #ffc857; --ok: #5dffb0; --chip: #15202e; --night: #5ee7ff; --night-bg: rgba(94,231,255,.1); color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: var(--fs-base)/1.45 system-ui, sans-serif; padding: 24px max(16px, env(safe-area-inset-left, 0px)); }
+  h1 { font-size: 16px; margin: 0 0 4px; } h2 { font-size: var(--fs-sm); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin: 28px 0 8px; }
+  p.note { color: var(--muted); font-size: var(--fs-sm); margin: 0 0 8px; max-width: 70ch; }
+  .frame { border: 1px solid var(--line); background: var(--surface); border-radius: 10px; padding: 12px 14px; max-width: 760px; }
+  .hdr { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .hdr .brand { font-weight: 700; margin-right: auto; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-sm); color: var(--muted); padding: 3px 11px; border-radius: 999px; border: 1px solid var(--line); background: var(--chip); white-space: nowrap; }
+  .chip.night { color: var(--night); background: var(--night-bg); border-color: var(--night); cursor: pointer; font: inherit; font-size: var(--fs-sm); }
+  .chip.night b { font-weight: 700; }
+  .chip.night .moon { font-size: 12px; line-height: 1; }
+  .mix-row { display: grid; grid-template-columns: 220px 1fr; gap: 4px 14px; padding: 10px 0; border-top: 1px solid var(--line); align-items: start; }
+  .mix-row:first-child { border-top: 0; }
+  .nm { font-weight: 600; font-size: var(--fs-md); } .val { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .mix-about { grid-column: 2; color: var(--muted); font-size: var(--fs-sm); } code { font-family: ui-monospace, monospace; font-size: .92em; background: var(--chip); padding: 0 4px; border-radius: 4px; }
+  .btn { font: inherit; font-size: var(--fs-sm); border: 1px solid var(--line); background: var(--chip); color: var(--text); border-radius: 6px; padding: 3px 11px; cursor: pointer; }
+  .btn.primary { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+  .q { list-style: none; margin: 6px 0 0; padding: 0; width: 100%; counter-reset: q; }
+  .q li { counter-increment: q; display: grid; grid-template-columns: 22px 1fr auto; gap: 8px; padding: 4px 0; font-size: var(--fs-sm); border-top: 1px dashed var(--line); align-items: baseline; }
+  .q li::before { content: counter(q); color: var(--muted); font-variant-numeric: tabular-nums; }
+  .q .id { color: var(--muted); font-family: ui-monospace, monospace; font-size: var(--fs-xs); } .q .blk { color: var(--warn); font-size: var(--fs-xs); }
+  .q .t { overflow-wrap: anywhere; } .q .empty { grid-template-columns: 1fr; color: var(--muted); } .q .empty::before { content: none; }
+  .on { color: var(--night); font-weight: 700; } .off { color: var(--muted); font-weight: 700; }
+  @media (max-width: 520px) { .mix-row { grid-template-columns: 1fr; } .mix-about { grid-column: 1; } }
+</style>
+
+<h1>Night queue</h1>
+<p class="note">Two places: a chip in the header while Night is on (it opens Settings), and one row in Settings &gt; Agents and chat. Off: no chip, the row says off. Cards below are made up.</p>
+
+<h2>Off (default): no chip</h2>
+<div class="frame">
+  <div class="hdr"><span class="brand">agentboard</span><span class="chip">Configuration: Build <em>3 of 3 listening</em></span><span class="chip">connected</span></div>
+</div>
+<div class="frame" style="margin-top:10px">
+  <div class="mix-row"><span class="nm">Night queue</span><span class="val"><span class="off">off</span><button class="btn" type="button">Turn on until 08:00</button></span>
+    <span class="mix-about">Agents take the next card from the queue themselves. No push, no spend, no live restarts, no personal cards. It ends by itself at 08:00. 2 cards are lined up.</span></div>
+</div>
+
+<h2>On: the chip, and the row with the queue in order</h2>
+<div class="frame">
+  <div class="hdr"><span class="brand">agentboard</span><button class="chip night" type="button" title="Night queue: 3 cards waiting, until 08:00. Click to open Settings."><span class="moon" aria-hidden="true">☾</span><span>Night</span><b>3 queued</b><span>until 08:00</span></button><span class="chip">connected</span></div>
+</div>
+<div class="frame" style="margin-top:10px">
+  <div class="mix-row"><span class="nm">Night queue</span>
+    <span class="val"><span class="on">on until 08:00</span><button class="btn" type="button">Turn off</button></span>
+    <span class="mix-about">Agents take the next ready card with <code>agentboard night next --name NAME</code>. Only ORCH or you put cards on the queue.
+      <ol class="q">
+        <li><span class="t">Slow the star field when the ship is docked</span><span class="id">dock-star-calm</span></li>
+        <li><span class="t">Show a ? on a galaxy not yet charted</span><span class="id">map-unknown-mark</span></li>
+        <li><span class="t">Station sign text for every dock</span><span class="id">dock-signs</span><span class="blk">blocked by dock-star-calm</span></li>
+      </ol></span></div>
+</div>
+
+<h2>On, queue empty / ended at 08:00</h2>
+<div class="frame">
+  <div class="mix-row"><span class="nm">Night queue</span><span class="val"><span class="on">on until 08:00</span><button class="btn" type="button">Turn off</button></span>
+    <span class="mix-about"><ol class="q"><li class="empty"><span class="t">Nothing queued. ORCH adds cards with <code>agentboard night queue add ID</code>.</span></li></ol></span></div>
+  <div class="mix-row"><span class="nm">Night queue</span><span class="val"><span class="off">ended 08:00</span><button class="btn" type="button">Turn on until 08:00</button></span>
+    <span class="mix-about">Night ended by itself at 08:00. 2 cards are still lined up; agents take none until it is on again.</span></div>
+</div>
