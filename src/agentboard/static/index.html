@@ -6559,7 +6559,7 @@ window.addEventListener('keydown', e => {   // the capture phase on the window: 
   else return;
   e.preventDefault(); e.stopImmediatePropagation();
 }, true);
-document.addEventListener('click', e => { if (!moreMenu.hidden && !e.target.closest('#more-menu, #more-btn')) toggleMore(false); });
+document.addEventListener('pointerdown', e => { if (!moreMenu.hidden && !e.target.closest('#more-menu, #more-btn')) toggleMore(false); }, true);   // the press, in the capture phase: a card that handles its own tap and stops it would never let a click through
 PHONE.addEventListener('change', () => toggleMore(false));
 
 // --- Start of day: the wrap-up ORCH saved when it last wrapped the day (`agentboard wrapup --apply`), read from /api/wrapup. It opens by itself once, on

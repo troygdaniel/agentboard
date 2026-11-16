@@ -66,6 +66,22 @@ async function main() {
   console.log('D: a tap outside, and the wide window');
   await openMenu(); await tap(40, 600);
   check('a tap outside the sheet closes it', !(await menuOpen()));
+  // a card on the Now deck handles its own taps and stops them there: the sheet must close on the press, before any such handler, or it stays open over the card
+  // a control that handles its own tap and stops it there (the Now deck's slots do, in some layouts): the sheet must still close, so it listens for the press in the capture phase
+  await ev(`(() => { const d = document.createElement('div'); d.id = 'stopper'; d.style.cssText = 'position:fixed;left:10px;top:300px;width:120px;height:120px;z-index:50;background:transparent'; d.addEventListener('click', e => e.stopPropagation()); d.addEventListener('pointerdown', e => e.stopPropagation()); document.body.appendChild(d); return 1; })()`);
+  await openMenu(); await tap(60, 340);
+  check('a tap on something that stops its own click closes the sheet', !(await menuOpen()));
+  await ev(`(document.getElementById('stopper').remove(), 1)`);
+  const slots = await ev(`document.querySelectorAll('.deck-slot').length`);
+  const targets = [['a card', '.deck .card, .card', 0], ['the line to ORCH', '#orch-line input', 0]];
+  for (let i = 0; i < slots; i++) targets.push([`a card behind the front one (${i + 1} of ${slots})`, '.deck-slot', i]);
+  for (const [what, sel, nth] of targets) {
+    const pt = await ev(`(() => { const e = document.querySelectorAll(${JSON.stringify(sel)})[${nth}]; if (!e) return null; const r = e.getBoundingClientRect(); const x = Math.round(r.left + r.width / 2), y = Math.round(r.top + Math.min(r.height / 2, 30)); const t = document.elementFromPoint(x, y); return t && (e === t || e.contains(t)) ? { x, y } : { x: Math.round(r.left + 6), y: Math.round(r.top + r.height / 2) }; })()`);
+    if (!pt) { check(`${what}: found`, false, sel); continue; }
+    await openMenu(); await tap(pt.x, pt.y);
+    check(`a tap on ${what} closes the sheet`, !(await menuOpen()), JSON.stringify(pt) + ' ' + await ev(`(() => { const e = document.elementFromPoint(${pt.x}, ${pt.y}); return e ? e.tagName.toLowerCase() + '.' + String(e.className).slice(0, 24) : ''; })()`));
+    await ev(`(document.activeElement.blur(), 1)`);
+  }
   await send('Emulation.setDeviceMetricsOverride', { width: 1280, height: 900, deviceScaleFactor: 1, mobile: false });
   await sleep(500);
   check('at 1280 px there is no Menu button', await ev(`getComputedStyle(document.getElementById('more-btn')).display === 'none' && document.getElementById('more-menu').hidden`));
