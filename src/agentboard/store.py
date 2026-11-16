@@ -271,6 +271,7 @@ class Store:
         if status is not None and status not in STATUSES:
             raise BoardError(f"status must be one of {STATUSES}")
         size = _clean_size(size)
+        task_id = _clean_id(task_id)
         title = _clean_title(self._scrub(title))
         description = _cap(self._scrub(description, DESCRIPTION_MAX), DESCRIPTION_MAX)
         source = _clean_source(source)
@@ -341,6 +342,7 @@ class Store:
                    blocked_by=None, force=False, parent_id=None, model=None, size=None):
         """Like start, but returns (task, created): created is False when the agent already held a card for this work and it was reused."""
         model, size = self._model_on_claim(model), _clean_size(size)
+        task_id = _clean_id(task_id)
         title = _clean_title(self._scrub(title))   # before the id is made from it: the card id, report names and lookups never carry a key
         description = _cap(self._scrub(description, DESCRIPTION_MAX), DESCRIPTION_MAX)
         name = self._scrub(name)
@@ -1548,6 +1550,20 @@ def _clean_source(source):
         if isinstance(source.get(k), int) and not isinstance(source[k], bool):
             out[k] = source[k]
     return out or None
+
+
+_ID_OK = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}")
+
+
+def _clean_id(task_id):
+    """An id someone typed (`add --id`, `start --id`): a short word that is safe in a file name (reports/<id>-<stamp>.html, runs/<id>), in the
+    page's #<id> link and in a shell, never a path ("a/b", ".."), a space or a control character. The ids the board makes itself (a slug of the
+    title) always fit. None or "" means no id was given."""
+    if not task_id:
+        return None
+    if not isinstance(task_id, str) or not _ID_OK.fullmatch(task_id):
+        raise BoardError("a card id is 1 to 64 letters, digits, dots, hyphens or underscores, starting with a letter or digit (no space, no slash)")
+    return task_id
 
 
 def _clean_title(title):
