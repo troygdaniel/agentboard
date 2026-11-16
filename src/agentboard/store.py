@@ -255,6 +255,11 @@ class Store:
             yield data["tasks"]
             if on:
                 _insights_note(data["tasks"], before)
+            if self._archive_after is None and any(t.get("archived") for t in data["tasks"]):   # an older version left cards flagged inside tasks.json: every save pays for them
+                try:   # (when a step in this transaction is bringing cards back, its own archive rewrite below would overwrite this one: the move waits for the next save)
+                    self._move_archived_out(data["tasks"])
+                except BoardError:   # a damaged archive.json stops the move, never the save: the archive's own readers say what is wrong
+                    pass
             self._write(data)
             if self._archive_after is not None:
                 self._write_archive(self._archive_after)
