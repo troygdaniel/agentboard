@@ -255,6 +255,11 @@ class Store:
             yield data["tasks"]
             if on:
                 _insights_note(data["tasks"], before)
+            if self._archive_after is None and any(t.get("archived") for t in data["tasks"]):   # an older version left cards flagged inside tasks.json: every save pays for them
+                try:   # (when a step in this transaction is bringing cards back, its own archive rewrite below would overwrite this one: the move waits for the next save)
+                    self._move_archived_out(data["tasks"])
+                except BoardError:   # a damaged archive.json stops the move, never the save: the archive's own readers say what is wrong
+                    pass
             self._write(data)
             if self._archive_after is not None:
                 self._write_archive(self._archive_after)
@@ -1087,9 +1092,11 @@ class Store:
             raise BoardError("kind must be 'agent' or 'user'")
         namesmod.check(sender, "the sender")   # a name is one line of plain text: a newline in one would draw a second chat line
         namesmod.check(to, "to")
-        if kind == "agent" and isinstance(sender, str) and sender.strip().lower() in (self.owner.strip().lower(), "all"):
-            # `chat tail` and `chat inbox` print "<name>: text" and agents read that as input: only the owner's own line (kind "user") carries the owner's name
-            raise BoardError(f"an agent's line cannot be signed {sender.strip()!r}: that is {'who a line goes to' if sender.strip().lower() == 'all' else 'the owner of this board'}; use your own session name")
+        shown = plain_name(sender) if isinstance(sender, str) else sender   # what the line will be signed with once the invisible characters are gone
+        if kind == "agent" and isinstance(shown, str) and shown.lower() in (plain_name(self.owner).lower(), "all"):
+            # `chat tail` and `chat inbox` print "<name>: text" and agents read that as input: only the owner's own line (kind "user") carries the owner's name.
+            # Compared after plain_name, as the sender is stored: the owner's name with a zero-width space in it is still the owner's name once stored (sweep review, Nov 15)
+            raise BoardError(f"an agent's line cannot be signed {shown!r}: that is {'who a line goes to' if shown.lower() == 'all' else 'the owner of this board'}; use your own session name")
         if kind == "agent":   # what the owner types is left as written (redact.py)
             sender = plain_name(self._scrub(sender))   # namesmod.check above refused a control character; this also drops what is merely invisible (a zero-width space)
             to = self._scrub(to) if isinstance(to, str) else to   # a name, so a real one is untouched; a mirrored line keeps an unknown one, masked

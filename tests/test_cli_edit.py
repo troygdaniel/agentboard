@@ -53,11 +53,11 @@ class CliEditTests(unittest.TestCase):
         f.write_text("From a file.\n")
         self.assertEqual(self.run_cli("edit", "pull", "--append-file", str(f), "--name", "AGENT-4")[0], 0)
         self.assertEqual(self.card()["description"], "First paragraph.\n\nFrom a file.")
-        self.assertEqual(self.run_cli("edit", "pull", "--description-file", str(f), "--name", "AGENT-4")[0], 0)
+        self.assertEqual(self.run_cli("edit", "pull", "--description-file", str(f), "--name", "AGENT-1")[0], 0)   # a replace is the holder's (tests/test_edit_holder_only.py)
         self.assertEqual(self.card()["description"], "From a file.")
 
     def test_title_and_description_replace(self):
-        code, out, _ = self.run_cli("edit", "pull", "--title", "Timed text pull", "--description", "New.", "--name", "AGENT-4")
+        code, out, _ = self.run_cli("edit", "pull", "--title", "Timed text pull", "--description", "New.", "--name", "AGENT-1")   # the holder: another agent may only --append
         self.assertEqual(code, 0)
         self.assertIn("pull: edited", out)
         t = self.card()

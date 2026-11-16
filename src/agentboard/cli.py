@@ -408,9 +408,12 @@ def cmd_edit(a):
         raise BoardError("nothing to change: give --title, --description, --description-file, --append or --append-file")
     by = _agent_name(a)
     s = _store()
+    loaded = s.load()
+    if a.title is not None or replace is not None:   # a rewrite of the card's words answers to its holder, as update/ask/review/move/rm do; --append (a note) stays open to every agent
+        _must_hold(loaded, Store.get(loaded, a.id), by, s.owner, verb="replace the title or description of")
     desc = replace
     if extra is not None and extra.strip():
-        base = replace if replace is not None else (Store.get(s.load(), a.id).get("description") or "")
+        base = replace if replace is not None else (Store.get(loaded, a.id).get("description") or "")
         desc = (base.rstrip() + "\n\n" + extra.strip()).strip()
     t = s.edit(a.id, title=a.title, description=desc, by=by)
     print(f"{t['id']}: edited")
@@ -631,7 +634,8 @@ def _twins_warning(s, name):
 
 
 def _chat_name(a):
-    name = a.name or os.environ.get("AGENTBOARD_NAME") or (_store().owner if getattr(a, "user", False) else None)
+    user = getattr(a, "user", False)
+    name = (_store().owner if user else None) or a.name or os.environ.get("AGENTBOARD_NAME")   # --user is the owner's line whatever the shell's own name (ORCH relaying)
     if not name:
         raise BoardError("give --name (or set AGENTBOARD_NAME) so the board can show who's talking")
     name = _store()._scrub(name)   # masked before it is written anywhere (sessions, listeners, cursors), as the store masks it on a card
@@ -684,6 +688,13 @@ def cmd_hooks(a):
 
 
 def cmd_chat_send(a):
+    s = _store()
+    me = (os.environ.get("AGENTBOARD_NAME") or "").strip()   # the session's own name; --name may say another, --user says the owner
+    if me and me.upper() != "ORCH" and not _to_owner(me, s.owner):   # an agent: its line is its own, never the owner's or ORCH's (agents act on those: night mode, approvals)
+        posted_as = s.owner if a.user else (a.name or "")
+        if a.user or posted_as.upper() == "ORCH" or _to_owner(posted_as, s.owner):
+            raise BoardError(f"{me} posts under its own name: a line as {s.owner} or ORCH is theirs to write "
+                             "(ORCH relays the owner with --user; a shell with no agent name set is the owner at a terminal)")
     name = _chat_name(a)
     detail = a.detail
     if a.detail_file:
@@ -745,6 +756,7 @@ def cmd_chat_inbox(a):
             unread = s.chat_inbox(name, after=after, limit=None)
             if unread or not a.wait or time.time() >= deadline:
                 break
+            listeners.beat(s.dir, name)   # still here: a wait that dies stops saying so, whoever gets its pid (listeners.STALE_S)
             chatwake.sleep_until_change(s.dir, a.interval, max(0.0, min(chatwake.NET_S, deadline - time.time())))   # a stat a second; the board is read when a line lands
     msgs, more = (unread, []) if a.limit <= 0 else (unread[:a.limit], unread[a.limit:])   # the oldest first; the cursor stops at the last line shown, so the rest come next time
     for m in msgs:
@@ -778,7 +790,8 @@ def cmd_chat_decide(a):
     s = _store()
     who = (os.environ.get("AGENTBOARD_NAME") or "").strip()
     if who and not _to_owner(who, s.owner):   # as `configuration accept` does: an agent that proposed an action could approve it itself, as the owner
-        raise BoardError(f"only {s.owner} approves or declines a proposed action: it is the owner's word, not an agent's "
+        who = "only you approve or decline" if s.owner == "you" else f"only {s.owner} approves or declines"   # "you" until [board] owner is set
+        raise BoardError(f"{who} a proposed action: it is the owner's word, not an agent's "
                          "(run it from the board's button, or from a shell with no agent name set)")
     m = s.chat_decide(a.seq, a.decision)
     print(_chat_line(m))
@@ -1016,6 +1029,16 @@ def _agent_name(a):
     return _store()._scrub(name)   # masked before it is written anywhere (sessions, listeners, cursors), as the store masks it on a card
 
 
+def _worker_name(a):
+    """The name an agent takes work under (claim, start): never the owner's name and never "all". The owner is the exception to "you may only
+    report on your own card" and "all" is who a chat line goes to, so rename refuses both too. The page, the owner's own channel, is not this path."""
+    name = _agent_name(a)
+    k = str(name).strip().lower()
+    if k == "all" or k == str(_store().owner).strip().lower():
+        raise BoardError(f"{str(name).strip()} is a name the board keeps for itself: take the card under your own session name")
+    return name
+
+
 # The agent palette, kept out of the status-color families (--warn/--hwarn amber ~25-50°, --ok/--hok green ~145-165°,
 # --err/--hbad red near 0/360°): an agent's color shows up on its cards' avatar disc and progress bar at all times, so a
 # hue in one of those bands would make a normal in-progress card misread as needing attention at a glance.
@@ -1116,8 +1139,9 @@ def cmd_spawn(a):
 
 
 def cmd_start(a):
-    hookslib.remember_session(_store().dir, _agent_name(a), transcript=a.transcript)
-    t, created = _store().start_card(a.title, _agent_name(a), None,   # --color is accepted and ignored
+    name = _worker_name(a)
+    hookslib.remember_session(_store().dir, name, transcript=a.transcript)
+    t, created = _store().start_card(a.title, name, None,   # --color is accepted and ignored
                                      a.description or "", a.id, blocked_by=a.blocked_by, force=a.force,
                                      parent_id=a.parent, model=a.model, size=a.size)
     if not created:
@@ -1384,7 +1408,7 @@ def cmd_rm(a):
 
 
 def cmd_claim(a):
-    name = _agent_name(a)
+    name = _worker_name(a)
     s = _store()
     hookslib.remember_session(s.dir, name, transcript=a.transcript)
     t = s.claim(a.id, name, force=a.force, model=a.model)   # --color is accepted and ignored
@@ -2008,6 +2032,8 @@ def cmd_answer(a):
                 return
             if not a.wait or time.time() >= deadline:
                 sys.exit(f"agentboard: no reply on {a.id} yet" + (f" after {a.timeout:g}s" if a.wait else ""))
+            if listener:
+                listeners.beat(s.dir, name, listener[1])   # still here (see chat inbox --wait)
             time.sleep(a.interval)
     finally:
         if listener:
@@ -2241,7 +2267,7 @@ def main(argv=None):
     sp.add_argument("--label", help="name this snapshot (it is then never pruned), e.g. before-cleanup")
     sp.add_argument("--list", action="store_true", help="list snapshots and the nightly-copy status")
     sp.add_argument("--sync", action="store_true", help="copy the newest snapshot to [backup] sync_dir now")
-    sp = add("restore", cmd_restore, "put a snapshot back as the board: a file, a name in .agentboard/backups, `latest`, or `previous` (the version before the last save)")
+    sp = add("restore", cmd_restore, "put a snapshot back as the board: a file, a name in .agentboard/backups, the label you gave `backup --label`, `latest`, or `previous` (the version before the last save)")
     sp.add_argument("which")
     sp.add_argument("--yes", action="store_true", help="do not ask (the board as it is now is kept first as a before-restore snapshot)")
     sp = add("config", cmd_config, "config.toml you can trust: show what applies (and where each value came from), check for typos, wrong types and unsafe values, docs from the schema")

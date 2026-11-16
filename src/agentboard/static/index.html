@@ -98,7 +98,7 @@
   /* Nothing in the header moves on a poll (Nov 4): above the phone width it never wraps to a second line (that pushed the board and
      Load's top edge down whenever the counts appeared), the counts shrink with an ellipsis before anything else gives, the numbers
      are tabular, and ORCH / the board switch keep their slot from the first paint instead of appearing later */
-  @media (min-width: 901px) { header { flex-wrap: nowrap; } }
+  @media (min-width: 1200px) { header { flex-wrap: nowrap; } }   /* below this the header's items (two chips, Later, the icons) do not fit on one line: they wrap, as on a phone, rather than run off the window */
   #summary { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 0 1 auto; font-variant-numeric: tabular-nums; }
   h1 { font-size: var(--fs-lg); font-weight: 600; letter-spacing: -.015em; display: flex; align-items: center; gap: 9px; flex: 0 0 106px; }
   h1 svg { color: var(--text); }
@@ -136,14 +136,14 @@
   .ab-conn.down ~ #status { display: none; }
   /* The applied configuration in the header (card agent-config-slice-3): its short name and how many of its agents are listening; a click opens Settings. */
   .ab-cfg { display: inline-flex; align-items: center; gap: 6px; font: inherit; font-size: var(--fs-sm); color: var(--muted); padding: 3px 11px; border-radius: 999px; border: 1px solid var(--line); background: var(--chip); white-space: nowrap; cursor: pointer; }
-  .ab-cfg b { font-weight: 650; color: var(--text); } .ab-cfg em { font-style: normal; color: var(--ok); font-weight: 600; } .ab-cfg:hover { border-color: var(--text); }
+  .ab-cfg b { font-weight: 650; color: var(--text); } .ab-cfg em { font-style: normal; color: color-mix(in srgb, var(--ok) 82%, #000); font-weight: 600; }   /* 4.4:1 on the chip in the light theme with --ok itself; 6:1 mixed */ .ab-cfg:hover { border-color: var(--text); }
   .ab-cfg[hidden] { display: none; }
   .ab-cfg .cl, .ab-cfg .cw { display: none; }   /* compact: Build 4/5; the words (Configuration: Build 4 of 5 listening) come back on a wide window */
   @media (min-width: 1560px) { .ab-cfg .cl, .ab-cfg .cw { display: inline; } .ab-cfg .cn { display: none; } }
   @media (max-width: 900px) { .ab-cfg em { display: none; } }
   /* Night queue (card retro-night-queue): the chip is there only while night mode is on; the Settings row carries the switch and the queue in order */
   .ab-night { color: var(--info); border-color: var(--info); }
-  .ab-night b { color: inherit; } .ab-night .nu { display: none; } @media (min-width: 1100px) { .ab-night .nu { display: inline; } }
+  .ab-night b { color: inherit; } .ab-night .nu, .ab-night .nw { display: none; } @media (min-width: 1560px) { .ab-night .nu, .ab-night .nw { display: inline; } }   /* compact: Night 3; the words (3 queued, until 08:00) come back on a wide window, like the Configuration chip's */
   .ab-night:hover { border-color: var(--text); }
   .nq-on { color: var(--info); font-weight: 700; } .nq-off { color: var(--muted); font-weight: 700; }
   .nq-list { list-style: none; margin: 0 0 8px; padding: 0; counter-reset: nq; }
@@ -192,6 +192,7 @@
   .rn-btns { display: flex; gap: 8px; justify-content: flex-end; }
   .rn-done { border-left: 3px solid var(--ok); background: var(--chip); border-radius: 6px; padding: 10px 12px; font-size: var(--fs-md); line-height: 1.5; } .rn-done button { font: inherit; color: var(--info); background: none; border: 0; padding: 0; text-decoration: underline; cursor: pointer; }
   .rn-btn, .rn-link { font: inherit; font-size: var(--fs-sm); color: var(--muted); background: none; border: 0; padding: 0 0 0 8px; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; } .rn-btn:hover, .rn-link:hover { color: var(--text); }
+  @media (max-width: 1399px) { .ab-conn:not(.slow):not(.down) .t { display: none; } }   /* "Live" alone until there is room for "updated 1s ago"; a slow or down connection keeps its words */
   @media (max-width: 760px) { .ab-conn .t { display: none; } .ab-conn { padding: 3px 9px; } .ab-conn:not(.slow):not(.down) b { display: none; } .ab-conn:not(.slow):not(.down) { padding: 7px; } }
   #filter { display: none; }   /* the filter is driven by the who chips and the attention counts, not typed */
   .filter-clear { width: 28px; height: 28px; min-height: 0; padding: 0; display: inline-grid; place-items: center; margin-left: -4px; }
@@ -499,7 +500,7 @@
   .w-more-n { font-style: normal; color: var(--c); font-weight: 600; }
   .deck-full { display: block; margin-top: 20px; padding: 0; border: 0; background: none; font: inherit; font-size: 12px; font-weight: 600; color: var(--muted); cursor: pointer; } .deck-full:hover { color: var(--text); text-decoration: underline; text-underline-offset: 3px; }
   .orch-say { border: 0; text-align: left; cursor: pointer; font: inherit; color: inherit; } .orch-say p b { display: block; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 700; margin-bottom: 1px; }
-  #orch-line.direct .orch-face { background: var(--need); color: #fff; }
+  #orch-line.direct .orch-face { background: var(--need-fill); color: #fff; }
   .orch-who { position: absolute; left: 6px; bottom: calc(100% + 10px); display: flex; flex-wrap: wrap; gap: 6px; max-width: 96%; padding: 8px; border-radius: 16px; background: color-mix(in srgb, var(--surface) 94%, transparent); backdrop-filter: blur(14px); box-shadow: inset 0 0 0 1px var(--line), 0 18px 44px -18px rgba(0,0,0,.6); animation: orchsay .3s cubic-bezier(.2,.9,.25,1) both; }
   .orch-who button { font: inherit; font-size: 13px; display: inline-flex; align-items: center; gap: 7px; padding: 4px 12px 4px 4px; border-radius: 999px; border: 0; background: color-mix(in srgb, var(--text) 7%, transparent); color: var(--text); cursor: pointer; } .orch-who button:hover, .orch-who button.first { background: color-mix(in srgb, var(--text) 16%, transparent); }
   .orch-who i { font-style: normal; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; font-weight: 700; background: var(--text); color: var(--bg); }
@@ -1965,7 +1966,8 @@
    tabs; By agent says under a name what that agent is waiting for; a card lights the Todo cards it holds. One accent, --need, for what
    is the owner's to act on. The pile itself is styled further down. */
 :root{--need:#e8590c}
-#tab-need #need-n{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:999px;background:var(--need);color:#fff;font-size:11px;font-weight:700}
+:root{--need-fill:color-mix(in srgb, var(--need) 80%, #000)}   /* the orange under white text: 5.1:1, where --need itself is 3.6:1 (sweep-ux) */
+#tab-need #need-n{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:999px;background:var(--need-fill);color:#fff;font-size:11px;font-weight:700}
 #tab-need #need-n:empty{display:none}
 #tab-need #need-n.pop{animation:mePop .45s cubic-bezier(.2,.9,.3,1.4)}
 @keyframes mePop{from{transform:scale(1.6)}to{transform:scale(1)}}
@@ -5521,7 +5523,7 @@ function renderNightChip() {
   const el = $('night-chip'); if (!el) return;
   const st = nightState;
   if (!st || !st.on) { if (!el.hidden) el.hidden = true; return; }
-  const n = st.queue.length, html = `<span aria-hidden="true">☾</span><b>Night</b><span>${n} queued</span><span class="nu">until ${esc(nightTime(st.until))}</span>`;
+  const n = st.queue.length, html = `<span aria-hidden="true">☾</span><b>Night</b><span>${n}<span class="nw"> queued</span></span><span class="nu">until ${esc(nightTime(st.until))}</span>`;
   if (el.innerHTML !== html) el.innerHTML = html;
   const tip = `Night mode is on until ${nightTime(st.until)}: ${n} card${n === 1 ? '' : 's'} queued. Click to open Settings.`;
   el.title = tip; el.setAttribute('aria-label', tip); el.hidden = false;
