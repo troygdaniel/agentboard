@@ -50,6 +50,12 @@ A card's text is masked for secrets on the way in; the hand-written `reports/<ca
 - **Who passes:** the holder, ORCH, the owner and a terminal with no session name; a card nobody holds stays anyone's to move (the queue is fixed that way). A subtask answers to its parent's holder. `release` checks every card before it releases the first, so a refusal leaves none half done.
 - **`wrapup --ask` and `--apply`** are ORCH's and the owner's, like `night on`; plain `wrapup`, `--last` and `--json` still read for anyone.
 - The refusal names the holder and who may: "mine is held by AG-1: only AG-1, ORCH or the owner can release it". Not covered: `edit` (an agent may still annotate a card); the name is the session's own word, as for `update`, so this stops a wrong card, not a determined session. `tests/test_held_card_guard.py` (10).
+### The keyboard goes into a layer when it opens (Nov 15, sweep-ux)
+Opening the Later drawer, Settings or the Keys sheet from the keyboard left focus on the page behind it, so the next Tab walked the board instead of the layer. The Later drawer asked for its "Park an idea" field while it was still hidden (the first frame of its slide in), and a focus on a hidden element does nothing. Settings focused its tab and then redrew the tab list when the Security and Backup tabs arrived, which threw the focused tab away. The Keys sheet never asked.
+- **Later:** focus lands in the "Park an idea" field a moment after the drawer opens. The first Esc leaves the field, the next closes the drawer, as before.
+- **Settings:** the selected tab keeps focus through the redraw.
+- **Keys:** the Close button takes focus on open, and Help gets it back on close.
+- Checked: `tests/test_focus_on_open.py` (4, pins the three fixes) and `node tests/qa/focus_on_open_check.mjs` in headless Chrome on a throwaway board (12 checks with real key events; 7 of them fail on the old page).
 
 ### A night queue: agents take the next card themselves (Nov 15, card retro-night-queue, retro rec 13)
 Off by default; with the switch off, or never used, nothing on the board changes. When the owner (or ORCH, at their word) turns Night on, ORCH lines up specified Todo cards and an agent with a free hand takes the next one itself instead of waiting for a message.
