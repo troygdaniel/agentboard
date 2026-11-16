@@ -38,6 +38,10 @@ class PhoneMenuTests(unittest.TestCase):
         self.assertIn("} else if (moreMenu.contains(document.activeElement)) moreBtn.focus();", HTML)
         self.assertIn("focusWhenShown(moreItems()[0], () => !moreMenu.hidden);", HTML)
 
+    def test_a_press_outside_closes_it_in_the_capture_phase_so_a_card_that_stops_its_own_click_cannot_keep_it_open(self):
+        self.assertIn("document.addEventListener('pointerdown', e => { if (!moreMenu.hidden && !e.target.closest('#more-menu, #more-btn')) toggleMore(false); }, true);", HTML)
+        self.assertNotIn("document.addEventListener('click', e => { if (!moreMenu.hidden", HTML)
+
     def test_the_logo_word_leaves_the_row_for_the_button_on_a_phone_but_stays_for_a_screen_reader(self):
         self.assertIn('</svg><span class="brand">agentboard</span></h1>', HTML)
         self.assertIn("@media (max-width: 480px) { h1 { flex: 0 0 auto; } h1 .brand { position: absolute;", HTML)

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### The phone menu closes when you press anywhere outside it (Nov 15, sweep-ux)
+The Menu button's sheet closed on a click outside it, but some things on the Now deck (its stacked cards, in some layouts) handle their own tap and stop it there, so the sheet stayed open over them. It now closes on the press itself, in the capture phase, before any such handler.
+- Checked: `node tests/qa/phone_menu_check.mjs` (29 checks; the new one puts an element that stops its own click on the page and taps it, and fails on the old page, plus a tap on every stacked card) and `tests/test_phone_menu.py` (6).
+
 ### A phone can reach Settings, Later, New task and the theme (Nov 15, sweep-ux)
 At 700 px and under the header steps back to the three tabs, which hid every button in it: a phone could not open Settings (so not the Night switch either), the Later drawer, the new-task sheet or the theme switch. One **Menu** button (three dots, a 44 px target) now sits at the end of the header at that width and opens a small sheet with those four; each item does what its header button does. Arrow keys, Home and End move between them, Esc or a tap outside closes it and focus goes back to the button. Above 700 px there is no Menu button.
 - On a phone the two chips (Configuration, Night) step back with the buttons, and below 480 px the logo's word leaves the row for a screen reader only (the tabs, the connection dot and the Menu button then fit on one line).
