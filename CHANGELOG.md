@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Two cards can no longer be made to wait on each other (Nov 15, night sweep)
+The board's blocked-by edit refused a card waiting on its own subtask and dropped a card waiting on itself, but accepted A waits on B while B waits on A, and longer rings. Neither card could then be claimed without `--force` (which agents are told never to use), and the night queue skipped both: a deadlock nobody was told about. The edit that would close a loop is refused with the cards named (`blocked-by: that would make a loop (a waits on b waits on a): neither card could be claimed`) and nothing is changed; waiting on several cards, and a diamond (a waits on b and c, which both wait on d), are fine. `tests/test_blocked_by_cycles.py` (6; three fail without the fix).
+
 ### `update ID 12.5` and `update ID 50%` no longer pretend a percent was set (Nov 15, night sweep)
 A lone number that was not a whole number (`12.5`, `50%`, `1e1`, `.5`) was taken as the status line, and the command answered "ID: 0%" as though the percent had been set. It now stops with "progress is a whole number from 0 to 100, got '12.5': write 50, not 50% or 12.5" and changes nothing; with words after it the command already refused. Whole numbers, and words alone ("half done", "v2", "3 of 5 steps") work as before. `tests/test_update_percent.py` (3).
 ### The chat archive names its day files only from a real date (Nov 15, night sweep)

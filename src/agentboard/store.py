@@ -497,6 +497,9 @@ class Store:
                 circular = [b for b in ids if by_id[b].get("parent_id") == task_id]
                 if circular:
                     raise BoardError(f"a card cannot wait on its own subtask: {', '.join(circular)}")
+                loop = _wait_loop(by_id, task_id, ids)
+                if loop:
+                    raise BoardError(f"blocked-by: that would make a loop ({' waits on '.join(loop)}): neither card could be claimed")
                 if ids != list(t.get("blocked_by") or []):
                     if ids:
                         t["blocked_by"] = ids
@@ -1543,6 +1546,23 @@ def _check_cards(tasks, path, saving=False):
             if saving:
                 raise BoardError(f"this change would leave card {n} {what}, which the board could not read again; nothing was saved")
             raise BoardError(f"{path}: card {n} {what}; run `agentboard verify`, or `agentboard restore latest` (or `restore previous`)")
+
+
+def _wait_loop(by_id, task_id, waits_on):
+    """If `task_id` waiting on `waits_on` would close a loop (a waits on b, b waits on a, or a longer ring), the cards of one such loop starting and ending with
+    `task_id`; else None. Follows each card's own blocked_by."""
+    stack = [(b, [task_id, b]) for b in waits_on]
+    seen = set()
+    while stack:
+        cur, path = stack.pop()
+        if cur == task_id:
+            return path
+        if cur in seen:
+            continue
+        seen.add(cur)
+        for nxt in (by_id.get(cur) or {}).get("blocked_by") or []:
+            stack.append((nxt, path + [nxt]))
+    return None
 
 
 def _check_snapshot(card, what="the card"):
