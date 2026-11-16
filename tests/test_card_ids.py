@@ -11,8 +11,8 @@ from pathlib import Path
 from agentboard import reports, runs
 from agentboard.store import BoardError, Store, safe_id
 
-BAD = ["../../evil", "a/b", "..", ".", "a b", "x;y", "a$(id)", "a\nb", "-rf", "a`b", "a|b", "", "x" * 81, "é", "a.b"]
-GOOD = ["a", "space-game-u-b5-systems-8", "UPPER_and-lower-9", "0day"]
+BAD = ["../../evil", "a/b", "..", ".", "a b", "x;y", "a$(id)", "a\nb", "-rf", "a`b", "a|b", "", "x" * 65, "é", ".hidden"]
+GOOD = ["a", "space-game-u-b5-systems-8", "UPPER_and-lower-9", "0day", "v1.2"]
 
 
 class NewIds(unittest.TestCase):
