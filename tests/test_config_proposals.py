@@ -165,6 +165,14 @@ class Decide(Base):
         rec, cfg = cp.accept(self.d, 1, "Pat")
         self.assertEqual(cfgs.applied(self.d)["name"], "Day to day")
 
+    def test_accepting_a_new_name_keeps_the_shared_rules(self):
+        cfgs.apply(self.d, cfgs.builtin("dev-crew"), "dev-crew")
+        self.add_name(name="Builder-9", role="builder")
+        cp.accept(self.d, 1, "Pat")
+        cur = cfgs.applied(self.d)
+        self.assertIn("Builder-9", cfgs.roster(cur))
+        self.assertEqual(cur["shared_rules"], cfgs.builtin("dev-crew")["shared_rules"])   # the copy with a new name is not a copy without the rules
+
     def test_only_the_owner_accepts_or_ignores(self):
         self.add_name()
         for who in ("ORCH", "Caller-1", "orch"):

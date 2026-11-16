@@ -54,8 +54,8 @@ class Base(unittest.TestCase):
 
 
 class ThePicker(Base):
-    def test_the_three_built_ins_ship_in_the_boards_order(self):
-        self.assertEqual([c["key"] for c in cfgs.builtin_list()], ["build", "dream-up", "day-to-day"])
+    def test_the_built_ins_ship_in_the_boards_order(self):
+        self.assertEqual([c["key"] for c in cfgs.builtin_list()], ["build", "dream-up", "day-to-day", "dev-crew"])
         for c in cfgs.builtin_list():
             self.assertEqual({k: v for k, v in c.items() if k != "key"}, cfgs.validate({k: v for k, v in c.items() if k != "key"}))   # each is a valid file as it stands
         build = cfgs.builtin("build")
@@ -73,7 +73,7 @@ class ThePicker(Base):
         self.assertEqual(code, 200)
         self.assertTrue(st["enabled"])
         self.assertIsNone(st["applied"])
-        self.assertEqual([c["key"] for c in st["builtin"]], ["build", "dream-up", "day-to-day"])
+        self.assertEqual([c["key"] for c in st["builtin"]], ["build", "dream-up", "day-to-day", "dev-crew"])
         dev = st["builtin"][0]["start"][0]
         self.assertEqual((dev["name"], dev["role"], dev["lines"]), ("Dev-1", "dev", ["/rename Dev-1", "export AGENTBOARD_NAME=Dev-1"]))
 

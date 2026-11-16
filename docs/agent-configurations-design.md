@@ -98,6 +98,10 @@ Each is its own card with its own tests; none installs or restarts the live boar
 
 Built as designed, except: the approval card is the chat's existing proposal (`chat send --propose`, one decision, Approve and Decline) extended with `--outside --target --say --money --shares` and the 30-minute lapse, because it already had the one-decision record and the agent's `chat approvals` read; the card also `ask`s so it waits in Needs you (the role block tells the agent to). `count` in the file is optional and must equal the number of names. The compact Load strip carries the role in its tooltip, not as a chip. Pictures: `docs/agent-configurations/`.
 
+## As built (Dev crew, Nov 15)
+
+Retro rec 5: a fourth shipped configuration, `dev-crew` (builder, designer, gate, tester), matching the crew as it ran, and one new optional top-level field, `shared_rules`: up to 12 one-line rules (200 characters each) that every role's prompt carries once, after that role's own lines (`configurations.shared_block`, the same text for every role, so a rule is changed in one place). An agent with no role, and a configuration without the field, get today's prompt unchanged; ORCH's prompt lists them too. ORCH is not a role in the file: the board keeps that name, and ORCH already gets the roster and the rules in its own prompt. It is not on until the owner sets `[agents] configurations = true` and applies `dev-crew`; nothing in the build changed the live board.
+
 ## Not decided here
 
 - Plugin files that hold agent names (the texts plugin keeps its own): rename would call a hook for them; the hook's shape is a build question.

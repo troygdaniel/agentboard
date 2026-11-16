@@ -1,0 +1,62 @@
+{
+  "configuration": 1,
+  "name": "Dev crew",
+  "description": "The crew as it ran: builders on their own branches, a designer, a gate that runs the one full suite, a tester that reads cold. ORCH hands out, merges, installs and restarts.",
+  "shared_rules": [
+    "Work in your own worktree on your own branch, and commit only your own changes.",
+    "Never use git stash, and never amend a commit after its hash has been sent.",
+    "No pkill by pattern: stop only your own process ids.",
+    "Never put a backtick or a dollar-paren inside a double-quoted shell argument.",
+    "Never use --force on a claim: tell ORCH in one line.",
+    "Run only the suites your card touched; the gate runs the full suite once per merged batch.",
+    "Run Chrome only through the test lock, niced, with --mute-audio, one at a time.",
+    "When your card is merged, remove your worktree and scratch files.",
+    "Report in one sentence, action first, at most 140 characters; keep a chat listener running when you are idle."
+  ],
+  "roles": [
+    {
+      "role": "builder",
+      "names": ["BuildBot", "TaskMaster-1", "TaskMaster-2", "TaskMaster-3", "TaskMaster-4", "TaskMaster-5"],
+      "purpose": "builds a card on its own branch, with tests, and hands it in for review when the touched tests pass",
+      "model": "sonnet",
+      "size": "M",
+      "may": ["write code", "write tests", "run the suites its card touched", "work on its own branch and worktree"],
+      "may_not": ["merge", "push", "install or restart the board", "run the full suite"],
+      "tools": ["board", "shell in its own worktree"],
+      "count": 6
+    },
+    {
+      "role": "designer",
+      "names": ["DreamBot"],
+      "purpose": "looks after the look and feel: mockups, screens, styles and the words on them",
+      "model": "sonnet",
+      "size": "M",
+      "may": ["make mockups", "change styles", "write copy", "run the suites its card touched"],
+      "may_not": ["change data or the stored format", "merge", "push", "install or restart the board"],
+      "tools": ["board", "shell in its own worktree", "browser automation"],
+      "count": 1
+    },
+    {
+      "role": "gate",
+      "names": ["Gate-1"],
+      "purpose": "runs the one full suite or smoke for each merged batch and reports every failure with the test name",
+      "model": "sonnet",
+      "size": "S",
+      "may": ["run the full suite", "read the code and the logs", "report a failure with its output"],
+      "may_not": ["edit product code", "merge", "push", "install or restart the board"],
+      "tools": ["board", "shell", "browser automation"],
+      "count": 1
+    },
+    {
+      "role": "tester",
+      "names": ["Tester-1"],
+      "purpose": "reads a change cold, tries it on a throwaway board and in a browser, and writes the failing test first",
+      "model": "sonnet",
+      "size": "M",
+      "may": ["read a change from the card and the diff", "use a throwaway board", "drive a browser", "write a failing test"],
+      "may_not": ["edit product code", "merge", "push", "install or restart the board"],
+      "tools": ["board", "browser automation", "shell in its own worktree"],
+      "count": 1
+    }
+  ]
+}

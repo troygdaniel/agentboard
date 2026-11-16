@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### A Dev crew configuration ships, with one block of rules every role's prompt carries (Nov 15, retro rec 5)
+The crew had no configuration of its own, and the rules it learned the hard way (no git stash, no pkill by pattern, no backtick in a shell string, no amend after a hash is sent, Chrome only through the lock, touched suites only) lived in a memory folder and in chat, in no role's prompt.
+- **`dev-crew` ships** beside build, dream-up and day-to-day: builder (BuildBot, TaskMaster-1 to 5), designer (DreamBot), gate (Gate-1: the one full suite per merged batch) and tester (Tester-1: reads a change cold). Every role may not merge, push, install or restart the board; ORCH keeps those jobs and is not a role in the file (the board keeps that name).
+- **`shared_rules`:** a new optional field, up to 12 one-line rules, written once and printed once in every role's card prompt and in the claim output, after that role's own lines; ORCH's prompt lists them and `configuration show` prints them. A file without the field, and an agent with no role, get the prompt as it was.
+- **A proposed new name keeps the rules:** accepting `propose --add-name` used to rebuild the configuration from its roles only; it now carries `shared_rules` over (a test, with a control that fails without the fix).
+- **Off until you turn it on:** `[agents] configurations = true`, then `agentboard configuration apply dev-crew`. Nothing here changes a live board, installs or restarts it.
+- Checked: `tests/test_configurations.py`, `tests/test_configuration_board.py`, `tests/test_config_proposals.py`; the shipped file is scanned for a person, number or address.
+
 ### A Todo or Later card can be deleted again (Nov 15)
 The card's panel kept Delete (and Copy prompt, Back to Todo, Stop run) inside the closed "More" fold since Nov 12, so a card nobody had started showed no way to delete it. The buttons now sit under the fold, always visible, for Later, Todo and Doing cards the way they already did for a card in review or done. Test: `node tests/qa/delete_cards_check.mjs` (34 checks: the Later drawer, the Map's Todo and Doing columns, wide and 390 px; it fails on the old page) and a page pin in `tests/test_you_line.py`.
 

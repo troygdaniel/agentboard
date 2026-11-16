@@ -130,7 +130,7 @@ def _check_add(cfg, role, name, owner):
 
 
 def _with_name(cfg, role, name):
-    d = {"configuration": configurations.VERSION, "name": cfg["name"], "description": cfg["description"], "roles": []}
+    d = {"configuration": configurations.VERSION, "name": cfg["name"], "description": cfg["description"], "shared_rules": list(cfg.get("shared_rules") or []), "roles": []}
     for r in cfg["roles"]:
         r = {**r, "names": list(r["names"])}
         if r["role"].lower() == role.lower():

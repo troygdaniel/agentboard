@@ -2,7 +2,7 @@
 //
 //     node tests/qa/config_board_check.mjs            (python3 and Google Chrome on this Mac; PYTHON=... and CHROME=... override them)
 //
-// Settings > Agents: the three configurations in the board's order, the table of roles with what each may and may not do, Apply (the roster and labels only: no card
+// Settings > Agents: the four configurations in the board's order, the table of roles with what each may and may not do, Apply (the roster and labels only: no card
 // changes), the terminals to type with a Copy button, the header chip with the listening count, Remove, and the "off" line when the setting is off. The Rename dialog:
 // the counts before a name is typed, a refused name says why and keeps Rename off, Esc closes only the dialog, Rename changes every card and Undo puts it back.
 // Then 390 px wide. WATCH_CHECK_SHOTS=<dir> also saves screenshots. Prints one ok/FAIL line per check; exit code 1 on a FAIL.
@@ -25,9 +25,9 @@ async function main() {
 
   console.log('A: Settings > Agents: the picker');
   await ev(`(toggleMix(true, 'agents'), 1)`);
-  check('the configuration pane is there and says what is on offer', await waitFor(`document.querySelectorAll('#cfg-config .cfg-opt').length === 3`, 15000));
+  check('the configuration pane is there and says what is on offer', await waitFor(`document.querySelectorAll('#cfg-config .cfg-opt').length === 4`, 15000));
   const opts = await ev(`[...document.querySelectorAll('#cfg-config .cfg-opt')].map(b => b.querySelector('b').textContent.trim() + ' | ' + b.querySelector('span').textContent.trim())`);
-  check('Build, Dream up and Day to day, in that order, each with its agents', opts[0].startsWith('Build or improve an application') && /5 agents · dev ×2, qa, architect, designer/.test(opts[0]) && opts[1].startsWith('Dream up') && opts[2].startsWith('Day to day'), JSON.stringify(opts));
+  check('Build, Dream up, Day to day and Dev crew, in that order, each with its agents', opts[0].startsWith('Build or improve an application') && /5 agents · dev ×2, qa, architect, designer/.test(opts[0]) && opts[1].startsWith('Dream up') && opts[2].startsWith('Day to day') && opts[3].startsWith('Dev crew') && /9 agents/.test(opts[3]), JSON.stringify(opts));
   const table = await ev(`({ rows: document.querySelectorAll('#cfg-config .cfg-role').length, head: document.querySelector('#cfg-config .cfg-detail h4').textContent, not: document.querySelector('#cfg-config .cfg-role .not').textContent, may: document.querySelector('#cfg-config .cfg-role .may').textContent })`);
   check('the first is open: four roles, each with what it may and may not do', table.rows === 4 && /Build/.test(table.head) && /merge/.test(table.not) && /code/.test(table.may), JSON.stringify(table));
   check('the terminals to type are listed, one line each, with a Copy button', await ev(`document.querySelectorAll('#cfg-config .cfg-term').length === 5 && document.querySelector('#cfg-config .cfg-term code').textContent === '/rename Dev-1'`));
@@ -95,7 +95,7 @@ async function main() {
   check('with the setting off the pane says so and the chip is hidden', await waitFor(`/off/.test(document.querySelector('#cfg-config .val').textContent) && document.getElementById('cfg-chip').hidden && /agents\\] configurations = true/.test(document.getElementById('cfg-config').textContent)`, 8000));
   appendFileSync(join(board.dir, 'config.toml'), '\n[agents]\nconfigurations = true\n');
   await ev(`(toggleMix(false), toggleMix(true, 'agents'), 1)`);
-  await waitFor(`document.querySelectorAll('#cfg-config .cfg-opt').length === 3`, 8000);
+  await waitFor(`document.querySelectorAll('#cfg-config .cfg-opt').length === 4`, 8000);
   await send('Emulation.setDeviceMetricsOverride', { width: 390, height: 900, deviceScaleFactor: 1, mobile: true });
   await sleep(700);
   const narrow = await ev(`({ page: document.documentElement.scrollWidth - document.documentElement.clientWidth, sheet: document.querySelector('#mix .sheet').getBoundingClientRect().width, detail: document.querySelector('#cfg-config .cfg-detail').getBoundingClientRect().right - innerWidth, list: document.querySelector('#cfg-config .cfg-list').getBoundingClientRect().right - innerWidth })`);

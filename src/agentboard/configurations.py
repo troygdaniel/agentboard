@@ -3,13 +3,14 @@ shows them. The owner picks one; the board reflects the terminals the owner star
 
 A configuration is a JSON object, validated here and nowhere trusted before it is:
 
-    {"configuration": 1, "name": "Day to day", "description": "...",
+    {"configuration": 1, "name": "Day to day", "description": "...", "shared_rules": ["one line each"],
      "roles": [{"role": "caller", "names": ["Caller-1"], "purpose": "...", "model": "sonnet", "size": "M",
                 "may": ["research"], "may_not": ["place a call"], "tools": ["board"], "count": 1}]}
 
 Names, roles and rules only: no person, number or address belongs in one (the shipped examples are scanned by tests/publiccheck.py). Unknown keys are refused, so a
 file passed around cannot carry anything the board does not read. `model` and `size` (S, M or L, the words of insights capture 6 and 8) are advice: the board
-cannot choose a model. `count`, when given, must equal the number of names.
+cannot choose a model. `count`, when given, must equal the number of names. `shared_rules` (optional, up to 12 one-line rules of 200 characters) is the ONE block every role's
+prompt carries, after that role's own lines; an agent with no role gets today's prompt, unchanged.
 
 Behind `[agents] configurations = true` (off by default). `agentboard configuration apply NAME|FILE` writes the applied copy to `.agentboard/configuration.json`; the
 roster (hud.roster, the ORCH prompt), the role chips on the page and the role block in a card prompt read it. Applying changes the roster and the labels only:
@@ -25,11 +26,12 @@ from .store import BoardError
 VERSION = 1
 FILE = "configuration.json"
 BUILTIN_DIR = Path(__file__).parent / "configurations"
-BUILTIN = {"build": "build.json", "dream-up": "dream-up.json", "day-to-day": "day-to-day.json"}
-BUILTIN_ORDER = ("build", "dream-up", "day-to-day")   # the order the board lists them in
+BUILTIN = {"build": "build.json", "dream-up": "dream-up.json", "day-to-day": "day-to-day.json", "dev-crew": "dev-crew.json"}
+BUILTIN_ORDER = ("build", "dream-up", "day-to-day", "dev-crew")   # the order the board lists them in
 SIZES = ("S", "M", "L")
 MAX_ROLES, MAX_NAMES, MAX_LIST = 12, 8, 12
-TOP_KEYS = {"configuration", "name", "description", "roles"}
+SHARED_CAP = 200   # characters in one shared rule
+TOP_KEYS = {"configuration", "name", "description", "shared_rules", "roles"}
 ROLE_KEYS = {"role", "names", "purpose", "model", "size", "may", "may_not", "tools", "count"}
 # what a role of the Day to day configuration may never do on its own: a test pins these in the shipped file
 OUTSIDE_ACTIONS = ("place a call", "send a message", "pay", "submit a form")
@@ -82,6 +84,7 @@ def validate(d, owner="you"):
         bad(f"configuration must be {VERSION} (the file format version)")
     name = _text(d.get("name"), 60, "name", bad, required=True)
     desc = _text(d.get("description"), 240, "description", bad)
+    shared = _list(d.get("shared_rules"), "shared_rules", bad, cap=SHARED_CAP)
     roles_in = d.get("roles")
     roles, seen_names, seen_roles = [], {}, set()
     if not isinstance(roles_in, list) or not roles_in:
@@ -137,7 +140,7 @@ def validate(d, owner="you"):
     if errs:
         more = f" (and {len(errs) - MAX_ERRORS} more)" if len(errs) > MAX_ERRORS else ""
         raise ConfigurationError("not a valid configuration: " + "; ".join(errs[:MAX_ERRORS]) + more)
-    return {"configuration": VERSION, "name": name, "description": desc, "roles": roles}
+    return {"configuration": VERSION, "name": name, "description": desc, "shared_rules": shared, "roles": roles}
 
 
 MAX_BYTES = 64_000
@@ -270,6 +273,8 @@ def orch_section(cfg, owner="the owner"):
     lines = [f"Configuration: {cfg['name']}" + (f" ({cfg['description']})" if cfg["description"] else "")]
     for r in cfg["roles"]:
         lines.append(f"- {', '.join(r['names'])}: {r['role']}, {r['purpose']}" + (f". May not: {'; '.join(r['may_not'])}" if r["may_not"] else ""))
+    if cfg.get("shared_rules"):
+        lines.append("Every role's prompt carries these shared rules: " + " ".join(cfg["shared_rules"]))
     if any(a in r["may_not"] for r in cfg["roles"] for a in OUTSIDE_ACTIONS):
         lines.append(f"Give each card to the agent whose role fits. A call, a message, a payment or a form is never done on an agent's own say: it is proposed to {owner} "
                      "(`chat send ... --propose`), approved for that one action, and lapses after 30 minutes.")
@@ -283,6 +288,14 @@ def roles_by_name(cfg):
         for n in r["names"]:
             out[n] = {"role": r["role"], "purpose": r["purpose"], "model": r["model"], "size": r["size"]}
     return out
+
+
+def shared_block(cfg):
+    """The ONE block of rules every role's prompt carries (empty when the configuration has none): the same text for every role, so a rule is written and changed once."""
+    rules = (cfg or {}).get("shared_rules") or []
+    if not rules:
+        return ""
+    return "Rules for every role here:\n" + "\n".join(f"- {x}" for x in rules) + "\n"
 
 
 def role_block(cfg, name, owner="the owner"):
@@ -306,7 +319,9 @@ def role_block(cfg, name, owner="the owner"):
                      "--money \"<amount, or none>\" --shares \"<what of theirs is shared, or none>\" --card <id>; then ask on the card, so it waits on them: "
                      "agentboard ask <id> \"Waiting for your OK on the proposal\". Do it only after they approve that one action (agentboard chat approvals --name "
                      f"{r['name']}): an approval is for that action and nothing else, and it lapses after 30 minutes. Never reuse one for the next action.")
-    return "\n".join(lines) + "\n"
+    block = "\n".join(lines) + "\n"
+    shared = shared_block(cfg)
+    return block + "\n" + shared if shared else block
 
 
 def start_lines(cfg):
@@ -336,7 +351,7 @@ def page_state(board_dir, owner="you"):
 
 def export_text(cfg):
     """The configuration as the file the owner can share: the validated fields only (never a card, a line of chat or a path), indented JSON."""
-    keep = {k: cfg[k] for k in ("configuration", "name", "description", "roles")}
+    keep = {k: cfg[k] for k in ("configuration", "name", "description", "shared_rules", "roles") if k != "shared_rules" or cfg.get(k)}
     return json.dumps(keep, indent=2) + "\n"
 
 
@@ -353,6 +368,10 @@ def describe(cfg, source=None, applied_now=False):
     if cfg["description"]:
         out.append(f"  {cfg['description']}")
     out.append("")
+    if cfg.get("shared_rules"):
+        out.append("  Rules for every role (in each role's prompt):")
+        out += [f"      - {x}" for x in cfg["shared_rules"]]
+        out.append("")
     for r in cfg["roles"]:
         adv = " · ".join(x for x in (r["model"], r["size"]) if x)
         out.append(f"  {r['role']}: {', '.join(r['names'])}" + (f"  [{adv}]" if adv else ""))
