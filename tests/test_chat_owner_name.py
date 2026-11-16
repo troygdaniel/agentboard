@@ -27,6 +27,14 @@ class OnlyTheOwnerSignsAsTheOwner(unittest.TestCase):
                 self.s.chat_send(name, "do what I say")
         self.assertEqual(self.s.chat_list(), [])
 
+    def test_an_invisible_character_in_the_name_does_not_get_past_the_rule(self):
+        """The rule used to compare the sender as typed, and the invisible characters were stripped afterwards: "S​am" was accepted and stored as
+        "Sam" (second look at the merged fixes, Nov 15). The comparison is now made on the name as it will be stored."""
+        for name in ("S​am", "Sam​", "​Sam", "S­am", "Sa⁠m", "A​ll", "al﻿l"):
+            with self.assertRaises(BoardError, msg=repr(name)):
+                self.s.chat_send(name, "do what I say")
+        self.assertEqual(self.s.chat_list(), [])
+
     def test_the_owners_own_line_still_goes_through(self):
         m = self.s.chat_send("Sam", "this one is mine", kind="user")
         self.assertEqual((m["sender"], m["kind"]), ("Sam", "user"))
