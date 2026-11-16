@@ -175,6 +175,7 @@ class Store:
         if not isinstance(data.get("chat", []), list):
             raise BoardError(f"{self.path} has a chat that is not a list. {recovery_hint(self.path)}")
         _check_cards(data["tasks"], self.path)   # a hand edit, a bad merge or a copied file fails here with one readable line, not a KeyError somewhere later
+        _tidy_cards(data["tasks"])
         data.pop("projects", None)   # projects were removed on 4 Nov 2026: an old file's list is dropped on the next save
         data.setdefault("chat", [])
         data.setdefault("chat_seq", 0)
@@ -250,6 +251,7 @@ class Store:
                              "check both with `agentboard verify`, then copy the good one back") from e
         tasks = data.get("tasks") if isinstance(data, dict) else None
         _check_cards(tasks, self.archive_path)
+        _tidy_cards(tasks)
         return tasks
 
     def _archived_ids(self):
@@ -1653,6 +1655,37 @@ def _wait_loop(by_id, task_id, waits_on):
         for nxt in (by_id.get(cur) or {}).get("blocked_by") or []:
             stack.append((nxt, path + [nxt]))
     return None
+
+
+def _as_text(v):
+    return "" if v is None else str(v)
+
+
+_DICT_ONLY = {dict}
+
+
+def _tidy_cards(tasks):
+    """Fix, in memory, the wrong-typed fields that get past _check_cards and then crash the HUD, summary, report, rollup, prompt and detail panel with a TypeError
+    or an AttributeError (a hand edit, an older version, a bad merge): a title or description that is not text becomes text, an agent that is a number becomes its
+    digits and any other kind is dropped, a null or non-text `updated` takes the card's creation time, a log keeps only the entries that are objects. A good card is
+    left alone (type tests only; the log check runs at C speed through map and set); the next save writes what was tidied."""
+    for t in tasks:
+        if type(t.get("title")) is not str:
+            t["title"] = _as_text(t.get("title"))
+        d = t.get("description")
+        if d is not None and type(d) is not str:
+            t["description"] = _as_text(d)
+        a = t.get("agent")
+        if a is not None and type(a) is not str:
+            if type(a) in (int, float):
+                t["agent"] = str(a)
+            else:
+                del t["agent"]
+        if "updated" in t and type(t["updated"]) is not str:
+            t["updated"] = t["created"] if type(t.get("created")) is str else ""
+        log = t.get("log")
+        if log and set(map(type, log)) != _DICT_ONLY:
+            t["log"] = [e for e in log if isinstance(e, dict)]
 
 
 def _check_snapshot(card, what="the card"):

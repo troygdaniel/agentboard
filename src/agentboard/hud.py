@@ -297,6 +297,15 @@ def build(tasks, now=None, feed_limit=60, abandoned_min=None, retired=(), roster
     queue_runs = []
     by_id = {t["id"]: t for t in tasks}
     parents = {t["parent_id"] for t in tasks if t.get("parent_id") in by_id}
+    kids_of = {}   # parent id -> its subtasks, in board order: chart() and the agent's recent lines used to scan every card for them, once per agent
+    for t in tasks:
+        if t.get("parent_id") is not None:
+            kids_of.setdefault(t["parent_id"], []).append(t)
+    # What the page shows from the history is today's count, the last hour's charts and lanes, and the 60 newest lines. A card whose whole log sorts before
+    # `horizon` (raw stamp text, which sorts as time for the board's own stamps) can reach none of the first three, so its lines are not built or parsed
+    # unless the newest 60 need them (a quiet board). At 5,000 cards that is most of the 30,000 lines (card finding-the-hud-rebuild-scans-every-card).
+    ws = win_start.strftime(FMT)
+    horizon = min(datetime.combine(today, datetime.min.time()), win_start).strftime(FMT)
     # Subtasks are detail of their parent: the agent rows, the totals and the queue count the parent
     # only (a 4-subtask card is one piece of work), while the activity feed and the lanes show each
     # subtask's own events, labelled "parent › subtask" so they read in context.
@@ -306,21 +315,48 @@ def build(tasks, now=None, feed_limit=60, abandoned_min=None, retired=(), roster
         p = by_id.get(t.get("parent_id"))
         return f"{p['title']} › {t['title']}" if p else t["title"]
 
+    def event_of(t, e, is_sub):
+        return {"at": e["at"], "task": t["id"], "title": label(t), "agent": t.get("agent"),
+                "text": e.get("text", ""), "progress": e.get("progress", 0),
+                "status": e.get("status"),
+                "label": f"{t['parent_id']} › {t['id']}" if is_sub else t["id"]}
+
+    def is_old(t):
+        """Every stamp in the card's log sorts before the horizon, and no run is open at its end (an open run lasts until now, so the lanes show it)."""
+        log = t.get("log", [])
+        try:
+            if log and max(e.get("at") or "" for e in log) >= horizon:
+                return False
+        except TypeError:   # a stamp that is not text: the long way
+            return False
+        for e in reversed(log):   # the last line with a stamp that parses decides whether a run is still open
+            if _t(e.get("at")):
+                return e.get("status") not in ("doing", "todo")
+        return True
+
+    old_cards = []
     for t in tasks:
         is_sub = t.get("parent_id") in by_id
         marked = None
-        for e in t.get("log", []):
-            at = _t(e.get("at"))
-            if not at:
-                continue
-            events.append({"at": e["at"], "task": t["id"], "title": label(t), "agent": t.get("agent"),
-                           "text": e.get("text", ""), "progress": e.get("progress", 0),
-                           "status": e.get("status"),
-                           "label": f"{t['parent_id']} › {t['id']}" if is_sub else t["id"]})
-            if at.date() == today:
-                events_today += 1
-            if e.get("text") in ("Marked done", "Moved to done"):
-                marked = at
+        old = is_old(t)
+        if old:
+            old_cards.append(t)
+            if t["status"] == "done" and not is_sub:
+                for e in reversed(t.get("log", [])):   # the last "Marked done" line with a stamp that parses, found from the end
+                    if e.get("text") in ("Marked done", "Moved to done"):
+                        marked = _t(e.get("at"))
+                        if marked:
+                            break
+        else:
+            for e in t.get("log", []):
+                at = _t(e.get("at"))
+                if not at:
+                    continue
+                events.append(event_of(t, e, is_sub))
+                if at.date() == today:
+                    events_today += 1
+                if e.get("text") in ("Marked done", "Moved to done"):
+                    marked = at
         if t["status"] == "done" and marked and not is_sub:
             if marked.date() == today:
                 done_today += 1
@@ -331,7 +367,7 @@ def build(tasks, now=None, feed_limit=60, abandoned_min=None, retired=(), roster
                 done_minutes.append((marked - created).total_seconds() / 60)
         if t.get("agent") and not is_sub and t["agent"] not in retired:
             by_agent.setdefault(t["agent"], []).append(t)
-        for kind, a, b in segments(t, now):
+        for kind, a, b in (() if old else segments(t, now)):   # an old card has no run that reaches the window
             if b < win_start:
                 continue
             a = max(a, win_start)
@@ -345,6 +381,10 @@ def build(tasks, now=None, feed_limit=60, abandoned_min=None, retired=(), roster
                     {"k": kind, "a": a.strftime(FMT), "b": b.strftime(FMT), "t": label(t)})
 
     events.sort(key=lambda e: e["at"], reverse=True)
+    if old_cards and feed_limit > 0 and not (len(events) >= feed_limit and events[feed_limit - 1]["at"] >= horizon):
+        # a quiet board: the newest 60 lines reach back past the horizon, so every line is built the way it always was
+        events = [event_of(t, e, t.get("parent_id") in by_id) for t in tasks for e in t.get("log", []) if _t(e.get("at"))]
+        events.sort(key=lambda e: e["at"], reverse=True)
 
     agents = []
     for name, ts in by_agent.items():
@@ -363,12 +403,12 @@ def build(tasks, now=None, feed_limit=60, abandoned_min=None, retired=(), roster
         began = next((e["at"] for e in cur.get("log", []) if e.get("status") == "doing" and _t(e.get("at"))),
                      cur.get("created"))
         feed = [(e, "") for e in cur.get("log", [])] + [
-            (e, k["title"] + ": ") for k in tasks if k.get("parent_id") == cur["id"] for e in k.get("log", [])]
+            (e, k["title"] + ": ") for k in kids_of.get(cur["id"], []) for e in k.get("log", [])]
         feed.sort(key=lambda x: x[0].get("at", ""))
         recent = [{"at": e["at"], "text": pre + e.get("text", "")} for e, pre in reversed(feed)][:3]   # newest first
         agents.append({
             "name": name,
-            "state": state, "chart": chart(cur, [k for k in tasks if k.get("parent_id") == cur["id"]], now),
+            "state": state, "chart": chart(cur, kids_of.get(cur["id"], []), now),
             "question": cur.get("question", ""),
             "task": cur["title"], "task_id": cur["id"], "progress": cur.get("progress", 0),
             "status_text": cur.get("status_text", ""), "updated": cur.get("updated"), "started": began, "recent": recent,
