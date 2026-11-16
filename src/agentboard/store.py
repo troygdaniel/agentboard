@@ -181,6 +181,14 @@ class Store:
         _check_cards(tasks, self.archive_path)
         return tasks
 
+    def _archived_ids(self):
+        """The ids in archive.json (lock held by the caller), so a new card never takes one. A damaged archive is no reason to refuse a card: the
+        live board keeps working, as it did, and the archive's own readers say what is wrong."""
+        try:
+            return {t["id"] for t in self._read_archive()}
+        except BoardError:
+            return set()
+
     def _write_archive(self, tasks):
         backup.write_atomic(self.archive_path, json.dumps({"tasks": tasks}, indent=2))   # atomic; the previous version stays as archive.json.bak
 
@@ -274,8 +282,9 @@ class Store:
                     raise BoardError(f"a subtask follows its parent ({parent['status']}); drop --status")
                 status = parent["status"]
             status = status or "backlog"
-            tid = task_id or _unique_id(title, {t["id"] for t in tasks}, prefix=parent["id"] if parent else None)   # a subtask's id starts with its parent's
-            if any(t["id"] == tid for t in tasks):
+            taken = {t["id"] for t in tasks} | self._archived_ids()   # an archived card keeps its id: the archive holds one card per id, so a reused id would replace the old card
+            tid = task_id or _unique_id(title, taken, prefix=parent["id"] if parent else None)   # a subtask's id starts with its parent's
+            if tid in taken:
                 raise BoardError(f"task id already exists: {tid}")
             if source and source.get("key") and any((t.get("source") or {}).get("key") == source["key"] for t in tasks):
                 raise BoardError(f"already on the board: {source['key']}")
