@@ -39,8 +39,8 @@ writes a file this table does not name, or with another mode.
 | `tasks.json`, `tasks.json.bak` | cards, chat, the agent-chat switch; the previous version | 600 |
 | `backups/tasks-<stamp>.json.gz` | hourly snapshots (`backup.py:97`) | 600 (folder 700) |
 | `config.toml`, `.lock` | providers and switches; the write lock | 600 |
-| `sessions.json`, `chat-cursors.json`, `chat-delivered.json`, `chat-listeners.json`, `chat-wake.json`, `server-<pid>.json` | session name per Claude Code id and transcript path; where each agent read to; which wait runs (pid); how the server was started (flags) | 600 (`serverstate.py:72`: `O_EXCL\|O_NOFOLLOW`) |
-| `.listeners.lock`, `.cursors.lock` | empty lock files (`listeners.py:48-61`) | 600 |
+| `sessions.json`, `chat-cursors.json`, `chat-delivered.json`, `chat-listeners.json`, `chat-presence.json`, `chat-wake.json`, `server-<pid>.json` | session name per Claude Code id and transcript path; where each agent read to; which wait runs (pid); when a named session last showed a sign of life (names and times only, `presence.py`); how the server was started (flags) | 600 (`serverstate.py:72`: `O_EXCL\|O_NOFOLLOW`) |
+| `.listeners.lock`, `.cursors.lock`, `chat-presence.json.lock` | empty lock files (`listeners.py:48-61`, `statefile.py` `locked`) | 600 |
 | `reports/<card>.html`, `runs/<card>/<id>/{run.json,prompt.md,stdout.json,stderr.log}` | a card's report; one-shot run records (opt-in) | 600 (folders 700) |
 | `chat-casual.json`, `chat-autopilot.json` | only with the opt-in chat rounds on | 600 |
 | `<project>/.gitignore` | `init` adds the line `.agentboard/` | your umask (a project file, `private.py:56`) |
