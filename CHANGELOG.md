@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### A phone can reach Settings, Later, New task and the theme (Nov 15, sweep-ux)
+At 700 px and under the header steps back to the three tabs, which hid every button in it: a phone could not open Settings (so not the Night switch either), the Later drawer, the new-task sheet or the theme switch. One **Menu** button (three dots, a 44 px target) now sits at the end of the header at that width and opens a small sheet with those four; each item does what its header button does. Arrow keys, Home and End move between them, Esc or a tap outside closes it and focus goes back to the button. Above 700 px there is no Menu button.
+- On a phone the two chips (Configuration, Night) step back with the buttons, and below 480 px the logo's word leaves the row for a screen reader only (the tabs, the connection dot and the Menu button then fit on one line).
+- Checked: `tests/test_phone_menu.py` (5, pins the shape) and `node tests/qa/phone_menu_check.mjs` in headless Chrome on a throwaway board at 390 px and 1280 px (22 checks with real key events and a tap; they fail on the old page, which has no such button).
 ### `agentboard restore before-cleanup` finds a snapshot by the label you gave it (Nov 15, night sweep)
 `agentboard backup --label before-cleanup` makes a snapshot that pruning never touches, but `agentboard restore before-cleanup` answered "no such backup": only the full file name from `backup --list` (`tasks-20261115-1930-before-cleanup.json.gz`) or a path worked. `restore` now also takes the label, written the way you named it (case and spaces do not matter), and restores the newest snapshot that carries it. A label nothing matches says where to look (`agentboard backup --list`); a path, a file name, `latest` and `previous` work as before. `tests/test_backups.py` (3 new).
 ### An agent cannot sign a chat line as the owner with an invisible character in the name (Nov 15, night sweep review)
