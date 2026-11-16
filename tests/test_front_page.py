@@ -119,7 +119,7 @@ class Steps(unittest.TestCase):
         c = body("card")
         self.assertIn('data-step="${esc(t.id)}">Done · next step</button>', c)
         self.assertIn("data-text=\"${esc(`I'm stuck on step ${you.step + 1}: “${you.say}”. Help me with just this step, in one line.`)}\"", c)
-        self.assertIn("(slot.querySelector('[data-step]') || slot.querySelector('[data-done]'))", body("deckSpace"))   # Space, Space advances a step too
+        self.assertIn("(slot.querySelector('[data-step]') || slot.querySelector('[data-done]'))", body("deckArmTarget"))   # Space, Space advances a step too (deckArmTarget names the button deckSpace presses)
 
     def test_the_three_small_words_on_the_open_card(self):
         c = body("card")

@@ -110,7 +110,7 @@ class StuckAndClearedTests(unittest.TestCase):
         head = body("deckHeadHtml")
         self.assertIn('class="deck-fix" data-dog-action="${esc(dog.fix.action)}" data-dog-id="${esc(dog.fix.id)}"', head)   # the board's own fix button and route
         self.assertIn("'has gone quiet'", head)
-        self.assertIn("$('board').querySelector('.deck-head .deck-fix')", body("deckSpace"))   # Space, Space does the same, still two presses
+        self.assertIn("$('board').querySelector('.deck-head .deck-fix')", body("deckArmTarget"))   # Space, Space does the same, still two presses (deckArmTarget names the button deckSpace presses)
         self.assertIn("working.filter(t => !t.needs_input && !t.review && dkDog(t.id)).length", body("render"))   # and the tab counts it
 
     def test_an_agent_that_left_several_cards_behind_is_released_in_one_press(self):
