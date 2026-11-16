@@ -281,6 +281,9 @@
   .cards { display: flex; flex-direction: column; gap: 10px; flex: 1; min-height: 48px; overflow-y: auto; padding: 4px 6px 10px; }
   .cards::-webkit-scrollbar { width: 6px; } .cards::-webkit-scrollbar-thumb { background: var(--line); border-radius: 3px; }
   .cards::-webkit-scrollbar-thumb:hover { background: var(--neutral); }
+  /* the ORCH line floats over the bottom 45 px of every column (sweep2-ux): a list scrolled to its end leaves its last card clear of it, and the Show more button under the list sits above it
+     (tests/qa/orch_line_clear_check.mjs). Desktop widths only: the phone layout is its own. */
+  @media (min-width: 701px) { .board .col .cards { padding-bottom: 56px; } .board .col .more { margin-bottom: 48px; } }
 
   .card {
     background: var(--surface); border: 1px solid var(--line); border-radius: 12px;
