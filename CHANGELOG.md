@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### `claim` and `start` refuse the owner's name and "all" (Nov 15, night sweep)
+`agentboard claim <id> --name <the owner's name>` put the owner on the card as its agent (the owner is the exception to "you may only report on your own card"), and `--name all` made an agent named like the word a chat line is sent to. Both commands now answer "<name> is a name the board keeps for itself", as `rename` does, whether the name comes from `--name` or `AGENTBOARD_NAME`. The store is unchanged, so the owner still takes a card from the page. `tests/test_claim_owner_name.py` (5; three fail without the fix).
+
 ### `rename` survives a chat-listeners.json with odd values (Nov 15, night sweep)
 A `chat-listeners.json` that held a number or a word where a list of waits belongs (`{"Scout": 1}`: a hand edit or a copied file) made `agentboard rename Scout X` (and `--dry-run`) die with "object of type 'int' has no len()". The odd value now counts as no waits running. `tests/test_rename.py` (1 new).
 
