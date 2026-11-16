@@ -142,6 +142,7 @@ class Store:
 
     def _write(self, data):
         """Atomic and flushed to disk, the previous version kept as tasks.json.bak (backup.py); then an hourly snapshot if one is due."""
+        _check_cards(data["tasks"], self.path, saving=True)   # whatever asked for this save (a bug, a client's own card), a file the loader refuses is never written
         backup.write_atomic(self.path, json.dumps(data, indent=2))
         statefile.sweep_temps(self.dir)   # temp files a writer that died mid-save left behind (10 minutes old or more; a live write is never touched)
         self.committed = data.get("tasks")
@@ -921,8 +922,9 @@ class Store:
         """Put a task back exactly as it was (undo for moves). `kids` are the snapshots of its
         subtasks, which a move may have cascaded onto. A task that is gone (undo for a delete) is put back
         too, with its subtasks."""
-        if snapshot.get("status") not in STATUSES:
-            raise BoardError(f"status must be one of {STATUSES}")
+        _check_snapshot(snapshot)
+        for ks in kids or []:
+            _check_snapshot(ks, "a subtask")
         with self.transaction() as tasks:
             now_there = next((x for x in tasks if x["id"] == snapshot["id"]), None)
             if now_there is not None:
@@ -1491,12 +1493,13 @@ def recovery_hint(path):
     return "no good copy was found beside it: run `agentboard restore <file>` with a snapshot from .agentboard/backups or the nightly copy folder"
 
 
-def _check_cards(tasks, path):
+def _check_cards(tasks, path, saving=False):
     """Every card the file holds must be a dict with a non-empty string id, a known status and a list for its log; the first card that is not
     stops the read with one line that says which card and what to do. tasks.json is trusted data, so this is for a copied or hand-edited
-    file: better one clear refusal than every command dying on a KeyError and the page's poll getting no answer."""
+    file: better one clear refusal than every command dying on a KeyError and the page's poll getting no answer. `saving`: the same rules
+    applied to what is about to be written, so the board never saves a state its own loader would refuse."""
     if not isinstance(tasks, list):
-        raise BoardError(f"{path}: 'tasks' is not a list; run `agentboard verify`, or `agentboard restore latest`")
+        raise BoardError(f"{path}: 'tasks' is not a list; " + ("nothing was saved" if saving else "run `agentboard verify`, or `agentboard restore latest`"))
     for n, t in enumerate(tasks, 1):
         what = None
         if not isinstance(t, dict):
@@ -1508,7 +1511,32 @@ def _check_cards(tasks, path):
         elif "log" in t and not isinstance(t["log"], list):
             what = "has a log that is not a list"
         if what:
+            if saving:
+                raise BoardError(f"this change would leave card {n} {what}, which the board could not read again; nothing was saved")
             raise BoardError(f"{path}: card {n} {what}; run `agentboard verify`, or `agentboard restore latest` (or `restore previous`)")
+
+
+def _check_snapshot(card, what="the card"):
+    """A card that Undo is asked to put back must be one the board could have made: an id, a known status, text where readers expect text, a progress
+    between 0 and 100 and a log that is a list of entries. The page sends it back as it got it, but the endpoint takes any client's word, and one card
+    with a number for an id used to make every read of the board answer 500."""
+    if not isinstance(card, dict):
+        raise BoardError(f"{what} is not an object")
+    if not isinstance(card.get("id"), str) or not card["id"].strip():
+        raise BoardError(f"{what} has no id")
+    if card.get("status") not in STATUSES:
+        raise BoardError(f"status must be one of {STATUSES}")
+    if not isinstance(card.get("title"), str) or not card["title"].strip():
+        raise BoardError(f"{what} ({card['id']}) has no title")
+    for f in ("description", "status_text", "agent", "parent_id"):
+        if card.get(f) is not None and not isinstance(card[f], str):
+            raise BoardError(f"{what} ({card['id']}): {f} must be text")
+    p = card.get("progress", 0)
+    if isinstance(p, bool) or not isinstance(p, int) or not 0 <= p <= 100:
+        raise BoardError(f"{what} ({card['id']}): progress must be a whole number from 0 to 100")
+    log = card.get("log", [])
+    if not isinstance(log, list) or not all(isinstance(e, dict) for e in log):
+        raise BoardError(f"{what} ({card['id']}): log must be a list of entries")
 
 
 def _clean_source(source):

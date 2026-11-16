@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Undo can no longer write a card the board cannot read, and no save can (Nov 15, night sweep)
+`POST /api/restore` (the page's Undo) took a whole card from the client and checked its status only. A card with a number or nothing for an id was written with a 200, and then every read of the board answered 500 (`card 104 has no id; run agentboard verify`) until someone repaired `tasks.json` by hand. Two guards: every save now checks the cards exactly as the loader does and refuses with `this change would leave card N ..., which the board could not read again; nothing was saved`, whatever asked for it; and Undo checks the shape of the card and of each subtask it is given (an id, a title, text where readers expect text, a progress from 0 to 100, a log that is a list of entries). A board that reads today still saves today: the save rules are the loader's own. `tests/test_restore_shape.py` (7; five fail without the fix).
+
 ### One lone half of an emoji in a title no longer breaks the Story page and `agentboard list` (Nov 15, night sweep)
 A title cut in the middle of an emoji by a page (`"\ud83d"`, which is valid JSON) or a byte that was not UTF-8 on a command line was kept as a lone surrogate. Every reader that turns text into UTF-8 then failed: `/story` answered 500 and `agentboard list` raised, for everyone, until someone edited `tasks.json`. Every stored text goes through `redact.scrub`, which now replaces a lone surrogate with U+FFFD (also with the masker switched off); a whole emoji, accents and Persian marks are untouched. `tests/test_lone_surrogates.py` (4); the four fail without the line.
 ### A config.toml that is not UTF-8 now says which file and why (Nov 15, night sweep)
