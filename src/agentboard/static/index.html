@@ -5406,10 +5406,11 @@ function syncSettingsTabs() {   // draw the tab list from the tabs that have som
   if (sig === setTabsSig) return;
   setTabsSig = sig;
   const cur = $('mix-tabs').querySelector('[aria-selected="true"]')?.dataset.tab;
+  const hadFocus = $('mix-tabs').contains(document.activeElement);   // the redraw replaces the focused tab: the keyboard must not fall out onto the page behind
   $('mix-tabs').innerHTML = vis.map(t => `<button class="tab" type="button" role="tab" id="stab-${esc(t.id)}" data-tab="${esc(t.id)}" aria-controls="pane-${esc(t.id)}" aria-selected="false" tabindex="-1">${t.icon}<span>${esc(t.label)}</span>${t.badge ? '<i class="dot" aria-hidden="true"></i><span class="sr"> needs a look</span>' : ''}</button>`).join('');
   if (!mixIsOpen()) return;
-  if (pendingSettingsTab && vis.some(t => t.id === pendingSettingsTab)) selectSettingsTab(pendingSettingsTab);   // the tab asked for has arrived
-  else selectSettingsTab(vis.some(t => t.id === cur) ? cur : vis[0]?.id, { keepScroll: true, keepHash: !!pendingSettingsTab });
+  if (pendingSettingsTab && vis.some(t => t.id === pendingSettingsTab)) selectSettingsTab(pendingSettingsTab, { focus: hadFocus });   // the tab asked for has arrived
+  else selectSettingsTab(vis.some(t => t.id === cur) ? cur : vis[0]?.id, { keepScroll: true, keepHash: !!pendingSettingsTab, focus: hadFocus });
 }
 function wantSettingsTab(id, o = {}) {   // select `id` now if it exists; else remember it, show the remembered tab and leave the hash as it is
   const known = !!id && setTabs.some(t => t.id === id && t.has());
@@ -6292,7 +6293,10 @@ function setSide(which) {            // one surface at a time
   if (which !== 'thread') $('thread').classList.remove('open');
   if (termCtx && termCtx.aside !== which) stopTerm();
 }
-function openLater() { setSide('later'); touch('slide', true); $('later').classList.add('open'); renderLater(tasks.filter(t => t.status === 'backlog' && !isKid(t))); $('later-input')?.focus(); }
+// focus() does nothing while the layer is still visibility:hidden, which is how a drawer starts its slide in: ask again a moment later, and only if it is still open
+// (a timer, not a frame callback: a background tab pauses frames but not timers)
+function focusWhenShown(el, stillOpen) { if (el) setTimeout(() => { if (el.isConnected && (!stillOpen || stillOpen())) el.focus({ preventScroll: true }); }, 40); }
+function openLater() { setSide('later'); touch('slide', true); $('later').classList.add('open'); renderLater(tasks.filter(t => t.status === 'backlog' && !isKid(t))); focusWhenShown($('later-input'), () => $('later').classList.contains('open')); }
 function closeLater() { touch('slide', false); $('later').classList.remove('open'); $('later-btn').focus(); }
 $('later-btn').onclick = () => $('later').classList.contains('open') ? closeLater() : openLater();
 $('later-close').onclick = closeLater;
@@ -6494,7 +6498,10 @@ $('keys').addEventListener('click', e => { if (e.target.id === 'keys' || e.targe
 function toggleKeys(on) {   // the shortcuts sheet, with the same slide as the other sheets
   const open = on ?? !$('keys').classList.contains('on');
   if (open !== $('keys').classList.contains('on')) touch('slide', open);
+  const hadFocus = $('keys').contains(document.activeElement);
   $('keys').classList.toggle('on', open);
+  if (open) focusWhenShown($('keys-close'), () => $('keys').classList.contains('on'));   // the keyboard goes into the sheet, not on under it
+  else if (hadFocus) $('help-btn').focus();                                              // and comes back to the Help button when it closes
 }
 
 // --- Start of day: the wrap-up ORCH saved when it last wrapped the day (`agentboard wrapup --apply`), read from /api/wrapup. It opens by itself once, on
