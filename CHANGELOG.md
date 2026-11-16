@@ -13,6 +13,11 @@ A `type = "command"` provider filled `{arg}` and then `{title}`. An arg that was
 - Checked: `tests/test_provider_command_quoting.py` (the case fails on the old code).
 ### The agent's own report file is masked on the page (Nov 15, night sweep)
 A card's text is masked for secrets on the way in; the hand-written `reports/<card>.md` an agent may add never passes the store, and the report page showed it as written, so a key pasted there reached the page. `reports.extras_md` now runs the same scrub (`redact.scrub`) before the page is built; `lookup` already did. Test: `tests/test_reports.py` (the agent's own markdown file is masked like every other agent text).
+### One agent can no longer release, move or remove another agent's card (Nov 15, night sweep)
+`update`, `ask`, `review` and `checkpoint` have always refused a card another agent holds, but `release`, `move`, `rm` and `wrapup --apply` took any name: on a scratch board one session sent every Doing card of another back to Todo (`release --agent AG-1`), moved a held card to Done, and deleted it. The same rule now covers them.
+- **Who passes:** the holder, ORCH, the owner and a terminal with no session name; a card nobody holds stays anyone's to move (the queue is fixed that way). A subtask answers to its parent's holder. `release` checks every card before it releases the first, so a refusal leaves none half done.
+- **`wrapup --ask` and `--apply`** are ORCH's and the owner's, like `night on`; plain `wrapup`, `--last` and `--json` still read for anyone.
+- The refusal names the holder and who may: "mine is held by AG-1: only AG-1, ORCH or the owner can release it". Not covered: `edit` (an agent may still annotate a card); the name is the session's own word, as for `update`, so this stops a wrong card, not a determined session. `tests/test_held_card_guard.py` (10).
 
 ### A night queue: agents take the next card themselves (Nov 15, card retro-night-queue, retro rec 13)
 Off by default; with the switch off, or never used, nothing on the board changes. When the owner (or ORCH, at their word) turns Night on, ORCH lines up specified Todo cards and an agent with a free hand takes the next one itself instead of waiting for a message.

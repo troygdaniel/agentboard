@@ -1522,16 +1522,20 @@ def _parent_must_be_doing(parent, t, verb):
         raise BoardError(f"cannot {verb} {t['id']}: its parent {parent['id']} is in {parent['status']}; claim the parent first")
 
 
-def _must_hold(tasks, t, by, owner):
+def _must_hold(tasks, t, by, owner, verb=None):
     """An agent reports only on the card it holds (overnight-rel-agent-protocol-3: two agents on one card). `by` is the session's
     name, when the CLI knows it; the owner, ORCH, a session with no name and a card with no holder are all let through, and a
-    subtask with no holder of its own answers to its parent's. The refusal says the fix."""
+    subtask with no holder of its own answers to its parent's. The refusal says the fix. With `verb` ("release", "move", "remove") it
+    guards an act on the card instead of a report on it: the same people pass, and the refusal says who may."""
     if not by:
         return
     holder = t.get("agent") or ((_parent_of(tasks, t) or {}).get("agent") if t.get("parent_id") else None)
     b = str(by).strip()
     if not holder or b.lower() == str(holder).lower() or b.upper() == "ORCH" or _to_owner(b, owner):
         return
+    if verb:
+        raise BoardError(f"{t['id']} is held by {holder}: only {holder}, ORCH or the owner can {verb} it, so ask {holder} or ORCH "
+                         f"(if {holder} is gone, `agentboard watchdog` releases it)")
     where = "in Doing" if t.get("status") == "doing" else f"in {str(t.get('status', '')).title()}"
     raise BoardError(f"{t['id']} is held by {holder}, not {b}: claim it first (agentboard claim {t['id']} --name {b}; while {holder} holds it {where} "
                      f"that is refused, so ask {holder} or ORCH), and if {holder} is gone, `agentboard watchdog` releases it")
