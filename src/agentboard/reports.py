@@ -5,7 +5,9 @@ Everything the agent wrote is escaped (the markdown renderer never passes raw HT
 [reports] keep_hours (default 24), always keeps the newest per card, and only ever touches files of this exact shape inside reports/.
 Optional: the agent can add sections by writing .agentboard/reports/<card>.md (it is never swept)."""
 import html
+import os
 import re
+import stat
 import subprocess
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -196,13 +198,25 @@ def git_info(board_dir, task, run):
 
 
 def extras_md(board_dir, card_id):
-    """The agent's own reports/<card>.md, masked like every other agent text: it is written by hand, so it never passed the store's scrub on the way in (redact.py)."""
+    """The agent's own reports/<card>.md, masked like every other agent text: it is written by hand, so it never passed the store's scrub on the way in (redact.py).
+    Read only when it is a regular file reached without following a symlink (O_NOFOLLOW, then fstat on the same descriptor), so a link placed there shows
+    nothing from outside the board and a FIFO never blocks the page build: the same rule as lookup's reading of these files."""
     if not safe_id(card_id):
         return ""   # an id that is not a plain word names no file here (tests/test_card_ids.py)
+    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0) | getattr(os, "O_CLOEXEC", 0)
     try:
-        text = (reports_dir(board_dir) / f"{card_id}.md").read_text(errors="replace")[:20000]
+        fd = os.open(str(reports_dir(board_dir) / f"{card_id}.md"), flags)
+    except OSError:   # missing, a symlink (ELOOP), unreadable
+        return ""
+    try:
+        if not stat.S_ISREG(os.fstat(fd).st_mode):
+            return ""
+        with os.fdopen(fd, "rb", closefd=False) as f:
+            text = f.read(4 * 20000).decode("utf-8", "replace")[:20000]
     except OSError:
         return ""
+    finally:
+        os.close(fd)
     return redact.scrub(text, board_dir)
 
 

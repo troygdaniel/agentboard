@@ -8,7 +8,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from agentboard import cli, nav, prompt
+from agentboard import cli, nav, prompt, treecheck
 from agentboard.store import Store
 
 HTML = (Path(nav.__file__).parent / "static" / "index.html").read_text()
@@ -27,7 +27,8 @@ class Base(unittest.TestCase):
 
     def run_cli(self, *argv):
         out, err = io.StringIO(), io.StringIO()
-        with mock.patch.dict(os.environ, {"AGENTBOARD_DIR": str(self.s.dir)}), \
+        # review must not look at the git state of the folder the test runs in: a single-file run does not load tests/netguard.py, which switches it off for the whole suite
+        with mock.patch.dict(os.environ, {"AGENTBOARD_DIR": str(self.s.dir), treecheck.ENV: "off"}), \
              contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
             try:
                 cli.main(list(argv))

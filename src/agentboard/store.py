@@ -14,6 +14,7 @@ from . import rework
 from . import chatarchive
 from . import chatwake
 from . import listeners
+from . import names as namesmod
 from . import redact
 from . import rules
 from . import signoff as signofflib
@@ -1070,6 +1071,8 @@ class Store:
         is kept at the top of the detail."""
         if kind not in ("agent", "user"):
             raise BoardError("kind must be 'agent' or 'user'")
+        namesmod.check(sender, "the sender")   # a name is one line of plain text: a newline in one would draw a second chat line
+        namesmod.check(to, "to")
         if kind == "agent":   # what the owner types is left as written (redact.py)
             sender = self._scrub(sender)
             to = self._scrub(to) if isinstance(to, str) else to   # a name, so a real one is untouched; a mirrored line keeps an unknown one, masked
@@ -1335,6 +1338,12 @@ class Store:
             shown = [m for m in msgs if m["seq"] > after] if after is not None else msgs[-limit:]
             return shown, bool(data.get("chat_agents", False)), self._known_names(data)
 
+    def snapshot(self, chat_limit=500):
+        """(load(), chat_list(limit=chat_limit)) from ONE read of the board file: the watchdog asked for the two separately, and each parsed the whole file."""
+        with self._lock():
+            data = self._read()
+            return data["tasks"], data["chat"][-chat_limit:]
+
 
 LOG_MAX = 200
 CHAT_MAX = 500
@@ -1347,19 +1356,33 @@ STAMP = "%Y-%m-%dT%H:%M:%S"   # every time the board writes: card updated/create
 _STAMP_SHAPE = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}")
 
 
+_STAMPS = {}        # stamp text -> its datetime: a datetime cannot change, so one object is handed out every time (card sweep-perf)
+STAMPS_MAX = 100_000   # a board of 5,000 cards has about 30,000 distinct stamps; past this the memo starts again rather than grow
+
+
 def parse_stamp(s):
-    """A board stamp as a datetime, or None when it is not one (the one parser: hud, the chat, the cursors and the CLI all use it)."""
-    from datetime import datetime
+    """A board stamp as a datetime, or None when it is not one (the one parser: hud, the chat, the cursors and the CLI all use it).
+    Remembered by its text: one HUD build at 5,000 cards asked 100,000 times about the same few thousand stamps."""
     s = str(s)[:19]
+    hit = _STAMPS.get(s)
+    if hit is not None:
+        return hit
+    from datetime import datetime
+    out = None
     if _STAMP_SHAPE.fullmatch(s):   # fromisoformat first, for the board's own shape only: strptime is ten times slower and ran 130,000 times per HUD poll at 5,000 cards
         try:
-            return datetime.fromisoformat(s)
+            out = datetime.fromisoformat(s)
         except ValueError:
             pass
-    try:
-        return datetime.strptime(s, STAMP)
-    except (TypeError, ValueError):
-        return None
+    if out is None:
+        try:
+            out = datetime.strptime(s, STAMP)
+        except (TypeError, ValueError):
+            return None
+    if len(_STAMPS) >= STAMPS_MAX:
+        _STAMPS.clear()
+    _STAMPS[s] = out
+    return out
 
 
 def _seconds_between(earlier, later):
