@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### An agent cannot sign a chat line as the owner with an invisible character in the name (Nov 15, night sweep review)
+The rule that refuses an agent line signed with the owner's name (or "all") compared the sender as typed, and the strip of invisible characters ran after it, so the owner's name with a zero-width space or a soft hyphen in it was accepted and stored as the owner's exact name. The comparison is now made on the name as it will be stored. Test: `tests/test_chat_owner_name.py` (an invisible character in the name does not get past the rule).
+
 ### Small text on a coloured fill reads at 4.5:1 (Nov 15, sweep-ux)
 The count beside **Now** (white, 11 px, on the orange) and the initial on a direct line to an agent were 3.58:1, and the Configuration chip's green count in the light theme was 4.41:1: all under the 4.5:1 small text needs. The orange under white text is now the same orange mixed 20% towards black (`--need-fill`, 5.3:1 measured in Chrome); the chip's count mixes 18% black into its green (6:1). The brighter orange stays on the decorative uses (the aura, the dial, the ring).
 - Checked: `tests/test_need_badge_contrast.py` (4: works the ratio out from the page's own CSS; the first three fail on the old page). A walk of every view in light and dark, wide and phone, found no other text under 4.5:1 on a solid fill.
