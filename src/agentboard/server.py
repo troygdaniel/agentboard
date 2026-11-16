@@ -166,10 +166,34 @@ def make_handler(default_store, port):
 
     class Handler(BaseHTTPRequestHandler):
         server_version = "agentboard"
+        sys_version = ""   # the Server header is the one word above: which interpreter runs the board is nobody's business (card sweep-sec-http)
         timeout = 15   # a client that declares a body and never sends it, or stalls mid-request, is dropped: it cannot pin a thread for good
+
+        def version_string(self):
+            return self.server_version
 
         def log_message(self, *args):
             pass
+
+        def send_error(self, code, message=None, explain=None):
+            """What the standard library answers on its own, before any route of ours runs: a method it does not know (501), a URL or a header
+            line over its limits (414, 431), a request line that is not HTTP (400). Its default is an HTML page in the interpreter's words
+            with no nosniff header. This one is JSON with the headers every other refusal here carries, and closes the connection as before."""
+            try:
+                short = message if message is not None else self.responses[code][0]
+            except KeyError:
+                short = "error"
+            self.close_connection = True
+            self.send_response(code, short)
+            raw = json.dumps({"error": f"{code} {short}"}).encode()
+            self.send_header("Content-Type", "application/json")
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("Connection", "close")
+            self.send_header("Content-Length", str(len(raw)))
+            self.end_headers()
+            if self.command != "HEAD" and code >= 200 and code not in (204, 304):
+                self.wfile.write(raw)
 
         # -- plumbing ------------------------------------------------------
         def _send(self, code, body, ctype="application/json", extra=None):
@@ -205,7 +229,10 @@ def make_handler(default_store, port):
             return self.headers.get("Host") in allowed_hosts
 
         def _json_body(self):
-            n = int(self.headers.get("Content-Length") or 0)
+            try:
+                n = int(self.headers.get("Content-Length") or 0)
+            except ValueError:   # "abc": the same refusal as a negative or a huge one, not int()'s own words
+                raise BoardError("bad body length") from None
             if n < 0 or n > MAX_BODY:   # a negative length would make read() wait for the client to hang up
                 raise BoardError("bad body length")
             try:
