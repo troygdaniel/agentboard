@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### `agentboard chat tail` prints every line of an odd board (Nov 15, night sweep)
+A hand-edited board whose chat line held a string where the proposal dict belongs made `chat tail` die with a traceback before printing the rest. A line is now printed for whatever shape a stored message has: a proposal that is not a dict is left out, one missing fields shows what it has, and files or detail of the wrong type are ignored. Test: `tests/test_chat_line_odd.py` (5).
+
 ### One lone half of an emoji in a title no longer breaks the Story page and `agentboard list` (Nov 15, night sweep)
 A title cut in the middle of an emoji by a page (`"\ud83d"`, which is valid JSON) or a byte that was not UTF-8 on a command line was kept as a lone surrogate. Every reader that turns text into UTF-8 then failed: `/story` answered 500 and `agentboard list` raised, for everyone, until someone edited `tasks.json`. Every stored text goes through `redact.scrub`, which now replaces a lone surrogate with U+FFFD (also with the masker switched off); a whole emoji, accents and Persian marks are untouched. `tests/test_lone_surrogates.py` (4); the four fail without the line.
 ### A config.toml that is not UTF-8 now says which file and why (Nov 15, night sweep)
