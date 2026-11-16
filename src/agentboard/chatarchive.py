@@ -10,6 +10,7 @@ Local files only, written by the store and read by nothing on the board: not by 
 are for the owner's own scripts (a retro) and the tests. A later change to a live line (its casual rendering, a decision on a proposal, a nudge) stays on the
 live line: the archive is the line as sent. No program is started and nothing leaves the board; this module imports no process or network module (selfcheck)."""
 import json
+import re
 from pathlib import Path
 
 from . import backup
@@ -18,8 +19,14 @@ DIR = "chat-archive"
 COUNTS = "counts.json"
 
 
+_DAY = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
+
 def _day(msg):
-    return str(msg.get("at") or "")[:10] or "unknown"   # `at` is "%Y-%m-%dT%H:%M:%S"
+    """The day a line belongs to, from its `at` ("%Y-%m-%dT%H:%M:%S"), as a file-name-safe YYYY-MM-DD. A hand-edited or copied board can hold anything in `at`
+    (a path, a NUL, a number): that line goes to chat-unknown.jsonl instead of naming a file somewhere else or raising on the post."""
+    day = str(msg.get("at") or "")[:10]
+    return day if _DAY.match(day) else "unknown"
 
 
 def _file(d, day):

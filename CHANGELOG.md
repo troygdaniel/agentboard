@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### The chat archive names its day files only from a real date (Nov 15, night sweep)
+The archive took the first ten characters of a line's `at` stamp as the day file's name. On a hand-edited or copied board that could be a path piece or hold a NUL, which would have raised on the post. A stamp that is not `YYYY-MM-DD` now files the line under `chat-unknown.jsonl`, and the store swallows a ValueError or TypeError from the archive the way it already did an OSError, so a chat post never fails for the archive. Test: `tests/test_chat_archive.py` (an odd at stamp names no file elsewhere and raises nothing).
+
 ### The agent's own report file is read only when it is a regular file (Nov 15, night sweep)
 A symlink placed at `reports/<card>.md` was followed, so the report page could show a file from outside the board, and a FIFO there would have blocked the page build for good. `reports.extras_md` now opens the file without following a final symlink and reads it only when it is a regular file, the rule `lookup` already applied to the same files. Test: `tests/test_reports.py` (the agent's own markdown file is read only when it is a regular file).
 ### `agentboard insights` survives a log entry with no text string (Nov 15, night sweep)
