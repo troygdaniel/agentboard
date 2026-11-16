@@ -631,7 +631,8 @@ def _twins_warning(s, name):
 
 
 def _chat_name(a):
-    name = a.name or os.environ.get("AGENTBOARD_NAME") or (_store().owner if getattr(a, "user", False) else None)
+    user = getattr(a, "user", False)
+    name = (_store().owner if user else None) or a.name or os.environ.get("AGENTBOARD_NAME")   # --user is the owner's line whatever the shell's own name (ORCH relaying)
     if not name:
         raise BoardError("give --name (or set AGENTBOARD_NAME) so the board can show who's talking")
     name = _store()._scrub(name)   # masked before it is written anywhere (sessions, listeners, cursors), as the store masks it on a card
@@ -684,6 +685,13 @@ def cmd_hooks(a):
 
 
 def cmd_chat_send(a):
+    s = _store()
+    me = (os.environ.get("AGENTBOARD_NAME") or "").strip()   # the session's own name; --name may say another, --user says the owner
+    if me and me.upper() != "ORCH" and not _to_owner(me, s.owner):   # an agent: its line is its own, never the owner's or ORCH's (agents act on those: night mode, approvals)
+        posted_as = s.owner if a.user else (a.name or "")
+        if a.user or posted_as.upper() == "ORCH" or _to_owner(posted_as, s.owner):
+            raise BoardError(f"{me} posts under its own name: a line as {s.owner} or ORCH is theirs to write "
+                             "(ORCH relays the owner with --user; a shell with no agent name set is the owner at a terminal)")
     name = _chat_name(a)
     detail = a.detail
     if a.detail_file:
