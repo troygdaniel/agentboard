@@ -382,7 +382,14 @@ def make_handler(default_store, port):
             elif url.path == "/api/settings":
                 self._send(200, settingsview.status(self.store.dir))   # Settings > Security and Backup: booleans, counts and ages only; nothing here changes anything
             elif url.path == "/api/night":   # night mode: on or off, until when, the queue in order (card retro-night-queue); titles and ids only
-                self._send(200, night.status(self.store))
+                # every open tab asks every 15 s and each answer read the whole board file (25 ms at 5,000 cards): built again only when the board file or
+                # night.json changed, or after 5 s (`on` and `ended` move with the clock)
+                fkey = _file_key(self.store)
+                try:
+                    nkey = os.stat(night.path(self.store.dir)).st_mtime_ns
+                except OSError:
+                    nkey = None
+                self._send(200, _derived(self.store, "night", (fkey, nkey, int(time.time() // 5)) if fkey else None, lambda: night.status(self.store)))
             elif url.path == "/api/configurations":   # the picker: is it on, what is applied, what ships, what ORCH suggests (never a card or a line of chat)
                 self._send(200, _configurations_state(self.store))
             elif url.path == "/api/configuration/export":   # a configuration as a file to keep or share: ?key=build, or ?applied=1
