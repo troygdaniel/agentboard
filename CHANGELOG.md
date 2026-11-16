@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Watch tile text reads: agent names, state words and the orb's digit (Nov 16, sweep2-ux)
+A tile's agent name, its state word (Silent, Working, ...), its "You · Answer" line and the digit in its orb were drawn in the agent's or the state's own colour straight onto a tile tinted with that colour. In the light theme the pink agent's name was 3.5 to 1, "Silent" 3.9, "You · Answer" 4.4 and the pink digit 2.8; in the dark one the pink digit was 2.9 and the name 4.1. Each is now mixed toward the text colour (darker in the light theme, lighter in the dark one), so every one of the six palette colours reads at 4.5 to 1 (3 for the 21 px digit) on its tile.
+- Checked: `node tests/qa/tile_contrast_check.mjs` in headless Chrome on a throwaway board (8 checks: each text's ratio worked out from a screenshot, light and dark, over all six palette slots; 6 fail on the old page) and `tests/test_tile_contrast.py` (5, pins the four rules). The suites that read the page pass (128).
+
 ### A log line with no usable stamp no longer stops the HUD and its feed (Nov 15, night sweep)
 `hud.build` sorts an agent's recent lines by their stamp and reads the stamp and text of the three newest. A line whose stamp was null or a number raised a TypeError against the others' text, a line with no stamp at all raised a KeyError, and a line whose words were a number raised a TypeError: `/api/hud` answered 500, so the whole HUD and feed were gone for as long as the line stayed in a card (a hand edit, an older version). Such a line now counts as an empty stamp and its words as text; the lines with good stamps come out exactly as before. Found by another agent's fuzz of `hud.build`. `tests/test_hud_log_stamps.py` (3; all fail without the fix).
 

@@ -519,7 +519,9 @@
   .orb { position: absolute; left: 50%; top: 50%; width: 54px; height: 54px; margin: -27px 0 0 -27px; border-radius: 50%; overflow: hidden; display: grid; place-items: center; background: color-mix(in srgb, var(--c) 34%, var(--surface)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c) 45%, transparent), inset 0 -8px 14px color-mix(in srgb, #000 22%, transparent); }
   .orb::before { content: ''; position: absolute; inset: -30%; background: conic-gradient(from var(--spin), transparent 0 55%, color-mix(in srgb, var(--c) 55%, transparent) 78%, transparent 100%); opacity: .7; }   /* one soft band of its own colour, turning while it works */
   .orb::after { content: ''; position: absolute; inset: 0; border-radius: 50%; background: radial-gradient(circle at var(--ox) var(--oy), color-mix(in srgb, #fff 22%, transparent), transparent 46%); }
-  .orb i { position: relative; z-index: 1; font-style: normal; font-size: 21px; font-weight: 700; color: var(--c); }
+  /* text in an agent's or a state's own colour sits on a tile or an orb tinted with that colour: it is mixed toward the text colour (darker in the light theme, lighter in the dark one) so it reads
+     (sweep2-ux: the orb's digit, the tile's agent name, state word and You line; tests/qa/tile_contrast_check.mjs) */
+  .orb i { position: relative; z-index: 1; font-style: normal; font-size: 21px; font-weight: 700; color: color-mix(in srgb, var(--c) 80%, var(--text)); }
   .w-tile:not(.fresh) .orb::before { opacity: .35; }
   .w-tile.fresh .orb::before { animation: orbspin 16s linear infinite; } @keyframes orbspin { to { transform: rotate(360deg); } }
   .w-idling .orb { filter: grayscale(1); opacity: .55; animation: wrest 5s ease-in-out infinite; } .w-waiting .orb { --c: var(--y); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--y) 45%, transparent), 0 0 0 3px var(--bg), 0 0 0 5px color-mix(in srgb, var(--y) 60%, transparent); } .w-waiting .orb::before { display: none; } .w-waiting .w-ring { box-shadow: none; }
@@ -604,13 +606,13 @@
   .w-tile.w-waiting { --y: var(--need); background: radial-gradient(140% 100% at 0 0, color-mix(in srgb, var(--y) 12%, transparent), transparent 60%), color-mix(in srgb, var(--surface) 70%, transparent); box-shadow: inset 0 0 0 1px transparent, 0 18px 40px -24px color-mix(in srgb, var(--y) 45%, transparent); outline: 1.5px dashed color-mix(in srgb, var(--y) 60%, transparent); outline-offset: -1.5px; }
   .w-tile.w-waiting.ask { --y: var(--err); } .w-tile.w-waiting.rev { --y: var(--ok); }
   .w-waiting .w-ring { border-radius: 50%; box-shadow: inset 0 0 0 3px color-mix(in srgb, var(--y) 55%, transparent); } .w-waiting .w-ring span { color: var(--y); } .w-ring em.n { right: -2px; bottom: -2px; min-width: 22px; height: 22px; border-radius: 99px; display: grid; place-items: center; background: var(--y); color: var(--bg); font-size: 12px; } .w-ring em.n::after { content: ''; }
-  .w-waiting .w-tx b { color: var(--text); } .w-verb { font-style: normal; font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--y); } .w-waiting .w-age { color: var(--y); }
+  .w-waiting .w-tx b { color: var(--text); } .w-verb { font-style: normal; font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: color-mix(in srgb, var(--y) 80%, var(--text)); } .w-waiting .w-age { color: var(--y); }
   .w-tile.w-idling { cursor: default; background: none; box-shadow: inset 0 0 0 1px var(--line); opacity: .55; } .w-idling .w-ring { border-radius: 50%; box-shadow: inset 0 0 0 2px var(--line); } .w-idling .w-ring span, .w-idling .w-tx b { color: var(--muted); } .w-idling .w-now { color: var(--muted); font-weight: 500; }
   .w-tile.sel.w-waiting { outline: 2px solid var(--text); outline-offset: 3px; } .w-tile { align-content: center; }
   @media (prefers-reduced-motion: reduce) { .w-track { transition: none; } .w-dot.ping { animation: none; } }
   /* Agent status (card agent-status-slice-1, docs/status-visibility-design.md): Watch keeps its 3x3 tiles. A tile says ONE state word in one colour at its top right (working, silent, presumed gone,
      blocked, waiting on you, in review); how long since the agent was heard shows when you hover or focus the tile. One quiet line says when the board itself slept. */
-  .w-state { --sc: var(--muted); position: absolute; right: 20px; top: 16px; font-style: normal; font-size: 11px; font-weight: 700; letter-spacing: .06em; color: var(--sc); white-space: nowrap; }
+  .w-state { --sc: var(--muted); position: absolute; right: 20px; top: 16px; font-style: normal; font-size: 11px; font-weight: 700; letter-spacing: .06em; color: color-mix(in srgb, var(--sc) 80%, var(--text)); white-space: nowrap; }
   .w-state.s-working { --sc: var(--ok); } .w-state.s-silent { --sc: var(--run); } .w-state.s-gone, .w-state.s-blocked { --sc: var(--err); } .w-state.s-waiting { --sc: var(--warn); } .w-state.s-review { --sc: var(--info); }
   /* a tile is tinted by its state, in the hue of its word: working green, silent orange, gone or blocked red, waiting on you amber, in review blue. A resting tile stays untinted. */
   .w-tile.s-working { --st: var(--ok); } .w-tile.s-silent { --st: var(--run); } .w-tile.s-gone, .w-tile.s-blocked { --st: var(--err); }
@@ -657,7 +659,7 @@
   .w-ring span { position: absolute; inset: 0; display: grid; place-items: center; font-size: 24px; font-weight: 700; color: var(--c); } .w-ring em { position: absolute; right: -4px; bottom: -2px; font-style: normal; font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--muted); }
   .w-ring em::after { content: '%'; font-weight: 500; }
   .w-tile.fresh .w-ring::after { content: ''; position: absolute; inset: -4px; border-radius: 50%; border: 2px solid var(--c); opacity: 0; animation: wpulse 2.2s ease-out infinite; } @keyframes wpulse { 0% { transform: scale(.86); opacity: .55; } 100% { transform: scale(1.22); opacity: 0; } }
-  .w-tx { min-width: 0; display: flex; flex-direction: column; gap: 3px; } .w-tx b { font-size: 13px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--c); }
+  .w-tx { min-width: 0; display: flex; flex-direction: column; gap: 3px; } .w-tx b { font-size: 13px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: color-mix(in srgb, var(--c) 78%, var(--text)); }
   .w-now { font-size: 17px; font-weight: 650; line-height: 1.28; letter-spacing: -.01em; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; text-wrap: balance; } .w-card { font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .w-tile .segs { grid-column: 1 / -1; } .w-age { position: absolute; right: 20px; top: 16px; font-style: normal; font-size: 11px; color: var(--muted); } .w-tile.fresh .w-age { color: var(--c); font-weight: 700; }
   .card .stepbtn { border-color: var(--ok); } .you-help { display: flex; gap: 14px; justify-content: flex-end; margin-top: 10px; }
