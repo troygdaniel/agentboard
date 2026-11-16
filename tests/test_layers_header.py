@@ -35,7 +35,8 @@ class AboveLoadTests(unittest.TestCase):
 
 class HeaderTests(unittest.TestCase):
     def test_the_header_never_wraps_at_desktop_width_and_the_counts_shrink_first(self):
-        self.assertIn("@media (min-width: 901px) { header { flex-wrap: nowrap; } }", HTML)
+        # from 1200px (sweep-ux, 15 Nov: between 901 and 1199 two chips, Later and the icons did not fit on one line and ran off the window; there it wraps, as on a phone)
+        self.assertIn("@media (min-width: 1200px) { header { flex-wrap: nowrap; } }", HTML)
         summ = rule("#summary")
         for piece in ("white-space: nowrap;", "overflow: hidden;", "text-overflow: ellipsis;", "min-width: 0;", "font-variant-numeric: tabular-nums;"):
             self.assertIn(piece, summ)
