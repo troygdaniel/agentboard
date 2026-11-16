@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### A new card no longer takes the id of an archived one, so clearing it cannot erase the old card (Nov 15, night sweep)
+A card's id is a slug of its title, unique among the cards on the board, and the archive was left out. Titles repeat (a subtask called "Run the tests" under every card), so a new card got the id of an archived one; when it was cleared in turn the archive kept one card for that id, the newest, and the first card's history, report and lessons were replaced without a word. `unarchive` of the old id dropped it from the archive too, because a live card held the id. New ids now avoid every id in `archive.json` (a subtask whose short name is taken gets its parent's id in front, as it already did for live cards), and an id given by hand cannot be an archived one. A damaged `archive.json` does not stop a new card. `tests/test_archived_id_reuse.py` (5; four fail without the fix). Cards already in the archive are not touched.
+
 ### A command provider can no longer be made to run card text (Nov 15, night sweep)
 A `type = "command"` provider filled `{arg}` and then `{title}`. An arg that was the text `{title}` was quoted, and the card's title was then pasted inside those quotes, so a quote in the title ended the string and the rest ran as shell. Both come from a card (its `--ctx` and its title).
 - Both placeholders are now filled in one pass: text that arrives through one value is never read again as a placeholder. Only boards with a command provider set up were exposed; none ships.
