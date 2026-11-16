@@ -57,7 +57,7 @@ class OrchOnThePage(unittest.TestCase):
     def test_the_line_says_when_orch_is_away(self):
         self.assertIn("'ORCH is not running'", PAGE)
         self.assertIn("classList.toggle('orch-down', down)", PAGE)
-        self.assertIn("orchGraceMs = 90000", PAGE)   # ORCH between two waits is not gone
+        self.assertIn("orchGraceMs = 600000", PAGE)   # ORCH between two waits, or busy in a long job, is not gone (presence.py)
 
     def test_copy_prompt_is_the_main_button_in_the_panel_and_on_the_empty_tabs(self):
         panel = PAGE[PAGE.index("function orchStart("):PAGE.index("function orchArrived(")]

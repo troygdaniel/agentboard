@@ -19,6 +19,7 @@ from datetime import datetime
 from pathlib import Path
 
 from . import backup
+from . import presence
 from . import statefile
 
 try:
@@ -97,6 +98,7 @@ def register(board_dir, name, what, pid=None):
         k = _key(d, name)
         d[k] = [r for r in d.get(k, []) if r.get("pid") != pid] + [{"pid": pid, "since": datetime.now().strftime("%Y-%m-%dT%H:%M:%S"), "what": str(what)[:80]}]
         _write(board_dir, d)
+    presence.touch(board_dir, name)   # opening a wait is a sign of life (presence.py)
     return pid
 
 
@@ -111,6 +113,7 @@ def unregister(board_dir, name, pid=None):
             if not d[k]:
                 del d[k]
             _write(board_dir, d)
+    presence.touch(board_dir, name)   # a wait that ends (a line arrived, or it timed out) was a session being alive just now
 
 
 def sessions(board_dir, name):
@@ -152,4 +155,4 @@ def receipts(board_dir):
     """What the chat panel needs to say sent / delivered / seen / answered and whether anyone will wake: the cursors (seen), what was
     printed to each name and when (delivered), and the listeners."""
     from . import cursors
-    return {**cursors.receipts(board_dir), "listening": listening(board_dir)}
+    return {**cursors.receipts(board_dir), "listening": listening(board_dir), "seen": presence.read(board_dir)}

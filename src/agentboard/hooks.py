@@ -23,7 +23,7 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-from . import cursors, listeners, rules, statefile, untrusted
+from . import cursors, listeners, presence, rules, statefile, untrusted
 from .store import DEFAULT_OWNER, BoardError, owner_name
 
 HOOK_COMMAND = "agentboard hook send-message"
@@ -123,6 +123,7 @@ def run_hook(store, stdin=None):
     """`agentboard hook send-message`: read the payload, mirror it, say nothing, exit 0 whatever happens."""
     try:
         payload = json.loads((stdin or sys.stdin).read() or "{}")
+        presence.touch(store.dir, known_name(store.dir, payload))   # a SendMessage by a named session is a sign of life (presence.py)
         mirror_send_message(store, payload)
     except (ValueError, BoardError, OSError, AttributeError, TypeError):
         pass
@@ -191,6 +192,7 @@ def run_stop_hook(store, stdin=None, stdout=None):
     """`agentboard hook stop`: print the decision as JSON (nothing when the session may stop), exit 0 whatever happens."""
     try:
         payload = json.loads((stdin or sys.stdin).read() or "{}")
+        presence.touch(store.dir, known_name(store.dir, payload))   # the session is about to go quiet: it was alive just now
         out = stop_decision(store, payload)
     except (ValueError, BoardError, OSError, AttributeError, TypeError):
         out = None

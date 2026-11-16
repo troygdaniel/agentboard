@@ -136,6 +136,7 @@ one CSS colour per agent name, on every card it holds: "AGENT-1" = "#2563eb".
 | Key | Type | Default | Meaning |
 |---|---|---|---|
 | `agents` | list[table] | none | the roster the ORCH prompt and the autopilot use: [{name = "AGENT-1", color = "#2563eb"}]. |
+| `presence_grace_s` | int 30..86400 | 600 | the board calls ORCH running this long after its last sign of life (a board command, a wait opened or closed, a SendMessage or Stop hook), so a long job is not 'ORCH is not running'. |
 
 ## `[knowledge]`
 

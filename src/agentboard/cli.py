@@ -14,7 +14,7 @@ from pathlib import Path
 from . import __version__
 from . import agentchat
 from . import hooks as hookslib
-from . import chatwake, cursors, listeners
+from . import chatwake, cursors, listeners, presence
 from . import backup as backuplib
 from . import hud as hudlib
 from . import agentstates as agentstateslib
@@ -2630,6 +2630,7 @@ def _seen_step(a):
         board = find_dir()
         if name:
             cursors.confirm(board, name)
+            presence.touch(board, name)   # any board command by a named session is a sign of life (presence.py): ORCH busy in a long job is still running
         cursors.confirm_session(board, lifecycle.session_id)   # the session that was shown a line ran a board command, with or without a name: it read it
     except (BoardError, OSError):
         pass

@@ -6120,10 +6120,13 @@ function awayShow() { const was = awaySnap, now = awayState(); awaySnap = null; 
 document.addEventListener('click', e => { if (e.target.closest?.('[data-away-go]')) { goTab(0); document.querySelector('.backline')?.remove(); } else if (e.target.closest?.('[data-away-x]')) document.querySelector('.backline')?.remove(); const fc = e.target.closest?.('[data-full]'); if (fc) { const id = fc.dataset.full; setTimeout(() => openPanel(id), 0); } });
 // Is ORCH here? The board knows who has a wait running. When ORCH has none, the line you talk to it on says so and offers the prompt
 // that starts it, to copy; the same offer sits in the middle of an empty Now or Watch. Typing still works: ORCH reads it when it arrives.
-let orchUp = null, orchSince = 0, orchAsked = false, orchGraceMs = 90000;   // ORCH between two waits is not gone
+let orchUp = null, orchSince = 0, orchAsked = false, orchGraceMs = 600000;   // ORCH between two waits, or busy in a long job (a merge, a full test run), is not gone: [orch] presence_grace_s, 600 s
 const ORCH_CLAUDE = 'claude -n ORCH "$(agentboard orch)"';   // the board starts nothing itself: it only gives you the words, and you paste them
 function orchSync() { if (chatFirstLoad || !cfg || !cfg.dispatch) return; const up = !!nameKey(chatReceipts.listening, 'ORCH'), was = orchUp;
-  if (up) orchSince = Date.now(); const down = !up && Date.now() - orchSince > orchGraceMs;
+  if (cfg.orch_grace_s > 0) orchGraceMs = cfg.orch_grace_s * 1000;
+  const sk = nameKey(chatReceipts.seen, 'ORCH'), seen = sk ? Date.parse(chatReceipts.seen[sk]) || 0 : 0;   // any recent board command, wait or hook by ORCH is a sign of life (presence.py)
+  if (up) orchSince = Date.now(); else if (seen > orchSince) orchSince = seen;
+  const down = !up && Date.now() - orchSince > orchGraceMs;
   orchUp = !down; document.body.classList.toggle('orch-down', down);
   const f = $('orch-line'), i = f?.querySelector('input'); if (i) i.placeholder = down ? 'ORCH is not running' : 'Tell ORCH what you need, or @ someone…';
   if (was === false && orchUp) orchArrived();

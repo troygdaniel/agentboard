@@ -16,7 +16,7 @@ from urllib.parse import parse_qs, urlparse
 from . import awake, boards, configproposals, configurations, demo, hud, lifecycle, night, private, rename
 from . import profile as profilelib
 from . import hooks as hookslib
-from . import listeners, watchdog
+from . import listeners, presence, watchdog
 from . import transcript as transcriptlib
 from . import plugins, reports, runs, serverstate, settingsview, status as statuslib, story, summary, voice
 from . import markdown as mdlib
@@ -402,7 +402,7 @@ def make_handler(default_store, port):
                 colors = conf.get("agent_colors")   # [agent_colors] AGENT-1 = "#2563eb": overrides the palette slot a name gets
                 cfgn = configurations.applied_if_enabled(self.store.dir)   # an applied agent configuration: the role chips beside the names (lower-cased name -> role)
                 self._send(200, {"dispatch": bool(conf.get("ui", {}).get("dispatch", True)), "owner": self.store.owner,
-                                  "stale_minutes": hud.stale_minutes(conf), "silent_minutes": hud.silent_minutes(conf),
+                                  "stale_minutes": hud.stale_minutes(conf), "silent_minutes": hud.silent_minutes(conf), "orch_grace_s": presence.grace_s(conf),
                                   "agent_colors": {str(k): v for k, v in colors.items() if isinstance(v, str)} if isinstance(colors, dict) else {},
                                   "configuration": cfgn["name"] if cfgn else "",
                                   "roles": {n.lower(): v for n, v in configurations.roles_by_name(cfgn).items()} if cfgn else {}})

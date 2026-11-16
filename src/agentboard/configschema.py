@@ -114,7 +114,8 @@ SCHEMA = {
         "extra": Field("list[str]", [], "your own regexes; each match becomes [redacted match]"),
     },
     "orch": {"agents": Field("list[table]", [], "the roster the ORCH prompt and the autopilot use: [{name = \"AGENT-1\", color = \"#2563eb\"}]",
-                             keys={"name": Field("str", meaning="the agent's name"), "color": Field("str", meaning="a CSS colour")})},
+                             keys={"name": Field("str", meaning="the agent's name"), "color": Field("str", meaning="a CSS colour")}),
+             "presence_grace_s": Field("int", 600, "the board calls ORCH running this long after its last sign of life (a board command, a wait opened or closed, a SendMessage or Stop hook), so a long job is not 'ORCH is not running'", min=30, max=86400)},
     "knowledge": {"files": Field("list[str]", [], "notes files a plugin's lookup source may search (absolute paths; the core only lists them)")},
 }
 
