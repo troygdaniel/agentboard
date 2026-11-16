@@ -425,11 +425,16 @@ def cmd_list(a):
 def _tree_order(tasks):
     """Board order, but each subtask listed right under its parent."""
     ids = {t["id"] for t in tasks}
+    kids = {}   # one pass to group the subtasks by parent: a scan of every card for each card took 0.44 s at 5,000 cards (card sweep-perf)
+    for t in tasks:
+        p = t.get("parent_id")
+        if p in ids:
+            kids.setdefault(p, []).append(t)
     for t in tasks:
         if t.get("parent_id") in ids:
             continue
         yield t
-        yield from (k for k in tasks if k.get("parent_id") == t["id"])
+        yield from kids.get(t["id"], ())
 
 
 TAIL_FEED_CAP = 500   # generous enough that a burst of activity between polls can't overrun a single snapshot
