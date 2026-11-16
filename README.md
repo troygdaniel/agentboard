@@ -731,7 +731,7 @@ What to expect when you clone this onto a managed machine (the full audit and ch
 - **`agentboard doctor` says `FAIL tracked files`** on your own repo: it found a key-shaped string, a non-fictional phone number or a private key block in a tracked file (it prints the file and line, never the text). Rotate the key if it is real; if it is a test fixture, build it from pieces (`"AKIA" + "..."`) or use the 555-01xx numbers reserved for fiction.
 - **`ModuleNotFoundError: tomllib`** on Python 3.9 or 3.10: you have an agentboard older than this note; upgrade. Since then the board reads TOML with its own small reader where the standard library has none.
 - **`pipx: command not found`** right after installing pipx: `python3 -m pipx ensurepath`, then open a new terminal (pipx adds `~/.local/bin` to PATH for new shells only).
-- **A first run of `agentboard doctor` shows WARN lines**: `lock` (set `AGENTBOARD_LOCKDOWN=1` on a work machine; at home the WARN is expected), `plugins ON` (you turned them on), `config` (a switch in config.toml would start a program or send data). Every WARN names the switch; `--strict` makes them count as failures for a review.
+- **A first run of `agentboard doctor` shows WARN lines**: `lock` (set `AGENTBOARD_LOCKDOWN=1` on a work machine; at home the WARN is expected), `plugins ON` (you turned them on), `config` (a switch in config.toml would start a program or send data). Every WARN names the switch; `--strict` makes them count as failures for a review. Under the work profile the two WARN lines every work machine shows (the Stop hook is not installed; the list of modules that could connect) do not fail `--strict`, so a correct work setup exits 0; any other WARN still fails it.
 
 ## Development
 

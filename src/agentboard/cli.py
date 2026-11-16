@@ -1705,7 +1705,9 @@ def cmd_doctor(a):
         board = Path.cwd() / DIR_NAME   # no board here: the report says so and still checks the rest
     results = doctor.run(board, project=Path(a.project).expanduser() if a.project else None)
     print(doctor.render(results, board))
-    code = doctor.exit_code(results, strict=a.strict)
+    code = doctor.exit_code(results, strict=a.strict, work=bool(profilelib.sources(board)))
+    if a.strict and not code and any(r[0] == doctor.WARN for r in results):
+        print("--strict: the WARN lines above are the two a work-profile machine always shows (the Stop hook is optional; the listed modules are off under the lock); they do not count")
     if code:
         raise SystemExit(code)
 
@@ -2251,7 +2253,7 @@ def main(argv=None):
     csub.add_parser("docs", help="the configuration reference, generated from the schema (docs/config.md)")
     sp = add("doctor", cmd_doctor, "read-only check of this machine: listeners, locks, file modes, git, hooks (PASS/FAIL lines to paste into a review; exit 1 on a FAIL)")
     sp.add_argument("--project", help="the project folder to scan for secrets and hooks (default: the one holding .agentboard)")
-    sp.add_argument("--strict", action="store_true", help="exit 1 on a WARN as well")
+    sp.add_argument("--strict", action="store_true", help="exit 1 on a WARN as well (under the work profile, the two WARN lines that profile always shows do not count)")
     sp = add("verify", cmd_verify, "check the board file, its .bak and the newest snapshot (exit 1 if any is bad or the newest is over 2 hours old)")
     sp.add_argument("--all", action="store_true", help="check every snapshot")
     sp.add_argument("--fix", action="store_true", help="also remove leftover temp files and set a state file that is not JSON aside (<name>.broken-<stamp>)")

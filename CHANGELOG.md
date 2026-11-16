@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### `doctor --strict` can pass on a correct work-profile machine (Nov 15, night sweep)
+The docs offer `agentboard doctor --strict` for a review, and the work-laptop steps say two WARN lines are normal there (the Stop hook is not installed; the list of modules that could make a connection). `--strict` counted them, so it exited 1 on every correct work setup.
+- Under the work profile those two WARNs do not fail `--strict`, and one line says so. Any other WARN still fails it, a FAIL always does, and away from the work profile `--strict` is unchanged.
+- Checked: `tests/test_doctor_strict_work.py`, and on a scratch board: exit 0 with the profile, exit 1 without.
+
 ### Small text on a coloured fill reads at 4.5:1 (Nov 15, sweep-ux)
 The count beside **Now** (white, 11 px, on the orange) and the initial on a direct line to an agent were 3.58:1, and the Configuration chip's green count in the light theme was 4.41:1: all under the 4.5:1 small text needs. The orange under white text is now the same orange mixed 20% towards black (`--need-fill`, 5.3:1 measured in Chrome); the chip's count mixes 18% black into its green (6:1). The brighter orange stays on the decorative uses (the aura, the dial, the ring).
 - Checked: `tests/test_need_badge_contrast.py` (4: works the ratio out from the page's own CSS; the first three fail on the old page). A walk of every view in light and dark, wide and phone, found no other text under 4.5:1 on a solid fill.
