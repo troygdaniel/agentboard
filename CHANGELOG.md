@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### The agent's own report file is masked on the page (Nov 15, night sweep)
+A card's text is masked for secrets on the way in; the hand-written `reports/<card>.md` an agent may add never passes the store, and the report page showed it as written, so a key pasted there reached the page. `reports.extras_md` now runs the same scrub (`redact.scrub`) before the page is built; `lookup` already did. Test: `tests/test_reports.py` (the agent's own markdown file is masked like every other agent text).
+
 ### A night queue: agents take the next card themselves (Nov 15, card retro-night-queue, retro rec 13)
 Off by default; with the switch off, or never used, nothing on the board changes. When the owner (or ORCH, at their word) turns Night on, ORCH lines up specified Todo cards and an agent with a free hand takes the next one itself instead of waiting for a message.
 - **The switch:** `agentboard night on [--until HH:MM]`, `off`, `status`, and a **Night queue** row in Settings > Agents and chat. It ends by itself at 08:00 unless told another time. While it is on the header shows a chip (`Night · 3 queued · until 08:00`); turning it on or off posts one line to the chat.
