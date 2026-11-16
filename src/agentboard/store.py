@@ -1324,6 +1324,15 @@ class Store:
                 return [m for m in msgs if m["seq"] > after]
             return msgs[-limit:]
 
+    def chat_view(self, after=None, limit=100):
+        """(chat_list(after, limit), chat_agents(), known_names()) from ONE read of the board file: the page's chat poll asked for the three
+        separately, and each parsed the whole file (25 ms apiece at 5,000 cards)."""
+        with self._lock():
+            data = self._read()
+            msgs = data["chat"]
+            shown = [m for m in msgs if m["seq"] > after] if after is not None else msgs[-limit:]
+            return shown, bool(data.get("chat_agents", False)), self._known_names(data)
+
 
 LOG_MAX = 200
 CHAT_MAX = 500
