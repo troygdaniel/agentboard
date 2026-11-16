@@ -50,6 +50,10 @@ Every change a user could notice gets an entry at the **top of `## Unreleased`**
 No entry for a change nobody can notice (a comment, a test fixture). A release moves `Unreleased` under a version heading, bumps the
 three version places, and tags `vX.Y.Z`.
 
+`.gitattributes` sets `CHANGELOG.md merge=union`, so two branches that each add an entry at the top of `Unreleased` merge without a
+conflict: git keeps both entries. Union never raises a conflict, so after a merge read the top of `Unreleased` once; the blank line between
+two entries added at once can be lost (harmless: a `###` heading starts the next entry).
+
 ## Commits and messages
 
 - One commit per card where it can be one; the subject is a sentence saying what is true now ("Listeners: register and unregister under a
