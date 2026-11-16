@@ -408,9 +408,12 @@ def cmd_edit(a):
         raise BoardError("nothing to change: give --title, --description, --description-file, --append or --append-file")
     by = _agent_name(a)
     s = _store()
+    loaded = s.load()
+    if a.title is not None or replace is not None:   # a rewrite of the card's words answers to its holder, as update/ask/review/move/rm do; --append (a note) stays open to every agent
+        _must_hold(loaded, Store.get(loaded, a.id), by, s.owner, verb="replace the title or description of")
     desc = replace
     if extra is not None and extra.strip():
-        base = replace if replace is not None else (Store.get(s.load(), a.id).get("description") or "")
+        base = replace if replace is not None else (Store.get(loaded, a.id).get("description") or "")
         desc = (base.rstrip() + "\n\n" + extra.strip()).strip()
     t = s.edit(a.id, title=a.title, description=desc, by=by)
     print(f"{t['id']}: edited")
