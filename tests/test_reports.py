@@ -143,6 +143,20 @@ class WritingTests(Base):
         self.assertIn("More from the agent", self.page())
         self.assertIn("Faster by 30%", self.page())
 
+    def test_the_agents_own_markdown_file_is_masked_like_every_other_agent_text(self):
+        """A card's text is masked on the way in (redact.py); the hand-written reports/<card>.md never passes the store, so the page masks it on the way
+        out (sweep-sec-data, Nov 15). The key is assembled from pieces so this file never holds a whole one."""
+        key = "sk" + "-ant-" + "q3Z7k9M2p5R8t1V4w6Y0a2C4e6G8i0K2"
+        self.s.start("Extra", "a")
+        reports.reports_dir(self.s.dir).mkdir(parents=True)
+        (reports.reports_dir(self.s.dir) / "extra.md").write_text(f"## Notes\nran with ANTHROPIC_API_KEY={key}\nthen api_key = \"{key}\"\n")
+        self.s.review("extra", "ready")
+        page = self.page()
+        self.assertIn("More from the agent", page)
+        self.assertNotIn(key, page)
+        self.assertIn("[redacted", page)
+        self.assertNotIn(key, reports.extras_md(self.s.dir, "extra"))
+
     def test_commits_files_and_links_come_from_the_repo_the_card_was_open_in(self):
         git = lambda *a: subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@t", *a], cwd=self.proj, check=True, capture_output=True)
         git("init", "-q")

@@ -196,10 +196,12 @@ def git_info(board_dir, task, run):
 
 
 def extras_md(board_dir, card_id):
+    """The agent's own reports/<card>.md, masked like every other agent text: it is written by hand, so it never passed the store's scrub on the way in (redact.py)."""
     try:
-        return (reports_dir(board_dir) / f"{card_id}.md").read_text(errors="replace")[:20000]
+        text = (reports_dir(board_dir) / f"{card_id}.md").read_text(errors="replace")[:20000]
     except OSError:
         return ""
+    return redact.scrub(text, board_dir)
 
 
 # -- the page -----------------------------------------------------------------------------------------------------------------------
