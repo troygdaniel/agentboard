@@ -183,8 +183,8 @@ def chat_line(m):
     extra = []
     if m.get("card"):
         extra.append(f"card {m['card']}")
-    if m.get("files"):
-        extra.append("files " + ", ".join(m["files"]))
+    if isinstance(m.get("files"), list) and m["files"]:
+        extra.append("files " + ", ".join(str(f) for f in m["files"]))
     if m.get("reply_to"):
         extra.append(f"re #{m['reply_to']}")
     if m.get("via") == "idle":
@@ -192,11 +192,11 @@ def chat_line(m):
     if m.get("via") == "mirror":
         extra.append("mirrored")
     out = [head + (f"   ({'; '.join(extra)})" if extra else "")]
-    if m.get("detail"):
+    if isinstance(m.get("detail"), str) and m["detail"]:
         out += ["    " + l for l in m["detail"].splitlines()[:12]]
-    if m.get("action"):
-        a = m["action"]
-        out.append(f"    proposes: {a['text']}  [{a['status']}" + (f" by {a['by']} {a['decided_at']}" if a.get("by") else "") + "]")
+    a = m.get("action")
+    if isinstance(a, dict):   # a hand-edited board can hold anything here; a line is still printed (the night sweep's odd board, Nov 15)
+        out.append(f"    proposes: {a.get('text')}  [{a.get('status')}" + (f" by {a.get('by')} {a.get('decided_at')}" if a.get("by") else "") + "]")
     return "\n".join(out)
 
 
