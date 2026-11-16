@@ -82,6 +82,23 @@ class Base(unittest.TestCase):
         return code, out.getvalue()
 
 
+class OddBoardFilesDoNotCrashTheReaders(Base):
+    def test_a_log_entry_whose_text_is_not_a_string_is_skipped_not_fatal(self):
+        """A hand-edited or copied board (the night sweep's odd board, Nov 15) held a log entry with a number for its text; `agentboard insights` died with
+        AttributeError. The reader treats it as an empty line."""
+        self.turn_on()
+        self.s.add("odd", status="done")
+        path = self.s.dir / "tasks.json"
+        d = json.loads(path.read_text())
+        d["tasks"][0]["log"] = [{"at": 12, "status": None, "progress": None, "text": 5}, {"at": "2026-11-15T10:00:00", "status": "doing", "progress": 0}]
+        path.write_text(json.dumps(d))
+        self.assertEqual(insights._text(d["tasks"][0]["log"][0]), "")
+        self.assertEqual(insights._text("not a dict"), "")
+        code, out = self.run_cli("insights")
+        self.assertNotIn("Traceback", out)
+        self.assertIn(code, (0, None))
+
+
 class CapturesAreOffByDefault(Base):
     def test_with_the_flag_off_nothing_new_is_written(self):
         blocker = self.s.add("the blocker", status="todo")["id"]
