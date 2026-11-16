@@ -100,6 +100,11 @@ class Check(Tree):
         with mock.patch.dict(os.environ, {treecheck.ENV: "off"}):
             self.assertIsNone(treecheck.check(self.repo))
 
+    def test_the_master_lock_starts_no_program(self):
+        with mock.patch.dict(os.environ, {"AGENTBOARD_LOCKDOWN": "1"}), mock.patch("agentboard.treecheck.subprocess.run") as run:
+            self.assertIsNone(treecheck.check(self.repo))
+        run.assert_not_called()
+
     def test_a_missing_git_says_nothing(self):
         with mock.patch("agentboard.treecheck.subprocess.run", side_effect=FileNotFoundError):
             self.assertIsNone(treecheck.check(self.repo))

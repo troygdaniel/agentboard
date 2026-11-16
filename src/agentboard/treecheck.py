@@ -5,9 +5,12 @@ when git is missing, slow, or the folder is not a repository with a main or mast
 never told off.
 
 The tree is the folder the command runs in, or the one `--tree PATH` names (a session that runs agentboard from another folder, for
-example the board's own, points it at its worktree). `AGENTBOARD_TREE_CHECK=off` switches it off; the test suite sets that."""
+example the board's own, points it at its worktree). `AGENTBOARD_TREE_CHECK=off` switches it off (the test suite sets that), and so does the master lock AGENTBOARD_LOCKDOWN (the work profile): then
+no program is started at all."""
 import os
 import subprocess
+
+from . import lockdown
 
 ENV = "AGENTBOARD_TREE_CHECK"
 BASES = ("main", "master")
@@ -25,8 +28,8 @@ def _git(tree, *args):
 
 def check(tree=None):
     """One plain line saying what is wrong with the tree, or None when nothing is (or it cannot tell)."""
-    if os.environ.get(ENV, "").strip().lower() in ("off", "0", "no", "false"):
-        return None
+    if os.environ.get(ENV, "").strip().lower() in ("off", "0", "no", "false") or lockdown.locked("tree check"):
+        return None   # off by choice, or the master lock: no program is started
     tree = os.path.abspath(tree or os.getcwd())
     top = _git(tree, "rev-parse", "--show-toplevel")
     if not top:

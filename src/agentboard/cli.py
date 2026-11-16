@@ -1381,7 +1381,7 @@ def cmd_review(a):
     note = None
     if not task.get("parent_id"):
         _one_line(a.text, "a review")
-        note = treecheck.check(a.tree)   # a warning, never a block: uncommitted changes, or nothing past main (retro rec 6)
+        note = treecheck.check(getattr(a, "tree", None))   # a warning, never a block: uncommitted changes, or nothing past main (retro rec 6)
         if note:
             print(f"warning: {note}", file=sys.stderr)
     if not (task.get("parent_id") and any(x["id"] == task["parent_id"] for x in s.load())):   # a subtask has no review step, so nothing to state
