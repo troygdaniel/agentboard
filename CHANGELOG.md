@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### `agentboard rename X X` is refused (Nov 15, night sweep)
+Renaming an agent to the name it already has said "Renamed AG-1 to AG-1", rewrote the board's files for nothing and wrote a rename record, so the next `rename --undo` reversed that empty rename instead of the real one. It now says "AG-1 is already named that: nothing to rename" and writes nothing; a change of capitals (Scout to SCOUT) is still a rename. `tests/test_rename.py` (1 new).
+
 ### The agent's own report file is read only when it is a regular file (Nov 15, night sweep)
 A symlink placed at `reports/<card>.md` was followed, so the report page could show a file from outside the board, and a FIFO there would have blocked the page build for good. `reports.extras_md` now opens the file without following a final symlink and reads it only when it is a regular file, the rule `lookup` already applied to the same files. Test: `tests/test_reports.py` (the agent's own markdown file is read only when it is a regular file).
 ### `agentboard insights` survives a log entry with no text string (Nov 15, night sweep)

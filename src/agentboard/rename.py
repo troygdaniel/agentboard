@@ -198,6 +198,8 @@ def _valid(old, new, owner):
         raise BoardError("say which agent to rename")
     if not new or not NAME_RE.match(new) or new != new.strip():
         raise BoardError("the new name is 1 to 40 characters: letters, digits, space, dot, hyphen or underscore")
+    if new == old.strip():
+        raise BoardError(f"{new} is already named that: nothing to rename (a change of capitals, like Scout to SCOUT, is a rename)")
     if key(new) in RESERVED or key(new) == key(owner):
         raise BoardError(f"{new} is a name the board keeps for itself")
     if key(old) in RESERVED or key(old) == key(owner):
