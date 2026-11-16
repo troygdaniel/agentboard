@@ -11,6 +11,7 @@ from pathlib import Path
 from . import backup
 from . import insights, tomlread
 from . import rework
+from . import chatarchive
 from . import chatwake
 from . import listeners
 from . import redact
@@ -1153,6 +1154,11 @@ class Store:
             data["chat"].append(msg)
             del data["chat"][:-CHAT_MAX]
             self._write(data)
+            if insights.enabled(self.dir):   # capture 9: the whole chat kept past CHAT_MAX, with counts per day and sender (chatarchive.py)
+                try:
+                    chatarchive.append(self.dir, data["chat"])
+                except OSError:
+                    pass   # a failed archive write never fails a post
             chatwake.bump(self.dir, to)   # the wake file moves: a wait on it reads the board now, a schedule sees it in one stat (chat-f7)
             return msg
 
