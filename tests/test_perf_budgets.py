@@ -78,8 +78,10 @@ class Scale(unittest.TestCase):
         return out
 
     def test_the_store_reads_and_writes_within_budget(self):
-        tasks = self.check("store.load", self.store.load)
-        self.assertGreaterEqual(len(tasks), CARDS)
+        self.check("store.load", self.store.load)
+        # the seed flags about half the finished cards archived, as an older version left them; any save moves those into archive.json, so the live file holds
+        # fewer than CARDS and load_all (live plus archive) still holds every card the seed made
+        self.assertGreaterEqual(len(self.store.load_all()), CARDS)
         self.check("store.update", self.store.update, self.todo[1], 10, "a line")
         self.check("store.claim", self.store.claim, self.todo[2], "AGENT-9")
 
