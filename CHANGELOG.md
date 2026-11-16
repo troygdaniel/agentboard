@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### A phone can reach Settings, Later, New task and the theme (Nov 15, sweep-ux)
+At 700 px and under the header steps back to the three tabs, which hid every button in it: a phone could not open Settings (so not the Night switch either), the Later drawer, the new-task sheet or the theme switch. One **Menu** button (three dots, a 44 px target) now sits at the end of the header at that width and opens a small sheet with those four; each item does what its header button does. Arrow keys, Home and End move between them, Esc or a tap outside closes it and focus goes back to the button. Above 700 px there is no Menu button.
+- On a phone the two chips (Configuration, Night) step back with the buttons, and below 480 px the logo's word leaves the row for a screen reader only (the tabs, the connection dot and the Menu button then fit on one line).
+- Checked: `tests/test_phone_menu.py` (5, pins the shape) and `node tests/qa/phone_menu_check.mjs` in headless Chrome on a throwaway board at 390 px and 1280 px (22 checks with real key events and a tap; they fail on the old page, which has no such button).
+
 ### `rename` survives a chat-listeners.json with odd values (Nov 15, night sweep)
 A `chat-listeners.json` that held a number or a word where a list of waits belongs (`{"Scout": 1}`: a hand edit or a copied file) made `agentboard rename Scout X` (and `--dry-run`) die with "object of type 'int' has no len()". The odd value now counts as no waits running. `tests/test_rename.py` (1 new).
 
