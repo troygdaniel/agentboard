@@ -51,6 +51,9 @@ async function main() {
   check('a tile past a minute turns ageing on the poll beat', await waitFor(`document.querySelector('${tile('ada')}').classList.contains('ageing')`, 8000));
   const stamps = await ev(`document.querySelector('${tile('ada')}').dataset.upd`);
   const before = await ev(`document.querySelector('${tile('grace')}').dataset.upd`);
+  // Watch's agent status (the state word on a tile) rides the page's 5 s strip beat, not the 1 s poll of the tasks: Ada's new age reaches it a few seconds after the
+  // tasks and the page redraws Watch once for it, which landed in the window below and failed this check on a quiet board. Take that beat now so the page has settled.
+  await ev(`stripLoad()`);
   await ev(`(() => { window.__grace = document.querySelector('${tile('grace')}'); window.__graceHeard = window.__grace.querySelector('.w-heard').textContent; return 1; })()`);
   await sleep(1500);
   check('the heard line follows the clock in the same element (no redraw)', await ev(`document.querySelector('${tile('grace')}') === window.__grace`));
