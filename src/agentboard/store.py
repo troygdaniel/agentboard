@@ -201,6 +201,16 @@ class Store:
     def _write_archive(self, tasks):
         backup.write_atomic(self.archive_path, json.dumps({"tasks": tasks}, indent=2))   # atomic; the previous version stays as archive.json.bak
 
+    def purge_archived(self, prefix):
+        """Drop every archived card whose id starts with `prefix`; returns how many went. For `rm --demo`: the sample cards that `clear` moved to
+        archive.json must go too, or they stay for good and a new seed cannot use their ids (an archived id is never reused)."""
+        with self._lock():
+            arch = self._read_archive()
+            keep = [t for t in arch if not str(t.get("id", "")).startswith(prefix)]
+            if len(keep) != len(arch):
+                self._write_archive(keep)
+            return len(arch) - len(keep)
+
     def load_archived(self):
         """Every card in archive.json."""
         with self._lock():

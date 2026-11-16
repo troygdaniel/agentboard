@@ -1404,6 +1404,8 @@ def cmd_rm(a):
             continue
         s.delete(i)
         n += len(gone - {t["id"] for t in s.load()})   # a parent takes its subtasks with it
+    if a.demo:
+        n += s.purge_archived("demo-")   # the sample cards `clear` moved to archive.json go too, so a later `agentboard demo` can seed them again
     print(f"removed {n} task(s)")
 
 
