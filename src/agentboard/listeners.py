@@ -15,6 +15,7 @@ to "all" re-register at the same instant and all twenty survive, and a reader ne
 import contextlib
 import json
 import os
+import time
 from datetime import datetime
 from pathlib import Path
 
@@ -28,6 +29,9 @@ except ImportError:   # not POSIX: no lock, the writes stay atomic
     fcntl = None
 
 FILE = "chat-listeners.json"
+BEAT_S = 20     # a running wait renews its entry's heartbeat about this often
+STALE_S = 90    # a heartbeat older than this is a wait that died: its pid may belong to another program by now
+_last_beat = {}   # (board, pid) -> time.monotonic() of this process's last heartbeat write
 
 
 def path(board_dir):
@@ -80,9 +84,47 @@ def _live(d):
         recs = recs if isinstance(recs, list) else [recs]   # an older file: one dict per name
         k = keys.setdefault(str(n).lower(), str(n))
         for r in recs:
-            if isinstance(r, dict) and alive(r.get("pid")) and not any(x.get("pid") == r.get("pid") for x in out.get(k, [])):
+            if isinstance(r, dict) and alive(r.get("pid")) and _fresh(r) and not any(x.get("pid") == r.get("pid") for x in out.get(k, [])):
                 out.setdefault(k, []).append(r)
     return out
+
+
+def _fresh(rec, now=None):
+    """Is this entry's heartbeat recent, or absent (an entry an older agentboard wrote: judged by its pid alone)."""
+    b = rec.get("beat")
+    if not b:
+        return True
+    from .store import parse_stamp   # the one parser of a board stamp; imported here because store imports this module
+    at = parse_stamp(b)
+    return at is None or ((now or datetime.now()) - at).total_seconds() <= STALE_S
+
+
+def beat(board_dir, name, pid=None, force=False):
+    """A running wait says it is still here: its entry's heartbeat is set to now, at most every BEAT_S seconds (`force` skips that). Only this
+    pid's entry is touched; one that is gone (pruned as stale after the Mac slept, say) is written again. Returns True when it wrote."""
+    pid = pid or os.getpid()
+    k0 = (str(board_dir), pid)
+    if not force and time.monotonic() - _last_beat.get(k0, float("-inf")) < BEAT_S:
+        return False
+    now = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+    try:
+        with locked(board_dir):
+            raw = _read(board_dir)
+            k = _key(raw, name)
+            recs = raw.get(k, [])
+            recs = recs if isinstance(recs, list) else [recs]
+            mine = next((r for r in recs if isinstance(r, dict) and r.get("pid") == pid), None)
+            if mine is None:
+                recs = recs + [{"pid": pid, "since": now, "what": "wait", "beat": now}]
+            else:
+                mine["beat"] = now
+            raw[k] = recs
+            d = _live(raw)
+            _write(board_dir, d)
+    except OSError:
+        return False
+    _last_beat[k0] = time.monotonic()
+    return True
 
 
 def _key(d, name):
@@ -96,8 +138,10 @@ def register(board_dir, name, what, pid=None):
     with locked(board_dir):
         d = _live(_read(board_dir))
         k = _key(d, name)
-        d[k] = [r for r in d.get(k, []) if r.get("pid") != pid] + [{"pid": pid, "since": datetime.now().strftime("%Y-%m-%dT%H:%M:%S"), "what": str(what)[:80]}]
+        d[k] = [r for r in d.get(k, []) if r.get("pid") != pid] + [{"pid": pid, "since": datetime.now().strftime("%Y-%m-%dT%H:%M:%S"), "what": str(what)[:80],
+                                                                    "beat": datetime.now().strftime("%Y-%m-%dT%H:%M:%S")}]
         _write(board_dir, d)
+    _last_beat[(str(board_dir), pid)] = time.monotonic()
     presence.touch(board_dir, name)   # opening a wait is a sign of life (presence.py)
     return pid
 

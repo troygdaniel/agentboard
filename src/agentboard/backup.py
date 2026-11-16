@@ -24,6 +24,12 @@ EVERY_MIN = 60
 SYNC_AFTER_HOUR = 2   # the nightly copy happens after 02:00 local time
 STAMP = "%Y%m%d-%H%M"
 AUTO = re.compile(r"^tasks-(\d{8}-\d{4})\.json(\.gz)?$")   # what pruning may touch (the .json form is a hand-made snapshot of the same name)
+LABELED = re.compile(r"^tasks-\d{8}-\d{4}-(.+)\.json(\.gz)?$")   # a snapshot taken with --label: tasks-<stamp>-<label as a slug>.json.gz (pruning never touches it)
+
+
+def label_slug(label: str) -> str:
+    """The label as it is written into a snapshot's name: lower case, runs of anything but letters and digits become one hyphen."""
+    return re.sub(r"[^a-z0-9]+", "-", label.lower()).strip("-")
 STALE_MIN = 120   # `verify` says the backups are stale after this long
 
 
@@ -142,7 +148,7 @@ class Backups:
         when = when or datetime.now()
         text = self.path.read_text()
         self.snap_dir.mkdir(parents=True, exist_ok=True)
-        name = self._name(when) if not label else f"tasks-{when.strftime(STAMP)}-{re.sub(r'[^a-z0-9]+', '-', label.lower()).strip('-')}.json.gz"
+        name = self._name(when) if not label else f"tasks-{when.strftime(STAMP)}-{label_slug(label)}.json.gz"
         dest = self.snap_dir / name
         fd, tmp = tempfile.mkstemp(dir=self.snap_dir, prefix=".snap-", suffix=".tmp")
         with os.fdopen(fd, "wb") as raw:
@@ -260,8 +266,11 @@ class Backups:
             p = self.snap_dir / which
         if not p.exists() and Path(f"{self.path}.bak").exists() and which in ("bak", "previous"):
             p = Path(f"{self.path}.bak")
+        if not p.exists():   # the label it was given (`backup --label before-cleanup`): the newest snapshot that carries it
+            slug = label_slug(which)
+            p = next((s for s in self.snapshots() if slug and (m := LABELED.match(s.name)) and m.group(1) == slug), p)
         if not p.exists():
-            raise FileNotFoundError(f"no such backup: {which}")
+            raise FileNotFoundError(f"no such backup: {which} (`agentboard backup --list` shows the names and labels)")
         return p
 
     def restore(self, which: str) -> tuple[Path, Path | None]:
