@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### Three side fields are masked for secrets too (Nov 15, night sweep)
+Every text an agent hands the store is masked on the way in (redact.py); three small fields were not. A card's `ctx` entries (`add --ctx`) are now masked like the title. A `claim --model` that looks like a key is refused with the claim untouched, and a key in `$AGENTBOARD_MODEL` is ignored rather than recorded. The `to` name on an agent's chat line is masked (a real name is unchanged; a mirrored line to an unknown name keeps it masked). Test: `tests/test_redact_side_fields.py` (6).
+
 ### A command provider can no longer be made to run card text (Nov 15, night sweep)
 A `type = "command"` provider filled `{arg}` and then `{title}`. An arg that was the text `{title}` was quoted, and the card's title was then pasted inside those quotes, so a quote in the title ended the string and the rest ran as shell. Both come from a card (its `--ctx` and its title).
 - Both placeholders are now filled in one pass: text that arrives through one value is never read again as a placeholder. Only boards with a command provider set up were exposed; none ships.

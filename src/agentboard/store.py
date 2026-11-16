@@ -267,6 +267,7 @@ class Store:
         source = _clean_source(source)
         if not (isinstance(ctx or [], list) and all(isinstance(c, str) for c in ctx or [])):
             raise BoardError("ctx must be a list of strings")
+        ctx = [self._scrub(c, 600) for c in ctx or []]   # a provider spec is agent text too: masked like the title
         with self.transaction() as tasks:
             parent = _check_parent(tasks, parent_id)
             if parent:
@@ -695,13 +696,18 @@ class Store:
         """The model to record on a card at claim or start: the explicit --model (a bad one is refused), else $AGENTBOARD_MODEL when [insights] is enabled
         (an implicit read must not change what a board with insights off writes; a bad value there is ignored, never a failed claim). None for none."""
         if model is not None and str(model).strip():
+            if self._scrub(str(model)) != str(model):   # a key has a model name's shape (letters, digits, dashes) but never belongs on a card
+                raise BoardError("a model name must not look like a key or a secret")
             try:
                 return insights.clean_model(model)
             except ValueError as e:
                 raise BoardError(str(e))
         if insights.enabled(self.dir):
+            env = os.environ.get("AGENTBOARD_MODEL")
+            if env and self._scrub(env) != env:
+                return None
             try:
-                return insights.clean_model(os.environ.get("AGENTBOARD_MODEL"))
+                return insights.clean_model(env)
             except ValueError:
                 return None
         return None
@@ -1055,6 +1061,7 @@ class Store:
             raise BoardError("kind must be 'agent' or 'user'")
         if kind == "agent":   # what the owner types is left as written (redact.py)
             sender = self._scrub(sender)
+            to = self._scrub(to) if isinstance(to, str) else to   # a name, so a real one is untouched; a mirrored line keeps an unknown one, masked
             text = self._scrub(text, CHAT_LINE_MAX + CHAT_DETAIL_MAX)
             detail = self._scrub(detail, CHAT_DETAIL_MAX)
             if isinstance(files, list):
