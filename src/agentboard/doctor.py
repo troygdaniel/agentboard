@@ -115,7 +115,11 @@ def check_locks(env, board_dir=None):
         return _env_on(env, name)
     out = []
     if on(lockdown.ENV):
-        out.append(_res(PASS, "lock", f"{lockdown.ENV} is on in this shell: chat rounds, one-shot runs, command and http providers, the backup copy, voice and spawn are refused"))
+        # the work profile exports the variable for everything it starts (profile.apply); a reviewer who followed the README and exported it in
+        # the shell reads this line to see that it took, so say which of the two it was (another shell's environment, given to doctor, is its own word)
+        by_profile = env is os.environ and not lockdown.env_on(lockdown.ENV, {lockdown.ENV: profilelib.shell_lockdown() or ""})
+        how = "is on, set by the work profile for every command (this shell did not export it)" if by_profile else "is on in this shell"
+        out.append(_res(PASS, "lock", f"{lockdown.ENV} {how}: chat rounds, one-shot runs, command and http providers, the backup copy, voice and spawn are refused"))
     else:
         out.append(_res(WARN, "lock", f"{lockdown.ENV} is not set in this shell; on a work laptop set it to 1 (it stops everything that starts a program or sends data out)"))
     others = [f"{n} {'on' if on(n) else 'off'}" for n in names if n != lockdown.ENV]
