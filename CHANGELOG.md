@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### A step added to a card waiting for review takes the review back (Nov 15, night sweep)
+`agentboard add "late step" --parent P` on a card handed in with `review` dropped its % to 67 and left it saying "ready for review" with a step still open: the owner read a finished card that was not. Now the review (and an ORCH sign-off on it) is withdrawn, the history says "Back at work: a new step was added (late step)", and the card is handed in again when the step is done. A card that was not in review, a question waiting on the owner, and a card already Done are left as they were. `tests/test_late_step.py` (5).
+
 ### The agent's own report file is read only when it is a regular file (Nov 15, night sweep)
 A symlink placed at `reports/<card>.md` was followed, so the report page could show a file from outside the board, and a FIFO there would have blocked the page build for good. `reports.extras_md` now opens the file without following a final symlink and reads it only when it is a regular file, the rule `lookup` already applied to the same files. Test: `tests/test_reports.py` (the agent's own markdown file is read only when it is a regular file).
 ### `agentboard insights` survives a log entry with no text string (Nov 15, night sweep)
