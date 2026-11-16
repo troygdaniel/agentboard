@@ -162,6 +162,12 @@
   #more-menu button:hover, #more-menu button:focus-visible { background: var(--chip); }
   #more-menu button:focus-visible { outline: 2px solid var(--text); outline-offset: -2px; }
   #more-menu span { color: var(--muted); font-size: var(--fs-sm); font-variant-numeric: tabular-nums; }
+  /* tap targets on a phone (sweep-ux): 24 px is the least a finger needs (WCAG 2.5.8) and a card behind the front one is drawn at 75%, so these ask for 32 */
+  @media (max-width: 700px) {
+    body .who, body .you-h, body .qr-ch, body .subs-toggle { min-height: 32px; }   /* "body" so these win over the later rules that set the desktop sizes */
+    body .mix-row > input[type=checkbox] { width: 24px; height: 24px; }
+    body #mix-search { min-height: 32px; }
+  }
   /* The picker in Settings > Agents: what ships, what each role may and may not do, the terminals the owner types. The board starts nothing. */
   .cfg { display: flex; flex-direction: column; gap: 12px; margin: 6px 0 10px; }
   .cfg-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 8px; }
