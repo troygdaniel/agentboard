@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### `wait --timeout 0` looks once instead of waiting for ever, and a bad `--interval` is refused (Nov 15, night sweep)
+`agentboard wait ID --timeout 0` waited for as long as it took (0 counted as "no timeout"), while `answer --timeout 0` and `chat inbox --wait 0` look once and give up: an agent that meant "do not wait" hung its session. Now 0 looks once and says it timed out; a negative timeout is refused, and so is an `--interval` of 0 or less (0 spun the CPU, a negative one ended in a Python traceback from `time.sleep`). No `--timeout` still waits for as long as it takes. `tests/test_core.py` (2 new, in WaitTests).
+
 ### `update ID 12.5` and `update ID 50%` no longer pretend a percent was set (Nov 15, night sweep)
 A lone number that was not a whole number (`12.5`, `50%`, `1e1`, `.5`) was taken as the status line, and the command answered "ID: 0%" as though the percent had been set. It now stops with "progress is a whole number from 0 to 100, got '12.5': write 50, not 50% or 12.5" and changes nothing; with words after it the command already refused. Whole numbers, and words alone ("half done", "v2", "3 of 5 steps") work as before. `tests/test_update_percent.py` (3).
 ### The chat archive names its day files only from a real date (Nov 15, night sweep)
