@@ -428,8 +428,8 @@ def make_handler(default_store, port):
             elif url.path == "/api/chat":
                 after = q.get("after", [None])[0]
                 after = int(after) if after and after.lstrip("-").isdigit() else None
-                def chat_part():   # the last 200 lines and the switch: two reads of the whole board file, so kept until it changes
-                    return self.store.chat_list(after=after, limit=200), self.store.chat_agents(), self.store.known_names()
+                def chat_part():   # the last 200 lines, the switch and the names: one read of the whole board file, and kept until it changes
+                    return self.store.chat_view(after=after, limit=200)
                 messages, agents, names = _derived(self.store, "chat", _file_key(self.store) if after is None else None, chat_part)
                 self._send_cached(json.dumps({"messages": messages, "agents": agents,
                                               "receipts": listeners.receipts(self.store.dir),   # who read what, who is listening: the panel's sent / delivered / seen / answered
