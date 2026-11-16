@@ -228,7 +228,9 @@ def plan(store, old, new, undoing=None):
         sides.append("its read position in the chat")
     if ok in cursors.read_delivered(d):
         sides.append("what was delivered to it")
-    live = len(listeners._read(d).get(next((k for k in listeners._read(d) if key(k) == ok), ""), []))
+    waits = listeners._read(d)
+    running = waits.get(next((k for k in waits if key(k) == ok), ""), [])
+    live = len(running) if isinstance(running, list) else 0   # a damaged file may hold a number or a word under a name
     if live:
         sides.append(f"{live} wait{'s' if live != 1 else ''} it has running (they keep running; new ones register as {new})")
     sess = sum(1 for r in statefile.load(d / "sessions.json", {}).values() if isinstance(r, dict) and key(r.get("name")) == ok)

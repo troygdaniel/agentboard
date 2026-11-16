@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### `rename` survives a chat-listeners.json with odd values (Nov 15, night sweep)
+A `chat-listeners.json` that held a number or a word where a list of waits belongs (`{"Scout": 1}`: a hand edit or a copied file) made `agentboard rename Scout X` (and `--dry-run`) die with "object of type 'int' has no len()". The odd value now counts as no waits running. `tests/test_rename.py` (1 new).
+
 ### A tasks.json of the wrong shape stops with one line, not a traceback (Nov 15, night sweep)
 A `tasks.json` that was valid JSON but not a board (`[]`, `null`, `"text"`, `5`: a hand edit, a bad merge, a sync conflict that left an empty list) made `list`, `rollup` and `watchdog` die with "AttributeError: 'list' object has no attribute 'setdefault'"; text that is not JSON at all already named the file and the recovery. Now the wrong shape does too: "<file> is JSON but not a board (it should be an object with a list of cards, not list)" followed by the same recovery hint, and a `chat` that is not a list is refused the same way. A good file and a missing file are as before. `tests/test_tasks_json_shape.py` (4).
 

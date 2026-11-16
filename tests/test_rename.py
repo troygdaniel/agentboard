@@ -310,6 +310,13 @@ class Refusals(Base):
         self.assertIsNone(rename.last_record(self.d))
         self.assertTrue(rename.plan(self.s, "Scout", "SCOUT")["cards"] >= 0)   # a change of capitals is still a rename
 
+    def test_a_listeners_file_with_values_of_the_wrong_shape_does_not_stop_a_rename(self):
+        """`{"Scout": 1}` in chat-listeners.json made `rename Scout X --dry-run` die with "object of type 'int' has no len()" (night sweep)."""
+        for value in (1, "x", None, {"a": 1}, True):
+            (self.d / "chat-listeners.json").write_text(json.dumps({"Scout": value, "Wren": value}))
+            p = rename.plan(self.s, "Scout", "Scout2")
+            self.assertEqual(p["new"], "Scout2", value)
+
     def test_a_name_that_only_a_state_file_remembers(self):
         listeners.register(self.d, "Ghost", "inbox", pid=os.getpid())
         self.refused("Scout", "Ghost", "already on this board")
