@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Agent text can no longer carry terminal escape codes, and a name no invisible character (Nov 15, night sweep)
+`list`, `chat tail`, `chat inbox` and `rollup` print card and chat text as stored. An agent's title or chat line could clear the screen, overwrite the start of its own line with a made-up sender (a bare carriage return), or show its words in another order (a right-to-left override); a sender name could hide a zero-width character and read exactly as ORCH.
+- Where agent text enters the store, control characters other than a line break and a tab are dropped, and so are the direction overrides. A name loses every invisible character.
+- What the owner types is left as written, as before. Text already stored is not rewritten.
+- Checked: `tests/test_control_chars.py` (three cases fail on the old code).
+
 ### A night queue: agents take the next card themselves (Nov 15, card retro-night-queue, retro rec 13)
 Off by default; with the switch off, or never used, nothing on the board changes. When the owner (or ORCH, at their word) turns Night on, ORCH lines up specified Todo cards and an agent with a free hand takes the next one itself instead of waiting for a message.
 - **The switch:** `agentboard night on [--until HH:MM]`, `off`, `status`, and a **Night queue** row in Settings > Agents and chat. It ends by itself at 08:00 unless told another time. While it is on the header shows a chip (`Night · 3 queued · until 08:00`); turning it on or off posts one line to the chat.

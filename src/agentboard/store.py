@@ -6,6 +6,7 @@ import json
 import os
 import re
 import time
+import unicodedata
 from pathlib import Path
 
 from . import backup
@@ -150,7 +151,7 @@ class Store:
     def _scrub(self, text, cap=None):
         """Secret-shaped strings masked (redact.py); anything that is not a string comes back as it was. With a cap the masker looks
         at no more than twice that (the caller cuts to the cap afterwards), so a huge text cannot keep the server busy."""
-        return redact.scrub(text, self.dir, bound=2 * cap if cap else None)
+        return redact.scrub(plain_text(text), self.dir, bound=2 * cap if cap else None)
 
     @property
     def backups(self):
@@ -332,7 +333,7 @@ class Store:
         model, size = self._model_on_claim(model), _clean_size(size)
         title = _clean_title(self._scrub(title))   # before the id is made from it: the card id, report names and lookups never carry a key
         description = _cap(self._scrub(description, DESCRIPTION_MAX), DESCRIPTION_MAX)
-        name = self._scrub(name)
+        name = plain_name(self._scrub(name))
         with self.transaction() as tasks:
             if not task_id:
                 held = _held_card(tasks, name, title, parent_id)
@@ -396,7 +397,7 @@ class Store:
         return plan
 
     def claim(self, task_id, name, color=None, force=False, model=None):
-        name = self._scrub(name)
+        name = plain_name(self._scrub(name))
         model = self._model_on_claim(model)   # before anything changes: a bad --model refuses the whole claim
         with self.transaction() as tasks:
             if not any(t["id"] == task_id for t in tasks) and any(t["id"] == task_id for t in self._read_archive()):
@@ -1054,7 +1055,7 @@ class Store:
         if kind not in ("agent", "user"):
             raise BoardError("kind must be 'agent' or 'user'")
         if kind == "agent":   # what the owner types is left as written (redact.py)
-            sender = self._scrub(sender)
+            sender = plain_name(self._scrub(sender))
             text = self._scrub(text, CHAT_LINE_MAX + CHAT_DETAIL_MAX)
             detail = self._scrub(detail, CHAT_DETAIL_MAX)
             if isinstance(files, list):
@@ -1502,12 +1503,37 @@ def _clean_source(source):
     return out or None
 
 
+_BIDI = dict.fromkeys(list(range(0x202A, 0x202F)) + list(range(0x2066, 0x206A)))   # embeddings, overrides and isolates: they reorder what is shown
+
+
+_BREAKS = {ord(c): "\n" for c in "\r\x0b\x0c\x1c\x1d\x1e\x85"}
+
+
+def plain_text(text):
+    """Agent text with nothing that can drive a terminal or reorder the words: control characters other than a line break and a tab are dropped
+    (an escape sequence loses its ESC and is left as harmless visible text; a carriage return or any other line-breaking control becomes a plain line break), and so are
+    the direction overrides. Anything that is not a string comes back as it was (tests/test_control_chars.py)."""
+    if not isinstance(text, str) or not text:
+        return text
+    if text.isascii() and text.isprintable():
+        return text   # the usual case: one cheap look
+    text = text.replace("\r\n", "\n").translate(_BREAKS)   # every control that breaks a line is a plain line break (a bare CR could overwrite the line it is on)
+    return "".join(c for c in text if c in "\n\t" or unicodedata.category(c) != "Cc").translate(_BIDI)
+
+
+def plain_name(name):
+    """A name with no invisible character at all (control, format, private-use, surrogate): "ORCH" plus a zero-width space must not read as ORCH."""
+    if not isinstance(name, str):
+        return name
+    return "".join(c for c in name if unicodedata.category(c) not in ("Cc", "Cf", "Co", "Cs")).strip()
+
+
 def _clean_title(title):
     if not isinstance(title, str) or not title.strip():
         raise BoardError("a task needs a title")
     if len(title.strip()) > TITLE_MAX:
         raise BoardError(f"the title is too long ({len(title.strip())} characters; {TITLE_MAX} max): put the rest in the description")
-    return title.strip()
+    return " ".join(title.split("\n")).strip() if "\n" in title else title.strip()   # a title is one line: a line break in it would print as a second, made-up row in `list`
 
 
 def _cap(text, n):
