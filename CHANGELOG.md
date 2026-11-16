@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### The security sign-off table names every file again (Nov 15, night sweep)
+Thirteen files the board writes were missing from the table in `docs/security-signoff.md`: the archive, the rename records, night mode, the configuration files, the server tick's awake and asleep files, the insights files (agent states, the chat archive), the server log and a detached run's supervisor log, plus the lock files beside the state files. They are listed now with what they hold and their mode. The scripted day in `tests/test_signoff_files.py` turns insights on, renames an agent, starts night mode and clears a done card, so the files a day makes are the ones the table is checked against; the files only the server tick writes are checked by name.
+
 ### A command provider can no longer be made to run card text (Nov 15, night sweep)
 A `type = "command"` provider filled `{arg}` and then `{title}`. An arg that was the text `{title}` was quoted, and the card's title was then pasted inside those quotes, so a quote in the title ended the string and the rest ran as shell. Both come from a card (its `--ctx` and its title).
 - Both placeholders are now filled in one pass: text that arrives through one value is never read again as a placeholder. Only boards with a command provider set up were exposed; none ships.

@@ -67,6 +67,12 @@ class TheTableIsTrue(unittest.TestCase):
         self.s.run("init", "add 'A card' -d 'words' --status todo --id a-card", "claim a-card --name AGENT-1", "add 'step' --parent a-card",
                    "update step 50 working", "ask a-card 'a question?'", "review a-card 'a result' --next nothing --body 'a body'",
                    "chat send 'hello' --name AGENT-1 --to 'the user'", "backup", "hooks install")
+        # the opt-in captures and the day's other commands write files too (the sweep of Nov 15 found thirteen the table did not name): insights on
+        # (the chat archive), a rename (aliases, the rename records), night mode, a done card cleared to the archive
+        conf = self.s.board / "config.toml"
+        conf.write_text(conf.read_text() + "\n[insights]\nenabled = true\n")
+        self.s.run("chat send 'with insights on' --name AGENT-1 --to 'the user'", "rename AGENT-1 AGENT-9", "night on --until 07:00",
+                   "done a-card", "clear")
 
     def written(self):
         """Every file and folder made under the project (relative posix paths), the board folder first."""
@@ -83,6 +89,18 @@ class TheTableIsTrue(unittest.TestCase):
             self.assertIn(want, names)
         self.assertTrue(any(n.startswith(".agentboard/backups/tasks-") for n in names), names)
         self.assertTrue(any(n.startswith(".agentboard/reports/") and n.endswith(".html") for n in names), names)
+        for want in (".agentboard/chat-archive/counts.json", ".agentboard/aliases.json", ".agentboard/renames.json", ".agentboard/night.json", ".agentboard/archive.json"):
+            self.assertIn(want, names)
+        self.assertTrue(any(n.startswith(".agentboard/chat-archive/chat-") and n.endswith(".jsonl") for n in names), names)
+
+    def test_the_files_only_the_server_tick_writes_are_in_the_table_by_name(self):
+        """The scripted day runs no server, so these never appear in written(); the table must still name them, at 600."""
+        from agentboard import agentstates, awake, lifecycle
+        for rel in (awake.HEART, awake.FILE, agentstates.FILE, agentstates.FILE + ".1", lifecycle.LOG_FILE, "runs/a-card/supervisor.log",
+                    "configuration.json", "configuration-proposals.json"):
+            row = documented(rel)
+            self.assertIsNotNone(row, f"{rel} is written by the board but not in docs/security-signoff.md")
+            self.assertIn("600", row[1], rel)
 
     def test_every_path_written_is_in_the_table(self):
         missing = [p for p in self.written() if p != ".agentboard" and documented(p.removeprefix(".agentboard/") if p.startswith(".agentboard/") else p) is None]
