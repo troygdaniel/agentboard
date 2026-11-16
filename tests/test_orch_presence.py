@@ -72,6 +72,14 @@ class TheStamp(unittest.TestCase):
         self.assertTrue(presence.touch(self.dir, "ORCH", now=T0))
         self.assertEqual(set(presence.read(self.dir)), {"orch"})
 
+    def test_a_file_of_the_wrong_shape_is_repaired_not_a_traceback_in_every_command(self):
+        """`[]`, `null`, `5` or `"x"` in chat-presence.json made claim, me and chat send die with a TypeError for every agent (night sweep)."""
+        for text in ("[]", "null", "5", '"x"', "[1, 2]", "true"):
+            presence.path(self.dir).write_text(text)
+            self.assertEqual(presence.read(self.dir), {}, text)
+            self.assertTrue(presence.touch(self.dir, "ORCH", now=T0), text)
+            self.assertEqual(set(presence.read(self.dir)), {"orch"}, text)
+
     def test_a_stamp_never_stops_a_command(self):
         with mock.patch("agentboard.presence.statefile.update", side_effect=OSError("disk full")):
             self.assertFalse(presence.touch(self.dir, "ORCH", now=T0))

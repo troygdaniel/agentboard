@@ -55,9 +55,12 @@ def touch(board_dir, name, now=None):
             return False   # the cheap check first: no lock, no write
 
         def put(d):
+            if not isinstance(d, dict):   # a damaged file ([], null, 5): read() already takes it for nothing, so the next stamp replaces it
+                d = {}
             d[k] = _stamp(now)
             for old in [n for n, v in d.items() if not isinstance(v, str) or _age_s(v, now) > KEEP_S]:
                 del d[old]
+            return d
         statefile.update(path(board_dir), put)
         return True
     except (OSError, ValueError):
