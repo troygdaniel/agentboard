@@ -144,6 +144,17 @@ class TheModule(unittest.TestCase):
         self.assertEqual([m["seq"] for m in chatarchive.read(self.d)], [1])
         self.assertEqual(chatarchive.counts(self.d), {"2026-11-14": {"A": 1}})
 
+    def test_an_odd_at_stamp_names_no_file_elsewhere_and_raises_nothing(self):
+        """A hand-edited board can hold anything in `at` (night sweep, Nov 15): such a line lands in chat-unknown.jsonl, and the only files made are under the archive folder."""
+        live = [self.line(1, at="../../evil"), self.line(2, at="/abs/path/x"), self.line(3, at="2026\x00-11-15T10:00:00"), self.line(4, at=12), self.line(5, at=None),
+                self.line(6, at="2026-11-15T10:00:00")]
+        self.assertEqual(chatarchive.append(self.d, live), 6)
+        names = sorted(p.name for p in (self.d / chatarchive.DIR).iterdir())
+        self.assertEqual(names, ["chat-2026-11-15.jsonl", "chat-unknown.jsonl", "counts.json"])
+        self.assertEqual([m["seq"] for m in chatarchive.read(self.d, "unknown")], [1, 2, 3, 4, 5])
+        self.assertEqual(chatarchive.counts(self.d), {"unknown": {"A": 5}, "2026-11-15": {"A": 1}})
+        self.assertEqual(sorted(p.name for p in self.d.iterdir()), [chatarchive.DIR])   # nothing beside the archive folder
+
     def test_an_empty_board_has_empty_counts(self):
         self.assertEqual(chatarchive.counts(self.d), {})
         self.assertEqual(chatarchive.read(self.d), [])
@@ -165,7 +176,7 @@ class NothingOnTheBoardReadsIt(unittest.TestCase):
         text = (SRC / "chatarchive.py").read_text()
         imported = set(re.findall(r"^(?:from|import)\s+(\S+)", text, re.M))
         self.assertEqual(imported & (selfcheck.NETWORK_MODULES | selfcheck.PROCESS_MODULES), set())
-        self.assertEqual(imported, {"json", "pathlib", "."})   # "." is the package's own backup.write_atomic
+        self.assertEqual(imported, {"json", "re", "pathlib", "."})   # "." is the package's own backup.write_atomic
 
 
 if __name__ == "__main__":
