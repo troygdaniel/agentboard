@@ -328,6 +328,10 @@ class Store:
                 top = next((i for i, x in enumerate(tasks) if x["status"] == status), len(tasks))
                 tasks.insert(top, task)
             if parent:
+                if parent.get("review") and parent["status"] != "done":   # a step is open again: the card is no longer ready (and ORCH's sign-off was on that review)
+                    parent.pop("review", None)
+                    parent.pop("signoff", None)
+                    _log(parent, f"Back at work: a new step was added ({title})")
                 _touch_parent(tasks, parent)
             return task
 
