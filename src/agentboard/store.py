@@ -1320,19 +1320,33 @@ STAMP = "%Y-%m-%dT%H:%M:%S"   # every time the board writes: card updated/create
 _STAMP_SHAPE = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}")
 
 
+_STAMPS = {}        # stamp text -> its datetime: a datetime cannot change, so one object is handed out every time (card sweep-perf)
+STAMPS_MAX = 100_000   # a board of 5,000 cards has about 30,000 distinct stamps; past this the memo starts again rather than grow
+
+
 def parse_stamp(s):
-    """A board stamp as a datetime, or None when it is not one (the one parser: hud, the chat, the cursors and the CLI all use it)."""
-    from datetime import datetime
+    """A board stamp as a datetime, or None when it is not one (the one parser: hud, the chat, the cursors and the CLI all use it).
+    Remembered by its text: one HUD build at 5,000 cards asked 100,000 times about the same few thousand stamps."""
     s = str(s)[:19]
+    hit = _STAMPS.get(s)
+    if hit is not None:
+        return hit
+    from datetime import datetime
+    out = None
     if _STAMP_SHAPE.fullmatch(s):   # fromisoformat first, for the board's own shape only: strptime is ten times slower and ran 130,000 times per HUD poll at 5,000 cards
         try:
-            return datetime.fromisoformat(s)
+            out = datetime.fromisoformat(s)
         except ValueError:
             pass
-    try:
-        return datetime.strptime(s, STAMP)
-    except (TypeError, ValueError):
-        return None
+    if out is None:
+        try:
+            out = datetime.strptime(s, STAMP)
+        except (TypeError, ValueError):
+            return None
+    if len(_STAMPS) >= STAMPS_MAX:
+        _STAMPS.clear()
+    _STAMPS[s] = out
+    return out
 
 
 def _seconds_between(earlier, later):
