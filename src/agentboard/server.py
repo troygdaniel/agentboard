@@ -113,7 +113,11 @@ def _watchdog_cached(store, now=None):
     hit = _DOG_CACHE.get(key)
     if hit and t - hit[0] < DOG_TTL_S:
         return hit[1]
-    items = watchdog.findings(store, stale_min=watchdog.threshold(store))
+    try:
+        stale_min = watchdog.threshold(store)
+    except BoardError:   # a config.toml that cannot be read must not blank the board (/api/tasks asks for this on every poll): the default threshold, as _config does for the HUD
+        stale_min = hud.stale_minutes({})
+    items = watchdog.findings(store, stale_min=stale_min)
     _DOG_CACHE[key] = (t, items)
     return items
 
