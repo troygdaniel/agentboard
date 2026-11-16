@@ -136,7 +136,7 @@
   .ab-conn.down ~ #status { display: none; }
   /* The applied configuration in the header (card agent-config-slice-3): its short name and how many of its agents are listening; a click opens Settings. */
   .ab-cfg { display: inline-flex; align-items: center; gap: 6px; font: inherit; font-size: var(--fs-sm); color: var(--muted); padding: 3px 11px; border-radius: 999px; border: 1px solid var(--line); background: var(--chip); white-space: nowrap; cursor: pointer; }
-  .ab-cfg b { font-weight: 650; color: var(--text); } .ab-cfg em { font-style: normal; color: var(--ok); font-weight: 600; } .ab-cfg:hover { border-color: var(--text); }
+  .ab-cfg b { font-weight: 650; color: var(--text); } .ab-cfg em { font-style: normal; color: color-mix(in srgb, var(--ok) 82%, #000); font-weight: 600; }   /* 4.4:1 on the chip in the light theme with --ok itself; 6:1 mixed */ .ab-cfg:hover { border-color: var(--text); }
   .ab-cfg[hidden] { display: none; }
   .ab-cfg .cl, .ab-cfg .cw { display: none; }   /* compact: Build 4/5; the words (Configuration: Build 4 of 5 listening) come back on a wide window */
   @media (min-width: 1560px) { .ab-cfg .cl, .ab-cfg .cw { display: inline; } .ab-cfg .cn { display: none; } }
@@ -488,7 +488,7 @@
   .w-more-n { font-style: normal; color: var(--c); font-weight: 600; }
   .deck-full { display: block; margin-top: 20px; padding: 0; border: 0; background: none; font: inherit; font-size: 12px; font-weight: 600; color: var(--muted); cursor: pointer; } .deck-full:hover { color: var(--text); text-decoration: underline; text-underline-offset: 3px; }
   .orch-say { border: 0; text-align: left; cursor: pointer; font: inherit; color: inherit; } .orch-say p b { display: block; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 700; margin-bottom: 1px; }
-  #orch-line.direct .orch-face { background: var(--need); color: #fff; }
+  #orch-line.direct .orch-face { background: var(--need-fill); color: #fff; }
   .orch-who { position: absolute; left: 6px; bottom: calc(100% + 10px); display: flex; flex-wrap: wrap; gap: 6px; max-width: 96%; padding: 8px; border-radius: 16px; background: color-mix(in srgb, var(--surface) 94%, transparent); backdrop-filter: blur(14px); box-shadow: inset 0 0 0 1px var(--line), 0 18px 44px -18px rgba(0,0,0,.6); animation: orchsay .3s cubic-bezier(.2,.9,.25,1) both; }
   .orch-who button { font: inherit; font-size: 13px; display: inline-flex; align-items: center; gap: 7px; padding: 4px 12px 4px 4px; border-radius: 999px; border: 0; background: color-mix(in srgb, var(--text) 7%, transparent); color: var(--text); cursor: pointer; } .orch-who button:hover, .orch-who button.first { background: color-mix(in srgb, var(--text) 16%, transparent); }
   .orch-who i { font-style: normal; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; font-weight: 700; background: var(--text); color: var(--bg); }
@@ -1954,7 +1954,8 @@
    tabs; By agent says under a name what that agent is waiting for; a card lights the Todo cards it holds. One accent, --need, for what
    is the owner's to act on. The pile itself is styled further down. */
 :root{--need:#e8590c}
-#tab-need #need-n{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:999px;background:var(--need);color:#fff;font-size:11px;font-weight:700}
+:root{--need-fill:color-mix(in srgb, var(--need) 80%, #000)}   /* the orange under white text: 5.1:1, where --need itself is 3.6:1 (sweep-ux) */
+#tab-need #need-n{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:999px;background:var(--need-fill);color:#fff;font-size:11px;font-weight:700}
 #tab-need #need-n:empty{display:none}
 #tab-need #need-n.pop{animation:mePop .45s cubic-bezier(.2,.9,.3,1.4)}
 @keyframes mePop{from{transform:scale(1.6)}to{transform:scale(1)}}
