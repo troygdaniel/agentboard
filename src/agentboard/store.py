@@ -524,11 +524,12 @@ class Store:
             return t
 
     @_reports_after()
-    def review(self, task_id, summary, body_md=None, by=None):
+    def review(self, task_id, summary, body_md=None, by=None, note=None):
         """Agent reports the work complete and hands it to the user for sign-off.
 
         body_md is an optional richer markdown body (a recap, a diff, a report); see
-        ask() for how it's handled.
+        ask() for how it's handled. note is a warning the command made about the work (treecheck: uncommitted
+        changes, nothing past main); it goes into the card's history as written, and never stops the review.
         """
         summary, body_md = _cap(self._scrub(summary, STATUS_MAX), STATUS_MAX), _cap(self._scrub(body_md, BODY_MAX), BODY_MAX)
         summary, body_md = split_report(summary, body_md)
@@ -559,6 +560,8 @@ class Store:
                 t.pop("body_md", None)
             again = rework.reviewed_before(t.get("log")) and not rework.explained(t.get("log"))   # asked before this line is written
             _log(t, f"Ready for review: {summary}")
+            if note:
+                _log(t, f"Review warning: {self._scrub(note, STATUS_MAX)}")
             if again:
                 self._rework(t, rework.RE_REVIEWED)
             t["updated"] = _now()
