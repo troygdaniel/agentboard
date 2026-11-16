@@ -1141,12 +1141,14 @@
      slowly — the lane itself tells you it's alive before you read anything. isolation: isolate on
      .ln gives the z-index:-1 glow a stacking context to sit behind, instead of vanishing behind
      the panel background; the bar lives inside the lane box (not at a negative offset) because
-     #h-lanes scrolls, and anything hanging outside it gets clipped. */
-  .ln:not(.idle):not(.ln-q):not(.ln-ax)::before { content: ''; position: absolute; inset: 0; border-radius: 10px; pointer-events: none; z-index: -1;
+     #h-lanes scrolls, and anything hanging outside it gets clipped. div.ln, not .ln: the strip's sparkline is an SVG polyline with the
+     same class, and an animated ::before on an SVG shape is never drawn yet kept the whole page restyling 60 times a second
+     (tests/test_idle_animations.py). */
+  div.ln:not(.idle):not(.ln-q):not(.ln-ax)::before { content: ''; position: absolute; inset: 0; border-radius: 10px; pointer-events: none; z-index: -1;
     background: radial-gradient(420px 100% at 0% 50%, color-mix(in srgb, var(--c) 12%, transparent), transparent 72%);
     animation: hlit 4.5s ease-in-out infinite; }
   @keyframes hlit { 50% { opacity: .5; } }
-  .ln:not(.idle):not(.ln-q):not(.ln-ax)::after { content: ''; position: absolute; left: 0; top: 6px; bottom: 6px; width: 3px; border-radius: 2px;
+  div.ln:not(.idle):not(.ln-q):not(.ln-ax)::after { content: ''; position: absolute; left: 0; top: 6px; bottom: 6px; width: 3px; border-radius: 2px;
     background: var(--c); box-shadow: 0 0 12px var(--c); }
   .ln-who { padding-left: 12px; }
   .ln.abandoned { box-shadow: inset 0 0 0 1px var(--hbad); }
