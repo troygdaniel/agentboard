@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### `agentboard done` says what the card left on disk (Nov 15)
+60 of the 62 extra agentboard worktrees in the 15 Nov retro were merged already and still on disk; nothing told anyone. After `<card>: done` the command now prints the card's worktree and branch, whether it is merged into main (or how many commits ahead it is, or that it has uncommitted changes or is locked), and a list of the other worktrees that are merged, clean and held by no agent with an open card, each as a `git worktree remove <path>` line to copy.
+- **A list, never a removal:** the board does not remove a worktree or a branch, and every git call it makes for this is read-only (`--no-optional-locks`). Outside git, under the work profile or the lockdown, `done` prints what it printed before. A failure in the list cannot stop the close.
+- **Which repo:** the board's own (`[reports] repo`, else the board's parent folder); `agentboard done ID --repo /absolute/path` asks about another, checked before the card closes.
+- Not covered: a fresh worktree with no commit yet counts as merged, so the list leaves out any folder whose agent holds an open card; removing is still yours (card retro-done-shows-worktrees, retro recommendation 11). `tests/test_done_worktrees.py` (23).
+
 ### A Todo or Later card can be deleted again (Nov 15)
 The card's panel kept Delete (and Copy prompt, Back to Todo, Stop run) inside the closed "More" fold since Nov 12, so a card nobody had started showed no way to delete it. The buttons now sit under the fold, always visible, for Later, Todo and Doing cards the way they already did for a card in review or done. Test: `node tests/qa/delete_cards_check.mjs` (34 checks: the Later drawer, the Map's Todo and Doing columns, wide and 390 px; it fails on the old page) and a page pin in `tests/test_you_line.py`.
 
