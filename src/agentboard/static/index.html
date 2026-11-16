@@ -3044,7 +3044,7 @@ function watchHtml(by, n) {   // The whole team. Working agents are tiles (alive
   const mains = [...liveBy.values()].map(g => { g.sort((a, b) => (Date.parse(b.updated) || 0) - (Date.parse(a.updated) || 0)); g[0]._more = g.slice(1); return g[0]; });
   const byAgent = n => n === 'Unassigned' ? '\uffff' : n;   // by agent name, Unassigned last; one agent's working tile, then its waiting tile, then resting: a tile always lands in the same place
   const cards = [...mains.map(t => [name(t), 0, tile(t)]), ...[...groups.values()].map(g => [name(g[0]), 1, waitTile(g)]), ...idle.map(a => [a, 2, idleTile(a)])]
-    .sort((x, y) => byAgent(x[0]).localeCompare(byAgent(y[0]), undefined, { numeric: true }) || x[1] - y[1]).map(x => x[2]), per = watchPer(), pages = [];
+    .sort((x, y) => byAgent(x[0]).localeCompare(byAgent(y[0]), undefined, { numeric: true }) || x[1] - y[1]).map(x => x[2]), per = (watchPerWas = watchPer()), pages = [];
   for (let k = 0; k < cards.length; k += per) pages.push(cards.slice(k, k + per));
   watchPages = Math.max(1, pages.length); watchPage = Math.min(watchPage, watchPages - 1);
   pages.forEach((pg, k) => { if (k !== watchPage && pg.some(h => h.includes(' moved'))) watchPing.add(k); }); watchPing.delete(watchPage);
@@ -3100,7 +3100,14 @@ function watchToggle(wid) {   // Enter, or a click: this card's details open whe
       return; } }
   watchDimNew = open && !watchOpenId; watchOpenId = open ? wid : null; watchOpenNew = open; { const tt = wid ? (wid.startsWith('wait:') ? wid.slice(5) : (byId.get(wid) || {}).agent) : ''; touch(open ? 'rise' : 'settle', tt); } render();
 }
-const watchPer = () => innerWidth >= 1180 ? 9 : innerWidth >= 780 ? 6 : 3;   // three across and three down on a wide window, two across and three down on a medium one
+// Three across on a wide window, two across on a medium one, one on a narrow one; three rows down, fewer on a short desktop window (sweep2-ux): the page arrows and dots sit 26 px under the last
+// row, and the ORCH line floats over the bottom 67 px of the window, so a window under about 810 px tall (a laptop) hid them behind it and the second page could not be seen or clicked.
+// rows = what fits between where the grid starts (measured once the Watch is drawn; 200 px on a wide window, 252 when the header wraps, before that) and the pager clearing the line.
+const watchFitRows = () => { if (innerWidth < 780) return 3; const pg = document.querySelector('.deck.watch .w-page'), top = pg ? pg.getBoundingClientRect().top + scrollY : innerWidth >= 1200 ? 200 : 252;
+  return Math.max(1, Math.min(3, Math.floor((innerHeight - 111 - top) / 166))); };
+const watchPer = () => (innerWidth >= 1180 ? 3 : innerWidth >= 780 ? 2 : 1) * watchFitRows();
+let watchPerWas = 0, watchResizeT = 0;   // a window resized to another size re-splits the pages (the cards are not redrawn until something changes otherwise)
+addEventListener('resize', () => { clearTimeout(watchResizeT); watchResizeT = setTimeout(() => { if (document.querySelector('.deck.watch') && watchPer() !== watchPerWas) render(); }, 150); });
 function watchGo(k, pickEdge) {   // to another page: the cards slide across; nothing is redrawn
   if (k < 0 || k >= watchPages) { touch('bump'); return false; }
   const track = document.querySelector('.w-track'); if (!track) return false;

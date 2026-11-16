@@ -258,10 +258,10 @@ class ThePage(unittest.TestCase):
         self.assertIn("watchTake(hudJson.status)", self.body("stripLoad"))
         self.assertEqual(__import__("re").findall(r"fetch\(([^,)]*)", self.body("stripLoad")), ["'/api/hud'"])   # still the one route, no new request
 
-    def test_watch_keeps_its_three_by_three_tiles_and_has_no_strip_of_counts(self):   # the owner: "remove the top strip with stuck, etc.. keep this 3x3"
+    def test_watch_keeps_its_three_by_three_tiles_and_has_no_strip_of_counts(self):   # the owner: "remove the top strip with stuck, etc.. keep this 3x3" (three rows on any window tall enough for the pager to clear the ORCH line: sweep2-ux)
         w = self.body("watchHtml")
-        self.assertIn("per = watchPer()", w)
-        self.assertIn("const watchPer = () => innerWidth >= 1180 ? 9 : innerWidth >= 780 ? 6 : 3;", self.HTML)
+        self.assertIn("per = (watchPerWas = watchPer())", w)
+        self.assertIn("const watchPer = () => (innerWidth >= 1180 ? 3 : innerWidth >= 780 ? 2 : 1) * watchFitRows();", self.HTML)
         for gone in ("w-look", "watchLookHtml", "watchRowHtml", "wr-top", "rowsMode"):
             self.assertNotIn(gone, self.HTML)
         self.assertIn("watchSleepHtml(watchStatus && watchStatus.asleep)", w)   # the one quiet line, only when the board slept
