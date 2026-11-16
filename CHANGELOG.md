@@ -4,6 +4,8 @@
 
 ### One lone half of an emoji in a title no longer breaks the Story page and `agentboard list` (Nov 15, night sweep)
 A title cut in the middle of an emoji by a page (`"\ud83d"`, which is valid JSON) or a byte that was not UTF-8 on a command line was kept as a lone surrogate. Every reader that turns text into UTF-8 then failed: `/story` answered 500 and `agentboard list` raised, for everyone, until someone edited `tasks.json`. Every stored text goes through `redact.scrub`, which now replaces a lone surrogate with U+FFFD (also with the masker switched off); a whole emoji, accents and Persian marks are untouched. `tests/test_lone_surrogates.py` (4); the four fail without the line.
+### A config.toml that is not UTF-8 now says which file and why (Nov 15, night sweep)
+An editor that saved `owner = "José"` in Latin-1 made every command print only `decoding with 'utf-8-sig' codec failed` (no file named), and the HUD and `/api/config` answered 500 with the same line. The TOML reader let the codec's error out instead of its own, so the one place that names the file to fix never saw it. It now says `.../config.toml is not valid config (the file is not UTF-8 text ...); fix or delete it`, as for a typo in the file. `tests/test_config_not_utf8.py` (4).
 
 ### A command provider can no longer be made to run card text (Nov 15, night sweep)
 A `type = "command"` provider filled `{arg}` and then `{title}`. An arg that was the text `{title}` was quoted, and the card's title was then pasted inside those quotes, so a quote in the title ended the string and the rest ran as shell. Both come from a card (its `--ctx` and its title).
