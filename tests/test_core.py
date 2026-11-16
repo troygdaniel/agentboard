@@ -575,6 +575,31 @@ class WaitTests(unittest.TestCase):
                 with self.assertRaises(SystemExit):
                     cli.cmd_wait(a)
 
+    def test_wait_cli_timeout_zero_looks_once_and_does_not_wait_forever(self):
+        """`wait ID --timeout 0` waited for ever (0 was "no timeout") while `answer --timeout 0` and `chat inbox --wait 0` look once (night sweep)."""
+        from agentboard import cli
+        with tempfile.TemporaryDirectory() as d:
+            s = Store(Path(d) / ".agentboard")
+            s.start("Deploy", "atlas", task_id="deploy")
+            a = argparse.Namespace(id="deploy", status="done", interval=0.01, timeout=0)
+            with unittest.mock.patch.object(cli, "_store", return_value=s), unittest.mock.patch.object(cli.time, "sleep", side_effect=AssertionError("slept")):
+                with self.assertRaises(SystemExit) as e:
+                    cli.cmd_wait(a)
+            self.assertIn("timed out", str(e.exception))
+
+    def test_wait_cli_refuses_a_negative_timeout_and_an_interval_that_is_not_above_zero(self):
+        from agentboard import cli
+        with tempfile.TemporaryDirectory() as d:
+            s = Store(Path(d) / ".agentboard")
+            s.start("Deploy", "atlas", task_id="deploy")
+            for timeout, interval in ((-1, 2.0), (None, 0), (None, -5), (1, 0)):
+                a = argparse.Namespace(id="deploy", status="done", interval=interval, timeout=timeout)
+                with unittest.mock.patch.object(cli, "_store", return_value=s):
+                    with self.assertRaises((SystemExit, BoardError), msg=(timeout, interval)) as e:
+                        cli.cmd_wait(a)
+                self.assertNotIn("Traceback", str(e.exception))
+                self.assertTrue("--timeout" in str(e.exception) or "--interval" in str(e.exception), str(e.exception))
+
 
 class ClearTests(unittest.TestCase):
     def test_clear_archives_done_and_unarchive_restores(self):
