@@ -58,6 +58,7 @@ is the developer's.
 | `summary.py` | The Done summary: finished cards by agent and area, as text, a Mermaid mindmap or an HTML page (`agentboard summary`). |
 | `story.py` | The Story page (`/story`): five scenes (the week, the flow, the themes, what needs you, the days) written from card data with fixed templates; every card on it links to `/#<id>`, which opens its panel. No model, no network; the same on the work profile. |
 | `reports.py` | One self-contained HTML report per card entering review or done, in `.agentboard/reports/<card>-<stamp>.html`; `sweep` ages them out after `[reports] keep_hours`, always keeping the newest per card. |
+| `worktrees.py` | What `agentboard done` prints after "<card>: done": the card's worktree and branch, whether it is merged into the main checkout's branch (or how far ahead), and the merged, clean worktrees no agent is using, as `git worktree remove` lines to copy. A list only: it never removes anything and asks git read-only through `reports._git` (nothing under the work profile or the lockdown). |
 | `nav.py` | The top bar shared by every HTML page. |
 | `markdown.py` | A minimal markdown-to-HTML renderer for ask/review bodies; it never passes raw HTML through. |
 | `transcript.py` | Reads a session's Claude Code transcript (`~/.claude/projects/<folder>/<id>.jsonl`, nowhere else) for the Terminal tab, masked. |

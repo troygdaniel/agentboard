@@ -309,6 +309,7 @@ steps written as `(1) … (2) …` render one per line. Details that don't chang
 - `ask` and `review` clear automatically on the agent's next `update`. `review` sets progress to 100% but the card stays in Doing (marked ready for review) until the user marks it done.
 - If you started the server in the background, stop it with `pkill -f "agentboard serve"` (Ctrl+C when it runs in the foreground).
 - **Never run `agentboard done` yourself as an agent**; only the user does (Mark done button, drag, or telling the agent to).
+- **What `agentboard done` leaves behind:** after `<card>: done` it prints the card's worktree and branch (found by the agent's name in the folder, or the card id in the folder or branch) and whether it is merged into main, then the other worktrees that are merged, clean and not in use, each as a `git worktree remove <path>` line to copy. It only lists: the board never removes a worktree or a branch. It looks in the board's own repo (`[reports] repo` in config.toml, else the board's parent folder); `--repo /absolute/path` looks in another. Outside git, under the work profile or the lockdown it prints nothing extra.
 - **ORCH's sign-off:** before the user signs off a card in review, ORCH records what it holds with `agentboard signoff <id> --merged <hash> --test "full smoke=pass" --gate pass` (or `--not-merged`). The card shows it under your sentence, so you never need to write it yourself; if the user signs off before ORCH has, the board says so and tells ORCH.
 - One task per deliverable, not per command; keep status lines to one line.
 
