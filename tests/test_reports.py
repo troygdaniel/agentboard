@@ -157,6 +157,25 @@ class WritingTests(Base):
         self.assertIn("[redacted", page)
         self.assertNotIn(key, reports.extras_md(self.s.dir, "extra"))
 
+    def test_the_agents_own_markdown_file_is_read_only_when_it_is_a_regular_file(self):
+        """A symlink at reports/<card>.md is not followed (lookup refuses one the same way), and a FIFO there never blocks the page build."""
+        self.s.start("Extra", "a")
+        d = reports.reports_dir(self.s.dir)
+        d.mkdir(parents=True)
+        secret = self.root / "elsewhere.txt"
+        secret.write_text("the text of a file outside the board")
+        (d / "extra.md").symlink_to(secret)
+        self.assertEqual(reports.extras_md(self.s.dir, "extra"), "")
+        self.s.review("extra", "ready")
+        self.assertNotIn("outside the board", self.page())
+        (d / "extra.md").unlink()
+        os.mkfifo(d / "extra.md")
+        done = []
+        t = threading.Thread(target=lambda: done.append(reports.extras_md(self.s.dir, "extra")), daemon=True)
+        t.start()
+        t.join(5)
+        self.assertEqual(done, [""], "a FIFO at reports/<card>.md must not block the read")
+
     def test_commits_files_and_links_come_from_the_repo_the_card_was_open_in(self):
         git = lambda *a: subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@t", *a], cwd=self.proj, check=True, capture_output=True)
         git("init", "-q")
