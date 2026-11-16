@@ -165,8 +165,8 @@ class ThePhoneHeader(unittest.TestCase):
         self.assertIn("flex: 1 0 100%", m.group(2))
 
     def test_the_wide_header_is_untouched(self):
-        # above 900px the header never wraps and nothing in it moves on a poll (4 Nov): the phone rule must not leak up
-        self.assertIn("@media (min-width: 901px) { header { flex-wrap: nowrap; } }", HTML)
+        # from 1200px the header never wraps and nothing in it moves on a poll (4 Nov; the bound was 901px until sweep-ux, 15 Nov): the phone rule must not leak up
+        self.assertIn("@media (min-width: 1200px) { header { flex-wrap: nowrap; } }", HTML)
         block = re.search(r"@media \(max-width: 600px\) \{\s*header \{[^}]*\}\s*#summary[^}]*\}\s*\}", HTML).group(0)
         self.assertNotIn("min-width", block)
 
