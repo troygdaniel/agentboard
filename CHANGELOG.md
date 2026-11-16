@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### The ORCH line no longer covers the bottom of the Map's columns (Nov 16, sweep2-ux)
+The "Tell ORCH what you need" line floats 18 px above the window's bottom edge and the Todo, Doing and Done columns ran to about 22 px above it, so it sat over the last 45 px of each: scrolled to its end, the last Doing card was still 26 px under the glass, and the Done column's "Show N more" button (under its list, outside the scroll) was half under it and could not be clicked. A list now has 56 px under its last card and the button sits 48 px higher, on desktop widths only (701 px and up).
+- Checked: `node tests/qa/orch_line_clear_check.mjs` in headless Chrome on a throwaway board at 1600x1000, 1100x800 and 1280x720 (21 checks: each list scrolled to its end, the button hit-tested at its left, middle and right; 9 fail on the old page) and `tests/test_orch_line_clear.py` (4, pins the rule). The suites that read the page pass (179).
+
 ### A log line with no usable stamp no longer stops the HUD and its feed (Nov 15, night sweep)
 `hud.build` sorts an agent's recent lines by their stamp and reads the stamp and text of the three newest. A line whose stamp was null or a number raised a TypeError against the others' text, a line with no stamp at all raised a KeyError, and a line whose words were a number raised a TypeError: `/api/hud` answered 500, so the whole HUD and feed were gone for as long as the line stayed in a card (a hand edit, an older version). Such a line now counts as an empty stamp and its words as text; the lines with good stamps come out exactly as before. Found by another agent's fuzz of `hud.build`. `tests/test_hud_log_stamps.py` (3; all fail without the fix).
 
