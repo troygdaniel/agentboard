@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### A card id is a plain word (Nov 15, night sweep)
+`add --id` and `start --id` took any string, and the id is pasted into file paths (a card's report, the agent's own `reports/<id>.md`, a run's folder and worktree) and into the commands a card prompt tells an agent to run. An id such as `../../x` pointed outside the board folder, and one with `;` or `$(` put shell text into those commands.
+- A new id is letters, digits, `-` and `_` (80 at most, starting with a letter or a digit); anything else is refused with one line saying so. Ids the board makes from a title were always of that shape.
+- A card that already has another kind of id keeps working on the board, but no report, report file or run folder is built from it.
+- Checked: `tests/test_card_ids.py`.
+
 ### One lone half of an emoji in a title no longer breaks the Story page and `agentboard list` (Nov 15, night sweep)
 A title cut in the middle of an emoji by a page (`"\ud83d"`, which is valid JSON) or a byte that was not UTF-8 on a command line was kept as a lone surrogate. Every reader that turns text into UTF-8 then failed: `/story` answered 500 and `agentboard list` raised, for everyone, until someone edited `tasks.json`. Every stored text goes through `redact.scrub`, which now replaces a lone surrogate with U+FFFD (also with the masker switched off); a whole emoji, accents and Persian marks are untouched. `tests/test_lone_surrogates.py` (4); the four fail without the line.
 ### A config.toml that is not UTF-8 now says which file and why (Nov 15, night sweep)

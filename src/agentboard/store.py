@@ -276,6 +276,7 @@ class Store:
         if not (isinstance(ctx or [], list) and all(isinstance(c, str) for c in ctx or [])):
             raise BoardError("ctx must be a list of strings")
         ctx = [self._scrub(c, 600) for c in ctx or []]   # a provider spec is agent text too: masked like the title
+        task_id = _clean_id(task_id)
         with self.transaction() as tasks:
             parent = _check_parent(tasks, parent_id)
             if parent:
@@ -340,6 +341,7 @@ class Store:
                    blocked_by=None, force=False, parent_id=None, model=None, size=None):
         """Like start, but returns (task, created): created is False when the agent already held a card for this work and it was reused."""
         model, size = self._model_on_claim(model), _clean_size(size)
+        task_id = _clean_id(task_id)
         title = _clean_title(self._scrub(title))   # before the id is made from it: the card id, report names and lookups never carry a key
         description = _cap(self._scrub(description, DESCRIPTION_MAX), DESCRIPTION_MAX)
         name = self._scrub(name)
@@ -1525,6 +1527,24 @@ def _clean_source(source):
         if isinstance(source.get(k), int) and not isinstance(source[k], bool):
             out[k] = source[k]
     return out or None
+
+
+ID_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]{0,79}\Z")
+
+
+def safe_id(task_id):
+    """Is this a card id that may be pasted into a file path and into the commands a prompt tells an agent to run: letters, digits, - and _,
+    starting with a letter or a digit, 80 at most. No dot, slash, space, quote or shell character (tests/test_card_ids.py)."""
+    return isinstance(task_id, str) and bool(ID_RE.match(task_id))
+
+
+def _clean_id(task_id):
+    """An id the caller chose (add --id, start --id): refused unless it is a plain word. None stays None: the board makes one from the title."""
+    if task_id is None or task_id == "":
+        return None
+    if not safe_id(task_id):
+        raise BoardError("a card id is letters, digits, - and _ (80 at most, starting with a letter or a digit): it becomes part of file names and of the commands agents run")
+    return task_id
 
 
 def _clean_title(title):
