@@ -1336,6 +1336,12 @@ class Store:
             shown = [m for m in msgs if m["seq"] > after] if after is not None else msgs[-limit:]
             return shown, bool(data.get("chat_agents", False)), self._known_names(data)
 
+    def snapshot(self, chat_limit=500):
+        """(load(), chat_list(limit=chat_limit)) from ONE read of the board file: the watchdog asked for the two separately, and each parsed the whole file."""
+        with self._lock():
+            data = self._read()
+            return data["tasks"], data["chat"][-chat_limit:]
+
 
 LOG_MAX = 200
 CHAT_MAX = 500
