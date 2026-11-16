@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### The whole chat is kept, with counts per day and sender (Nov 15)
+The live chat holds its last 500 lines; the Nov 15 retro had to rebuild 1,100 older ones from hourly snapshots. With `[insights] enabled = true` the board now appends every chat line, as posted, to `.agentboard/chat-archive/chat-YYYY-MM-DD.jsonl` (one file a day, never rewritten) and keeps `chat-archive/counts.json`: lines per day and sender, and the last archived number, so a line is never written twice. The first archive copies the lines the live file still holds. Nothing on the board reads it (not an agent command, not lookup, not the server): it is for the owner's own retro scripts. A failed archive write never fails a post. Test: `tests/test_chat_archive.py` (13).
+
 ### A Todo or Later card can be deleted again (Nov 15)
 The card's panel kept Delete (and Copy prompt, Back to Todo, Stop run) inside the closed "More" fold since Nov 12, so a card nobody had started showed no way to delete it. The buttons now sit under the fold, always visible, for Later, Todo and Doing cards the way they already did for a card in review or done. Test: `node tests/qa/delete_cards_check.mjs` (34 checks: the Later drawer, the Map's Todo and Doing columns, wide and 390 px; it fails on the old page) and a page pin in `tests/test_you_line.py`.
 
