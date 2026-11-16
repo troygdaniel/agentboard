@@ -1306,13 +1306,18 @@ def _demo_live(s, minutes):
     print(f"live demo for {minutes:g} min — open the board, press h for Load, sound on. Ctrl+C stops.")
     try:
         while time.time() < end:
-            doing = [t for t in s.load() if t["status"] == "doing" and t["id"].startswith("demo-")]
-            if len(doing) < 2:
+            tasks = s.load()
+            doing = [t for t in tasks if t["status"] == "doing" and t["id"].startswith("demo-")]
+            cards = [t for t in doing if not t.get("parent_id")]   # the cards, not their steps: two agents at work means two cards in Doing
+            if len(cards) < 2:
                 name, color = random.choice(agents)
                 n += 1
                 s.start(random.choice(titles), name, color, task_id=f"demo-live-{n}")
-            elif doing:
-                t = random.choice(doing)
+            elif cards:
+                t = random.choice(cards)
+                steps_open = [k for k in tasks if k.get("parent_id") == t["id"] and k["status"] != "done"]
+                if steps_open:   # a card with steps is worked through its steps, as an agent is told to: the card's own % is computed from them and cannot be set
+                    t = random.choice(steps_open)
                 if t.get("needs_input"):
                     if random.random() < .25:
                         s.update(t["id"], t.get("progress", 0), "User answered — resuming")
@@ -1333,8 +1338,16 @@ def _demo_live(s, minutes):
                 p = min(100, t.get("progress", 0) + random.randint(3, 9))
                 if p >= 100:
                     result = random.choice(["Shipped", "Merged", "All tests green"])
-                    s.review(t["id"], result)
-                    _notify(s.dir, f"{t.get('agent') or 'An agent'} ready for review", t["title"], result)
+                    if t.get("parent_id"):   # a step at 100% closes itself; the card goes to review when its last step has closed
+                        s.update(t["id"], 100, result)
+                        now = s.load()
+                        if all(k["status"] == "done" for k in now if k.get("parent_id") == t["parent_id"]):
+                            card = next(x for x in now if x["id"] == t["parent_id"])
+                            s.review(card["id"], result)
+                            _notify(s.dir, f"{card.get('agent') or 'An agent'} ready for review", card["title"], result)
+                    else:
+                        s.review(t["id"], result)
+                        _notify(s.dir, f"{t.get('agent') or 'An agent'} ready for review", t["title"], result)
                 else:
                     s.update(t["id"], p, random.choice(steps))
             time.sleep(random.uniform(3, 7))
