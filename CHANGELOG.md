@@ -4,6 +4,8 @@
 
 ### The agent's own report file is read only when it is a regular file (Nov 15, night sweep)
 A symlink placed at `reports/<card>.md` was followed, so the report page could show a file from outside the board, and a FIFO there would have blocked the page build for good. `reports.extras_md` now opens the file without following a final symlink and reads it only when it is a regular file, the rule `lookup` already applied to the same files. Test: `tests/test_reports.py` (the agent's own markdown file is read only when it is a regular file).
+### `agentboard insights` survives a log entry with no text string (Nov 15, night sweep)
+A hand-edited or copied board with a number (or null) where a log entry's text belongs made `agentboard insights` die with a traceback; the other readers were fine. The reader now treats such an entry as an empty line. Test: `tests/test_insights.py` (a log entry whose text is not a string is skipped, not fatal).
 
 ### One lone half of an emoji in a title no longer breaks the Story page and `agentboard list` (Nov 15, night sweep)
 A title cut in the middle of an emoji by a page (`"\ud83d"`, which is valid JSON) or a byte that was not UTF-8 on a command line was kept as a lone surrogate. Every reader that turns text into UTF-8 then failed: `/story` answered 500 and `agentboard list` raised, for everyone, until someone edited `tasks.json`. Every stored text goes through `redact.scrub`, which now replaces a lone surrogate with U+FFFD (also with the masker switched off); a whole emoji, accents and Persian marks are untouched. `tests/test_lone_surrogates.py` (4); the four fail without the line.
