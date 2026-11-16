@@ -52,6 +52,14 @@ class ApproveOwnerOnly(unittest.TestCase):
                 self.assertIn("owner's word", err)
         self.assertEqual(self.status(), "proposed")
 
+    def test_the_refusal_reads_as_a_sentence_for_the_default_owner_and_for_a_named_one(self):
+        """The owner's name is "you" until [board] owner is set, and "only you approves" is not a sentence (found in the sweep retest)."""
+        _, _, err = self.run_cli("AGENT-1", "approve", str(self.p["seq"]))
+        self.assertIn("only you approve or decline", err)
+        (self.s.dir / "config.toml").write_text('[board]\nowner = "Troy"\n')
+        _, _, err = self.run_cli("AGENT-1", "decline", str(self.p["seq"]))
+        self.assertIn("only Troy approves or declines", err)
+
     def test_the_owner_at_a_terminal_with_no_name_decides(self):
         code, out, _ = self.run_cli("", "approve", str(self.p["seq"]))
         self.assertEqual(code, 0)
