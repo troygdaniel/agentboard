@@ -322,14 +322,19 @@ def head(text, limit):
     return cut
 
 
+_LONE_SURROGATE = re.compile("[\ud800-\udfff]")   # in a Python str a surrogate is always alone: a whole pair is already one character
+
+
 def scrub(text, board_dir=None, conf=None, found=None, bound=None):
-    """The text with secret-shaped strings masked. Anything that is not a string comes back as it was. `found`, when given a list,
+    """The text with secret-shaped strings masked, and any lone surrogate (half an emoji, a byte that was not UTF-8) replaced by U+FFFD. Anything that is not a string comes back as it was. `found`, when given a list,
     gets (kind, first four characters) for each thing masked. `bound`: look at no more than this many characters (the rest is
     dropped), so the work stays small however large the text; callers pass twice the cap they are about to apply."""
     if not isinstance(text, str) or not text:
         return text
     if bound:
         text = head(text, bound)
+    if not text.isascii():
+        text = _LONE_SURROGATE.sub("\ufffd", text)   # half an emoji, or a byte that was not UTF-8: no reader can turn it into UTF-8, even with masking switched off
     conf = conf or settings(board_dir)
     if not conf["enabled"]:
         return text
