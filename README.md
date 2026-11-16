@@ -708,7 +708,9 @@ What to expect when you clone this onto a managed machine (the full audit and ch
 3. **Set the master lock in the shell profile that starts the board:** `export AGENTBOARD_LOCKDOWN=1`. It refuses everything that would start a program or send
    data out (the `claude` rounds and `agentboard run`, the `command` and `http` providers, the `[backup] sync_dir` copy, voice, spawn and every plugin), even if a
    copied `config.toml` says otherwise. Add `export AGENTBOARD_NO_PLUGINS=1` as a second lock for plugins. Do not set `AGENTBOARD_PLUGINS`.
-4. **Check it:** `agentboard doctor` prints PASS / WARN / FAIL lines you can paste into a review (want 0 FAIL, 0 WARN with the lock set). `agentboard plugins` says
+4. **Check it:** `agentboard doctor` prints PASS / WARN / FAIL lines you can paste into a review: want 0 FAIL. Two WARN lines are normal here and need no fix: the Stop hook
+   is not installed (optional; it only nudges an agent that went quiet) and the list of modules that could make a connection (each is off under the lock, and
+   `agentboard selfcheck` proves nothing connects); [`WORK-SETUP.md`](WORK-SETUP.md) is the one-page version of this list for a work computer. `agentboard plugins` says
    plugins are locked; `lsof -nP -a -p $(pgrep -f "agentboard serve" | head -1) -i` shows one line, `127.0.0.1:8765 (LISTEN)`.
 5. **Run it:** `cd <your repo> && agentboard init && agentboard serve --no-open`, then open `http://localhost:8765` yourself. The server listens on `127.0.0.1` only.
    **There is no login:** any program running as the same user can reach the port (websites cannot). It is for one person per machine; an optional key-cookie lock was
