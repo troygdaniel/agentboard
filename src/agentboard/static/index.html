@@ -595,8 +595,12 @@
   /* Watch is only large cards, nine to a page, in agent-name order; the arrows walk them and, past an edge, slide in the next nine */
   .w-pages { position: relative; max-width: 1220px; margin: 8px auto 0; overflow: hidden; padding: 6px 0 44px; }
   .w-track { display: flex; transition: transform .7s cubic-bezier(.2,.8,.2,1); will-change: transform; }
-  .w-page { flex: 0 0 100%; min-width: 0; box-sizing: border-box; padding: 0 20px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-auto-rows: 150px; gap: 16px; align-content: start; transition: opacity .5s; } .w-page:not(.cur) { opacity: .25; }
+  .w-page { flex: 0 0 100%; min-width: 0; box-sizing: border-box; padding: 0 20px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-auto-rows: var(--w-row, 150px); gap: 16px; align-content: start; transition: opacity .5s; } .w-page:not(.cur) { opacity: .25; }
   @media (max-width: 1179px) { .w-page { grid-template-columns: repeat(2, minmax(0, 1fr)); } } @media (max-width: 779px) { .w-page { grid-template-columns: minmax(0, 1fr); } }
+  /* a short desktop window (sweep2-ux): the rows shrink from 150 px to 120 so three still fit above the pager (56 px under the grid) and the ORCH line (the bottom 67 px of the window, 4 px to spare); --w-top is
+     where the grid starts (the header wraps under 1200 px) and --w-rows is set by watchFitRows(): 3 unless even 120 px rows will not fit. tests/qa/watch_pager_check.mjs */
+  @media (min-width: 780px) { .w-pages { --w-rows: 3; --w-top: 200px; --w-row: clamp(120px, calc((100vh - var(--w-top) - 127px - (var(--w-rows) - 1) * 16px) / var(--w-rows)), 150px); } }
+  @media (min-width: 780px) and (max-width: 1199px) { .w-pages { --w-top: 252px; } }
   .w-dots { position: relative; display: flex; justify-content: center; align-items: center; gap: 10px; margin-top: -18px; }
   .w-dot { width: 9px; height: 9px; padding: 0; border-radius: 50%; border: 0; background: color-mix(in srgb, var(--text) 22%, transparent); cursor: pointer; transition: width .3s, background .3s; } .w-dot.on { width: 26px; border-radius: 99px; background: var(--text); }
   .w-dot.ping { background: var(--need); animation: wping 1.6s ease-in-out infinite; } @keyframes wping { 50% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--need) 25%, transparent); } }
@@ -3061,7 +3065,7 @@ function watchHtml(by, n) {   // The whole team. Working agents are tiles (alive
 <div class="deck-rings live" aria-hidden="true"><i></i><i></i><i></i><b class="orbit o1"><u></u></b><b class="orbit o2"><u></u></b></div>${watchBurst ? '<div class="w-burst" aria-hidden="true"><i></i><i></i><i></i></div>' : ''}
 <div class="watch-head"><div class="deck-cleared flat" aria-label="Cleared this session">${deckClearedHtml()}</div>${!n && clearTimes.length > 1 ? `<em class="w-stat">in ${(m => m < 1 ? 'under a minute' : m < 90 ? Math.round(m) + ' min' : (m / 60).toFixed(1) + ' h')((clearTimes[clearTimes.length - 1] - clearTimes[0]) / 60000)}</em>` : ''}</div>
 ${watchSleepHtml(watchStatus && watchStatus.asleep)}
-<div class="w-pages"><div class="w-track" style="transform:translateX(${-watchPage * 100}%)">${pages.map((pg, k) => `<div class="w-page${k === watchPage ? ' cur' : ''}" data-page="${k}"${k === watchPage ? '' : ' inert'}>${pg.join('')}</div>`).join('') || '<p class="w-none">Nobody is here yet.</p>'}</div></div>${live.length ? '' : orchOffer()}
+<div class="w-pages" style="--w-rows:${watchFitRows()}"><div class="w-track" style="transform:translateX(${-watchPage * 100}%)">${pages.map((pg, k) => `<div class="w-page${k === watchPage ? ' cur' : ''}" data-page="${k}"${k === watchPage ? '' : ' inert'}>${pg.join('')}</div>`).join('') || '<p class="w-none">Nobody is here yet.</p>'}</div></div>${live.length ? '' : orchOffer()}
 ${focus}${watchPages > 1 ? `<nav class="w-dots" aria-label="Pages"><button type="button" class="w-arrow" data-wpage="${watchPage - 1}" aria-label="Previous page"${watchPage ? '' : ' disabled'}>‹</button>${pages.map((_, k) => `<button type="button" class="w-dot${k === watchPage ? ' on' : ''}${pinged[k] ? ' ping' : ''}" data-wpage="${k}" aria-label="Page ${k + 1} of ${watchPages}"${k === watchPage ? ' aria-current="true"' : ''}></button>`).join('')}<button type="button" class="w-arrow" data-wpage="${watchPage + 1}" aria-label="Next page"${watchPage < watchPages - 1 ? '' : ' disabled'}>›</button></nav>` : ''}</section>`;
 }
 let watchPage = 0, watchPages = 1, watchOpenId = null, watchOpenNew = false, watchDimNew = false; const watchPing = new Set();
@@ -3100,11 +3104,13 @@ function watchToggle(wid) {   // Enter, or a click: this card's details open whe
       return; } }
   watchDimNew = open && !watchOpenId; watchOpenId = open ? wid : null; watchOpenNew = open; { const tt = wid ? (wid.startsWith('wait:') ? wid.slice(5) : (byId.get(wid) || {}).agent) : ''; touch(open ? 'rise' : 'settle', tt); } render();
 }
-// Three across on a wide window, two across on a medium one, one on a narrow one; three rows down, fewer on a short desktop window (sweep2-ux): the page arrows and dots sit 26 px under the last
-// row, and the ORCH line floats over the bottom 67 px of the window, so a window under about 810 px tall (a laptop) hid them behind it and the second page could not be seen or clicked.
-// rows = what fits between where the grid starts (measured once the Watch is drawn; 200 px on a wide window, 252 when the header wraps, before that) and the pager clearing the line.
-const watchFitRows = () => { if (innerWidth < 780) return 3; const pg = document.querySelector('.deck.watch .w-page'), top = pg ? pg.getBoundingClientRect().top + scrollY : innerWidth >= 1200 ? 200 : 252;
-  return Math.max(1, Math.min(3, Math.floor((innerHeight - 111 - top) / 166))); };
+// Three across on a wide window, two across on a medium one, one on a narrow one; three rows down. On a short desktop window (sweep2-ux) the page arrows and dots, 26 px under the last row, would sit
+// behind the ORCH line (it floats over the bottom 67 px of the window), so the rows get shorter (CSS: --w-row, 150 px down to 120, from the window's height); only when even 120 px rows will not fit
+// does the page take two rows, or one. Under 780 px wide the layout is the phone's and stays at three.
+const WATCH_ROW_MIN = 120;
+const watchFitRows = () => { if (innerWidth < 780) return 3; const room = innerHeight - (innerWidth >= 1200 ? 200 : 252) - 127;   // below the grid's top: the pager (56 px under the grid) and the ORCH line (67 px), 4 px to spare
+  for (let n = 3; n > 1; n--) if ((room - (n - 1) * 16) / n >= WATCH_ROW_MIN) return n;
+  return 1; };
 const watchPer = () => (innerWidth >= 1180 ? 3 : innerWidth >= 780 ? 2 : 1) * watchFitRows();
 let watchPerWas = 0, watchResizeT = 0;   // a window resized to another size re-splits the pages (the cards are not redrawn until something changes otherwise)
 addEventListener('resize', () => { clearTimeout(watchResizeT); watchResizeT = setTimeout(() => { if (document.querySelector('.deck.watch') && watchPer() !== watchPerWas) render(); }, 150); });
