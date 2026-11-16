@@ -147,8 +147,8 @@ class ThePendingTab(unittest.TestCase):
         self.assertIn("if (!o.keepHash) pendingSettingsTab = null;", HTML)   # the person choosing a tab, or the tab arriving, ends the wait
 
     def test_the_tab_is_selected_when_it_first_has_something_and_only_then_is_the_hash_written(self):
-        self.assertIn("if (pendingSettingsTab && vis.some(t => t.id === pendingSettingsTab)) selectSettingsTab(pendingSettingsTab);", HTML)
-        self.assertIn("else selectSettingsTab(vis.some(t => t.id === cur) ? cur : vis[0]?.id, { keepScroll: true, keepHash: !!pendingSettingsTab });", HTML)
+        self.assertIn("if (pendingSettingsTab && vis.some(t => t.id === pendingSettingsTab)) selectSettingsTab(pendingSettingsTab, { focus: hadFocus });", HTML)
+        self.assertIn("else selectSettingsTab(vis.some(t => t.id === cur) ? cur : vis[0]?.id, { keepScroll: true, keepHash: !!pendingSettingsTab, focus: hadFocus });", HTML)
 
     def test_a_search_hit_puts_focus_on_the_setting(self):
         self.assertIn("h.row.querySelector('input, button, select')?.focus({ preventScroll: true });", HTML)

@@ -989,6 +989,10 @@ def _wait_result(t, target):
 
 def cmd_wait(a):
     """Block (polling tasks.json) until a task reaches --status, or flags review/needs input."""
+    if a.timeout is not None and a.timeout < 0:
+        raise BoardError("--timeout is a number of seconds, 0 to look once; leave it out to wait for as long as it takes")
+    if not a.interval or a.interval <= 0:   # 0 spun the CPU and a negative one ended in a traceback from time.sleep
+        raise BoardError("--interval is a number of seconds above 0 (default 2)")
     s = _store()
     start = time.time()
     try:
@@ -998,7 +1002,7 @@ def cmd_wait(a):
             if msg:
                 print(f"{a.id}: {msg}")
                 return
-            if a.timeout and time.time() - start >= a.timeout:
+            if a.timeout is not None and time.time() - start >= a.timeout:   # `is not None`: 0 looks once, as `answer --timeout 0` and `chat inbox --wait 0` do
                 sys.exit(f"agentboard: wait timed out after {a.timeout}s ({a.id} still {t['status']})")
             time.sleep(a.interval)
     except KeyboardInterrupt:
@@ -1782,6 +1786,14 @@ def cmd_watchdog(a):
     if a.fix is None:
         return
     picks = list(range(1, len(items) + 1)) if a.fix == "all" else [int(x.strip()) for x in str(a.fix).split(",") if x.strip()]
+    by = (os.environ.get("AGENTBOARD_NAME") or "").strip()
+    if by and by.upper() != "ORCH" and not _to_owner(by, s.owner):   # "never run --fix on another agent's claim": an agent fixes its own; ORCH and the owner fix any
+        mine = [n for n, f in enumerate(items, 1) if f.get("fix") and (not f.get("agent") or f["agent"].lower() == by.lower())]
+        for n in picks:   # checked before the first fix is done: a refusal changes nothing
+            f = items[n - 1] if 1 <= n <= len(items) else None
+            if f and f.get("fix") and f.get("agent") and f["agent"].lower() != by.lower():
+                raise BoardError(f"finding {n} is about {f['agent']}'s card: only {f['agent']}, ORCH or the owner fixes it, so ask ORCH"
+                                 + (f" ({by} can fix its own: --fix {','.join(map(str, mine))})" if mine else ""))
     for n in picks:
         f = items[n - 1] if 1 <= n <= len(items) else None
         if not f:

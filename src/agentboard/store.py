@@ -6,6 +6,7 @@ import json
 import os
 import re
 import time
+import unicodedata
 from pathlib import Path
 
 from . import backup
@@ -152,7 +153,7 @@ class Store:
     def _scrub(self, text, cap=None):
         """Secret-shaped strings masked (redact.py); anything that is not a string comes back as it was. With a cap the masker looks
         at no more than twice that (the caller cuts to the cap afterwards), so a huge text cannot keep the server busy."""
-        return redact.scrub(text, self.dir, bound=2 * cap if cap else None)
+        return redact.scrub(plain_text(text), self.dir, bound=2 * cap if cap else None)
 
     @property
     def backups(self):
@@ -350,7 +351,7 @@ class Store:
         task_id = _clean_id(task_id)
         title = _clean_title(self._scrub(title))   # before the id is made from it: the card id, report names and lookups never carry a key
         description = _cap(self._scrub(description, DESCRIPTION_MAX), DESCRIPTION_MAX)
-        name = self._scrub(name)
+        name = plain_name(self._scrub(name))
         with self.transaction() as tasks:
             if not task_id:
                 held = _held_card(tasks, name, title, parent_id)
@@ -414,7 +415,7 @@ class Store:
         return plan
 
     def claim(self, task_id, name, color=None, force=False, model=None):
-        name = self._scrub(name)
+        name = plain_name(self._scrub(name))
         model = self._model_on_claim(model)   # before anything changes: a bad --model refuses the whole claim
         with self.transaction() as tasks:
             if not any(t["id"] == task_id for t in tasks) and any(t["id"] == task_id for t in self._read_archive()):
@@ -497,6 +498,9 @@ class Store:
                 circular = [b for b in ids if by_id[b].get("parent_id") == task_id]
                 if circular:
                     raise BoardError(f"a card cannot wait on its own subtask: {', '.join(circular)}")
+                loop = _wait_loop(by_id, task_id, ids)
+                if loop:
+                    raise BoardError(f"blocked-by: that would make a loop ({' waits on '.join(loop)}): neither card could be claimed")
                 if ids != list(t.get("blocked_by") or []):
                     if ids:
                         t["blocked_by"] = ids
@@ -1083,7 +1087,7 @@ class Store:
             # `chat tail` and `chat inbox` print "<name>: text" and agents read that as input: only the owner's own line (kind "user") carries the owner's name
             raise BoardError(f"an agent's line cannot be signed {sender.strip()!r}: that is {'who a line goes to' if sender.strip().lower() == 'all' else 'the owner of this board'}; use your own session name")
         if kind == "agent":   # what the owner types is left as written (redact.py)
-            sender = self._scrub(sender)
+            sender = plain_name(self._scrub(sender))   # namesmod.check above refused a control character; this also drops what is merely invisible (a zero-width space)
             to = self._scrub(to) if isinstance(to, str) else to   # a name, so a real one is untouched; a mirrored line keeps an unknown one, masked
             text = self._scrub(text, CHAT_LINE_MAX + CHAT_DETAIL_MAX)
             detail = self._scrub(detail, CHAT_DETAIL_MAX)
@@ -1548,6 +1552,23 @@ def _check_cards(tasks, path, saving=False):
             raise BoardError(f"{path}: card {n} {what}; run `agentboard verify`, or `agentboard restore latest` (or `restore previous`)")
 
 
+def _wait_loop(by_id, task_id, waits_on):
+    """If `task_id` waiting on `waits_on` would close a loop (a waits on b, b waits on a, or a longer ring), the cards of one such loop starting and ending with
+    `task_id`; else None. Follows each card's own blocked_by."""
+    stack = [(b, [task_id, b]) for b in waits_on]
+    seen = set()
+    while stack:
+        cur, path = stack.pop()
+        if cur == task_id:
+            return path
+        if cur in seen:
+            continue
+        seen.add(cur)
+        for nxt in (by_id.get(cur) or {}).get("blocked_by") or []:
+            stack.append((nxt, path + [nxt]))
+    return None
+
+
 def _check_snapshot(card, what="the card"):
     """A card that Undo is asked to put back must be one the board could have made: an id, a known status, text where readers expect text, a progress
     between 0 and 100 and a log that is a list of entries. The page sends it back as it got it, but the endpoint takes any client's word, and one card
@@ -1587,7 +1608,37 @@ def _clean_source(source):
     return out or None
 
 
+_BIDI = dict.fromkeys(list(range(0x202A, 0x202F)) + list(range(0x2066, 0x206A)))   # embeddings, overrides and isolates: they reorder what is shown
+
+
+_BREAKS = {ord(c): "\n" for c in "\r\x0b\x0c\x1c\x1d\x1e\x85"}
+
+
+def plain_text(text):
+    """Agent text with nothing that can drive a terminal or reorder the words: control characters other than a line break and a tab are dropped
+    (an escape sequence loses its ESC and is left as harmless visible text; a carriage return or any other line-breaking control becomes a plain line break), and so are
+    the direction overrides. Anything that is not a string comes back as it was (tests/test_control_chars.py)."""
+    if not isinstance(text, str) or not text:
+        return text
+    if text.isascii() and text.isprintable():
+        return text   # the usual case: one cheap look
+    text = text.replace("\r\n", "\n").translate(_BREAKS)   # every control that breaks a line is a plain line break (a bare CR could overwrite the line it is on)
+    return "".join(c for c in text if c in "\n\t" or unicodedata.category(c) != "Cc").translate(_BIDI)
+
+
+def plain_name(name):
+    """A name with no invisible character at all (control, format, private-use, surrogate): "ORCH" plus a zero-width space must not read as ORCH."""
+    if not isinstance(name, str):
+        return name
+    return "".join(c for c in name if unicodedata.category(c) not in ("Cc", "Cf", "Co", "Cs")).strip()
+
+
 _ID_OK = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}")
+
+def safe_id(task_id):
+    """Is this an id that may be pasted into a file path: the shape _clean_id accepts. The report and run writers ask before they build a path, so a
+    card an older version (or a hand edit) left with another kind of id reaches nothing outside the board (tests/test_card_ids.py)."""
+    return isinstance(task_id, str) and bool(_ID_OK.fullmatch(task_id))
 
 
 def _clean_id(task_id):
@@ -1606,7 +1657,7 @@ def _clean_title(title):
         raise BoardError("a task needs a title")
     if len(title.strip()) > TITLE_MAX:
         raise BoardError(f"the title is too long ({len(title.strip())} characters; {TITLE_MAX} max): put the rest in the description")
-    return title.strip()
+    return " ".join(title.split("\n")).strip() if "\n" in title else title.strip()   # a title is one line: a line break in it would print as a second, made-up row in `list`
 
 
 def _cap(text, n):

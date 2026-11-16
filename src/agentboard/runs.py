@@ -24,7 +24,7 @@ from . import private
 from . import lockdown
 from . import prompt as promptlib
 from . import rules
-from .store import BoardError
+from .store import BoardError, safe_id
 
 DEFAULT_BUDGET_USD = 5.0
 DEFAULT_MAX_MINUTES = 45.0
@@ -105,6 +105,14 @@ def all_runs(board_dir, card=None):
                 out.append((rdir, r))
     out.sort(key=lambda x: x[1].get("started", ""), reverse=True)
     return out
+
+
+def run_dir(board_dir, card_id, run_id=None):
+    """runs/<card>[/<run id>], for a card whose id is a plain word; any other id is refused before a path is built from it (tests/test_card_ids.py)."""
+    if not safe_id(card_id) or (run_id is not None and not safe_id(run_id)):
+        raise BoardError(f"no run for {card_id!r}: its id is not a plain word, so it cannot be a folder name")
+    base = runs_dir(board_dir) / card_id
+    return base if run_id is None else base / run_id
 
 
 def live_run(board_dir, card):
@@ -238,7 +246,7 @@ def run_card(store, card_id, *, name=None, color=None, cwd=None, budget=None, mi
     task = check_startable(store, card_id, name, force)
 
     run_id = datetime.now().strftime("%Y%m%d-%H%M%S")
-    rdir = runs_dir(store.dir) / card_id / run_id
+    rdir = run_dir(store.dir, card_id, run_id)
     rdir.mkdir(parents=True, exist_ok=True)
     workdir, wt = prepare_workdir(cwd or os.getcwd(), card_id, run_id, explicit=bool(cwd))
     try:
@@ -384,7 +392,7 @@ def list_lines(board_dir):
 def detach(argv_tail, board_dir, card_id):
     """Start `agentboard run ...` (without --detach) in its own session and return at once (what ORCH uses)."""
     lockdown.refuse("run")
-    base = runs_dir(board_dir) / card_id
+    base = run_dir(board_dir, card_id)
     base.mkdir(parents=True, exist_ok=True)
     out = open(base / "supervisor.log", "ab")
     env = {**os.environ, "AGENTBOARD_DIR": str(board_dir)}
