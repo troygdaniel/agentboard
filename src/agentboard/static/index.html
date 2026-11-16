@@ -3229,6 +3229,7 @@ function deckPose(p, mode = 'glide', opts = {}) {
   if (top && (deckIds[at] !== deckTop || !deck.querySelector('.deck-head').firstChild || mode === 'still')) {
     if (deckIds[at] !== deckTop && deckArm) deckDisarm(true);
     const prevAt = deckIds.indexOf(deckTop); deckTop = deckIds[at]; deck.querySelector('.deck-head').innerHTML = deckHeadHtml(top, at, n); deckAgent = top.agent || ''; gaugesSync();
+    if (deckArm === deckTop) { const b = deckArmTarget(); if (b) b.classList.add('deck-armed'); }   // a redraw (a poll, another card's update) rebuilt the card: the arm is still live, so its button shows it again
     const m = $('deck-more'); if (m && m.dataset.for !== deckTop) { m.dataset.for = deckTop; if (deckOpen) { const k = deckMore.get(deckTop); m.innerHTML = k ? k[1] : '<p class="deck-wait">Loading the details…</p>'; deckFill(); } }
     if (mode !== 'still' && performance.now() - deckFlipAt > 45) { deckFlipAt = performance.now(); deckSound('flip', top.agent, at - prevAt); }   // each card you pass turns with a sound, in its agent's voice; a fast drag is not a rattle
   }
@@ -3327,9 +3328,12 @@ function deckDetails(on) {   // the details slide out beside the card; the card 
   m.tabIndex = on ? 0 : -1; if (on) { m.removeAttribute('aria-hidden'); m.dataset.for = deckTop; const k = deckMore.get(deckTop); m.innerHTML = k ? k[1] : '<p class="deck-wait">Loading the details…</p>'; deckFill(); } else m.setAttribute('aria-hidden', 'true');
 }
 function deckDisarm(quiet) { clearTimeout(deckArmT); const was = deckArm; deckArm = null; if (was && !quiet) deckSound('disarm'); document.querySelectorAll('.deck-armed').forEach(x => x.classList.remove('deck-armed')); if (was && !quiet) { const t = byId.get(deckTop), d = $('board').querySelector('.deck-head'); if (t && d) d.innerHTML = deckHeadHtml(t, deckIds.indexOf(deckTop), deckIds.length); } }
+function deckArmTarget() {   // the front card's first answer: the button Space arms and then presses
+  const t = byId.get(deckTop), slot = $('board').querySelector('.deck-slot.front'); if (!t || !slot) return null;
+  return dkKind(t) === 0 ? slot.querySelector('[data-quick][data-text="Go ahead"]') : dkKind(t) === 1 ? (slot.querySelector('[data-step]') || slot.querySelector('[data-done]')) : $('board').querySelector('.deck-head .deck-fix');
+}
 function deckSpace() {   // Space arms the card's first answer and shows which; Space again within three seconds sends it. One key never answers.
-  const t = byId.get(deckTop), slot = $('board').querySelector('.deck-slot.front'); if (!t || !slot) return;
-  const btn = dkKind(t) === 0 ? slot.querySelector('[data-quick][data-text="Go ahead"]') : dkKind(t) === 1 ? (slot.querySelector('[data-step]') || slot.querySelector('[data-done]')) : $('board').querySelector('.deck-head .deck-fix'); if (!btn) return;
+  const t = byId.get(deckTop), btn = deckArmTarget(); if (!t || !btn) return;
   if (deckArm === t.id) { deckDisarm(true); btn.click(); return; }
   deckArm = t.id; touch('arm'); btn.classList.add('deck-armed'); $('board').querySelector('.deck-head').innerHTML = deckHeadHtml(t, deckIds.indexOf(deckTop), deckIds.length);
   clearTimeout(deckArmT); deckArmT = setTimeout(() => deckDisarm(false), 3000);
