@@ -141,7 +141,7 @@ class TheNudge(Base):
     def test_only_a_line_to_one_agent_and_never_to_orch_itself(self):
         for seq in (self.s.chat_send(self.s.owner, "all of you", kind="user", to="all")["seq"],
                     self.s.chat_send("AGENT-2", "status")["seq"],
-                    self.s.chat_send(self.s.owner, "plain")["seq"]):
+                    self.s.chat_send(self.s.owner, "plain", kind="user")["seq"]):   # the owner's own line: an agent line cannot carry the owner's name (test_chat_owner_name.py)
             with self.assertRaises(BoardError):
                 self.s.chat_nudge(seq)
         orch = self.s.chat_send(self.s.owner, "hello?", kind="user", to="ORCH")
