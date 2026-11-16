@@ -321,6 +321,7 @@ ENV = {   # the environment variables the core reads (shown by `agentboard confi
     "AGENTBOARD_UMASK": "an octal umask for the board's files (default 077: private)",
     "AGENTBOARD_CLAUDE": "the claude binary for one-shot runs and chat rounds",
     "AGENTBOARD_WHISPER_MODEL": "a whisper model file for dictation",
+    "AGENTBOARD_TREE_CHECK": "off, 0, no or false: `review` does not look at git for uncommitted changes or work past main (the lock also stops it)",
 }
 
 

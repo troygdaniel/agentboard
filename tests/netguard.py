@@ -105,3 +105,6 @@ def active():
 
 
 install()
+# The same two loaders also switch off `agentboard review`'s look at git (src/agentboard/treecheck.py): the suite runs inside a repository,
+# and a warning on stderr would break every test that reads a review's output. tests/test_review_tree_check.py turns it on for its own repos.
+os.environ.setdefault("AGENTBOARD_TREE_CHECK", "off")

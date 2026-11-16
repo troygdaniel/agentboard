@@ -33,10 +33,12 @@ from . import profile as profilelib
 from . import prompt as promptlib
 from . import rules
 from . import signoff as signofflib
+from . import treecheck
 from . import redact as redactlib
 from . import reports as reportslib
 from . import summary as summarylib
 from . import voice as voicelib
+from . import worktrees as worktreeslib
 from . import runs as runslib
 from . import statefile
 from . import untrusted
@@ -1437,11 +1439,15 @@ def cmd_review(a):
               f'(agentboard add "<step>" --parent {a.id}).', file=sys.stderr)
     body = _read_body(a)
     task = Store.get(s.load(), a.id)
+    note = None
     if not task.get("parent_id"):
         _one_line(a.text, "a review")
+        note = treecheck.check(getattr(a, "tree", None))   # a warning, never a block: uncommitted changes, or nothing past main (retro rec 6)
+        if note:
+            print(f"warning: {note}", file=sys.stderr)
     if not (task.get("parent_id") and any(x["id"] == task["parent_id"] for x in s.load())):   # a subtask has no review step, so nothing to state
         body = _with_next(a.text, body, a.next)
-    t = s.review(a.id, a.text, body, by=os.environ.get("AGENTBOARD_NAME"))
+    t = s.review(a.id, a.text, body, by=os.environ.get("AGENTBOARD_NAME"), note=note)
     if t.get("parent_id"):
         print(f"{t['id']}: subtask finished (100%) — subtasks have no review step; review the parent, {t['parent_id']}, when the deliverable is ready")
         return
@@ -1473,6 +1479,11 @@ def cmd_signoff(a):
 def cmd_done(a):
     s = _store()
     name = (os.environ.get("AGENTBOARD_NAME") or "").strip()
+    repo = None
+    if a.repo:   # checked before the card is closed: a typo here must not leave it half done
+        repo = Path(a.repo).expanduser()
+        if not repo.is_absolute() or not repo.is_dir():
+            raise BoardError(f"--repo is the absolute path of a git repository's folder: {a.repo}")
     rec = _signoff_record(a)
     if rec is not None:   # done with the evidence: the same flags as `signoff`, recorded first, so ORCH's close and its facts are one command
         s.signoff(a.id, rec, by=name or None)
@@ -1491,6 +1502,11 @@ def cmd_done(a):
     # (store.update treats "not None" as "replace it"); omitting it should leave them alone.
     s.update(a.id, text=a.text, status="done", closed_as=a.reason)
     print(f"{a.id}: done")
+    try:   # the card's worktree and the merged ones that could go: a list, read-only; it must never get in the way of the close
+        for line in worktreeslib.report(s.dir, s.load(), a.id, repo):
+            print(line)
+    except Exception:   # noqa: BLE001
+        pass
 
 
 def cmd_prompt(a):
@@ -2270,6 +2286,7 @@ def main(argv=None):
     sp.add_argument("id")
     sp.add_argument("text", help="one-line result")
     sp.add_argument("--next", help='what the user must do next, one line; "nothing" if nothing. Required unless the body has a "## Next" section')
+    sp.add_argument("--tree", metavar="PATH", help="the worktree to check for uncommitted changes and for work past main (default: the folder you run this in)")
     g = sp.add_mutually_exclusive_group()
     g.add_argument("--body", help="markdown body (recap/diff/report) shown in the detail panel")
     g.add_argument("--body-file", help="read --body from a file instead (handles multi-line content)")
@@ -2287,6 +2304,7 @@ def main(argv=None):
     sp.add_argument("id")
     sp.add_argument("text", nargs="?")
     sp.add_argument("--reason", choices=insightslib.CLOSE_REASONS, help="why it was closed (kept on the card for `agentboard insights`; with [insights] enabled the default is shipped)")
+    sp.add_argument("--repo", metavar="PATH", help="after closing, list the worktrees of this repo (an absolute folder) instead of the board's own; the board never removes any")
     signoff_flags(sp)
     sp = add("wait", cmd_wait, "block (polling) until a task reaches a status — sync on another agent's work")
     sp.add_argument("id")

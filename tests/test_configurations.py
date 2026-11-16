@@ -92,6 +92,22 @@ class TheFile(Base):
                 cfgs.validate(role(**r), owner="Pat")
             self.assertIn(word, str(e.exception), str(r))
 
+    def test_shared_rules_are_optional_one_line_each_and_kept_as_given(self):
+        self.assertEqual(cfgs.validate(GOOD)["shared_rules"], [])   # a file without them is as it was
+        cfg = cfgs.validate(bad(shared_rules=["  Own worktree.  ", "No stash."]))
+        self.assertEqual(cfg["shared_rules"], ["Own worktree.", "No stash."])
+        self.assertEqual(cfgs.validate(cfg), cfg)   # the applied copy is validated again on every read
+        for rules, word in (("one string", "must be a list"), (["a\nb"], "must be one line"), ([""], "is missing"), (["x" * 201], "over 200 characters"),
+                            (["r"] * 13, "more than 12"), ([3], "must be one line")):
+            with self.assertRaises(cfgs.ConfigurationError, msg=str(rules)[:30]) as e:
+                cfgs.validate(bad(shared_rules=rules))
+            self.assertIn(word, str(e.exception))
+
+    def test_shared_rules_survive_an_export_and_an_import_and_an_old_file_exports_as_it_did(self):
+        cfg = cfgs.validate(bad(shared_rules=["Own worktree."]))
+        self.assertEqual(cfgs.loads(cfgs.export_text(cfg)), cfg)
+        self.assertNotIn("shared_rules", json.loads(cfgs.export_text(cfgs.validate(GOOD))))
+
     def test_a_name_in_two_roles_and_a_role_twice(self):
         d = json.loads(json.dumps(GOOD))
         d["roles"][1]["names"] = ["Writer-1"]
@@ -127,6 +143,26 @@ class TheShippedConfiguration(Base):
                 self.assertIn(action, r["may_not"], f"{r['role']} may not {action}")
             self.assertNotIn("pay", r["may"])
             self.assertTrue(r["purpose"])
+
+    def test_dev_crew_is_the_crew_as_it_ran(self):
+        cfg = cfgs.builtin("dev-crew")
+        self.assertEqual(cfg["name"], "Dev crew")
+        self.assertEqual([r["role"] for r in cfg["roles"]], ["builder", "designer", "gate", "tester"])
+        for r in cfg["roles"]:
+            for action in ("merge", "push", "install or restart the board"):
+                self.assertIn(action, r["may_not"], f"{r['role']} may not {action}")
+            self.assertTrue(r["purpose"])
+        by = {r["role"]: r for r in cfg["roles"]}
+        self.assertIn("run the full suite", by["builder"]["may_not"])   # the gate runs it, once per merged batch
+        self.assertIn("run the full suite", by["gate"]["may"])
+        self.assertIn("edit product code", by["gate"]["may_not"])
+        self.assertIn("edit product code", by["tester"]["may_not"])
+        self.assertNotIn("ORCH", cfgs.roster(cfg))   # the board keeps that name; ORCH gets the roster in its own prompt
+
+    def test_dev_crew_carries_each_rule_the_crew_learned_the_hard_way(self):
+        text = " ".join(cfgs.builtin("dev-crew")["shared_rules"])
+        for word in ("own worktree", "git stash", "amend", "pkill", "backtick", "--force", "touched", "test lock", "--mute-audio", "remove your worktree", "140 characters", "listener"):
+            self.assertIn(word, text, word)
 
     def test_the_shipped_files_name_no_person_number_or_address(self):
         for f in cfgs.BUILTIN_DIR.glob("*.json"):
@@ -210,6 +246,45 @@ class TheSettingAndTheCommand(Base):
         from agentboard import configschema
         self.assertIn("configurations", configschema.SCHEMA["agents"])
         self.assertIn("[agents]", (Path(cfgs.__file__).parents[2] / "docs" / "config.md").read_text())
+
+
+class TheSharedBlockInEveryRolePrompt(Base):
+    def setUp(self):
+        super().setUp()
+        self.on()
+        self.run_cli("configuration", "apply", "dev-crew")
+        self.cfg = cfgs.applied(self.d)
+
+    def prompt_of(self, name, tid):
+        self.s.add("A card", task_id=tid)
+        self.s.claim(tid, name)
+        return promptlib.build_prompt(Store.get(self.s.load(), tid), self.d, tasks=self.s.load())[0]
+
+    def test_every_role_gets_its_own_lines_and_the_one_shared_block_once(self):
+        block = cfgs.shared_block(self.cfg)
+        self.assertIn("- Never use git stash", block)
+        for i, (name, role) in enumerate((("BuildBot", "builder"), ("DreamBot", "designer"), ("Gate-1", "gate"), ("Tester-1", "tester"))):
+            text = self.prompt_of(name, f"t{i}")
+            self.assertIn(f"## Your role: {role} (Dev crew)", text)
+            self.assertEqual(text.count(block), 1, role)   # the same text, once, in every role's prompt
+            self.assertLess(text.index("## Your role"), text.index("Rules for every role here:"))
+
+    def test_the_block_is_one_text_so_a_rule_changes_in_one_place(self):
+        blocks = {cfgs.role_block(self.cfg, r["names"][0]).split("\n\n", 1)[1].split("Rules for every role here:")[1] for r in self.cfg["roles"]}
+        self.assertEqual(len(blocks), 1)
+
+    def test_an_agent_with_no_role_and_a_configuration_with_no_shared_rules_are_as_they_were(self):
+        self.assertNotIn("Rules for every role", self.prompt_of("Someone", "t9"))
+        self.assertEqual(cfgs.role_block(self.cfg, "Someone"), "")
+        self.run_cli("configuration", "apply", "day-to-day")
+        self.assertNotIn("Rules for every role", cfgs.role_block(cfgs.applied(self.d), "Caller-1"))
+
+    def test_orch_and_the_terminal_show_the_rules_too(self):
+        self.assertIn("Every role's prompt carries these shared rules: Work in your own worktree", promptlib.build_orch_prompt([], self.d))
+        code, out = self.run_cli("configuration", "show", "dev-crew")
+        self.assertIn("Rules for every role (in each role's prompt):", out)
+        self.assertIn("- No pkill by pattern", out)
+        self.assertIn("builder: BuildBot, TaskMaster-1", out)
 
 
 class WhatAnAppliedConfigurationChanges(Base):

@@ -158,5 +158,6 @@ one CSS colour per agent name, on every card it holds: "AGENT-1" = "#2563eb".
 | `AGENTBOARD_UMASK` | an octal umask for the board's files (default 077: private) |
 | `AGENTBOARD_CLAUDE` | the claude binary for one-shot runs and chat rounds |
 | `AGENTBOARD_WHISPER_MODEL` | a whisper model file for dictation |
+| `AGENTBOARD_TREE_CHECK` | off, 0, no or false: `review` does not look at git for uncommitted changes or work past main (the lock also stops it) |
 
 Plugins add their own sections to the schema while they are loaded (`api.add_config`); `agentboard config docs` from the board's shell lists them too.
