@@ -144,6 +144,7 @@ class Store:
 
     def _write(self, data):
         """Atomic and flushed to disk, the previous version kept as tasks.json.bak (backup.py); then an hourly snapshot if one is due."""
+        _check_cards(data["tasks"], self.path, saving=True)   # whatever asked for this save (a bug, a client's own card), a file the loader refuses is never written
         backup.write_atomic(self.path, json.dumps(data, indent=2))
         statefile.sweep_temps(self.dir)   # temp files a writer that died mid-save left behind (10 minutes old or more; a live write is never touched)
         self.committed = data.get("tasks")
@@ -272,6 +273,7 @@ class Store:
         if status is not None and status not in STATUSES:
             raise BoardError(f"status must be one of {STATUSES}")
         size = _clean_size(size)
+        task_id = _clean_id(task_id)
         title = _clean_title(self._scrub(title))
         description = _cap(self._scrub(description, DESCRIPTION_MAX), DESCRIPTION_MAX)
         source = _clean_source(source)
@@ -327,6 +329,10 @@ class Store:
                 top = next((i for i, x in enumerate(tasks) if x["status"] == status), len(tasks))
                 tasks.insert(top, task)
             if parent:
+                if parent.get("review") and parent["status"] != "done":   # a step is open again: the card is no longer ready (and ORCH's sign-off was on that review)
+                    parent.pop("review", None)
+                    parent.pop("signoff", None)
+                    _log(parent, f"Back at work: a new step was added ({title})")
                 _touch_parent(tasks, parent)
             return task
 
@@ -342,6 +348,7 @@ class Store:
                    blocked_by=None, force=False, parent_id=None, model=None, size=None):
         """Like start, but returns (task, created): created is False when the agent already held a card for this work and it was reused."""
         model, size = self._model_on_claim(model), _clean_size(size)
+        task_id = _clean_id(task_id)
         title = _clean_title(self._scrub(title))   # before the id is made from it: the card id, report names and lookups never carry a key
         description = _cap(self._scrub(description, DESCRIPTION_MAX), DESCRIPTION_MAX)
         name = plain_name(self._scrub(name))
@@ -923,8 +930,9 @@ class Store:
         """Put a task back exactly as it was (undo for moves). `kids` are the snapshots of its
         subtasks, which a move may have cascaded onto. A task that is gone (undo for a delete) is put back
         too, with its subtasks."""
-        if snapshot.get("status") not in STATUSES:
-            raise BoardError(f"status must be one of {STATUSES}")
+        _check_snapshot(snapshot)
+        for ks in kids or []:
+            _check_snapshot(ks, "a subtask")
         with self.transaction() as tasks:
             now_there = next((x for x in tasks if x["id"] == snapshot["id"]), None)
             if now_there is not None:
@@ -1177,8 +1185,8 @@ class Store:
             if insights.enabled(self.dir):   # capture 9: the whole chat kept past CHAT_MAX, with counts per day and sender (chatarchive.py)
                 try:
                     chatarchive.append(self.dir, data["chat"])
-                except OSError:
-                    pass   # a failed archive write never fails a post
+                except (OSError, ValueError, TypeError):
+                    pass   # a failed archive write never fails a post (ValueError: a NUL in a hand-edited stamp; TypeError: a line that is not a dict of strings)
             chatwake.bump(self.dir, to)   # the wake file moves: a wait on it reads the board now, a schedule sees it in one stat (chat-f7)
             return msg
 
@@ -1515,12 +1523,13 @@ def recovery_hint(path):
     return "no good copy was found beside it: run `agentboard restore <file>` with a snapshot from .agentboard/backups or the nightly copy folder"
 
 
-def _check_cards(tasks, path):
+def _check_cards(tasks, path, saving=False):
     """Every card the file holds must be a dict with a non-empty string id, a known status and a list for its log; the first card that is not
     stops the read with one line that says which card and what to do. tasks.json is trusted data, so this is for a copied or hand-edited
-    file: better one clear refusal than every command dying on a KeyError and the page's poll getting no answer."""
+    file: better one clear refusal than every command dying on a KeyError and the page's poll getting no answer. `saving`: the same rules
+    applied to what is about to be written, so the board never saves a state its own loader would refuse."""
     if not isinstance(tasks, list):
-        raise BoardError(f"{path}: 'tasks' is not a list; run `agentboard verify`, or `agentboard restore latest`")
+        raise BoardError(f"{path}: 'tasks' is not a list; " + ("nothing was saved" if saving else "run `agentboard verify`, or `agentboard restore latest`"))
     for n, t in enumerate(tasks, 1):
         what = None
         if not isinstance(t, dict):
@@ -1532,7 +1541,32 @@ def _check_cards(tasks, path):
         elif "log" in t and not isinstance(t["log"], list):
             what = "has a log that is not a list"
         if what:
+            if saving:
+                raise BoardError(f"this change would leave card {n} {what}, which the board could not read again; nothing was saved")
             raise BoardError(f"{path}: card {n} {what}; run `agentboard verify`, or `agentboard restore latest` (or `restore previous`)")
+
+
+def _check_snapshot(card, what="the card"):
+    """A card that Undo is asked to put back must be one the board could have made: an id, a known status, text where readers expect text, a progress
+    between 0 and 100 and a log that is a list of entries. The page sends it back as it got it, but the endpoint takes any client's word, and one card
+    with a number for an id used to make every read of the board answer 500."""
+    if not isinstance(card, dict):
+        raise BoardError(f"{what} is not an object")
+    if not isinstance(card.get("id"), str) or not card["id"].strip():
+        raise BoardError(f"{what} has no id")
+    if card.get("status") not in STATUSES:
+        raise BoardError(f"status must be one of {STATUSES}")
+    if not isinstance(card.get("title"), str) or not card["title"].strip():
+        raise BoardError(f"{what} ({card['id']}) has no title")
+    for f in ("description", "status_text", "agent", "parent_id"):
+        if card.get(f) is not None and not isinstance(card[f], str):
+            raise BoardError(f"{what} ({card['id']}): {f} must be text")
+    p = card.get("progress", 0)
+    if isinstance(p, bool) or not isinstance(p, int) or not 0 <= p <= 100:
+        raise BoardError(f"{what} ({card['id']}): progress must be a whole number from 0 to 100")
+    log = card.get("log", [])
+    if not isinstance(log, list) or not all(isinstance(e, dict) for e in log):
+        raise BoardError(f"{what} ({card['id']}): log must be a list of entries")
 
 
 def _clean_source(source):
@@ -1574,6 +1608,20 @@ def plain_name(name):
     if not isinstance(name, str):
         return name
     return "".join(c for c in name if unicodedata.category(c) not in ("Cc", "Cf", "Co", "Cs")).strip()
+
+
+_ID_OK = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}")
+
+
+def _clean_id(task_id):
+    """An id someone typed (`add --id`, `start --id`): a short word that is safe in a file name (reports/<id>-<stamp>.html, runs/<id>), in the
+    page's #<id> link and in a shell, never a path ("a/b", ".."), a space or a control character. The ids the board makes itself (a slug of the
+    title) always fit. None or "" means no id was given."""
+    if not task_id:
+        return None
+    if not isinstance(task_id, str) or not _ID_OK.fullmatch(task_id):
+        raise BoardError("a card id is 1 to 64 letters, digits, dots, hyphens or underscores, starting with a letter or digit (no space, no slash)")
+    return task_id
 
 
 def _clean_title(title):

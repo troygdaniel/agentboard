@@ -301,6 +301,15 @@ class Refusals(Base):
         self.refused("Scout", "Wren", "already on this board")
         self.refused("Scout", "wren", "already on this board")   # case does not matter
 
+    def test_the_same_name_is_nothing_to_rename_and_leaves_no_record(self):
+        """`rename AG-1 AG-1` said "Renamed AG-1 to AG-1" and wrote a record, so the next --undo reversed nothing (night sweep)."""
+        self.refused("Scout", "Scout", "already named")
+        self.refused("Scout", "  Scout  ", "already named")
+        with self.assertRaises(BoardError):
+            rename.plan(self.s, "Scout", "Scout")
+        self.assertIsNone(rename.last_record(self.d))
+        self.assertTrue(rename.plan(self.s, "Scout", "SCOUT")["cards"] >= 0)   # a change of capitals is still a rename
+
     def test_a_name_that_only_a_state_file_remembers(self):
         listeners.register(self.d, "Ghost", "inbox", pid=os.getpid())
         self.refused("Scout", "Ghost", "already on this board")
