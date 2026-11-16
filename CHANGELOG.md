@@ -4,6 +4,12 @@
 
 ### `rename` survives a chat-listeners.json with odd values (Nov 15, night sweep)
 A `chat-listeners.json` that held a number or a word where a list of waits belongs (`{"Scout": 1}`: a hand edit or a copied file) made `agentboard rename Scout X` (and `--dry-run`) die with "object of type 'int' has no len()". The odd value now counts as no waits running. `tests/test_rename.py` (1 new).
+### The header fits the window again: Settings no longer falls off the edge (Nov 15, sweep-ux)
+With an agent configuration applied and night mode on, the header carries two chips beside Later and the icons, and above 900 px it never wrapped, so on a 1280 px window the Help and Settings buttons sat past the edge and the page scrolled sideways (a 1024 px window did the same with no chips at all, and the Night chip made it worse).
+- **Wraps below 1200 px:** the header goes onto a second row, as it does on a phone, instead of running off the window. From 1200 px it is one line, as before, and nothing moves on a poll.
+- **The Night chip is compact:** `Night 3` (the moon, the word, the count); `3 queued` and `until 08:00` come back on a wide window (1560 px), where the Configuration chip gets its words too. The tooltip always has them.
+- **The Live chip** shows `Live` alone below 1400 px; it keeps `updated 1s ago` for a slow or lost connection, and for a wide window.
+- Checked: `tests/test_header_fits.py` (3, pins the three rules) and `node tests/qa/header_fit_check.mjs` in headless Chrome on a throwaway board with both chips showing, 1600 px down to 760 (24 checks: no sideways scroll and every visible header control inside the window; 9 of them fail on the old page).
 
 ### A tasks.json of the wrong shape stops with one line, not a traceback (Nov 15, night sweep)
 A `tasks.json` that was valid JSON but not a board (`[]`, `null`, `"text"`, `5`: a hand edit, a bad merge, a sync conflict that left an empty list) made `list`, `rollup` and `watchdog` die with "AttributeError: 'list' object has no attribute 'setdefault'"; text that is not JSON at all already named the file and the recovery. Now the wrong shape does too: "<file> is JSON but not a board (it should be an object with a list of cards, not list)" followed by the same recovery hint, and a `chat` that is not a list is refused the same way. A good file and a missing file are as before. `tests/test_tasks_json_shape.py` (4).
