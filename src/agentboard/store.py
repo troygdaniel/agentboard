@@ -1178,8 +1178,8 @@ class Store:
             if insights.enabled(self.dir):   # capture 9: the whole chat kept past CHAT_MAX, with counts per day and sender (chatarchive.py)
                 try:
                     chatarchive.append(self.dir, data["chat"])
-                except OSError:
-                    pass   # a failed archive write never fails a post
+                except (OSError, ValueError, TypeError):
+                    pass   # a failed archive write never fails a post (ValueError: a NUL in a hand-edited stamp; TypeError: a line that is not a dict of strings)
             chatwake.bump(self.dir, to)   # the wake file moves: a wait on it reads the board now, a schedule sees it in one stat (chat-f7)
             return msg
 

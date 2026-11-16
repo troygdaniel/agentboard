@@ -4,6 +4,8 @@
 
 ### `update ID 12.5` and `update ID 50%` no longer pretend a percent was set (Nov 15, night sweep)
 A lone number that was not a whole number (`12.5`, `50%`, `1e1`, `.5`) was taken as the status line, and the command answered "ID: 0%" as though the percent had been set. It now stops with "progress is a whole number from 0 to 100, got '12.5': write 50, not 50% or 12.5" and changes nothing; with words after it the command already refused. Whole numbers, and words alone ("half done", "v2", "3 of 5 steps") work as before. `tests/test_update_percent.py` (3).
+### The chat archive names its day files only from a real date (Nov 15, night sweep)
+The archive took the first ten characters of a line's `at` stamp as the day file's name. On a hand-edited or copied board that could be a path piece or hold a NUL, which would have raised on the post. A stamp that is not `YYYY-MM-DD` now files the line under `chat-unknown.jsonl`, and the store swallows a ValueError or TypeError from the archive the way it already did an OSError, so a chat post never fails for the archive. Test: `tests/test_chat_archive.py` (an odd at stamp names no file elsewhere and raises nothing).
 
 ### The agent's own report file is read only when it is a regular file (Nov 15, night sweep)
 A symlink placed at `reports/<card>.md` was followed, so the report page could show a file from outside the board, and a FIFO there would have blocked the page build for good. `reports.extras_md` now opens the file without following a final symlink and reads it only when it is a regular file, the rule `lookup` already applied to the same files. Test: `tests/test_reports.py` (the agent's own markdown file is read only when it is a regular file).
