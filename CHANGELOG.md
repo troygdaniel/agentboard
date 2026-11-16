@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### A wait that died no longer shows as listening when another program gets its pid (Nov 15, night sweep)
+The board called a wait alive when any process had its pid. After a wait was killed and the system gave that pid to an unrelated program, the agent still showed as listening, and ORCH could wait for a reply that never came.
+- A running `chat inbox --wait` or `answer --wait` now renews a heartbeat in its entry about every 20 seconds; an entry whose heartbeat is older than 90 seconds is not listening, whoever holds the pid. An entry an older agentboard wrote has no heartbeat and is judged by its pid, as before.
+- Checked: `tests/test_listener_heartbeat.py`. Not covered: for up to 10 seconds after a Mac wakes from a long sleep a live wait can read as not listening, until its next heartbeat.
+
 ### `rename` survives a chat-listeners.json with odd values (Nov 15, night sweep)
 A `chat-listeners.json` that held a number or a word where a list of waits belongs (`{"Scout": 1}`: a hand edit or a copied file) made `agentboard rename Scout X` (and `--dry-run`) die with "object of type 'int' has no len()". The odd value now counts as no waits running. `tests/test_rename.py` (1 new).
 

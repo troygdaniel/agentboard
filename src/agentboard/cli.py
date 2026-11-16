@@ -745,6 +745,7 @@ def cmd_chat_inbox(a):
             unread = s.chat_inbox(name, after=after, limit=None)
             if unread or not a.wait or time.time() >= deadline:
                 break
+            listeners.beat(s.dir, name)   # still here: a wait that dies stops saying so, whoever gets its pid (listeners.STALE_S)
             chatwake.sleep_until_change(s.dir, a.interval, max(0.0, min(chatwake.NET_S, deadline - time.time())))   # a stat a second; the board is read when a line lands
     msgs, more = (unread, []) if a.limit <= 0 else (unread[:a.limit], unread[a.limit:])   # the oldest first; the cursor stops at the last line shown, so the rest come next time
     for m in msgs:
@@ -2008,6 +2009,8 @@ def cmd_answer(a):
                 return
             if not a.wait or time.time() >= deadline:
                 sys.exit(f"agentboard: no reply on {a.id} yet" + (f" after {a.timeout:g}s" if a.wait else ""))
+            if listener:
+                listeners.beat(s.dir, name, listener[1])   # still here (see chat inbox --wait)
             time.sleep(a.interval)
     finally:
         if listener:
