@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### `chat approve` and `chat decline` are the owner's, not an agent's (Nov 15, night sweep)
+An agent could propose an action in the chat ("buy lock.example"), then run `agentboard chat approve N` itself, and the board recorded the approval as the owner's. `configuration accept` already refused a session that has an agent name; the two chat decisions now do the same: "only you approves or declines a proposed action: it is the owner's word, not an agent's (run it from the board's button, or from a shell with no agent name set)". ORCH is refused too (an outside action is the owner's own word). A shell with no agent name set is the owner at a terminal, and an agent still reads its answers with `chat approvals`. The name is the session's own word, so this stops the wrong caller, not a determined one; the board's button is the owner's real channel. `tests/test_chat_approve_owner.py` (4).
+
 ### The agent's own report file is read only when it is a regular file (Nov 15, night sweep)
 A symlink placed at `reports/<card>.md` was followed, so the report page could show a file from outside the board, and a FIFO there would have blocked the page build for good. `reports.extras_md` now opens the file without following a final symlink and reads it only when it is a regular file, the rule `lookup` already applied to the same files. Test: `tests/test_reports.py` (the agent's own markdown file is read only when it is a regular file).
 ### `agentboard insights` survives a log entry with no text string (Nov 15, night sweep)

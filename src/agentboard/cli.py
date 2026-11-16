@@ -775,7 +775,12 @@ def cmd_chat_approvals(a):
 
 
 def cmd_chat_decide(a):
-    m = _store().chat_decide(a.seq, a.decision)
+    s = _store()
+    who = (os.environ.get("AGENTBOARD_NAME") or "").strip()
+    if who and not _to_owner(who, s.owner):   # as `configuration accept` does: an agent that proposed an action could approve it itself, as the owner
+        raise BoardError(f"only {s.owner} approves or declines a proposed action: it is the owner's word, not an agent's "
+                         "(run it from the board's button, or from a shell with no agent name set)")
+    m = s.chat_decide(a.seq, a.decision)
     print(_chat_line(m))
 
 
