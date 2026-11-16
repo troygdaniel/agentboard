@@ -536,10 +536,13 @@
   #ribbon u { position: absolute; bottom: 5px; width: 1px; height: 9px; background: var(--line); text-decoration: none; font-size: 9px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); white-space: nowrap; text-indent: 6px; line-height: 0; }
   #ribbon .rb { position: absolute; bottom: 6px; width: 7px; height: 7px; margin-left: -3px; border-radius: 50%; background: var(--c); pointer-events: auto; cursor: default; opacity: .8; transition: transform .2s; } #ribbon .rb:hover { transform: scale(1.8); opacity: 1; }
   #ribbon .rb.ask, #ribbon .rb.rev, #ribbon .rb.fin, #ribbon .rb.quiet { height: 15px; border-radius: 4px; width: 5px; margin-left: -2px; cursor: pointer; } #ribbon .rb.ask { background: var(--err); } #ribbon .rb.rev { background: var(--ok); } #ribbon .rb.fin, #ribbon .rb.quiet { background: var(--need); }
-  #ribbon .rb.done { background: none; box-shadow: inset 0 0 0 1.5px var(--ok); } #ribbon b { position: absolute; right: 22px; bottom: 5px; width: 9px; height: 9px; border-radius: 50%; background: var(--text); box-shadow: 0 0 0 4px color-mix(in srgb, var(--text) 18%, transparent); animation: rbnow 2.4s ease-in-out infinite; } @keyframes rbnow { 50% { box-shadow: 0 0 0 8px transparent; } }
+  #ribbon .rb.done { background: none; box-shadow: inset 0 0 0 1.5px var(--ok); } #ribbon b { position: absolute; right: 22px; bottom: 5px; width: 9px; height: 9px; border-radius: 50%; background: var(--text); isolation: isolate; }
+  /* the halo is a disc behind the dot (the same 4 px ring), and the pulse scales and fades it: a box-shadow animation repaints on the main thread
+     every frame, the whole page restyling 60 times a second at rest; transform and opacity run on the compositor (tests/test_idle_animations.py) */
+  #ribbon b::before { content: ''; position: absolute; left: -4px; top: -4px; width: 17px; height: 17px; border-radius: 50%; z-index: -1; background: color-mix(in srgb, var(--text) 18%, transparent); animation: rbnow 2.4s ease-in-out infinite; will-change: transform, opacity; } @keyframes rbnow { 50% { transform: scale(1.4706); opacity: 0; } }
   #ribbon .rb, #ribbon u { margin-left: 0; } #ribbon .rb { translate: 24px 0; } #ribbon u { translate: 24px 0; }
   body:has(#panel.open) #ribbon { display: none; }
-  @media (prefers-reduced-motion: reduce) { .w-tile.fresh .orb::before, #ribbon b { animation: none; } }
+  @media (prefers-reduced-motion: reduce) { .w-tile.fresh .orb::before, #ribbon b::before { animation: none; } }
   /* Small pleasures: the greeting, the burst, ORCH's answer, resting agents */
   .sparkle { position: fixed; z-index: 60; width: 0; height: 0; pointer-events: none; } .sparkle i { position: absolute; left: -3px; top: -3px; border-radius: 50%; }
   .greet { position: fixed; z-index: 55; left: 50%; top: 31%; transform: translateX(-50%); text-align: center; pointer-events: none; animation: greetin .9s cubic-bezier(.2,.8,.2,1) both, greetout .8s 2.6s ease-in both; }
@@ -1150,12 +1153,14 @@
      slowly — the lane itself tells you it's alive before you read anything. isolation: isolate on
      .ln gives the z-index:-1 glow a stacking context to sit behind, instead of vanishing behind
      the panel background; the bar lives inside the lane box (not at a negative offset) because
-     #h-lanes scrolls, and anything hanging outside it gets clipped. */
-  .ln:not(.idle):not(.ln-q):not(.ln-ax)::before { content: ''; position: absolute; inset: 0; border-radius: 10px; pointer-events: none; z-index: -1;
+     #h-lanes scrolls, and anything hanging outside it gets clipped. div.ln, not .ln: the strip's sparkline is an SVG polyline with the
+     same class, and an animated ::before on an SVG shape is never drawn yet kept the whole page restyling 60 times a second
+     (tests/test_idle_animations.py). */
+  div.ln:not(.idle):not(.ln-q):not(.ln-ax)::before { content: ''; position: absolute; inset: 0; border-radius: 10px; pointer-events: none; z-index: -1;
     background: radial-gradient(420px 100% at 0% 50%, color-mix(in srgb, var(--c) 12%, transparent), transparent 72%);
     animation: hlit 4.5s ease-in-out infinite; }
   @keyframes hlit { 50% { opacity: .5; } }
-  .ln:not(.idle):not(.ln-q):not(.ln-ax)::after { content: ''; position: absolute; left: 0; top: 6px; bottom: 6px; width: 3px; border-radius: 2px;
+  div.ln:not(.idle):not(.ln-q):not(.ln-ax)::after { content: ''; position: absolute; left: 0; top: 6px; bottom: 6px; width: 3px; border-radius: 2px;
     background: var(--c); box-shadow: 0 0 12px var(--c); }
   .ln-who { padding-left: 12px; }
   .ln.abandoned { box-shadow: inset 0 0 0 1px var(--hbad); }
@@ -3251,6 +3256,7 @@ function deckPose(p, mode = 'glide', opts = {}) {
   if (top && (deckIds[at] !== deckTop || !deck.querySelector('.deck-head').firstChild || mode === 'still')) {
     if (deckIds[at] !== deckTop && deckArm) deckDisarm(true);
     const prevAt = deckIds.indexOf(deckTop); deckTop = deckIds[at]; deck.querySelector('.deck-head').innerHTML = deckHeadHtml(top, at, n); deckAgent = top.agent || ''; gaugesSync();
+    if (deckArm === deckTop) { const b = deckArmTarget(); if (b) b.classList.add('deck-armed'); }   // a redraw (a poll, another card's update) rebuilt the card: the arm is still live, so its button shows it again
     const m = $('deck-more'); if (m && m.dataset.for !== deckTop) { m.dataset.for = deckTop; if (deckOpen) { const k = deckMore.get(deckTop); m.innerHTML = k ? k[1] : '<p class="deck-wait">Loading the details…</p>'; deckFill(); } }
     if (mode !== 'still' && performance.now() - deckFlipAt > 45) { deckFlipAt = performance.now(); deckSound('flip', top.agent, at - prevAt); }   // each card you pass turns with a sound, in its agent's voice; a fast drag is not a rattle
   }
@@ -3349,9 +3355,12 @@ function deckDetails(on) {   // the details slide out beside the card; the card 
   m.tabIndex = on ? 0 : -1; if (on) { m.removeAttribute('aria-hidden'); m.dataset.for = deckTop; const k = deckMore.get(deckTop); m.innerHTML = k ? k[1] : '<p class="deck-wait">Loading the details…</p>'; deckFill(); } else m.setAttribute('aria-hidden', 'true');
 }
 function deckDisarm(quiet) { clearTimeout(deckArmT); const was = deckArm; deckArm = null; if (was && !quiet) deckSound('disarm'); document.querySelectorAll('.deck-armed').forEach(x => x.classList.remove('deck-armed')); if (was && !quiet) { const t = byId.get(deckTop), d = $('board').querySelector('.deck-head'); if (t && d) d.innerHTML = deckHeadHtml(t, deckIds.indexOf(deckTop), deckIds.length); } }
+function deckArmTarget() {   // the front card's first answer: the button Space arms and then presses
+  const t = byId.get(deckTop), slot = $('board').querySelector('.deck-slot.front'); if (!t || !slot) return null;
+  return dkKind(t) === 0 ? slot.querySelector('[data-quick][data-text="Go ahead"]') : dkKind(t) === 1 ? (slot.querySelector('[data-step]') || slot.querySelector('[data-done]')) : $('board').querySelector('.deck-head .deck-fix');
+}
 function deckSpace() {   // Space arms the card's first answer and shows which; Space again within three seconds sends it. One key never answers.
-  const t = byId.get(deckTop), slot = $('board').querySelector('.deck-slot.front'); if (!t || !slot) return;
-  const btn = dkKind(t) === 0 ? slot.querySelector('[data-quick][data-text="Go ahead"]') : dkKind(t) === 1 ? (slot.querySelector('[data-step]') || slot.querySelector('[data-done]')) : $('board').querySelector('.deck-head .deck-fix'); if (!btn) return;
+  const t = byId.get(deckTop), btn = deckArmTarget(); if (!t || !btn) return;
   if (deckArm === t.id) { deckDisarm(true); btn.click(); return; }
   deckArm = t.id; touch('arm'); btn.classList.add('deck-armed'); $('board').querySelector('.deck-head').innerHTML = deckHeadHtml(t, deckIds.indexOf(deckTop), deckIds.length);
   clearTimeout(deckArmT); deckArmT = setTimeout(() => deckDisarm(false), 3000);
