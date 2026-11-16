@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+### A config.toml that cannot be read no longer blanks the board (Nov 15, night sweep)
+The server already answered an unreadable `config.toml` with defaults for the HUD (`/api/hud`) and `/api/config`, so that a typo there would not blank the board. `/api/tasks`, the route that draws every card, still read it strictly through the watchdog's stale threshold and answered 500, so the page had nothing to draw until the file was fixed. The server's watchdog pass now falls back to the default threshold. Commands stay strict (`agentboard watchdog`, `list` and the rest still say which file to fix) and the ORCH prompt, built from the roster in that file, still refuses with the file named. The page does not yet say that the file is unreadable: that needs a banner in `index.html` (a card for DreamBot or BuildBot). `tests/test_bad_config_board.py` (4; one fails without the fix, the other three pin what stays strict).
+
 ### Small text on a coloured fill reads at 4.5:1 (Nov 15, sweep-ux)
 The count beside **Now** (white, 11 px, on the orange) and the initial on a direct line to an agent were 3.58:1, and the Configuration chip's green count in the light theme was 4.41:1: all under the 4.5:1 small text needs. The orange under white text is now the same orange mixed 20% towards black (`--need-fill`, 5.3:1 measured in Chrome); the chip's count mixes 18% black into its green (6:1). The brighter orange stays on the decorative uses (the aura, the dial, the ring).
 - Checked: `tests/test_need_badge_contrast.py` (4: works the ratio out from the page's own CSS; the first three fail on the old page). A walk of every view in light and dark, wide and phone, found no other text under 4.5:1 on a solid fill.
